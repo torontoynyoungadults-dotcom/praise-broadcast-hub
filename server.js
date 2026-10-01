@@ -37,6 +37,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/worshipRepoSave', express.json({ limit: '20mb' }));   // 라이브러리 "＋ 악보 PDF" (12MB PDF → base64) — 아래 기본(2MB)보다 먼저
 app.use(express.json({ limit: '2mb' })); // 필기(연습 화면) 저장처럼 JS가 JSON으로 보내는 요청용 — 폼 전송(urlencoded)과 공존
 app.use(session.middleware);
+// 오프라인 일꾼 — 늘 새 것을 확인하게 (public/sw.js · 범위는 사이트 전체)
+app.get('/sw.js', (req, res) => { res.set({ 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' }); res.type('application/javascript').sendFile(path.join(__dirname, 'public', 'sw.js')); });
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
 app.get('/healthz', (req, res) => res.type('text').send('ok'));
@@ -44,6 +46,7 @@ app.get('/healthz', (req, res) => res.type('text').send('ok'));
 const live = require('./routes/live');     // 라이브 악보 (/conti/practice · /sheet · /audio · /api/*) — conti 보다 먼저
 const conti = require('./routes/conti');
 
+app.use(require('./routes/photo'));    // /photo/:id — 드라이브 사진을 이 앱 주소로 (깨진 "?" 방지)
 app.use(require('./routes/auth'));
 app.use(require('./routes/profile'));
 app.use(require('./routes/roster'));

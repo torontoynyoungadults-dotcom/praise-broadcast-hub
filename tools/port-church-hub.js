@@ -162,13 +162,26 @@ const PATCHES = [
   ['목회자 호칭 — 카드 불가 줄', `return '<b>' + esc(x.name) + '</b> ' + esc(x.reason);`, `return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(x.reason);`],
   ['목회자 호칭 — 날짜 자세히 불가 줄', `return esc(x.name) + ' — ' + esc(x.reason); }).join('<br>')`, `return esc(dispName(x.name)) + ' — ' + esc(x.reason); }).join('<br>')`],
   ['목회자 호칭 — 사람 강조 고르기', `'>' + esc(n) + (n === D.who ? ' (나)' : '') + '</option>'`, `'>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'`],
-  ['날짜 자세히 — 연습일 칸 (행사도)', `lines +\n    (D.who`, `lines + stPracBox(r) +\n    (D.who`],
+  ['날짜 자세히 — 연습일 칸 (행사도)', `lines +\n    stMeBox(r, key, mine) +`, `lines + stPracBox(r) +\n    stMeBox(r, key, mine) +`],
+  ['안 되는 날 — 금요일 연습 · 주일 따로: 내 표시를 줄 전체(객체)로 기억', `ST.mine.forEach(function (x) { mineSet[x.date] = x.reason; });`, `ST.mine.forEach(function (x) { mineSet[x.date] = x; });`],
+  ['안 되는 날 — 표 날짜 칸 "나 불가" 글', `(mineOff ? (r.event ? ' · ' : '') + '나 불가' : '')`, `(mineOff ? (r.event ? ' · ' : '') + stMineTag(mineOff, r) : '')`],
+  ['안 되는 날 — 카드 "나 불가" 글', `(mineOff ? '<span class="mo">나 불가</span>' : '')`, `(mineOff ? '<span class="mo">' + stMineTag(mineOff, r) + '</span>' : '')`],
+  ['안 되는 날 — 표의 불가 칸 (금 · 주 표시)', `r.off.map(function (x) { return '<span class="tn off' + (x.name === ST.hl ? ' hl' : '') + '" title="' + esc(x.name + ' — ' + x.reason) + '">' + esc(shortName(x.name)) + '</span>'; }).join('')`, `r.off.map(function (x) { return stOffTn(x, r); }).join('')`],
+  ['안 되는 날 — 카드 불가 줄 (어느 때인지)', `return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(x.reason);`, `return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(stOffWhy(x, r));`],
+  ['안 되는 날 — 날짜 자세히 불가 줄 (어느 때인지)', `return esc(dispName(x.name)) + ' — ' + esc(x.reason); }).join('<br>')`, `return esc(dispName(x.name)) + ' — ' + esc(stOffWhy(x, r)); }).join('<br>')`],
+  ['안 되는 날 — 날짜 고를 때 "어느 때?" (둘 다 · 금요일 연습만 · 주일만)', `'<div class="addrow"><input type="text" id="offReason"`, `stPartSeg() + '<div class="addrow"><input type="text" id="offReason"`],
   ['객원 찾기 — 이 앱은 교적 대신 다른 찬양팀 회원 · 명단에서 찾음 (lib/hubApi.js worshipGuestSearch)', '객원 · 교적에서 찾기', '객원 · 다른 팀에서 찾기'],
   ['객원 찾기 결과 없음 — 위와 같음', '교적에 일치하는 분이 없습니다.', '다른 팀에도 일치하는 분이 없습니다.'],
   ['객원 직접 입력 — 위와 같음', '<span class="gsnote">교적에 없는 분</span>', '<span class="gsnote">명단에 없는 분</span>'],
   ['악보 칩 PDF/IMG — 이 앱 악보는 이름에 확장자가 없어 서버가 알려준 종류로', 'var pdf = /\\.pdf$/i.test(f.name);', 'var pdf = f.pdf != null ? !!f.pdf : /\\.pdf$/i.test(f.name);'],
   ['악보 파일 목록 PDF/IMG — 위와 같음', 'var pdf = /\\.pdf$/i.test(r.f.name);', 'var pdf = r.f.pdf != null ? !!r.f.pdf : /\\.pdf$/i.test(r.f.name);'],
 ];
+/* 날짜 자세히 안의 "이 날 저는 어려워요" 칸 — 금요일 연습 · 주일 따로 고르는 칸(hubshim.js stMeBox)으로 통째로 바꿈 */
+{
+  const a = js.indexOf("    (D.who\n      ? (mine"), b = js.indexOf("      : '') +\n    '<div class=\"yc-acts\"><button class=\"btn dark\"");
+  if (a < 0 || b < a || js.indexOf("    (D.who\n      ? (mine", a + 1) !== -1) throw new Error('날짜 자세히 "저는 어려워요" 덩어리를 못 찾음');
+  js = js.slice(0, a) + "    stMeBox(r, key, mine) +\n    '<div class=\"yc-acts\"><button class=\"btn dark\"" + js.slice(b + "      : '') +\n    '<div class=\"yc-acts\"><button class=\"btn dark\"".length);
+}
 /* 맨 아래 "내가 안 되는 날" 만드는 덩어리를 통째로 빼고 (위로 옮김 — hubshim.js stMinePanel) 자리만 남깁니다 */
 {
   const a = js.indexOf("  var mine = '';\n  if (D.who) {"), b = js.indexOf('\n  var bar = picking');

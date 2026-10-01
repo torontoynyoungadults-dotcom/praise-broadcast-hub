@@ -292,7 +292,7 @@ function schedTab() {
   var kn = known();
   var picking = !!ST.pick;
   var mineSet = {};
-  ST.mine.forEach(function (x) { mineSet[x.date] = x.reason; });
+  ST.mine.forEach(function (x) { mineSet[x.date] = x; });
 
   var head1 = '<tr class="g"><th class="dc" rowspan="2">날짜</th>' +
     groups.map(function (g) { return '<th colspan="' + g[1].length + '">' + g[0] + '</th>'; }).join('') +
@@ -313,7 +313,7 @@ function schedTab() {
       '" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
       (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
       stPracShort(r) + '<b>' + WD[dt(r.date).getDay()] + ' ' + md(r.date) + '</b>' +
-      '<span class="dcn">' + (r.event ? esc(r.event.name) : '') + (mineOff ? (r.event ? ' · ' : '') + '나 불가' : '') + '</span></td>';
+      '<span class="dcn">' + (r.event ? esc(r.event.name) : '') + (mineOff ? (r.event ? ' · ' : '') + stMineTag(mineOff, r) : '') + '</span></td>';
 
     var cells = cols.map(function (p) {
       var names = r.slots[p.key] || [];
@@ -327,7 +327,7 @@ function schedTab() {
     }).join('');
 
     var offCell = '<td class="offc" onclick="stDay(\'' + r.key + '\')">' + (r.off.length
-      ? r.off.map(function (x) { return '<span class="tn off' + (x.name === ST.hl ? ' hl' : '') + '" title="' + esc(x.name + ' — ' + x.reason) + '">' + esc(shortName(x.name)) + '</span>'; }).join('')
+      ? r.off.map(function (x) { return stOffTn(x, r); }).join('')
       : '') + '</td>';
 
     body += '<tr class="r' + (r.event ? ' evr' : '') + '">' + dateCell + cells + offCell + stXCells(r) + '</tr>';
@@ -342,7 +342,7 @@ function schedTab() {
   var bar = picking
     ? '<div class="stbar"><div class="stbar-in">' +
         '<div class="stbar-t">' + (ST.pick.length ? ST.pick.length + '개 날짜 선택됨' : '아래 표에서 안 되는 날짜를 누르세요') + '</div>' +
-        '<div class="addrow"><input type="text" id="offReason" placeholder="사유 — 예: 출장 · 시험 · 가족 행사" maxlength="100" ' +
+        stPartSeg() + '<div class="addrow"><input type="text" id="offReason" placeholder="사유 — 예: 출장 · 시험 · 가족 행사" maxlength="100" ' +
           'onkeydown="if(event.key===\'Enter\')saveOff()">' +
           '<button class="btn" onclick="ST.pick=null;render();">취소</button>' +
           '<button class="btn accent" onclick="saveOff()">저장</button></div>' +
@@ -387,7 +387,7 @@ function stCards(groups, kn, picking, mineSet) {
         stPracHtml(r) + '<b>' + md(r.date) + '</b><span class="wd">' + (r.event ? WD[d.getDay()] : '(주일)') + '</span>' +
         (r.event ? '<span class="evn">' + esc(r.event.name) + '</span>' : '') +
         '<span class="sp"></span>' +
-        (mineOff ? '<span class="mo">나 불가</span>' : '') +
+        (mineOff ? '<span class="mo">' + stMineTag(mineOff, r) + '</span>' : '') +
         (r.off.length ? '<span class="oc">불가 ' + r.off.length + '</span>' : '') +
         '<span class="go">&rsaquo;</span></button>' +
       [groups.reduce(function (a, g) { return a.concat(g[1]); }, [])].map(function (cols) {
@@ -403,7 +403,7 @@ function stCards(groups, kn, picking, mineSet) {
         }).join('') + '</div>';
       }).join('') +
       (r.off.length ? '<div class="stoff">불가 · ' + r.off.map(function (x) {
-        return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(x.reason);
+        return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(stOffWhy(x, r));
       }).join(' · ') + '</div>' : '') +
     '</div>';
   });
@@ -427,15 +427,9 @@ function stDay(key) {
   var html = '<div class="yc-h"><h3>' + stTitle(r) + '</h3></div>' +
     (r.event ? '<p class="stsub">' + esc(fmtRange(r.event.date, r.event.endDate)) + (r.event.place ? ' · ' + esc(r.event.place) : '') + '</p>' : '') +
     (r.verse ? '<div class="verse" style="margin-bottom:10px;"><div class="vq">' + esc(r.verse) + '</div></div>' : '') +
-    (r.off.length ? '<div class="offbar"><b>불가</b><br>' + r.off.map(function (x) { return esc(dispName(x.name)) + ' — ' + esc(x.reason); }).join('<br>') + '</div>' : '') +
+    (r.off.length ? '<div class="offbar"><b>불가</b><br>' + r.off.map(function (x) { return esc(dispName(x.name)) + ' — ' + esc(stOffWhy(x, r)); }).join('<br>') + '</div>' : '') +
     lines + stPracBox(r) +
-    (D.who
-      ? (mine
-          ? '<div class="yc-acts"><button class="btn" onclick="clearOff(\'' + esc(jsq(key)) + '\')">내 불가 표시 지우기</button></div>'
-          : '<div class="stme"><div class="gl">이 날 저는 어려워요</div><div class="addrow">' +
-              '<input type="text" id="dayReason" placeholder="사유" maxlength="100" onkeydown="if(event.key===\'Enter\')offOne(\'' + esc(jsq(key)) + '\')">' +
-              '<button class="btn accent" onclick="offOne(\'' + esc(jsq(key)) + '\')">표시</button></div></div>')
-      : '') +
+    stMeBox(r, key, mine) +
     '<div class="yc-acts"><button class="btn dark" onclick="YC.close();goWeek(\'' + esc(jsq(key)) + '\')">이 날 예배 준비 열기 &rsaquo;</button></div>';
   YC.sheet(html, {});
 }

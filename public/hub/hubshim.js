@@ -280,12 +280,115 @@ function stMinePanel(picking) {
   return '<div class="stmine"><div class="stmine-in">' +
     (list.length
       ? '<div class="offchips">' + list.map(function (x) {
-          return '<span class="offchip"><b>' + (x.label ? esc(x.label) : fmtDate(x.date)) + '</b><i>' + esc(x.reason) + '</i>' +
-            '<button type="button" aria-label="해제" title="해제" onclick="clearOff(\'' + esc(jsq(x.date)) + '\')">' + YI('close') + '</button></span>';
+          var tag = x.part === 'prac' ? '금요일 연습' : x.part === 'sun' ? '주일 예배' : '금 · 주일 모두';
+          return '<span class="offchip"><b>' + (x.label ? esc(x.label) : fmtDate(x.date)) + '</b><em>' + tag + '</em><i>' + esc(x.reason) + '</i>' +
+            '<button type="button" aria-label="해제" title="해제" onclick="clearOff(\'' + esc(jsq(x.date)) + '\',\'all\')">' + YI('close') + '</button></span>';
         }).join('') + '</div>'
-      : '<p class="empty" style="margin:0;">표시해 둔 날이 없습니다. 안 되는 날을 미리 적어두면 팀장 · 인도자가 편성할 때 바로 보입니다.</p>') +
+      : '<p class="empty" style="margin:0;">표시해 둔 날이 없습니다. 안 되는 날을 미리 적어두면 팀장 · 인도자가 편성할 때 바로 보입니다. 금요일 연습만 / 주일만 따로 고를 수 있어요.</p>') +
     '<button type="button" class="btn mini accent" onclick="ST.offOpen=false;ST.pick=[];render();">' + YI('plus') + ' 날짜 고르기</button>' +
     '</div></div>';
+}
+
+/* ---------------------------------------------------------------- 안 되는 날 — 금요일 연습 · 주일(행사) 예배를 따로
+ * 서버 off 항목: { name, reason, part: 'all' | 'prac' | 'sun', pr (연습 사유), sr (예배 사유) }
+ * 내 표시(ST.mine) 항목: { date, day, label, reason, part, pr, sr }  — 금요일은 못 와도 주일은 나올 수 있게 */
+function offMap(list) {          // 편성 고르기 · 칸에서 "불가"로 치는 사람 = 예배(주일/행사)를 못 오는 사람 (금요일 연습만 못 오면 불가 아님)
+  var o = {};
+  (list || (W && W.off) || []).forEach(function (x) { if (x.part === 'prac') return; o[x.name] = x.sr || x.reason || '불가'; });
+  return o;
+}
+function stPartLbl(part, r) {
+  if (part === 'prac') return r && r.event ? '연습' : '금요일 연습';
+  if (part === 'sun') return r && r.event ? r.event.name : '주일 예배';
+  return '';
+}
+function stOffWhy(x, r) { var l = stPartLbl(x.part, r); return (l ? l + ' 불가 · ' : '') + (x.reason || '불가'); }
+function stOffTn(x, r) {
+  var tag = x.part === 'prac' ? (r && r.event ? '연습' : '금') : x.part === 'sun' ? (r && r.event ? '당일' : '주') : '';
+  return '<span class="tn off' + (x.part === 'prac' ? ' pr' : '') + (x.name === ST.hl ? ' hl' : '') + '" title="' + esc(dispName(x.name) + ' — ' + stOffWhy(x, r)) + '">' +
+    esc(shortName(x.name)) + (tag ? '<sup class="ot">' + tag + '</sup>' : '') + '</span>';
+}
+function stMineTag(m, r) {
+  if (m.part === 'prac') return r && r.event ? '나 연습 불가' : '나 금요일 불가';
+  if (m.part === 'sun') return r && r.event ? '나 불가' : '나 주일 불가';
+  return '나 불가';
+}
+/** 날짜 고르는 중 — 모두 같은 범위로 저장 */
+function stPartSeg() {
+  var p = ST.offPart || 'all';
+  return '<div class="offpart"><span class="gl">어느 때가 안 돼요?</span><div class="seg">' + [['all', '금요일 · 주일 둘 다'], ['prac', '금요일 연습만'], ['sun', '주일(예배)만']].map(function (v) {
+    return '<button type="button" class="' + (p === v[0] ? 'on' : '') + '" onclick="stPart(\'' + v[0] + '\')">' + v[1] + '</button>';
+  }).join('') + '</div></div>';
+}
+function stPart(v) { var r = val('offReason'); ST.offPart = v; render(); if (el('offReason')) el('offReason').value = r; }
+
+/** 내 불가 줄(서버가 돌려준 ST.mine 의 한 항목)을 모든 화면의 r.off 에 반영 */
+function patchOff(key, entry) {
+  function fix(list) {
+    list = (list || []).filter(function (x) { return x.name !== D.who; });
+    if (entry) list.push({ name: D.who, reason: entry.reason, part: entry.part, pr: entry.pr || '', sr: entry.sr || '' });
+    return list;
+  }
+  var r = stRow(key);
+  if (r) r.off = fix(r.off);
+  if (CACHE[key]) { CACHE[key].off = fix(CACHE[key].off); countUp(CACHE[key]); }
+  renderWeeks();
+}
+function stMineOf(key) { return (ST.mine || []).filter(function (x) { return x.date === key; })[0] || null; }
+function stAfterOff(mine, keys) {
+  ST.mine = mine; D.mine = mine;
+  keys.forEach(function (k) { patchOff(k, stMineOf(k)); });
+}
+function markOff(keys, reason, part) {
+  callServer('setMyUnavailableMany', [TOKEN, keys, reason, part || 'all'], function (mine) {
+    ST.pick = null; stAfterOff(mine, keys); render();
+    say('stMsg', keys.length + '개 날짜를 ' + (part === 'prac' ? '금요일 연습 불가' : part === 'sun' ? '주일 불가' : '불가') + '로 표시했습니다.', 'ok');
+  }, function (e) { say('offMsg', e.message || '저장하지 못했습니다.', 'err'); say('stMsg', e.message || '', 'err'); });
+}
+function clearOff(key, part) {
+  YC.close();
+  callServer('removeMyUnavailable', [TOKEN, key, part || 'all'], function (mine) { stAfterOff(mine, [key]); render(); }, fail);
+}
+function saveOff() {
+  var r = val('offReason');
+  if (!ST.pick || !ST.pick.length) { say('offMsg', '날짜를 먼저 골라주세요.', 'err'); return; }
+  if (!r) { say('offMsg', '사유를 적어주세요.', 'err'); el('offReason').focus(); return; }
+  say('offMsg', '저장하는 중…');
+  markOff(ST.pick.slice(), r, ST.offPart || 'all');
+}
+/** 이미 표시한 날을 누르면 지우지 않고 자세히 열어 금요일/주일을 따로 고치게 */
+function stPickDay(key) {
+  if (stMineOf(key)) { stDay(key); return; }
+  var i = ST.pick.indexOf(key);
+  if (i === -1) ST.pick.push(key); else ST.pick.splice(i, 1);
+  var reason = val('offReason');
+  render();
+  if (el('offReason')) el('offReason').value = reason;
+}
+/** 날짜 자세히 안 — 이 날 저는 어려워요 (금요일 연습 · 주일 예배 체크) */
+function stMeBox(r, key, mine) {
+  if (!D.who) return '';
+  var k = esc(jsq(key)), pn = stPartLbl('prac', r), sn = stPartLbl('sun', r), st = mine || {};
+  var done = '';
+  if (st.pr) done += '<div class="mepart"><span><b>' + esc(pn) + '</b> 불가 · ' + esc(st.pr) + '</span><button type="button" class="btn mini" onclick="clearOff(\'' + k + '\',\'prac\')">해제</button></div>';
+  if (st.sr) done += '<div class="mepart"><span><b>' + esc(sn) + '</b> 불가 · ' + esc(st.sr) + '</span><button type="button" class="btn mini" onclick="clearOff(\'' + k + '\',\'sun\')">해제</button></div>';
+  var chk = '';
+  if (!st.pr) chk += '<label class="mechk"><input type="checkbox" id="offPrac" checked><span>' + esc(pn) + '</span></label>';
+  if (!st.sr) chk += '<label class="mechk"><input type="checkbox" id="offSun" checked><span>' + esc(sn) + '</span></label>';
+  return '<div class="stme">' + (done ? '<div class="gl">내가 표시한 불가</div>' + done : '') +
+    (chk ? '<div class="gl">' + (done ? '다른 때도 어려워요' : '이 날 저는 어려워요') + '</div><div class="mechks">' + chk + '</div>' +
+      '<div class="addrow"><input type="text" id="dayReason" placeholder="사유" maxlength="100" onkeydown="if(event.key===\'Enter\')offOne(\'' + k + '\')">' +
+      '<button class="btn accent" onclick="offOne(\'' + k + '\')">표시</button></div><p class="msg" id="dayMsg" style="margin:6px 0 0;min-height:0;"></p>' : '') + '</div>';
+}
+function offOne(key) {
+  var prac = el('offPrac'), sun = el('offSun'), r = val('dayReason');
+  var wantP = prac ? prac.checked : false, wantS = sun ? sun.checked : false;
+  if (!wantP && !wantS) { say('dayMsg', '금요일 연습이나 주일 예배 중 어느 때가 안 되는지 골라주세요.', 'err'); return; }
+  if (!r) { say('dayMsg', '사유를 적어주세요.', 'err'); el('dayReason').focus(); return; }
+  var part = wantP && wantS ? 'all' : (wantP ? 'prac' : 'sun');
+  // 이미 한쪽을 표시해 둔 날에 나머지를 더하면 서버가 합쳐 줍니다
+  YC.close();
+  markOff([key], r, part);
 }
 
 /* ---------------------------------------------------------------- 시작 */

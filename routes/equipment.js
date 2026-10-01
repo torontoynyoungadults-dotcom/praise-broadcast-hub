@@ -13,6 +13,7 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
+const photo = require('../lib/photo');
 
 const ui = require('../lib/uiIcons');
 const router = express.Router();
@@ -85,7 +86,7 @@ function ticketCard(t) {
         <span class="ph-eqbadge ${badge}">${esc(t['상태'] || '접수')}</span></div>
       ${t['항목'] ? `<div class="ph-li-sub">장비: ${esc(t['항목'])}</div>` : ''}
       ${t['내용'] ? `<div class="ph-li-note">${esc(t['내용'])}</div>` : ''}
-      ${photos.length ? `<div class="ph-eqphotos">${photos.map((p) => `<a href="${esc(p)}" target="_blank" rel="noopener"><img src="${esc(p)}" alt=""></a>`).join('')}</div>` : ''}
+      ${photos.length ? `<div class="ph-eqphotos">${photos.map((p) => `<a href="${esc(photo.src(p))}" target="_blank" rel="noopener"><img src="${esc(photo.src(p))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
       <div class="ph-li-sub">${esc(t['요청자'] || '')} 요청${t['처리자'] ? ` · ${esc(t['처리자'])} 처리` : ''}${t['메모'] ? ` · ${esc(t['메모'])}` : ''}</div>
       ${next.length ? `<div class="ph-ticketacts">${next.map(([to, label]) => `<form method="post" action="/equipment/tickets/act" style="display:inline;">
         <input type="hidden" name="team" value="${esc(t['팀ID'])}"><input type="hidden" name="__row" value="${t.__row}"><input type="hidden" name="상태" value="${to}">

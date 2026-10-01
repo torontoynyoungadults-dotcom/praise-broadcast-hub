@@ -25,7 +25,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca83-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca83-2';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -137,6 +137,7 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
 <script defer src="/worship/anno.js${v}"></script>
 <script defer src="/worship/practice-panels.js${v}"></script>
 <script defer src="/worship/practice.js${v}"></script>
+<script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>
 </body>
 </html>`);
