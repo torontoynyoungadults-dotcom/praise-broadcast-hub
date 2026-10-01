@@ -361,8 +361,13 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--sub); background: var(--glass-2); border: 1px solid var(--line);
   padding: 3px 9px; border-radius: 999px;
 }
-.ph-assignform { display: flex; gap: 6px; flex: none; }
-.ph-assignform input { min-height: 32px !important; padding: 4px 10px !important; font-size: 13.5px !important; width: 110px; border-radius: 999px !important; }
+.ph-assignform { display: flex; gap: 6px; flex: none; flex-wrap: wrap; align-items: center; }
+.ph-assignform input { min-height: 32px !important; padding: 4px 10px !important; font-size: 13.5px !important; border-radius: 999px !important; }
+.ph-assignform input.ph-posselect-custom { width: 104px; }
+.ph-assignform select.ph-posselect {
+  min-height: 32px; padding: 4px 10px; font-size: 13px; border-radius: 999px; max-width: 128px;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--ink); font-weight: 700;
+}
 .ph-assignform button { flex: none; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13px; cursor: pointer; }
 .ph-offline { margin-top: 10px; font-size: 13.5px; color: var(--bad); }
 .ph-offline b { font-weight: 800; }
@@ -417,6 +422,51 @@ a { color: var(--accent); text-decoration: none; }
 .ph-namechip.guest { border-style: dashed; color: var(--sub); }
 .ph-namechip.off { opacity: .55; text-decoration: line-through; }
 .ph-namechip.hl { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; font-weight: 800; }
+
+/* ---------- 달력 띠(week strip) — church-app처럼 여러 주를 가로로 넘겨보는 날짜 선택 ---------- */
+.ph-wstrip { margin: 4px 0 14px; }
+.ph-wstrip-scroll {
+  display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; -webkit-overflow-scrolling: touch;
+}
+.ph-wstrip-scroll::-webkit-scrollbar { display: none; }
+.ph-wstrip-cell {
+  flex: none; width: 64px; padding: 10px 6px; border-radius: 16px; text-align: center; text-decoration: none;
+  background: var(--glass); border: 1.5px solid var(--line); color: var(--sub);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.ph-wstrip-cell.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
+.ph-wstrip-month { font-size: 11px; font-weight: 700; opacity: .85; }
+.ph-wstrip-day { font-size: 22px; font-weight: 800; line-height: 1.1; }
+.ph-wstrip-ratio { font-size: 11px; font-weight: 700; opacity: .8; }
+.ph-wstrip-jump { color: var(--accent); }
+.ph-wstrip-jump.on { color: var(--on-accent); }
+.ph-wstrip-jumpicon { font-size: 18px; }
+.ph-wstrip-jumplabel { font-size: 11px; font-weight: 800; line-height: 1.15; }
+.ph-wstrip-cal { padding: 0; margin: 0; }
+.ph-wstrip-callabel {
+  position: relative; width: 100%; height: 100%; min-height: 64px; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; cursor: pointer;
+}
+.ph-wstrip-callabel input[type=date] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* ---------- 카드/테이블 보기 전환 ---------- */
+.ph-viewtoggle { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); flex: none; }
+.ph-vtbtn { padding: 7px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 700; color: var(--sub); text-decoration: none; }
+.ph-vtbtn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); }
+
+/* ---------- 스케줄표 테이블 보기(church-app처럼, 훑어보기 전용 — 날짜를 누르면 카드 보기로 이동) ---------- */
+.ph-tblwrap { overflow-x: auto; margin-bottom: 18px; -webkit-overflow-scrolling: touch; }
+.ph-tblcaption { font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.ph-sctable { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 13px; }
+.ph-sctable th, .ph-sctable td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.ph-sctable thead th { font-size: 12px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .02em; }
+.ph-sctable tbody th { font-weight: 700; font-size: 12.5px; }
+.ph-sctable tbody th a { color: var(--ink); text-decoration: none; }
+.ph-sctable tbody th a:hover { color: var(--accent); }
+.ph-tblname { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; margin-right: 6px; }
+.ph-tblname.hl { color: var(--accent); font-weight: 800; }
+.ph-tbldash { color: var(--dim); }
 
 /* ============================================================
    송폼 빌더(public/js/formb.js) + @태그 · 유튜브 검색 보조(church-app의 formb.js/conti.js 스타일을 그대로)

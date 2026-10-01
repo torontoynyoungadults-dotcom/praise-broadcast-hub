@@ -17,6 +17,7 @@ const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const { POSITION_GROUPS, ALL_POSITIONS, positionIcon } = require('../lib/positions');
+const rosterPicker = require('../lib/rosterPicker');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
 
@@ -48,16 +49,17 @@ async function teamRoster(team) {
 }
 
 function lineupCell(date, team, posKey, names, roster, infoMap) {
+  const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할 }));
   return `<div class="ph-poscell">
     <div class="ph-poslabel">${positionIcon(posKey)} ${esc(posKey)}</div>
-    <div class="ph-posnames">${names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}${esc(n.이름)}
+    <div class="ph-posnames">${names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}" title="${esc(n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}${esc(avatar.givenName(n.이름))}
       <form method="post" action="/conti/lineup/unassign" style="display:inline;">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
         <button type="submit" aria-label="빼기">&times;</button>
       </form></span>`).join('') : '<span class="ph-namechip none">미정</span>'}</div>
     <form method="post" action="/conti/lineup/assign" class="ph-assignform">
       <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">
-      <input type="text" name="이름" list="ph-roster" placeholder="+ 이름" maxlength="20">
+      ${rosterPicker.pickerFields(rosterObjs, posKey)}
       <button type="submit">추가</button>
     </form>
   </div>`;
@@ -80,7 +82,6 @@ async function lineupCard(team, date, byPos, roster, infoMap) {
     </div>`).join('');
   return `<div class="ph-card">
     <h2 class="ph-h2">주일 편성</h2>
-    <datalist id="ph-roster">${roster.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
     ${groups}
     <p class="ph-sub" style="margin-top:8px;"><a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a> · <a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a></p>
   </div>`;
@@ -317,6 +318,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   const date = week.normalizeDate(req.query.date);
   const w = await loadWeek(team, date);
 
+  const allAssignRows = (await sheetsDb.readAll('찬양편성')).filter((r) => r['팀ID'] === team);
+  const strip = pageShell.weekStrip({ basePath: '/conti', team, date, assignRows: allAssignRows });
   const nav = `<div class="ph-weeknav">
     <a class="ph-icon-btn" href="/conti?team=${encodeURIComponent(team)}&date=${week.shiftWeek(date, -1)}">‹</a>
     <form method="get" class="ph-weekdate"><input type="hidden" name="team" value="${esc(team)}">
@@ -333,6 +336,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const content = `
   ${pageShell.hubNav('conti', team)}
   ${hero}
+  ${strip}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: { date } })}
     ${nav}
@@ -539,7 +543,7 @@ router.post('/conti/lineup/assign', requireTeam, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
   const pos = String(b['포지션'] || '').trim();
-  const name = String(b['이름'] || '').trim();
+  const name = rosterPicker.resolveName(b);
   if (pos && name) {
     const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && r['포지션'] === pos && r['이름'] === name);
     if (!dup) await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
