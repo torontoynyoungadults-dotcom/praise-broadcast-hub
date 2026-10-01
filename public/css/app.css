@@ -20,6 +20,7 @@
   --on-accent: #1B0F05;
   --good: #5FD6A6;
   --bad: #FF8A7A;
+  --grid-line: rgba(255,255,255,.05);
   --radius: 20px;
   --font-scale: 1;
 
@@ -48,6 +49,7 @@
   --accent: #E8703C;
   --accent-2: #D6453A;
   --on-accent: #FFF8F0;
+  --grid-line: rgba(36,31,25,.045);
 
   /* 새벽/일출 산 일러스트 톤 (라이트 = 일출) */
   --hero-sky-1: #FFDDA6;
@@ -67,7 +69,11 @@ body {
   overflow-x: hidden; /* 안전장치: 자식 요소 폭 계산이 잘못돼도 화면 전체가 가로로 밀리지 않게 */
   background:
     radial-gradient(1100px 700px at 12% -12%, rgba(255,138,61,.12), transparent 60%),
+    radial-gradient(900px 650px at 90% 115%, rgba(255,95,109,.10), transparent 58%),
+    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 30px),
+    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 30px),
     var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
   font-size: calc(17px * var(--font-scale));
@@ -337,40 +343,57 @@ a { color: var(--accent); text-decoration: none; }
 /* ---------- 스케줄표 ---------- */
 .ph-weekcard { padding-bottom: 14px; }
 .ph-weektitle { font-weight: 800; font-size: 16.5px; margin-bottom: 10px; }
-.ph-posgroup + .ph-posgroup { margin-top: 18px; }
-.ph-posgrouplabel { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.ph-posgroup + .ph-posgroup { margin-top: 22px; }
+.ph-posgrouplabel { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
 .ph-posgrouplabel::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
-.ph-posrow { display: flex; flex-direction: column; gap: 8px; }
-/* church-app 느낌 — "세션" 자리만 좁은 화면에서도 2칸 그리드로 나란히 */
-.ph-posrow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-@media (max-width: 460px) { .ph-posrow-grid { grid-template-columns: 1fr; } }
+/* church-app 참고 화면처럼 한눈에 보이는 3칸 그리드 — 포지션 전부 같은 크기 타일로 */
+.ph-posrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 380px) { .ph-posrow { grid-template-columns: repeat(2, 1fr); } }
 
-/* 포지션 한 자리 = 둥근 "알약" 카드. 평소엔 아이콘 배지 + 이름 칩 + 화살표만 보이고,
-   눌러서 펼치면(＜details＞) 그 안에서 바로 배정/해제. church-app 주일편성·스케줄표의 카드 느낌. */
+/* 포지션 한 자리 = 크고 또렷한 유리질감 타일. 아이콘+이름은 항상 보이고,
+   눌러서 펼치면(＜details＞) 그 안에서 배정/해제. church-app 주일편성·스케줄표의 "한눈에 보기" 느낌. */
 .ph-poscell {
-  border-radius: 16px; background: var(--glass); border: 1px solid var(--line);
+  position: relative; border-radius: 18px; background: var(--glass); border: 1px solid var(--line);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: inset 0 1px 0 var(--inset-hi); overflow: hidden; transition: border-color .15s;
+  box-shadow: inset 0 1px 0 var(--inset-hi); overflow: hidden; transition: border-color .15s, box-shadow .15s;
 }
-.ph-poscell[open] { border-color: var(--line-hi); }
+.ph-poscell[open] { border-color: var(--line-hi); box-shadow: 0 10px 26px rgba(0,0,0,.22), inset 0 1px 0 var(--inset-hi); }
 .ph-possummary {
-  list-style: none; display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  list-style: none; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 16px 8px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: center;
 }
 .ph-possummary::-webkit-details-marker, .ph-possummary::marker { display: none; content: ''; }
+.ph-pos-head { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .ph-posicon {
-  flex: none; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--glass-2); font-size: 14px; box-shadow: inset 0 1px 0 var(--inset-hi);
+  flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--glass-2); color: var(--accent); box-shadow: inset 0 1px 0 var(--inset-hi), 0 0 0 1px var(--line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
 }
-.ph-poslabel { flex: none; font-size: 12.5px; font-weight: 800; color: var(--sub); min-width: 44px; }
-.ph-posnames { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
-.ph-poschevron { flex: none; color: var(--dim); font-size: 17px; font-weight: 700; transition: transform .15s ease, color .15s ease; }
+.ph-posicon svg { width: 20px; height: 20px; }
+.ph-poslabel { font-size: 13px; font-weight: 800; color: var(--sub); letter-spacing: -.01em; }
+.ph-posnames { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 0; }
+.ph-poschevron {
+  position: absolute; top: 10px; right: 12px; color: var(--dim); font-size: 16px; font-weight: 700;
+  transition: transform .15s ease, color .15s ease;
+}
 .ph-poscell[open] .ph-poschevron { transform: rotate(90deg); color: var(--accent); }
-.ph-poscell .ph-assignform { margin: 0 12px 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
-.ph-namechip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px 3px 3px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 13px; font-weight: 700; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi); }
-.ph-namechip.none { color: var(--dim); font-weight: 600; background: transparent; border-style: dashed; }
-.ph-namechip button { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
-.ph-namechip button:hover { color: var(--bad); }
+.ph-posbody { padding: 0 12px 14px; border-top: 1px dashed var(--line); margin-top: 2px; padding-top: 10px; }
+.ph-posassigned { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.ph-assignedrow { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; }
+.ph-assignedrow span { flex: 1; min-width: 0; }
+.ph-assignedrow form { flex: none; }
+.ph-assignedrow button {
+  border: 1px solid var(--line); background: var(--glass-2); color: var(--dim); cursor: pointer;
+  font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
+}
+.ph-assignedrow button:hover { color: var(--bad); }
+.ph-namechip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ph-chipname { font-size: 13.5px; font-weight: 800; color: var(--ink); max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-namechip.none .ph-chipname { color: var(--dim); font-weight: 600; }
+.ph-namechip.guest .ph-chipname { color: var(--sub); font-style: italic; }
+.ph-avatar-empty { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--dim); font-weight: 700; }
+.ph-tblicon { display: inline-flex; width: 13px; height: 13px; margin-right: 3px; vertical-align: -2px; color: var(--accent); }
+.ph-tblicon svg { width: 100%; height: 100%; }
 
 /* ---------- 아바타(팀원 사진/이니셜 + 성별 아이콘 배지) — 주일 편성 · 팀원관리 공용 ---------- */
 .ph-avatar { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; overflow: visible; background: linear-gradient(135deg, var(--hero-sky-3), var(--accent)); box-shadow: inset 0 0 0 1.5px var(--line-hi); }
@@ -380,9 +403,9 @@ a { color: var(--accent); text-decoration: none; }
 .ph-avatar-sm { width: 20px; height: 20px; }
 .ph-avatar-sm .ph-avatar-txt { font-size: 10px; }
 .ph-avatar-sm .ph-avatar-badge { width: 11px; height: 11px; font-size: 7px; }
-.ph-avatar-md { width: 34px; height: 34px; }
-.ph-avatar-md .ph-avatar-txt { font-size: 14px; }
-.ph-avatar-md .ph-avatar-badge { width: 15px; height: 15px; font-size: 9px; }
+.ph-avatar-md { width: 40px; height: 40px; }
+.ph-avatar-md .ph-avatar-txt { font-size: 16px; }
+.ph-avatar-md .ph-avatar-badge { width: 16px; height: 16px; font-size: 9.5px; }
 .ph-avatar-lg { width: 52px; height: 52px; }
 .ph-avatar-lg .ph-avatar-txt { font-size: 20px; }
 .ph-avatar-lg .ph-avatar-badge { width: 20px; height: 20px; font-size: 11px; }
@@ -456,9 +479,10 @@ a { color: var(--accent); text-decoration: none; }
 #ph-tabbody.ph-loading { opacity: .45; transition: opacity .1s linear; pointer-events: none; }
 
 /* ---------- 스케줄표 — 객원/강조/불가 이름 배지 (church-app처럼) ---------- */
-.ph-namechip.guest { border-style: dashed; color: var(--sub); }
-.ph-namechip.off { opacity: .55; text-decoration: line-through; }
-.ph-namechip.hl { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; font-weight: 800; }
+.ph-namechip.off .ph-avatar { opacity: .5; }
+.ph-namechip.off .ph-chipname { opacity: .6; text-decoration: line-through; }
+.ph-namechip.hl .ph-avatar { box-shadow: 0 0 0 2.5px var(--accent), inset 0 0 0 1.5px var(--line-hi); }
+.ph-namechip.hl .ph-chipname { color: var(--accent); }
 
 /* ---------- 달력 띠(week strip) — church-app처럼 여러 주를 가로로 넘겨보는 날짜 선택 ---------- */
 .ph-wstrip { margin: 4px 0 14px; }

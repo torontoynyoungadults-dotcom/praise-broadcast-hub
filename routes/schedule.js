@@ -11,7 +11,8 @@ const sheetsDb = require('../lib/sheetsDb');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
-const { POSITION_GROUPS, positionIcon, canonicalPosition } = require('../lib/positions');
+const { POSITION_GROUPS, canonicalPosition } = require('../lib/positions');
+const { positionIconSvg } = require('../lib/positionIcons');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const rosterPicker = require('../lib/rosterPicker');
@@ -142,30 +143,37 @@ function practiceCard(team, list, isAdmin, rangeKey, hl, view) {
 
 function positionCell(date, posKey, names, roster, offSet, hl, rangeKey, view) {
   const rosterObjs = roster.names.map((n) => ({ 이름: n, 역할: (roster.infoMap[n] || {}).역할 }));
-  const chips = names.length ? names.map((n) => {
+  const chip = (n) => {
     const isGuest = roster.names.indexOf(n.이름) === -1;
     const isOff = offSet.has(n.이름);
     const isHl = hl && n.이름 === hl;
     const cls = ['ph-namechip', isOff ? 'off' : '', isGuest ? 'guest' : '', isHl ? 'hl' : ''].filter(Boolean).join(' ');
-    return `<span class="${cls}" title="${esc(n.이름)}${isOff ? ' — 불가' : ''}${isGuest ? ' (객원)' : ''}">${avatar.avatarHtml(n.이름, roster.infoMap[n.이름] || {}, 'sm')}${esc(avatar.givenName(n.이름))}
-    <form method="post" action="/schedule/unassign" style="display:inline;">
-      <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(n.팀)}">
-      <input type="hidden" name="date" value="${esc(date)}">${extraHidden(rangeKey, hl, view)}
-      <button type="submit" aria-label="빼기">&times;</button>
-    </form></span>`;
-  }).join('') : '<span class="ph-namechip none">미정</span>';
+    return `<span class="${cls}" title="${esc(n.이름)}${isOff ? ' — 불가' : ''}${isGuest ? ' (객원)' : ''}">${avatar.avatarHtml(n.이름, roster.infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(avatar.givenName(n.이름))}</span></span>`;
+  };
+  const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-avatar ph-avatar-md ph-avatar-empty">–</span><span class="ph-chipname">미정</span></span>';
+  const assignedRows = names.map((n) => {
+    const isGuest = roster.names.indexOf(n.이름) === -1;
+    return `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, roster.infoMap[n.이름] || {}, 'sm')}<span>${esc(n.이름)}${isGuest ? ' (객원)' : ''}</span>
+      <form method="post" action="/schedule/unassign">
+        <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(n.팀)}">
+        <input type="hidden" name="date" value="${esc(date)}">${extraHidden(rangeKey, hl, view)}
+        <button type="submit" aria-label="빼기">✕ 빼기</button>
+      </form></div>`;
+  }).join('');
   return `<details class="ph-poscell">
     <summary class="ph-possummary">
-      <span class="ph-posicon">${positionIcon(posKey)}</span>
-      <span class="ph-poslabel">${esc(posKey)}</span>
-      <span class="ph-posnames">${chips}</span>
       <span class="ph-poschevron">›</span>
+      <span class="ph-pos-head"><span class="ph-posicon">${positionIconSvg(posKey)}</span><span class="ph-poslabel">${esc(posKey)}</span></span>
+      <span class="ph-posnames">${chips}</span>
     </summary>
-    <form method="post" action="/schedule/assign" class="ph-assignform">
-      <input type="hidden" name="team" value="${esc(roster.team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">${extraHidden(rangeKey, hl, view)}
-      ${rosterPicker.pickerFields(rosterObjs, posKey)}
-      <button type="submit">추가</button>
-    </form>
+    <div class="ph-posbody">
+      ${assignedRows ? `<div class="ph-posassigned">${assignedRows}</div>` : ''}
+      <form method="post" action="/schedule/assign" class="ph-assignform">
+        <input type="hidden" name="team" value="${esc(roster.team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">${extraHidden(rangeKey, hl, view)}
+        ${rosterPicker.pickerFields(rosterObjs, posKey)}
+        <button type="submit">추가</button>
+      </form>
+    </div>
   </details>`;
 }
 
@@ -176,7 +184,7 @@ function dateCard(d, roster, meName, hl, rangeKey, view) {
   const groups = POSITION_GROUPS.map(([label, keys]) => `
     <div class="ph-posgroup">
       <div class="ph-posgrouplabel"><span>${esc(label)}</span></div>
-      <div class="ph-posrow${label === '세션' ? ' ph-posrow-grid' : ''}">${keys.map((k) => positionCell(d.date, k, byPos[k] || [], roster, offSet, hl, rangeKey, view)).join('')}</div>
+      <div class="ph-posrow">${keys.map((k) => positionCell(d.date, k, byPos[k] || [], roster, offSet, hl, rangeKey, view)).join('')}</div>
     </div>`).join('');
 
   const myOff = d.off.find((o) => o['이름'] === meName);
@@ -231,7 +239,7 @@ function tableView(days, roster, hl, rangeKey, team) {
     }).join('');
     return `<div class="ph-tblwrap">
       <div class="ph-tblcaption">${esc(label)}</div>
-      <table class="ph-sctable"><thead><tr><th></th>${keys.map((k) => `<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+      <table class="ph-sctable"><thead><tr><th></th>${keys.map((k) => `<th><span class="ph-tblicon">${positionIconSvg(k)}</span>${esc(k)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
     </div>`;
   }).join('');
   return `<div class="ph-card">${tables}</div>`;

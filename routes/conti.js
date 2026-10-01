@@ -16,7 +16,8 @@ const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
-const { POSITION_GROUPS, ALL_POSITIONS, positionIcon, canonicalPosition } = require('../lib/positions');
+const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
+const { positionIconSvg } = require('../lib/positionIcons');
 const rosterPicker = require('../lib/rosterPicker');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
@@ -50,23 +51,27 @@ async function teamRoster(team) {
 
 function lineupCell(date, team, posKey, names, roster, infoMap) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할 }));
-  const chips = names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}" title="${esc(n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}${esc(avatar.givenName(n.이름))}
-      <form method="post" action="/conti/lineup/unassign" style="display:inline;">
+  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}" title="${esc(n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(avatar.givenName(n.이름))}</span></span>`;
+  const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-avatar ph-avatar-md ph-avatar-empty">–</span><span class="ph-chipname">미정</span></span>';
+  const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(n.이름)}</span>
+      <form method="post" action="/conti/lineup/unassign">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
-        <button type="submit" aria-label="빼기">&times;</button>
-      </form></span>`).join('') : '<span class="ph-namechip none">미정</span>';
+        <button type="submit" aria-label="빼기">✕ 빼기</button>
+      </form></div>`).join('');
   return `<details class="ph-poscell">
     <summary class="ph-possummary">
-      <span class="ph-posicon">${positionIcon(posKey)}</span>
-      <span class="ph-poslabel">${esc(posKey)}</span>
-      <span class="ph-posnames">${chips}</span>
       <span class="ph-poschevron">›</span>
+      <span class="ph-pos-head"><span class="ph-posicon">${positionIconSvg(posKey)}</span><span class="ph-poslabel">${esc(posKey)}</span></span>
+      <span class="ph-posnames">${chips}</span>
     </summary>
-    <form method="post" action="/conti/lineup/assign" class="ph-assignform">
-      <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">
-      ${rosterPicker.pickerFields(rosterObjs, posKey)}
-      <button type="submit">추가</button>
-    </form>
+    <div class="ph-posbody">
+      ${assignedRows ? `<div class="ph-posassigned">${assignedRows}</div>` : ''}
+      <form method="post" action="/conti/lineup/assign" class="ph-assignform">
+        <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">
+        ${rosterPicker.pickerFields(rosterObjs, posKey)}
+        <button type="submit">추가</button>
+      </form>
+    </div>
   </details>`;
 }
 
@@ -83,7 +88,7 @@ async function lineupCard(team, date, byPos, roster, infoMap) {
   const groups = POSITION_GROUPS.map(([label, keys]) => `
     <div class="ph-posgroup">
       <div class="ph-posgrouplabel"><span>${esc(label)}</span></div>
-      <div class="ph-posrow${label === '세션' ? ' ph-posrow-grid' : ''}">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster, infoMap)).join('')}</div>
+      <div class="ph-posrow">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster, infoMap)).join('')}</div>
     </div>`).join('');
   return `<div class="ph-card">
     <h2 class="ph-h2">주일 편성</h2>
