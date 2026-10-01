@@ -14,6 +14,7 @@ const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 
+const ui = require('../lib/uiIcons');
 const router = express.Router();
 const esc = pageShell.esc;
 
@@ -69,7 +70,7 @@ function itemRow(it, record) {
     </details>
     <form method="post" action="/equipment/items/archive" onsubmit="return confirm('이 항목을 보관할까요? 기록은 남습니다.')" style="margin-top:4px;">
       <input type="hidden" name="team" value="${esc(it['팀ID'])}"><input type="hidden" name="__row" value="${it.__row}"><input type="hidden" name="보관" value="TRUE">
-      <button class="ph-row-del" type="submit" title="보관">🗄</button>
+      <button class="ph-row-del" type="submit" title="보관" aria-label="보관">${ui.icon('folder')}</button>
     </form>
   </div>`;
 }

@@ -5,7 +5,9 @@
  * 여기서 같은 이름을 똑같은 약속으로 만들어 주고, 이 앱에만 있는 것만 더합니다:
  *   · 포지션 이름 · 묶음 (이 앱의 lib/positions.js — 피아노 · 신디 · … · 알토 · 음향 · PPT · 코디. 토요일 기도인도는 없음)
  *   · 연습일 — church-app 은 "주일 전날(토)" 을 그냥 보여주지만, 이 앱의 3부 팀은 주일 바로 전 금요일이 기본이고 자주 바뀌므로
- *     눌러서 바꿀 수 있습니다 (stPracHtml · stPractice · stPracBox — 서버 worshipPracticeSet)
+ *     예배(주일 · 행사)마다 눌러서 바꿀 수 있고, 한 번에 여러 예배를 같이 연습하는 날도 정할 수 있습니다
+ *     (stPracHtml · stPractice · stPracBox — 서버 worshipPracticeSet)
+ *   · 스케줄표 제목 옆 "내가 안 되는 날" 단추 (stOffBtn · stMinePanel) · 목회자 호칭 "윤정환 목사" (dispName · shortName)
  *   · 날짜를 눌러 "이 날 예배 준비 열기" → 이 앱의 예배콘티 화면으로
  *   · 떠 있는 창(아래에서 올라오는 시트 · 녹음 플레이어 · 통계 팝업)은 .yn 안(ynPortal)에 띄워 church-app 모양 그대로
  */
@@ -127,33 +129,68 @@ function renderWeeks() {}
 /** church-app 의 "주일 전날(토)" — 이 앱은 연습일을 따로 씀 (stPracHtml) */
 function satOf(d) { var x = dt(d); x.setDate(x.getDate() - 1); return (x.getMonth() + 1) + '/' + x.getDate(); }
 
-/* ---------------------------------------------------------------- 연습일 (이 앱) */
+/* ---------------------------------------------------------------- 이름 — 목회자는 "윤정환 목사" (이 앱) */
+function isPastor(n) {
+  n = String(n || '').trim();
+  return (D.members || []).some(function (m) { return m.name === n && m.pastor; });
+}
+/** 이름 그대로 + 목회자면 " 목사" (인도는 대개 목회자라 "정환"이 아니라 "윤정환 목사"로) */
+function dispName(n) { n = String(n || '').trim(); return isPastor(n) ? n + ' 목사' : n; }
+/** church-app 은 세 글자 이름의 성을 떼어 "정환"으로 줄여 씁니다 — 목회자만 성 · 호칭을 다 씁니다 */
+function shortName(n) {
+  n = String(n || '').trim();
+  if (isPastor(n)) return n + ' 목사';
+  return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n;
+}
+
+/* ---------------------------------------------------------------- 연습일 (이 앱) — 예배(주일 · 행사)마다 따로, 한 번에 여러 예배도 */
 function stPracLabel(p) {
-  if (!p || p.none) return '연습 없음';
+  if (!p) return '연습 미정';
+  if (p.none) return '연습 없음';
+  if (p.unset || !p.date) return '연습 미정';
   return md(p.date) + '(' + WD[dt(p.date).getDay()] + ')';
 }
-/** 카드 머리 "10/2(금) – 10/4 (주일)" 의 앞부분 — 눌러서 바꾸기 */
+/** 같은 날 연습하는 다른 예배 — "11/2 주일 · 부흥회" */
+function stPracWith(r) {
+  return ((r && r.practiceWith) || []).map(function (x) { return x.name ? x.name : md(x.date) + ' 주일'; }).join(' · ');
+}
+/** 카드 머리 앞부분 "연습 10/2(금)" — 눌러서 바꾸기 */
 function stPracHtml(r) {
   var p = r.practice || null;
-  var cls = 'sat stpr' + (p && p.none ? ' none' : '') + (p && !p.auto && !p.none ? ' set' : '');
+  var cls = 'sat stpr' + (p && (p.none || p.unset) ? ' none' : '') + (p && !p.auto && !p.none ? ' set' : '');
   var tip = D.canEdit ? '연습일 바꾸기' : '연습일';
-  return '<span class="' + cls + '" role="button" tabindex="0" title="' + tip + '" aria-label="' + esc(tip + ' — ' + stPracLabel(p)) + '"' +
+  var w = stPracWith(r);
+  return '<span class="' + cls + '" role="button" tabindex="0" title="' + esc(tip + (w ? ' — 같은 날 연습: ' + w : '')) + '" aria-label="' + esc(tip + ' — ' + stPracLabel(p)) + '"' +
     (D.canEdit ? ' onclick="event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')}"' : '') +
-    '>' + esc(stPracLabel(p)) + ' –</span>';
+    '>' + (p && !p.none && !p.unset && p.date ? '<i class="prl">연습</i>' : '') + esc(stPracLabel(p)) + (w ? '<i class="prw" title="같은 날 연습: ' + esc(w) + '">+' + r.practiceWith.length + '</i>' : '') + '</span>';
 }
-/** 테이블 보기의 날짜 칸 */
+/** 테이블 보기의 날짜 칸 위 작은 줄 */
 function stPracShort(r) {
   var p = r.practice || null;
-  var t = !p || p.none ? '연습 없음' : WD[dt(p.date).getDay()] + ' ' + md(p.date);
-  return '<span class="sd stpr' + (p && p.none ? ' none' : '') + '"' + (D.canEdit ? ' onclick="event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')" title="연습일 바꾸기"' : '') + '>' + esc(t) + '</span>';
+  var t = !p || p.none || p.unset || !p.date ? stPracLabel(p) : '연습 ' + WD[dt(p.date).getDay()] + ' ' + md(p.date);
+  var w = stPracWith(r);
+  return '<span class="sd stpr' + (p && (p.none || p.unset) ? ' none' : '') + '"' + (D.canEdit ? ' onclick="event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')"' : '') +
+    ' title="' + esc((D.canEdit ? '연습일 바꾸기' : '연습일') + (w ? ' — 같은 날 연습: ' + w : '')) + '">' + esc(t) + (w ? ' <i class="prw">+' + r.practiceWith.length + '</i>' : '') + '</span>';
 }
 /** 날짜 자세히 시트 안의 연습 줄 */
 function stPracBox(r) {
-  if (r.event) return '';
-  var p = r.practice || null;
-  return '<div class="yc-r stprrow"><span class="stpl">연습</span><div class="v"><span class="stprv' + (p && p.none ? ' none' : '') + '">' +
-    (p && !p.none ? esc(fmtDay(p.date)) : '연습 없음') + (p && p.note ? ' · ' + esc(p.note) : '') + '</span>' +
+  var p = r.practice || null, w = stPracWith(r);
+  var none = !p || p.none || p.unset || !p.date;
+  return '<div class="yc-r stprrow"><span class="stpl">연습</span><div class="v"><span class="stprv' + (none ? ' none' : '') + '">' +
+    (none ? esc(stPracLabel(p)) : esc(fmtDay(p.date))) + (p && p.note ? ' · ' + esc(p.note) : '') + '</span>' +
+    (w ? '<span class="stprw">같은 날 연습 · ' + esc(w) + '</span>' : '') +
     (D.canEdit ? ' <button type="button" class="btn mini" onclick="YC.close();stPractice(\'' + esc(jsq(r.key)) + '\')">바꾸기</button>' : '') + '</div></div>';
+}
+/** 테이블의 가로 화면용 칸 — 연습(날짜 · 메모 · 같이 연습하는 예배) · 곡 수. 세로 화면 · 폰에서는 CSS 로 숨김 */
+function stXHead() { return '<th class="xc" rowspan="2">연습</th><th class="xc xs" rowspan="2">곡</th>'; }
+function stXCells(r) {
+  var p = r.practice || null, w = stPracWith(r);
+  var none = !p || p.none || p.unset || !p.date;
+  var pc = '<td class="xc pc' + (D.canEdit ? ' ed' : '') + '"' + (D.canEdit ? ' onclick="stPractice(\'' + esc(jsq(r.key)) + '\')"' : '') + '>' +
+    (none ? '<span class="pn">' + esc(stPracLabel(p)) + '</span>' : '<b>' + WD[dt(p.date).getDay()] + ' ' + md(p.date) + '</b>') +
+    (p && p.note ? '<i>' + esc(p.note) + '</i>' : '') + (w ? '<em>함께 · ' + esc(w) + '</em>' : '') + '</td>';
+  var sc = '<td class="xc xs" onclick="stDay(\'' + esc(jsq(r.key)) + '\')">' + (r.songs ? '<b>' + r.songs + '</b>곡' : '<span class="pn">—</span>') + '</td>';
+  return pc + sc;
 }
 /** 'YYYY-MM-DD' + n일 (현지 날짜 그대로) */
 function stDayPlus(d, n) {
@@ -161,30 +198,94 @@ function stDayPlus(d, n) {
   var p2 = function (v) { return (v < 10 ? '0' : '') + v; };
   return x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate());
 }
+var PR_BACK = 28;                                    // 연습일은 그 예배 당일부터 28일 전까지 (한 금요일에 2주치 · 3주치 연습)
+function stRowName(r) { return r.event ? r.event.name : fmtDate(r.date) + ' 주일'; }
+/** 연습 날짜 고르는 시트 — 기본 금요일 · 지난 금요일 단추 · 같은 날 연습하는 다른 예배 체크 */
 function stPractice(key) {
-  var r = stRow(key); if (!r || r.event) return;   // 행사에는 연습일이 없습니다 (주일만)
+  var r = stRow(key); if (!r) return;
   var p = r.practice || {}, def = r.practiceDefault || '';
-  YC.sheet('<div class="yc-h"><h3>연습일 · ' + esc(fmtDate(r.date)) + ' 주일</h3></div>' +
-    '<p class="stsub">기본은 주일 바로 전 금요일' + (def ? ' (' + esc(fmtDay(def)) + ')' : '') + '입니다. 바뀌면 여기서 고치세요 — 팀 모두에게 바로 보입니다.</p>' +
-    '<div class="f"><label>연습 날짜</label><input type="date" id="prDate" value="' + esc(p.none ? def : (p.date || def)) + '" min="' + esc(stDayPlus(r.date, -7)) + '" max="' + esc(stDayPlus(r.date, -1)) + '"></div>' +
+  var cur = p.none || p.unset || !p.date ? (def || stDayPlus(r.date, -2)) : p.date;
+  var lo = stDayPlus(r.date, -PR_BACK);
+  /* 고를 수 있는 금요일들 — 그 예배 직전 금요일부터 거꾸로 */
+  var fri = [], x = r.date;
+  for (var i = 0; i < 30 && fri.length < 4; i++) { x = stDayPlus(x, -1); if (x < lo) break; if (dt(x).getDay() === 5) fri.push(x); }
+  var others = (ST.rows || []).filter(function (o) { return o.key !== key; });
+  var chk = others.map(function (o) {
+    var on = r.practice && o.practice && r.practice.date && o.practice.date === r.practice.date && !r.practice.none && !o.practice.none ? ' checked' : '';
+    return '<label class="prchk" data-key="' + esc(o.key) + '" data-date="' + esc(o.date) + '"><input type="checkbox" value="' + esc(o.key) + '"' + on + '>' +
+      '<span class="pcn"><b>' + esc(stRowName(o)) + '</b>' + (o.event ? '<i>' + md(o.date) + '(' + WD[dt(o.date).getDay()] + ')</i>' : '') + '</span>' +
+      '<em class="pcs">' + (o.practice && o.practice.date && !o.practice.none ? '연습 ' + md(o.practice.date) : '연습 ' + (o.practice && o.practice.none ? '없음' : '미정')) + '</em></label>';
+  }).join('');
+  YC.sheet('<div class="yc-h"><h3>연습일 · ' + esc(stRowName(r)) + '</h3></div>' +
+    '<p class="stsub">' + (r.event ? '이 예배의 연습 날짜를 정하세요.' : '기본은 주일 바로 전 금요일' + (def ? ', ' + esc(fmtDay(def)) : '') + '입니다.') +
+      ' 한 번에 여러 예배를 연습하는 날이면 아래에서 함께 고르세요. 팀 모두에게 바로 보입니다.</p>' +
+    '<div class="f"><label>연습 날짜 <span class="gsnote">' + md(lo) + ' ~ ' + md(r.date) + ' 안에서</span></label>' +
+      '<input type="date" id="prDate" value="' + esc(cur) + '" min="' + esc(lo) + '" max="' + esc(r.date) + '" oninput="stPracSync(\'' + esc(jsq(key)) + '\')"></div>' +
+    (fri.length ? '<div class="prfri">' + fri.map(function (f, i) {
+      return '<button type="button" class="chipbtn" onclick="el(\'prDate\').value=\'' + f + '\';stPracSync(\'' + esc(jsq(key)) + '\')">' + (i === 0 ? '직전 ' : '') + '금 ' + md(f) + '</button>';
+    }).join('') + '</div>' : '') +
     '<div class="f"><label>메모 <span class="gsnote">선택 — 장소 · 시간 등</span></label><input type="text" id="prNote" maxlength="60" value="' + esc(p.note || '') + '" placeholder="예: 오후 7시 · 본당"></div>' +
+    (chk ? '<div class="f"><label>같은 날 연습하는 다른 예배도 <span class="gsnote">체크하면 함께 저장돼요</span></label><div class="prlist">' + chk + '</div></div>' : '') +
     '<div class="yc-acts"><button type="button" class="btn accent" onclick="stPracSave(\'' + esc(jsq(key)) + '\',\'set\')">저장</button></div>' +
     '<div class="yc-acts" style="margin-top:8px;">' +
-      (p.auto ? '' : '<button type="button" class="btn" onclick="stPracSave(\'' + esc(jsq(key)) + '\',\'reset\')">기본(금요일)으로</button>') +
-      (p.none ? '' : '<button type="button" class="btn" onclick="stPracSave(\'' + esc(jsq(key)) + '\',\'none\')">이 주는 연습 없음</button>') + '</div>' +
+      (p.auto && !p.unset ? '' : '<button type="button" class="btn" onclick="stPracSave(\'' + esc(jsq(key)) + '\',\'reset\')">' + (r.event ? '연습일 지우기' : '기본(금요일)으로') + '</button>') +
+      (p.none ? '' : '<button type="button" class="btn" onclick="stPracSave(\'' + esc(jsq(key)) + '\',\'none\')">' + (r.event ? '연습 없음' : '이 주는 연습 없음') + '</button>') + '</div>' +
     '<p class="msg" id="prMsg"></p>', {});
+  stPracSync(key);
+}
+/** 고른 연습 날짜가 다른 예배의 범위(그 예배 당일 ~ 28일 전) 밖이면 그 예배 체크를 막음 */
+function stPracSync(key) {
+  var d = val('prDate');
+  Array.prototype.forEach.call(document.querySelectorAll('.prchk'), function (lb) {
+    var od = lb.getAttribute('data-date'), box = lb.querySelector('input');
+    var ok = !!d && d <= od && d >= stDayPlus(od, -PR_BACK);
+    box.disabled = !ok; if (!ok) box.checked = false;
+    lb.classList.toggle('dis', !ok);
+  });
 }
 function stPracSave(key, mode) {
   var body = { mode: mode };
   if (mode === 'set') {
     body.date = val('prDate'); body.note = val('prNote');
     if (!body.date) { say('prMsg', '날짜를 골라주세요.', 'err'); return; }
+    body.also = Array.prototype.map.call(document.querySelectorAll('.prchk input:checked'), function (c) { return c.value; });
   }
   say('prMsg', '저장하는 중…');
   callServer('worshipPracticeSet', [TOKEN, key, body], function (res) {
-    var r = stRow(key); if (r && res) r.practice = res.practice;
+    if (res && res.updated) Object.keys(res.updated).forEach(function (k) { var rr = stRow(k); if (rr) rr.practice = res.updated[k]; });
+    stPracLink();
     YC.close(); render(); say('stMsg', '연습일을 저장했습니다.', 'ok');
   }, function (e) { say('prMsg', (e && e.message) || '저장하지 못했습니다.', 'err'); });
+}
+/** 서버가 보내는 practiceWith 를 저장한 뒤에도 같게 — 같은 날 연습하는 예배끼리 서로 묶음 */
+function stPracLink() {
+  var by = {};
+  (ST.rows || []).forEach(function (r) { if (r.practice && r.practice.date && !r.practice.none && !r.practice.unset) (by[r.practice.date] = by[r.practice.date] || []).push(r); });
+  (ST.rows || []).forEach(function (r) {
+    var g = r.practice && r.practice.date && !r.practice.none && !r.practice.unset ? by[r.practice.date] : null;
+    r.practiceWith = g ? g.filter(function (x) { return x !== r; }).map(function (x) { return { key: x.key, date: x.date, name: x.event ? x.event.name : '' }; }) : [];
+  });
+}
+
+/* ---------------------------------------------------------------- 내가 안 되는 날 — 스케줄표 제목 옆 단추 · 열면 바로 아래 칸 */
+function stOffBtn(picking) {
+  if (!D.who || picking) return '';
+  var n = (ST.mine || []).length;
+  return '<button type="button" class="stoffbtn' + (ST.offOpen ? ' on' : '') + (n ? ' has' : '') + '" aria-expanded="' + (ST.offOpen ? 'true' : 'false') + '" onclick="ST.offOpen=!ST.offOpen;render();">' +
+    YI('calendar') + '<span>내가 안 되는 날</span>' + (n ? '<b class="cnt">' + n + '</b>' : '') + '</button>';
+}
+function stMinePanel(picking) {
+  if (!D.who || picking || !ST.offOpen) return '';
+  var list = ST.mine || [];
+  return '<div class="stmine"><div class="stmine-in">' +
+    (list.length
+      ? '<div class="offchips">' + list.map(function (x) {
+          return '<span class="offchip"><b>' + (x.label ? esc(x.label) : fmtDate(x.date)) + '</b><i>' + esc(x.reason) + '</i>' +
+            '<button type="button" aria-label="해제" title="해제" onclick="clearOff(\'' + esc(jsq(x.date)) + '\')">' + YI('close') + '</button></span>';
+        }).join('') + '</div>'
+      : '<p class="empty" style="margin:0;">표시해 둔 날이 없습니다. 안 되는 날을 미리 적어두면 팀장 · 인도자가 편성할 때 바로 보입니다.</p>') +
+    '<button type="button" class="btn mini accent" onclick="ST.offOpen=false;ST.pick=[];render();">' + YI('plus') + ' 날짜 고르기</button>' +
+    '</div></div>';
 }
 
 /* ---------------------------------------------------------------- 시작 */

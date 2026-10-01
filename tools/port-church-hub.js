@@ -77,15 +77,16 @@ root.walkRules((rule) => {
 });
 /* 색만 이 앱 것으로 — church-app 찬양 허브의 보라(#6C4FD3)를 이 앱의 주황으로 (모양 · 크기 · 배치는 그대로) */
 const BRAND = [
-  [/#6C4FD3/gi, '#E8703C'], [/108,\s*79,\s*211/g, '232, 112, 60'], [/#A78BFA/gi, '#FFB27A'], [/#F4F0FF/gi, '#FFF1E6'],
-  // 어두운 화면의 연보라(고른 곡 테두리 · 강조) → 이 앱 어두운 화면 주황
-  [/#8E73F2/gi, '#FF8A3D'], [/142,\s*115,\s*242/g, '255, 138, 61'],
-  // 밝은 화면의 청록(church-app v6.1 밝은 화면 메인 색) → 이 앱 밝은 화면 주황 · 글씨용 진한 주황 · 색 칸 위 흰 글씨
-  [/#46BDC6/gi, '#E8703C'], [/70,\s*189,\s*198/g, '232, 112, 60'], [/#2FA3AD/gi, '#D9622F'], [/47,\s*163,\s*173/g, '217, 98, 47'],
-  [/#0B6E77/gi, '#B24A1C'], [/11,\s*110,\s*119/g, '178, 74, 28'], [/#06363B/gi, '#FFFFFF'], [/#05353A/gi, '#FFFFFF'],
-  // 밝은 화면의 옅은 청록 바탕 (키 칩 · 곡 줄 hover · 열린 곡) → 옅은 주황
-  [/#CCF1F4/gi, '#FFE4D2'], [/#064E55/gi, '#8A3A12'], [/#ECFEFF/gi, '#FFF4EC'], [/#F3FCFD/gi, '#FFFAF6'], [/#E7F6F8/gi, '#FFEFE3'],
-  [/#EDFAFB/gi, '#FFF6EF'], [/#DDF3F6/gi, '#FFE7D6'], [/#D9F1F4/gi, '#FFE2CE'],
+  /* V9 파스텔 토론토 — 이 앱 살구빛 (어두운 화면 #FFB48A · 밝은 화면 #F4A57D · 글씨용 진한 살구 · 색 칸 위 진한 갈색 글씨) */
+  [/#6C4FD3/gi, '#F0A07A'], [/108,\s*79,\s*211/g, '240, 160, 122'], [/#A78BFA/gi, '#FFC9A8'], [/#F4F0FF/gi, '#FFF1E6'],
+  // 어두운 화면의 연보라(고른 곡 테두리 · 강조) → 이 앱 어두운 화면 살구
+  [/#8E73F2/gi, '#FFB48A'], [/142,\s*115,\s*242/g, '255, 180, 138'],
+  // 밝은 화면의 청록(church-app v6.1 밝은 화면 메인 색) → 이 앱 밝은 화면 살구 · 글씨용 진한 살구 · 색 칸 위 진한 갈색 글씨
+  [/#46BDC6/gi, '#F4A57D'], [/70,\s*189,\s*198/g, '244, 165, 125'], [/#2FA3AD/gi, '#C46A38'], [/47,\s*163,\s*173/g, '196, 106, 56'],
+  [/#0B6E77/gi, '#A8552A'], [/11,\s*110,\s*119/g, '168, 85, 42'], [/#06363B/gi, '#43220F'], [/#05353A/gi, '#43220F'],
+  // 밝은 화면의 옅은 청록 바탕 (키 칩 · 곡 줄 hover · 열린 곡) → 옅은 살구
+  [/#CCF1F4/gi, '#FDE6D6'], [/#064E55/gi, '#7A3A17'], [/#ECFEFF/gi, '#FFF6EF'], [/#F3FCFD/gi, '#FFFAF6'], [/#E7F6F8/gi, '#FFF0E6'],
+  [/#EDFAFB/gi, '#FFF6EF'], [/#DDF3F6/gi, '#FDE8D9'], [/#D9F1F4/gi, '#FCE3D2'],
 ];
 let css = root.toString();
 BRAND.forEach(([re, to]) => { css = css.replace(re, to); });
@@ -134,19 +135,46 @@ let js = '/* ===== views/Worship.html ===== */\n' + pick(worshipScript, WORSHIP_
 
 /** 이 앱에 맞춘 곳 — [설명, 찾을 글, 바꿀 글]. 찾을 글은 정확히 한 번 나와야 합니다 (원본이 바뀌면 여기서 멈춤) */
 const PATCHES = [
-  ['스케줄표 카드 머리 — 토요일 대신 연습일(보통 주일 전 금요일 · 눌러서 바꾸기)',
-    `: '<span class="sat">' + satOf(r.date) + '(토) –</span><b>' + md(r.date) + '</b><span class="wd">(주일)</span>')`,
-    `: stPracHtml(r) + '<b>' + md(r.date) + '</b><span class="wd">(주일)</span>')`],
-  ['스케줄표 테이블 날짜 칸 — 토요일 대신 연습일',
-    `'<span class="sd">토 ' + satOf(r.date) + '</span><b>일 ' + md(r.date) + '</b>'`,
-    `stPracShort(r) + '<b>일 ' + md(r.date) + '</b>'`],
-  ['날짜 자세히 — 연습일 바꾸기 칸', `lines +\n    (D.who`, `lines + stPracBox(r) +\n    (D.who`],
+  ['스케줄표 카드 머리 — 토요일 대신 연습일(예배마다 · 눌러서 바꾸기), 행사도 연습일 · 요일',
+    `(r.event ? '<b>' + md(r.date) + '</b><span class="wd">' + WD[d.getDay()] + '</span>'\n                 : '<span class="sat">' + satOf(r.date) + '(토) –</span><b>' + md(r.date) + '</b><span class="wd">(주일)</span>') +`,
+    `stPracHtml(r) + '<b>' + md(r.date) + '</b><span class="wd">' + (r.event ? WD[d.getDay()] : '(주일)') + '</span>' +`],
+  ['스케줄표 카드 — 행사는 "행사" 말 없이 이름만 (부흥회 · 특새 · 성탄절 …)',
+    `(r.event ? '<span class="evtag">' + esc(r.event.kind) + '</span><span class="evn">' + esc(r.event.name) + '</span>' : '')`,
+    `(r.event ? '<span class="evn">' + esc(r.event.name) + '</span>' : '')`],
+  ['스케줄표 테이블 날짜 칸 — 토요일 대신 연습일, 행사도 같은 모양 (요일 · 날짜)',
+    `(r.event ? '<b>' + md(r.date) + '</b>' : '<span class="sd">토 ' + satOf(r.date) + '</span><b>일 ' + md(r.date) + '</b>') +`,
+    `stPracShort(r) + '<b>' + WD[dt(r.date).getDay()] + ' ' + md(r.date) + '</b>' +`],
+  ['스케줄표 테이블 날짜 칸 아래 줄 — 행사는 이름만',
+    `'<span>' + (r.event ? esc(r.event.kind) : (mineOff ? '나 불가' : '')) + '</span></td>';`,
+    `'<span class="dcn">' + (r.event ? esc(r.event.name) : '') + (mineOff ? (r.event ? ' · ' : '') + '나 불가' : '') + '</span></td>';`],
+  ['날짜 자세히 · 연습 자리에서 제목 — 행사는 이름만', `return r.event ? (esc(r.event.kind) + ' · ' + esc(r.event.name)) : fmtDate(r.date) + ' 주일';`, `return r.event ? esc(r.event.name) : fmtDate(r.date) + ' 주일';`],
+  ['스케줄표 — 기본은 테이블', `  view: 'card' };`, `  view: 'table' };`],
+  ['스케줄표 위쪽 — 제목 옆에 "내가 안 되는 날" 단추 · 열면 바로 아래 칸 (아래까지 내려가지 않게)',
+    `'<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + viewSeg + '</div>' +`,
+    `'<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + stOffBtn(picking) + viewSeg + '</div>' + stMinePanel(picking) +`],
+  ['스케줄표 맨 아래 "내가 안 되는 날" 칸은 위로 옮겼음 (stMinePanel)', `'</div>' + mine;\n}`, `'</div>';\n}`],
+  ['스케줄표 테이블 — 가로 화면용 칸 둘 더 (연습 · 곡) 머리', `'<th class="offc" rowspan="2">불가</th></tr>';`, `'<th class="offc" rowspan="2">불가</th>' + stXHead() + '</tr>';`],
+  ['스케줄표 테이블 — 달 줄이 더한 칸까지', `월</td><td colspan="' + (cols.length + 1) + '"></td></tr>';`, `월</td><td colspan="' + (cols.length + 3) + '"></td></tr>';`],
+  ['스케줄표 테이블 — 가로 화면용 칸 둘 더 (연습 · 곡) 줄', `dateCell + cells + offCell + '</tr>';`, `dateCell + cells + offCell + stXCells(r) + '</tr>';`],
+  ['아카이브 — 행사는 이름만', `'<span class="evtag">' + esc(d.event.kind) + '</span>' + esc(d.event.name)`, `esc(d.event.name)`],
+  ['목회자는 "윤정환 목사" — 편성 고르기', `face(m.name) + esc(m.name) +`, `face(m.name) + esc(dispName(m.name)) +`],
+  ['목회자 호칭 — 날짜 자세히 편성', `'">' + face(n) + esc(n) + '</span>'; }).join(' ')`, `'">' + face(n) + esc(dispName(n)) + '</span>'; }).join(' ')`],
+  ['목회자 호칭 — 카드 불가 줄', `return '<b>' + esc(x.name) + '</b> ' + esc(x.reason);`, `return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(x.reason);`],
+  ['목회자 호칭 — 날짜 자세히 불가 줄', `return esc(x.name) + ' — ' + esc(x.reason); }).join('<br>')`, `return esc(dispName(x.name)) + ' — ' + esc(x.reason); }).join('<br>')`],
+  ['목회자 호칭 — 사람 강조 고르기', `'>' + esc(n) + (n === D.who ? ' (나)' : '') + '</option>'`, `'>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'`],
+  ['날짜 자세히 — 연습일 칸 (행사도)', `lines +\n    (D.who`, `lines + stPracBox(r) +\n    (D.who`],
   ['객원 찾기 — 이 앱은 교적 대신 다른 찬양팀 회원 · 명단에서 찾음 (lib/hubApi.js worshipGuestSearch)', '객원 · 교적에서 찾기', '객원 · 다른 팀에서 찾기'],
   ['객원 찾기 결과 없음 — 위와 같음', '교적에 일치하는 분이 없습니다.', '다른 팀에도 일치하는 분이 없습니다.'],
   ['객원 직접 입력 — 위와 같음', '<span class="gsnote">교적에 없는 분</span>', '<span class="gsnote">명단에 없는 분</span>'],
   ['악보 칩 PDF/IMG — 이 앱 악보는 이름에 확장자가 없어 서버가 알려준 종류로', 'var pdf = /\\.pdf$/i.test(f.name);', 'var pdf = f.pdf != null ? !!f.pdf : /\\.pdf$/i.test(f.name);'],
   ['악보 파일 목록 PDF/IMG — 위와 같음', 'var pdf = /\\.pdf$/i.test(r.f.name);', 'var pdf = r.f.pdf != null ? !!r.f.pdf : /\\.pdf$/i.test(r.f.name);'],
 ];
+/* 맨 아래 "내가 안 되는 날" 만드는 덩어리를 통째로 빼고 (위로 옮김 — hubshim.js stMinePanel) 자리만 남깁니다 */
+{
+  const a = js.indexOf("  var mine = '';\n  if (D.who) {"), b = js.indexOf('\n  var bar = picking');
+  if (a < 0 || b < a || js.indexOf("  var mine = '';") !== a) throw new Error('"내가 안 되는 날" 덩어리를 못 찾음');
+  js = js.slice(0, a) + js.slice(b + 1);
+}
 PATCHES.forEach(([why, from, to]) => {
   const n = js.split(from).length - 1;
   if (n !== 1) throw new Error(`PATCH "${why}" — 찾을 글이 ${n}번 나옴`);

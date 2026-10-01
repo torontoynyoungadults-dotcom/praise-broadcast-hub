@@ -89,7 +89,7 @@
         '<div class="yt-row yt-key" role="group" aria-label="키 (반음)"><span class="yt-lb">키</span><div class="yt-keys">' + KEY_STEPS.map(function (n) { return '<button type="button" class="yt-b" data-key="' + n + '" aria-pressed="false" aria-label="키 ' + (n > 0 ? '+' + n : n) + ' 반음">' + (n === 0 ? '0' : n > 0 ? '+' + n : n) + '</button>'; }).join('') + '</div><span class="yt-kn" aria-live="polite"></span></div>' +
         '<div class="yt-kstat" role="status" aria-live="polite"></div>' +
         '<p class="yt-warn" role="note">ⓘ <b>유튜브 영상의 소리는 브라우저에서 키를 바꿀 수 없습니다</b> (유튜브 화면은 다른 사이트라 앱이 소리를 가공할 수 없습니다). 여기서 고른 키는 <b>악보의 코드 표시</b>에 반영됩니다. 소리도 같은 키로 바꿔 연습하려면 아래 버튼으로 팀 녹음 · 내 오디오 파일을 여세요.</p>' +
-        '<div class="yt-row yt-kbtns">' + (kb.openShifter ? '<button type="button" class="yt-b on" data-k="shifter">🎧 키 바꿔 연습 (녹음 · 내 오디오 파일)</button>' : '') + (kb.startNote ? '<button type="button" class="yt-b" data-k="startnote">🎹 목표 키 시작음</button>' : '') + '</div>'
+        '<div class="yt-row yt-kbtns">' + (kb.openShifter ? '<button type="button" class="yt-b on" data-k="shifter">' + YI('headphones') + ' 키 바꿔 연습 (녹음 · 내 오디오 파일)</button>' : '') + (kb.startNote ? '<button type="button" class="yt-b" data-k="startnote">' + YI('piano_small') + ' 목표 키 시작음</button>' : '') + '</div>'
         : '') +
       '<div class="yt-row yt-ab" role="group" aria-label="구간 반복"><span class="yt-lb">구간 반복</span>' +
         '<button type="button" class="yt-b" data-a="a">A 지정</button><button type="button" class="yt-b" data-a="b">B 지정</button><button type="button" class="yt-b ghost" data-a="clear">해제</button>' +
@@ -124,7 +124,7 @@
       zl.style.display = zr.style.display = st.fallback ? 'none' : '';
     }
     function paintAB() {
-      var t = st.a == null ? 'A–B 를 정하면 그 구간만 계속 반복합니다' : st.b == null ? 'A ' + fmtTime(st.a) + ' — 이제 B 를 지정하세요' : '🔁 ' + fmtTime(st.a) + ' → ' + fmtTime(st.b) + ' 반복 중';
+      var t = st.a == null ? 'A–B 를 정하면 그 구간만 계속 반복합니다' : st.b == null ? 'A ' + fmtTime(st.a) + ' — 이제 B 를 지정하세요' : '반복 · ' + fmtTime(st.a) + ' → ' + fmtTime(st.b) + ' 반복 중';
       abinfo.textContent = t; ctl.classList.toggle('looping', st.a != null && st.b != null);
       ctl.querySelector('[data-a="a"]').classList.toggle('on', st.a != null); ctl.querySelector('[data-a="b"]').classList.toggle('on', st.b != null);
     }

@@ -25,7 +25,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca82-2';                 // church-app v8.2 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca83-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -121,6 +121,8 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
 <div class="lv-fallback" id="lvFallback"><p>라이브 악보를 여는 중…</p><p><a href="${esc(back)}">← 예배콘티로 돌아가기</a></p></div>
 <script>window.__LIVE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};</script>
 <script defer src="/socket.io/socket.io.js"></script>
+<script defer src="/worship/icons.js${v}"></script>
+<script defer src="/worship/icons-plus.js${v}"></script>
 <script defer src="/worship/formb.js${v}"></script>
 <script defer src="/worship/wakelock.js${v}"></script>
 <script defer src="/worship/metro.js${v}"></script>

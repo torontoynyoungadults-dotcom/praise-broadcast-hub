@@ -13,6 +13,7 @@ const teamContext = require('../lib/teamContext');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const { ROLE_OPTIONS } = require('../lib/schema');
+const ui = require('../lib/uiIcons');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -33,14 +34,23 @@ function roleChips(myRoles) {
 }
 
 function personRow(name, info, isAdmin) {
-  const statusChip = info.가입 ? '<span class="ph-badge" style="margin:0;">가입완료</span>' : '<span class="ph-badge" style="margin:0;background:var(--glass-2);color:var(--dim);border-color:var(--line);">가입 대기중</span>';
   const myRoles = String(info.역할 || '').split(',').map((s) => s.trim()).filter(Boolean);
-  let adminForm = '';
+  const isPastor = myRoles.includes('목회자');
+  const nameHtml = `${esc(name)}${isPastor ? '<small>목사</small>' : ''}`;
+  const status = info.가입
+    ? `<span class="ph-rr-st ok" title="가입완료">${ui.icon('check')}<i>가입</i></span>`
+    : '<span class="ph-rr-st wait" title="가입 대기중"><i>대기</i></span>';
+  const roles = myRoles.length
+    ? `<span class="ph-rr-roles">${myRoles.map((r) => `<span class="ph-roletag">${avatar.roleIcon(r)}<i>${esc(r)}</i></span>`).join('')}</span>`
+    : '<span class="ph-rr-roles empty">역할 없음</span>';
+  const row = `${avatar.avatarHtml(name, info, 'md')}
+      <span class="ph-rr-name">${nameHtml}</span>
+      ${roles}
+      ${status}`;
+  let editForm = '';
   if (isAdmin && info.가입) {
     // 이미 가입한 사람은 사진·성별은 본인이 직접 수정하고(내 정보), 관리자는 역할만 여기서 정해줄 수 있음.
-    adminForm = `
-    <details class="ph-row-edit">
-      <summary>⋯</summary>
+    editForm = `
       <form method="post" action="/roster/member-role" class="ph-inlineform">
         <input type="hidden" name="__row" value="${info.가입행}">
         <input type="hidden" name="team" value="${esc(info.__team || '')}">
@@ -51,13 +61,10 @@ function personRow(name, info, isAdmin) {
       ${info.명단행 ? `<form method="post" action="/roster/delete" onsubmit="return confirm('명단에서 ${esc(name)}님을 뺄까요? (이미 가입한 사람은 가입이 취소되지 않아요)')">
         <input type="hidden" name="__row" value="${info.명단행}"><input type="hidden" name="team" value="${esc(info.__team || '')}">
         <button class="ph-btn" type="submit" style="margin-top:6px;">명단에서 빼기</button>
-      </form>` : ''}
-    </details>`;
+      </form>` : ''}`;
   } else if (isAdmin && info.명단행) {
     // 아직 가입 전인 사람 — 관리자가 성별·사진·역할을 전부 미리 정해둘 수 있음(가입하면 역할은 그대로 물려받음).
-    adminForm = `
-    <details class="ph-row-edit">
-      <summary>⋯</summary>
+    editForm = `
       <form method="post" action="/roster/update" enctype="multipart/form-data" class="ph-inlineform">
         <input type="hidden" name="__row" value="${info.명단행}">
         <input type="hidden" name="team" value="${esc(info.__team || '')}">
@@ -75,20 +82,16 @@ function personRow(name, info, isAdmin) {
       <form method="post" action="/roster/delete" onsubmit="return confirm('명단에서 ${esc(name)}님을 뺄까요?')">
         <input type="hidden" name="__row" value="${info.명단행}"><input type="hidden" name="team" value="${esc(info.__team || '')}">
         <button class="ph-btn" type="submit" style="margin-top:6px;">명단에서 빼기</button>
-      </form>
+      </form>`;
+  }
+  // 한 줄 — 사진 · 이름 · 역할 · 가입여부 · 수정 단추. 관리자는 줄을 누르면 아래로 수정 칸이 펼쳐짐.
+  if (editForm) {
+    return `<details class="ph-rr ph-rosteritem">
+      <summary>${row}<span class="ph-rr-edit" aria-label="수정">${ui.icon('pencil')}</span></summary>
+      <div class="ph-rr-form">${editForm}</div>
     </details>`;
   }
-  return `<div class="ph-list-item ph-rosteritem">
-    <div class="ph-li-main" style="display:flex;align-items:center;gap:12px;">
-      ${avatar.avatarHtml(name, info, 'lg')}
-      <div>
-        <div class="ph-li-title">${esc(name)}</div>
-        <div class="ph-li-sub" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px;">${statusChip}</div>
-        ${avatar.roleBadgesHtml(info.역할)}
-      </div>
-    </div>
-    ${adminForm}
-  </div>`;
+  return `<div class="ph-rr ph-rosteritem"><div class="ph-rr-line">${row}</div></div>`;
 }
 
 router.get('/roster', requireTeam, async (req, res) => {
@@ -97,11 +100,7 @@ router.get('/roster', requireTeam, async (req, res) => {
   const infoMap = await avatar.teamInfoMap(team);
   const rosterCount = Object.values(infoMap).filter((i) => i.명단행).length;
 
-  const names = Object.keys(infoMap).sort((a, b) => {
-    const ai = infoMap[a], bi = infoMap[b];
-    if (ai.가입 !== bi.가입) return ai.가입 ? -1 : 1; // 가입완료 먼저
-    return a.localeCompare(b, 'ko');
-  });
+  const names = Object.keys(infoMap).sort((a, b) => a.localeCompare(b, 'ko')); // 가나다 순
 
   const hero = pageShell.hero({ eyebrow: `${team} · 팀원관리`, title: '팀원관리', sub: '팀원 명단을 관리하고, 가입 현황을 한눈에 봐요.' });
   const addForm = ctx.isAdmin ? `
@@ -133,7 +132,7 @@ router.get('/roster', requireTeam, async (req, res) => {
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">팀원 (${names.length}명)</h2>
-    <div class="ph-list">${names.length ? names.map((n) => personRow(n, { ...infoMap[n], __team: team }, ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 팀원이 없어요.</p>'}</div>
+    <div class="ph-rrlist">${names.length ? names.map((n) => personRow(n, { ...infoMap[n], __team: team }, ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 팀원이 없어요.</p>'}</div>
   </div>
   `;
   spa.send(req, res, content, { title: `${team} 팀원관리` });

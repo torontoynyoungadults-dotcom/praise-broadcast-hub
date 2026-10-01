@@ -8,6 +8,7 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const spa = require('../lib/spa');
 
+const ui = require('../lib/uiIcons');
 const router = express.Router();
 const esc = pageShell.esc;
 
@@ -25,7 +26,7 @@ function backTo(req, res, team, filter) {
 }
 
 function item(n) {
-  const kindChip = n['구분'] === '기도제목' ? '🙏 기도제목' : '📌 공지';
+  const kindChip = n['구분'] === '기도제목' ? `${ui.icon('pray')} 기도제목` : `${ui.icon('bell')} 공지`;
   return `<div class="ph-list-item ph-notice${String(n['고정']).toUpperCase() === 'TRUE' ? ' pinned' : ''}">
     <div class="ph-li-main">
       <div class="ph-li-sub">${kindChip}${String(n['고정']).toUpperCase() === 'TRUE' ? ' · 고정' : ''}</div>
@@ -37,11 +38,11 @@ function item(n) {
       <form method="post" action="/notices/pin">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(n['팀ID'])}">
         <input type="hidden" name="to" value="${String(n['고정']).toUpperCase() === 'TRUE' ? '' : 'TRUE'}">
-        <button class="ph-row-del" type="submit" title="고정">${String(n['고정']).toUpperCase() === 'TRUE' ? '📌' : '📍'}</button>
+        <button class="ph-row-del" type="submit" title="고정" aria-label="고정">${ui.icon('pin', String(n['고정']).toUpperCase() === 'TRUE' ? 'on' : '')}</button>
       </form>
       <form method="post" action="/notices/delete" onsubmit="return confirm('삭제할까요?')">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(n['팀ID'])}">
-        <button class="ph-row-del" type="submit" title="삭제">✕</button>
+        <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
       </form>
     </div>
   </div>`;
@@ -67,7 +68,7 @@ router.get('/notices', requireTeam, async (req, res) => {
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: { filter } })}
-    <div class="pv-songtabs" style="margin-bottom:0;">${tab('', '전체')}${tab('공지', '📌 공지')}${tab('기도제목', '🙏 기도제목')}</div>
+    <div class="pv-songtabs" style="margin-bottom:0;">${tab('', '전체')}${tab('공지', '공지')}${tab('기도제목', '기도제목')}</div>
   </div>
 
   <div class="ph-card top-accent">
@@ -76,7 +77,7 @@ router.get('/notices', requireTeam, async (req, res) => {
       <summary>+ 새로 쓰기</summary>
       <form method="post" action="/notices" class="ph-inlineform">
         <input type="hidden" name="team" value="${esc(team)}">
-        <select name="구분"><option value="공지">📌 공지</option><option value="기도제목">🙏 기도제목</option></select>
+        <select name="구분"><option value="공지">공지</option><option value="기도제목">기도제목</option></select>
         <input type="text" name="제목" placeholder="제목 (선택)">
         <textarea name="내용" rows="3" placeholder="내용을 적어주세요" required style="width:100%;padding:10px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:15px;font-family:inherit;"></textarea>
         <button class="ph-btn pri" type="submit">올리기</button>

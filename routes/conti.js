@@ -22,6 +22,8 @@ const rosterPicker = require('../lib/rosterPicker');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
 
+const ui = require('../lib/uiIcons');
+const prac = require('../lib/practice');
 const router = express.Router();
 
 /** 곡이 바뀌면 열려 있는 라이브 악보에 알림 (church-app 의 songs:changed) — server.js 가 routes/live.js 의 함수를 넣어 줌 */
@@ -79,7 +81,7 @@ function lineupCell(scope, team, posKey, names, roster, infoMap) {
   const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(n.이름)}</span>
       <form method="post" action="/conti/lineup/unassign">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
-        <button type="submit" aria-label="빼기">✕ 빼기</button>
+        <button type="submit" aria-label="빼기">${ui.icon('close')} 빼기</button>
       </form></div>`).join('');
   return `<details class="ph-poscell">
     <summary class="ph-possummary">
@@ -217,7 +219,7 @@ function songFormBuilderHtml(current, uid) {
 function youtubeFieldHtml(current) {
   return `<div class="ph-titlerow">
     <input type="text" name="유튜브" value="${esc(current || '')}" placeholder="유튜브 링크 (선택)">
-    <a href="#" class="cn-mini cn-ytbtn" data-ph-ytsearch target="_blank" rel="noopener">▶ YouTube 검색 (여러 버전 비교)</a>
+    <a href="#" class="cn-mini cn-ytbtn" data-ph-ytsearch target="_blank" rel="noopener">${ui.icon('play')} YouTube 검색 (여러 버전 비교)</a>
   </div>`;
 }
 
@@ -240,9 +242,9 @@ function atTagsHtml(roster, byPos) {
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(f['파일링크'])}" target="_blank" rel="noopener">📄 ${esc(f['제목'] || '악보')}</a>${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(f['파일링크'])}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}</a>${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
     <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
-    <button class="ph-row-del" type="submit" title="삭제">✕</button>
+    <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
   </form>` : ''}</span>`).join('');
   const addForm = editable ? `<details class="ph-add ph-songsheet-add">
     <summary>+ 이 곡 악보 올리기</summary>
@@ -267,8 +269,8 @@ function songRow(s, { editable, roster, byPos, sheets }) {
     <div class="ph-li-main">
       <div class="ph-li-title">${esc(s['제목'] || '(제목 없음)')}</div>
       ${bits ? `<div class="ph-li-sub">${esc(bits)}</div>` : ''}
-      ${s['유튜브'] ? `<a class="ph-li-link" href="${esc(s['유튜브'])}" target="_blank" rel="noopener">▶ 유튜브</a>` : ''}
-      ${solo.length ? `<div class="ph-solo-badges">🎤 솔로 — ${solo.map((x) => esc(x.name) + (x.part ? `<em>${esc(x.part)}</em>` : '')).join(', ')}</div>` : ''}
+      ${s['유튜브'] ? `<a class="ph-li-link" href="${esc(s['유튜브'])}" target="_blank" rel="noopener">${ui.icon('play')} 유튜브</a>` : ''}
+      ${solo.length ? `<div class="ph-solo-badges">${ui.icon('mic2')} 솔로 — ${solo.map((x) => esc(x.name) + (x.part ? `<em>${esc(x.part)}</em>` : '')).join(', ')}</div>` : ''}
       ${s['비고'] ? `<div class="ph-li-note">${esc(s['비고'])}</div>` : ''}
       ${songSheetsHtml(s, sheets, editable)}
     </div>
@@ -295,7 +297,7 @@ function songRow(s, { editable, roster, byPos, sheets }) {
       <form method="post" action="/conti/songs/delete" onsubmit="return confirm('이 곡을 지울까요?')">
         <input type="hidden" name="__row" value="${s.__row}">
         <input type="hidden" name="team" value="${esc(s['팀ID'])}">${rowHidden(s)}
-        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">✕ 이 곡 삭제</button>
+        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">${ui.icon('close')} 이 곡 삭제</button>
       </form>
     </details>` : ''}
   </div>`;
@@ -308,7 +310,7 @@ function soloSummaryBox(conti, final) {
   final.forEach((s) => parseSolo(s['솔로']).forEach((x) => rows.push(['설교 후', s['제목'], x])));
   if (!rows.length) return '';
   return `<div class="ph-solosum">
-    <div class="ssh">🎤 방송팀 체크 — 솔로 마이크</div>
+    <div class="ssh">${ui.icon('mic2')} 방송팀 체크 — 솔로 마이크</div>
     ${rows.map((r) => `<div class="ph-ssrow"><span class="sst">${esc(r[0])}</span><b>${esc(r[1])}</b> — ${esc(r[2].name)}${r[2].part ? `<em>${esc(r[2].part)}</em>` : ''}</div>`).join('')}
   </div>`;
 }
@@ -350,12 +352,12 @@ function songForm(kind, team, scope, roster, byPos) {
 
 function sheetItem(s, editable) {
   return `<div class="ph-list-item">
-    <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(s['파일링크'])}" target="_blank" rel="noopener">📄 ${esc(s['제목'] || '악보')}</a>
+    <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(s['파일링크'])}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(s['제목'] || '악보')}</a>
       <div class="ph-li-sub">${esc(s['올린사람'] || '')}</div></div>
     ${editable ? `<form method="post" action="/conti/sheets/delete" onsubmit="return confirm('이 악보를 지울까요?')">
       <input type="hidden" name="__row" value="${s.__row}">
       <input type="hidden" name="team" value="${esc(s['팀ID'])}">${rowHidden(s)}
-      <button class="ph-row-del" type="submit" title="삭제">✕</button>
+      <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
     </form>` : ''}
   </div>`;
 }
@@ -389,13 +391,55 @@ function commentItem(c) {
 
 function recItem(r, editable) {
   return `<div class="ph-list-item">
-    <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">🎧 ${esc(r['제목'] || '녹음')}</a>
+    <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(r['제목'] || '녹음')}</a>
       <div class="ph-li-sub">${esc(r['올린사람'] || '')}</div></div>
     ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('이 녹음을 지울까요?')">
       <input type="hidden" name="__row" value="${r.__row}">
       <input type="hidden" name="team" value="${esc(r['팀ID'])}">${rowHidden(r)}
-      <button class="ph-row-del" type="submit" title="삭제">✕</button>
+      <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
     </form>` : ''}
+  </div>`;
+}
+
+
+/* ================= 연습일 — 이 예배(주일 · 행사)를 언제 연습하는지 (스케줄표에서 정함 · lib/practice.js) ================= */
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+const mdDow = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}월 ${x.getDate()}일(${DOW[x.getDay()]})`; };
+async function practiceInfo(team, scope, date) {
+  const rows = (await sheetsDb.readAll('연습일정')).filter((r) => r['팀ID'] === team);
+  const key = scope.event ? 'ev-' + scope.event : date;
+  const p = prac.practiceFor(key, date, rows);
+  const together = [];
+  if (p.date && !p.none) {
+    const evs = await specialServices(team);
+    const cands = [];
+    for (let i = 0; i <= 42; i++) {
+      const d = prac.addDays(p.date, i);
+      if (new Date(d + 'T12:00:00').getDay() === 0) cands.push({ key: d, date: d, name: '' });
+    }
+    evs.forEach((e) => { if (e['날짜'] >= p.date && e['날짜'] <= prac.addDays(p.date, 42)) cands.push({ key: 'ev-' + e['ID'], date: e['날짜'], name: e['이름'] }); });
+    cands.forEach((c) => {
+      if (c.key === key) return;
+      const q = prac.practiceFor(c.key, c.date, rows);
+      if (!q.none && q.date === p.date) together.push(c.name ? c.name : `${Number(c.date.slice(5, 7))}/${Number(c.date.slice(8, 10))} 주일`);
+    });
+  }
+  return { p, together };
+}
+function practiceCard(team, info) {
+  const { p, together } = info;
+  const href = `/schedule?team=${encodeURIComponent(team)}`;
+  let main;
+  if (p.none) main = '<span class="ph-pr-none">이 예배는 연습이 없어요</span>';
+  else if (p.unset || !p.date) main = '<span class="ph-pr-none">연습일이 아직 정해지지 않았어요</span>';
+  else main = `<b>${esc(mdDow(p.date))}</b>${p.note ? `<span class="ph-pr-note">${esc(p.note)}</span>` : ''}`;
+  return `<div class="ph-card ph-practicecard">
+    <div class="ph-pr-row">
+      <span class="ph-pr-ic">${ui.icon('metronome')}</span>
+      <div class="ph-pr-main"><span class="ph-pr-label">연습일</span>${main}
+        ${together.length ? `<span class="ph-pr-with">같은 날 함께 연습 · ${together.map(esc).join(' · ')}</span>` : ''}</div>
+      <a class="ph-pr-edit" href="${href}">스케줄표에서 바꾸기 ${ui.icon('next')}</a>
+    </div>
   </div>`;
 }
 
@@ -420,15 +464,15 @@ router.get('/conti', requireTeam, async (req, res) => {
     const todaysEvents = (await specialServices(team)).filter((e) => e['날짜'] === date);
     if (todaysEvents.length) {
       dayBanner = `<div class="ph-card ph-eventsbanner">
-        <p class="ph-sub">이 날 행사도 있어요 — 콘티·편성은 주일예배와 서로 다른 별도 기록이에요.</p>
+        <p class="ph-sub">이 날 다른 예배도 있어요 — 콘티·편성은 주일예배와 서로 다른 별도 기록이에요.</p>
         <div class="ph-list">${todaysEvents.map((e) => `<div class="ph-list-item"><div class="ph-li-main">
-          <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(e['ID'])}">🎪 ${esc(e['이름'])} 콘티 보기 →</a>
+          <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(e['ID'])}">${esc(e['이름'])} 콘티 보기 →</a>
         </div></div>`).join('')}</div>
       </div>`;
     }
   } else {
     dayBanner = `<div class="ph-card ph-eventsbanner">
-      <p class="ph-sub">🎪 행사 콘티예요 — 주일예배와는 별도 기록입니다. <a href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p>
+      <p class="ph-sub">${esc(eventRow['이름'])} 콘티예요 — 주일예배와는 별도 기록입니다. <a href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p>
       <p class="ph-sub"><a href="/events?team=${encodeURIComponent(team)}">← 행사 목록으로</a></p>
     </div>`;
   }
@@ -440,12 +484,14 @@ router.get('/conti', requireTeam, async (req, res) => {
     : { eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
   const { byPos, roster, infoMap } = await weekAssignments(team, scope);
   const lineup = await lineupCard(team, scope, byPos, roster, infoMap);
+  const practice = practiceCard(team, await practiceInfo(team, scope, date));
 
   const content = `
   ${pageShell.hubNav('conti', team)}
   ${hero}
   ${strip}
   ${dayBanner}
+  ${practice}
   ${(() => {
     const switcher = teamContext.teamSwitcher(ctx, { keep: scope.event ? { event: scope.event } : { date } });
     // 라이브 악보 (church-app 그대로) — 주일예배는 날짜, 행사는 행사 콘티 그대로 엽니다 (서로 다른 방 · 다른 필기 범위)
@@ -453,9 +499,9 @@ router.get('/conti', requireTeam, async (req, res) => {
       ? `/conti/practice?team=${encodeURIComponent(team)}&event=${encodeURIComponent(scope.event)}`
       : `/conti/practice?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
     const nSheets = new Set(w.sheets.filter((s) => s['파일링크']).map((s) => s['파일링크'])).size;
-    const liveBtn = `<a class="ph-btn pri ph-livebtn" style="margin-top:12px;" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">▶ 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
+    const liveBtn = `<a class="ph-btn pri ph-livebtn" style="margin-top:12px;" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
     const extras = liveBtn + (scope.event ? '' : `
-    <p class="ph-msg" style="margin-top:10px;"><a href="${publicUrl}" target="_blank" rel="noopener">🔗 로그인 없이 보는 공개 링크</a></p>`);
+    <p class="ph-msg" style="margin-top:10px;"><a href="${publicUrl}" target="_blank" rel="noopener">${ui.icon('link')} 로그인 없이 보는 공개 링크</a></p>`);
     if (!switcher && !extras) return '';
     return `<div class="ph-card">${switcher}${extras}</div>`;
   })()}

@@ -227,13 +227,13 @@
     var box = el('div', 'as');
     box.innerHTML =
       '<div class="as-src"><select class="pv-sel" data-o="src" aria-label="들을 녹음"></select>' +
-        '<div class="as-row"><button type="button" class="as-b" data-a="pick">📁 내 오디오 파일 고르기</button><input type="file" data-o="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac,.opus" class="as-hide" aria-label="내 오디오 파일"></div></div>' +
+        '<div class="as-row"><button type="button" class="as-b" data-a="pick">' + YI('folder') + ' 내 오디오 파일 고르기</button><input type="file" data-o="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac,.opus" class="as-hide" aria-label="내 오디오 파일"></div></div>' +
       '<div class="as-tr"><button type="button" class="as-play" data-a="play" aria-label="재생" disabled>▶</button><input type="range" class="as-seek" data-o="seek" min="0" max="1000" step="1" value="0" aria-label="재생 위치" disabled><span class="as-time" aria-live="off">0:00 / 0:00</span></div>' +
       '<div class="as-row as-krow" role="group" aria-label="키 (반음)"><span class="as-lb">키</span><div class="as-keys">' +
         [-3, -2, -1, 0, 1, 2, 3].map(function (n) { return '<button type="button" class="as-b" data-key="' + n + '" aria-pressed="false" aria-label="키 ' + fmtShift(n) + ' 반음">' + (n === 0 ? '0' : fmtShift(n)) + '</button>'; }).join('') + '</div>' +
         '<span class="as-kn" aria-live="polite"></span></div>' +
       '<div class="as-msg as-hs" role="status" aria-live="polite"></div>' +
-      '<div class="as-row"><button type="button" class="as-b ghost" data-a="startnote">🎹 목표 키 시작음</button><button type="button" class="as-b ghost" data-a="reset">키 · 템포 원래대로</button></div>' +
+      '<div class="as-row"><button type="button" class="as-b ghost" data-a="startnote">' + YI('piano_small') + ' 목표 키 시작음</button><button type="button" class="as-b ghost" data-a="reset">키 · 템포 원래대로</button></div>' +
       '<div class="as-row" role="group" aria-label="템포"><span class="as-lb">템포</span><button type="button" class="as-b" data-t="-1" aria-label="느리게">−</button><span class="as-tv" aria-live="polite">1.00x</span><button type="button" class="as-b" data-t="1" aria-label="빠르게">＋</button>' +
         '<input type="range" class="as-tempo" data-o="tempo" min="75" max="125" step="5" value="100" aria-label="템포 (0.75배 ~ 1.25배)"></div>' +
       '<div class="as-row"><span class="as-lb">음량</span><input type="range" class="as-vol" data-o="vol" min="0" max="150" step="1" value="100" aria-label="출력 음량"></div>' +
@@ -418,7 +418,7 @@
     o = o || {}; injectCss(); closeDialog();
     try { if (P.closeYt) P.closeYt(); } catch (e) { /* 무시 */ }
     var s = P.song && P.song(), box = el('div', 'pv-as'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '키 · 템포 바꿔 연습');
-    box.innerHTML = '<div class="pv-yth"><b>' + esc('🎧 키 바꿔 연습' + (s && s.title ? ' — ' + s.title : '')) + '</b><button type="button" aria-label="닫기">✕</button></div><div class="as-host"></div>';
+    box.innerHTML = '<div class="pv-yth"><b>' + YI('headphones') + ' ' + esc('키 바꿔 연습' + (s && s.title ? ' — ' + s.title : '')) + '</b><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="as-host"></div>';
     var recs = rankRecs((P.opts && P.opts.recs) || [], s && s.title);
     var sources = recs.map(function (r) { return { title: r.title, src: r.play, kind: r.kind, match: r.match }; });
     var api = mountPlayer(box.querySelector('.as-host'), { songKey: s && s.key || '', sources: sources, key: keyBinding(P), mode: o.mode, workletUrl: o.workletUrl });

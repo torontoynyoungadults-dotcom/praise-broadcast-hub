@@ -16,6 +16,7 @@
   /* ------------------------------------------------------------ 작은 도구 */
   function ls(k, v) { try { if (v === undefined) return root.localStorage.getItem('yn.pv.' + k); root.localStorage.setItem('yn.pv.' + k, v); } catch (e) { /* 저장이 막힌 브라우저 */ } return null; }
   function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function I(n, c) { return root.YNIcon ? root.YNIcon.get(n, c) : ''; }       // v8.3 — 직접 그린 아이콘 (icons.js)
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   var scripts = {};
   function loadScript(src, ready) {
@@ -55,8 +56,8 @@
   }
 
   var TOOLS = [
-    { t: 'none', ic: '✋', n: '이동' }, { t: 'pen', ic: '✏️', n: '펜' }, { t: 'hl', ic: '🖍', n: '형광펜' }, { t: 'select', ic: '⤧', n: '선택·이동' }, { t: 'text', ic: 'T', n: '글자' },
-    { t: 'chord', ic: 'Am', n: '코드' }, { t: 'sym', ic: '♯', n: '기호' }, { t: 'fbox', ic: 'V·C', n: '송폼 라벨' }, { t: 'eraser', ic: '⌫', n: '지우개' }
+    { t: 'none', ic: 'hand', n: '이동' }, { t: 'pen', ic: 'pen', n: '펜' }, { t: 'hl', ic: 'hl', n: '형광펜' }, { t: 'select', ic: 'select', n: '선택·이동' }, { t: 'text', ic: 'text', n: '글자' },
+    { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }
   ];
   var current = null;
 
@@ -180,16 +181,16 @@
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '라이브 악보');
     el.innerHTML =
       '<header class="pv-top">' +
-        '<button class="pv-b" data-a="close" title="닫기 (Esc)">✕</button>' +
+        '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
         '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
-        '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)">‹</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)">›</button></div>' +
-        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">✂ 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
-        '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">📱<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">💻<span class="pv-tx"> 컴퓨터</span></button></div>' +
+        '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)" aria-label="다음 쪽">' + I('next') + '</button></div>' +
+        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + ' 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">' + I('spread') + ' 두 쪽</button></div>' +
+        '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
-        '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + (doc.documentElement.getAttribute('data-theme') === 'light' ? '🌙' : '☀️') + '</button>' +
-        '<button class="pv-b pv-pdfbtn" data-a="pdf" title="필기가 들어간 악보 전체를 PDF 한 파일로 저장" aria-label="필기 포함 PDF 저장">⬇<span class="pv-tx"> PDF</span></button><button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false">⛶</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
-        '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">🛠</span><span class="nm">메뉴</span></button>' +
-        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-expanded="false" aria-label="보기 메뉴 (확대 · 여백 · 화면 배치)" title="확대 · 여백 · 두 쪽 · 화면 배치">⋯</button>' +
+        '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + I(doc.documentElement.getAttribute('data-theme') === 'light' ? 'moon' : 'sun') + '</button>' +
+        '<button class="pv-b pv-pdfbtn" data-a="pdf" title="필기가 들어간 악보 전체를 PDF 한 파일로 저장" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-tx"> PDF</span></button><button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
+        '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">' + I('sliders') + '</span><span class="nm">메뉴</span></button>' +
+        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-expanded="false" aria-label="보기 메뉴 (확대 · 여백 · 화면 배치)" title="확대 · 여백 · 두 쪽 · 화면 배치">' + I('more') + '</button>' +
       '</header>' +
       '<div class="pv-morepop" role="group" aria-label="보기 메뉴"></div>' +
       '<div class="pv-rtpop" role="dialog" aria-label="실시간 메뉴" hidden></div>' +
@@ -201,14 +202,14 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">✕ 나가기</button><button class="pv-b" data-a="prev" title="이전 쪽">‹</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽">›</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">✏️ 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">☰ 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 쪽" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽" aria-label="다음 쪽">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
-        '<div class="pv-dh"><b>🛠 도구 메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">✕</button></div>' +
+        '<div class="pv-dh"><b>' + I('sliders') + '도구 메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
         '<section class="pv-ds"><h5>보기</h5><div class="pv-dslot" data-slot="view"></div></section>' +
         '<section class="pv-ds"><h5>필기 도구</h5><div class="pv-dslot" data-slot="tools"></div></section>' +
-        '<section class="pv-ds"><h5>저장</h5><div class="pv-dslot"><button type="button" class="pv-btn2" data-a="pdf">⬇ 필기 포함 PDF 저장 (악보 전체 한 파일)</button></div></section>' +
-        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">🎛 메트로놈 · 시작음 · 함께 (패널 열기)</button></div></section>' +
+        '<section class="pv-ds"><h5>저장</h5><div class="pv-dslot"><button type="button" class="pv-btn2" data-a="pdf">' + I('download') + ' 필기 포함 PDF 저장 (악보 전체 한 파일)</button></div></section>' +
+        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">' + I('metronome') + ' 메트로놈 · 시작음 · 함께 (패널 열기)</button></div></section>' +
       '</aside>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
     function $(sel) { return el.querySelector(sel); }
@@ -249,7 +250,7 @@
       open = !!open && S.compact;
       el.classList.toggle('pv-drawopen', open); drawerEl.setAttribute('aria-hidden', open ? 'false' : 'true');
       menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); menuBtn.setAttribute('aria-label', open ? '도구 메뉴 닫기' : '도구 메뉴 열기');
-      menuBtn.querySelector('.ic').textContent = open ? '✕' : '🛠'; menuBtn.querySelector('.nm').textContent = open ? '닫기' : '메뉴';
+      menuBtn.querySelector('.ic').innerHTML = I(open ? 'close' : 'sliders'); menuBtn.querySelector('.nm').textContent = open ? '닫기' : '메뉴';
       if (open) { el.classList.remove('pv-sideopen'); try { drawerEl.querySelector('.pv-dclose').focus({ preventScroll: true }); } catch (e) {} }
     }
     function setCompact(on) {
@@ -294,7 +295,7 @@
       try { if (!show && typeof placePill === 'function') placePill(); else if (show && FL.tools) requestAnimationFrame(function () { flPlace('tools'); }); } catch (e) {}
       toolsBtn.setAttribute('aria-pressed', show ? 'true' : 'false');
       toolsBtn.setAttribute('aria-label', show ? '필기 도구 숨기기' : '필기 도구 보이기');
-      toolsBtn.querySelector('.ic').textContent = show ? '▴' : '✏️';
+      toolsBtn.querySelector('.ic').innerHTML = I(show ? 'up' : 'pen');
       toolsBtn.querySelector('.nm').textContent = show ? '도구' : '도구 열기';
       if (save) ls('tools', show ? '1' : '0');
       renderSoon(60);            // 넓어진(좁아진) 칸에 맞춰 악보를 다시 그림
@@ -869,7 +870,7 @@
       if (ytBox) { closeYt(); return; }
       try { root.YNAudioShift && root.YNAudioShift.closeDialog && root.YNAudioShift.closeDialog(); } catch (e) {}          // 키 바꿔 듣기 카드가 열려 있으면 닫음 (소리가 겹치지 않게)
       ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog'); ytBox.setAttribute('aria-label', '유튜브 참고 영상');
-      ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">✕</button></div><div class="pv-ytbody"></div>';
+      ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="pv-ytbody"></div>';
       ytBox.querySelector('.pv-yth button').onclick = closeYt;
       el.appendChild(ytBox);
       var body = ytBox.querySelector('.pv-ytbody');
@@ -949,7 +950,7 @@
       host: box, canvas: annoCv, me: opts.me || '', canEdit: !!opts.canEdit,
       sawPen: ls('sawpen') === '1', onPenSeen: function () { ls('sawpen', '1'); },                    // 이 기기에서 펜슬을 한 번 쓴 적이 있으면 처음부터 손가락 필기를 막음 (손바닥 방지) — 필기 탭의 "펜 입력"에서 바꿀 수 있음
       onToolSwap: function (to, from, via) { swapTool(to, via); },
-      onAutoSelect: function () { setTool('select', true); toast('✋ 선택·이동 모드 — 다시 쓰려면 도구를 누르세요', false, 1400); },
+      onAutoSelect: function () { setTool('select', true); toast('선택·이동 모드 — 다시 쓰려면 도구를 누르세요', false, 1400); },
       onAdd: function (layer, it) { annoSend(layer, it, 'add'); }, onDel: function (layer, id) { annoSend(layer, { id: id }, 'del'); },
       onClear: function (layer, ids, pg, all) { annoClear(layer, ids, pg, all); },
       onLive: function (m) { if (rt && rt.online) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
@@ -1165,7 +1166,7 @@
       var t = { online: '● 실시간 연결됨 — ' + (rt ? rt.peers.length : 0) + '명 접속 중', connecting: '○ 연결하는 중…', offline: '○ 연결이 끊겼습니다 (자동으로 다시 연결)', unavailable: '○ 혼자 보기 — 실시간을 쓸 수 없습니다', denied: '✕ 이 예배에 접속할 권한이 없습니다', idle: '○ 준비 중' }[st] || st;
       var x = '<div class="pv-rt-st ' + st + '">' + h(t) + '</div>';
       if (on) {
-        x += '<div class="pv-rt-sec"><b>📄 페이지 리드</b><small>' + (mine ? '내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 리드 중입니다.' : '아직 리드하는 사람이 없습니다.') + '</small>' +
+        x += '<div class="pv-rt-sec"><b>' + YI('page') + ' 페이지 리드</b><small>' + (mine ? '내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 리드 중입니다.' : '아직 리드하는 사람이 없습니다.') + '</small>' +
           (can ? (mine ? '<button type="button" class="pv-btn2" data-r="release">리드 내려놓기</button>' : lead ? '<button type="button" class="pv-btn2 warn" data-r="force">리드 넘겨받기</button>' : '<button type="button" class="pv-btn2 primary" data-r="claim">📄 내가 페이지 리드하기</button>') : '<small>팀장 · 인도자만 리드할 수 있습니다.</small>') + '</div>';
         x += '<div class="pv-rt-sec"><label class="pv-chk"><input type="checkbox" data-r="follow"' + (S.follow ? ' checked' : '') + '> ' + (mine ? '내 페이지 넘김을 팀에 보내기' : '리드하는 화면 따라가기') + '</label>' +
           (!S.follow && lead && !mine ? '<button type="button" class="pv-btn2" data-r="now">리드 화면으로 한 번만 가기</button>' : '') + '</div>';
@@ -1201,14 +1202,14 @@
       var peers = rt ? rt.peers.length : 0;
       if (st === 'online') {
         var ln = rt.leader; lead.style.display = (rt.isLeader || ln) ? '' : 'none';     // v6 — 컨트롤이 없으면 칩을 숨겨 위 막대를 짧게 ("함께" 탭에서 맡기)
-        lead.textContent = rt.isLeader ? '📄 내가 페이지 컨트롤' : ln ? '📄 ' + ln : '페이지 컨트롤 없음'; lead.className = 'pv-chip pv-lead' + (rt.isLeader ? ' me' : ln ? ' has' : '');
+        lead.innerHTML = rt.isLeader ? I('page') + '내가 페이지 컨트롤' : ln ? I('page') + h(ln) : '페이지 컨트롤 없음'; lead.className = 'pv-chip pv-lead' + (rt.isLeader ? ' me' : ln ? ' has' : '');
         lead.title = peers + '명 접속 중 — 눌러서 페이지 컨트롤 · 클릭 컨트롤 · 동기화 설정 열기';
         var cn = rt.clicker;
-        clk.style.display = 'none'; clk.textContent = rt.isClicker ? '🎚 내가 클릭 컨트롤' : cn ? '🎚 ' + cn : '클릭 컨트롤 없음'; clk.className = 'pv-chip pv-click' + (rt.isClicker ? ' me' : cn ? ' has' : '');
+        clk.style.display = 'none'; clk.innerHTML = rt.isClicker ? I('metronome') + '내가 클릭 컨트롤' : cn ? I('metronome') + h(cn) : '클릭 컨트롤 없음'; clk.className = 'pv-chip pv-click' + (rt.isClicker ? ' me' : cn ? ' has' : '');
         clk.title = '메트로놈(클릭)을 조절하는 사람 — 눌러서 설정 열기';
       } else { lead.style.display = 'none'; clk.style.display = 'none'; }
       if (st === 'online' && S.manual && !(rt.leader && !rt.isLeader)) {      // v6 — 수동 = 페이지 따라가기 끔. 컨트롤이 있으면 아래에서 "컨트롤 N쪽" 안내
-        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.textContent = '⛔ 페이지 따라가기 꺼짐'; fol.setAttribute('aria-pressed', 'false');
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.textContent = '페이지 따라가기 꺼짐'; fol.setAttribute('aria-pressed', 'false');
         fol.title = '눌러서 동기화 다시 켜기';
       } else if (st === 'online' && rt.leader && !rt.isLeader) {
         fol.style.display = ''; fol.className = 'pv-chip pv-follow ' + (S.follow ? 'on' : 'off'); fol.title = '페이지 컨트롤 화면 따라가기 켜기/끄기';
@@ -1218,7 +1219,7 @@
       } else fol.style.display = 'none';
       if (folm) {                                                         // v6 — 메트로놈 따라가기 칩은 없앰
         if (false) {
-          folm.style.display = ''; folm.className = 'pv-chip pv-followm ' + (S.followM ? 'on' : 'off'); folm.textContent = S.followM ? '🎚 메트로놈 따라감' : '🎚 메트로놈 따라가기 꺼짐';
+          folm.style.display = ''; folm.className = 'pv-chip pv-followm ' + (S.followM ? 'on' : 'off'); folm.innerHTML = YI('metronome') + (S.followM ? ' 메트로놈 따라감' : ' 메트로놈 따라가기 꺼짐');
           folm.title = '클릭 컨트롤의 메트로놈 따라가기 켜기/끄기'; folm.setAttribute('aria-pressed', S.followM ? 'true' : 'false');
         } else folm.style.display = 'none';
       }
@@ -1278,7 +1279,7 @@
     /** 펜 ↔ 지우개 빠른 전환 (펜 끝으로 같은 자리를 두 번 톡 · 펜 옆 버튼) — 도구 막대의 단추를 누른 것과 똑같이 바꿉니다 */
     function swapTool(to, via) {
       setTool(to);
-      toast(to === 'eraser' ? '🧽 지우개로 전환 — 같은 방법으로 다시 톡톡 치면 펜으로 돌아옵니다' : '✏️ 펜으로 돌아왔습니다', false, 1600);
+      toast(to === 'eraser' ? '지우개로 전환 — 같은 방법으로 다시 톡톡 치면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
     }
     function setTool(t, fromAnno) {
       S.tool = t; if (!fromAnno) an.setTool(t);
@@ -1305,25 +1306,25 @@
         '<div class="pv-fl"><span>크기</span><span class="pv-num" role="group" aria-label="글자 크기">' +
           '<input type="number" inputmode="numeric" pattern="[0-9]*" data-fsz min="' + rng[0] + '" max="' + rng[1] + '" step="1" value="' + Math.round(fsz * 1000) + '" aria-label="크기 숫자"' + lock + '>' +
           '<span class="pv-numbtns"><button type="button" class="pv-nb" data-step="1" aria-label="크기 키우기" title="크기 키우기"' + lock + '>▲</button><button type="button" class="pv-nb" data-step="-1" aria-label="크기 줄이기" title="크기 줄이기"' + lock + '>▼</button></span></span></div>' +
-        (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">🗑</span><span class="nm">지우기</span></button>' : '') + '</div>';
+        (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + '</div>';
       if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택하세요. 선택한 뒤 끌면 옮겨집니다.</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
       var colRow = S.tool === 'select' && !sel ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' :
         '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
-        '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">▴</span><span class="nm">접기</span></button>' +
-        '<div class="pv-tg">' + TOOLS.map(function (t) { return '<button class="pv-tool' + (S.tool === t.t ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + (S.tool === t.t) + '"><span class="ic">' + t.ic + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
+        '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
+        '<div class="pv-tg">' + TOOLS.map(function (t) { return '<button class="pv-tool' + (S.tool === t.t ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + (S.tool === t.t) + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         colRow +
         fontRow +
         fbRow +
         (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[sizeKey()] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>') +
-        '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">↶</span><span class="nm">취소</span></button>' +
-          '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">↷</span><span class="nm">다시</span></button>' +
-          '<button class="pv-tool sm pv-sec" data-a="clearpg" title="현재 페이지에 내가 쓴 필기 지우기"><span class="ic">🗑</span><span class="nm">현재 페이지</span></button></div>' +
-        '<button type="button" class="pv-dk" data-a="dockmore" aria-pressed="' + (S.dockMore ? 'true' : 'false') + '" aria-expanded="' + (S.dockMore ? 'true' : 'false') + '" title="더 보기 — 색 · 굵기 · 글꼴" aria-label="더 보기"><span class="ic">⋯</span><span class="nm">더 보기</span></button>' +
+        '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">' + I('undo') + '</span><span class="nm">취소</span></button>' +
+          '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">' + I('redo') + '</span><span class="nm">다시</span></button>' +
+          '<button class="pv-tool sm pv-sec" data-a="clearpg" title="현재 페이지에 내가 쓴 필기 지우기"><span class="ic">' + I('trash') + '</span><span class="nm">현재 페이지</span></button></div>' +
+        '<button type="button" class="pv-dk" data-a="dockmore" aria-pressed="' + (S.dockMore ? 'true' : 'false') + '" aria-expanded="' + (S.dockMore ? 'true' : 'false') + '" title="더 보기 — 색 · 굵기 · 글꼴" aria-label="더 보기"><span class="ic">' + I('more') + '</span><span class="nm">더 보기</span></button>' +
         '<div class="pv-tg pv-pills pv-sec"><label class="pv-mineonly' + (S.layer === 'mine' ? ' on' : '') + '" title="체크하면 나에게만 보입니다. 체크하지 않으면(기본) 팀 모두의 화면에 실시간으로 나타납니다."><input type="checkbox" data-a="mineonly"' + (S.layer === 'mine' ? ' checked' : '') + '><span>나만 보기</span></label>' +
-          '<button class="pv-pill scope" data-a="scope" title="필기가 어디에 붙나요? (눌러서 바꾸기)">' + (S.scope === 'date' && S.room ? '📅 이 날짜만' : '📌 곡에 계속') + '</button></div>';
+          '<button class="pv-pill scope" data-a="scope" title="필기가 어디에 붙나요? (눌러서 바꾸기)">' + (S.scope === 'date' && S.room ? I('calendar') + '이 날짜만' : I('pin') + '곡에 계속') + '</button></div>';
       try { P.emit('toolsrender', toolsEl); } catch (e) { /* 라이브 컨트롤이 안 붙어도 도구는 그대로 */ }
     }
     toolsEl.addEventListener('click', function (e) {
@@ -1432,7 +1433,7 @@
     el.addEventListener('change', function (e) { if (e.target && e.target.type === 'range') paintRanges(); }, true);
     function buildTabs() {
       try { P.tabs = root.YNPanels ? root.YNPanels.build(P) : []; } catch (e) { P.tabs = []; toast('패널을 불러오지 못했습니다: ' + e.message, true); }
-      tabsEl.innerHTML = P.tabs.map(function (t) { return '<button class="pv-tabbtn" role="tab" data-tab="' + t.id + '"><span>' + t.icon + '</span>' + h(t.label) + '</button>'; }).join('');
+      tabsEl.innerHTML = P.tabs.map(function (t) { return '<button class="pv-tabbtn" role="tab" data-tab="' + t.id + '"><span>' + (I(t.icon) || t.icon) + '</span>' + h(t.label) + '</button>'; }).join('');
       panesEl.innerHTML = P.tabs.map(function (t) { return '<div class="pv-pane" data-pane="' + t.id + '" style="display:none"></div>'; }).join('');
     }
     tabsEl.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.pv-tabbtn') : null; if (b) showTab(b.dataset.tab); });
@@ -1489,7 +1490,7 @@
       else if (a === 'theme') {                                                  // v6.3 — 라이브 악보도 ☀️ / 🌙 (포털 · 허브와 같은 설정)
         var toLight = doc.documentElement.getAttribute('data-theme') !== 'light';
         try { if (window.YNTheme && window.YNTheme.set) window.YNTheme.set(toLight ? 'light' : 'dark', b); else { if (toLight) doc.documentElement.setAttribute('data-theme', 'light'); else doc.documentElement.removeAttribute('data-theme'); localStorage.setItem('ynTheme', toLight ? 'light' : 'dark'); } } catch (e) {}
-        b.textContent = toLight ? '🌙' : '☀️';
+        b.innerHTML = I(toLight ? 'moon' : 'sun');
       }
       else if (a === 'fs') setFs(!S.fs); else if (a === 'fs-bar') fsBar(!el.classList.contains('pv-fsbar-on')); else if (a === 'fs-tools') { setTools(el.classList.contains('pv-toolshide'), false); fsBar(true); } else if (a === 'fs-panel') { toggleSide(); fsBar(true); }
       else if (a === 'pdf') exportPdf(false); else if (a === 'rtmenu') rtOpen(rtPop.hidden); else if (a === 'panel') toggleSide(); else if (a === 'follow') { if (S.manual) setManual(false); else setFollow(!S.follow); } else if (a === 'followm') setFollowM(!S.followM); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
@@ -1776,7 +1777,7 @@
       toolsBtn.style.top = Math.round(clamp(y, A.y, A.y + Math.max(0, A.h - (toolsBtn.offsetHeight || 44)))) + 'px';
     }
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
-    var SHOWS = [['timer', '⏱', '예배 타이머'], ['form', '🎼', '송폼 · 곡 정보'], ['metro', '🥁', '메트로놈']];
+    var SHOWS = [['timer', 'timer', '예배 타이머'], ['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];
     function showOn(k) { return ls('show.' + k) !== '0'; }
     function paintShows() {
       SHOWS.forEach(function (s) {
@@ -1785,13 +1786,13 @@
       });
     }
     var fltGrp = doc.createElement('div'); fltGrp.className = 'pv-grp pv-flts'; fltGrp.setAttribute('role', 'group'); fltGrp.setAttribute('aria-label', '떠 있는 창 보이기');
-    fltGrp.innerHTML = SHOWS.map(function (s) { return '<button type="button" class="pv-b pv-flt" data-k="' + s[0] + '" aria-pressed="true" aria-label="' + s[2] + '">' + s[1] + '</button>'; }).join('');
+    fltGrp.innerHTML = SHOWS.map(function (s) { return '<button type="button" class="pv-b pv-flt" data-k="' + s[0] + '" aria-pressed="true" aria-label="' + s[2] + '" title="' + s[2] + '">' + I(s[1]) + '</button>'; }).join('');
     $('.pv-top').insertBefore(fltGrp, $('.pv-fsbtn'));
     fltGrp.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('.pv-flt') : null; if (!b) return;
       var k = b.getAttribute('data-k'), on = !showOn(k); ls('show.' + k, on ? '1' : '0'); paintShows();
       if (on) requestAnimationFrame(function () { flPlace(k); });
-      toast((SHOWS.filter(function (s) { return s[0] === k; })[0] || [])[2] + (on ? ' 보이기' : ' 숨김') + (on ? '' : ' — 위의 ' + b.textContent + ' 로 다시 켭니다'), false, 1400);
+      toast((SHOWS.filter(function (s) { return s[0] === k; })[0] || [])[2] + (on ? ' 보이기' : ' 숨김') + (on ? '' : ' — 위 막대의 같은 단추로 다시 켭니다'), false, 1400);
     });
     /* 송폼 · 곡 정보 창 (악보 본문 대신 떠 있는 카드) */
     var formEl = doc.createElement('div'); formEl.className = 'pv-form'; formEl.setAttribute('aria-live', 'polite');

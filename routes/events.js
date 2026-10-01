@@ -10,6 +10,7 @@ const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 
+const ui = require('../lib/uiIcons');
 const router = express.Router();
 const esc = pageShell.esc;
 
@@ -41,7 +42,7 @@ async function specialServices(team) {
 function eventItem(s, team, isAdmin) {
   return `<div class="ph-list-item">
     <div class="ph-li-main">
-      <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(s['ID'])}">🎪 ${esc(s['이름'])} 콘티 보기 →</a>
+      <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(s['ID'])}">${esc(s['이름'])} 콘티 보기 →</a>
       <div class="ph-li-sub">${esc(week.labelKo(s['날짜']))}</div>
     </div>
     ${isAdmin ? `<details class="ph-row-edit">
@@ -54,7 +55,7 @@ function eventItem(s, team, isAdmin) {
       </form>
       <form method="post" action="/events/delete" onsubmit="return confirm('${esc(s['이름'])}(${esc(s['날짜'])}) 표시를 지울까요? (콘티 내용 자체는 안 지워져요)')">
         <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}">
-        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">✕ 이 행사 삭제</button>
+        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">${ui.icon('close')} 이 행사 삭제</button>
       </form>
     </details>` : ''}
   </div>`;

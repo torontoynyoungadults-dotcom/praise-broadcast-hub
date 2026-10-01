@@ -124,7 +124,7 @@ function pickGroups(p, picked, off, fn) {
     var on = picked.indexOf(m.name) !== -1;
     var why = off[m.name];
     return '<button type="button" class="pick' + (on ? ' on' : '') + (why ? ' off' : '') +
-      '" onclick="' + fn + '(\'' + esc(jsq(m.name)) + '\')">' + face(m.name) + esc(m.name) +
+      '" onclick="' + fn + '(\'' + esc(jsq(m.name)) + '\')">' + face(m.name) + esc(dispName(m.name)) +
       (why ? '<i>' + esc(why) + '</i>' : (m.role ? '<i>' + esc(m.role.split(' · ')[0]) + '</i>' : '')) + '</button>';
   }
   function group(label, list, cls) {
@@ -236,7 +236,7 @@ function recCard(r, date, compact) {
 
 var ST = { rows: null, mine: [], hl: '', pick: null, cell: null, range: 'next3',
   // 기본은 카드, 한눈에 넓게 보려면 테이블로 바꿔 볼 수 있습니다
-  view: 'card' };
+  view: 'table' };
 
 var ST_RANGES = [['next3', '앞으로 3개월'], ['next6', '앞으로 6개월'], ['around', '앞뒤 3개월'], ['past3', '지난 3개월'], ['past6', '지난 6개월'], ['past12', '지난 1년']];
 
@@ -276,7 +276,7 @@ function stSync(w) {
 }
 
 function stTitle(r) {
-  return r.event ? (esc(r.event.kind) + ' · ' + esc(r.event.name)) : fmtDate(r.date) + ' 주일';
+  return r.event ? esc(r.event.name) : fmtDate(r.date) + ' 주일';
 }
 
 function schedTab() {
@@ -296,7 +296,7 @@ function schedTab() {
 
   var head1 = '<tr class="g"><th class="dc" rowspan="2">날짜</th>' +
     groups.map(function (g) { return '<th colspan="' + g[1].length + '">' + g[0] + '</th>'; }).join('') +
-    '<th class="offc" rowspan="2">불가</th></tr>';
+    '<th class="offc" rowspan="2">불가</th>' + stXHead() + '</tr>';
   var head2 = '<tr>' + cols.map(function (p) { return '<th>' + esc(ST_SHORT[p.key] || p.label) + '</th>'; }).join('') + '</tr>';
 
   var lastMonth = '', body = '';
@@ -304,7 +304,7 @@ function schedTab() {
     var mo = r.date.slice(0, 7);
     if (mo !== lastMonth) {
       lastMonth = mo;
-      body += '<tr class="mrow"><td class="dc">' + Number(mo.split('-')[1]) + '월</td><td colspan="' + (cols.length + 1) + '"></td></tr>';
+      body += '<tr class="mrow"><td class="dc">' + Number(mo.split('-')[1]) + '월</td><td colspan="' + (cols.length + 3) + '"></td></tr>';
     }
     var off = offMap(r.off);
     var sel = picking && ST.pick.indexOf(r.key) !== -1;
@@ -312,8 +312,8 @@ function schedTab() {
     var dateCell = '<td class="dc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + (mineOff ? ' mineoff' : '') +
       '" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
       (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
-      (r.event ? '<b>' + md(r.date) + '</b>' : stPracShort(r) + '<b>일 ' + md(r.date) + '</b>') +
-      '<span>' + (r.event ? esc(r.event.kind) : (mineOff ? '나 불가' : '')) + '</span></td>';
+      stPracShort(r) + '<b>' + WD[dt(r.date).getDay()] + ' ' + md(r.date) + '</b>' +
+      '<span class="dcn">' + (r.event ? esc(r.event.name) : '') + (mineOff ? (r.event ? ' · ' : '') + '나 불가' : '') + '</span></td>';
 
     var cells = cols.map(function (p) {
       var names = r.slots[p.key] || [];
@@ -330,28 +330,14 @@ function schedTab() {
       ? r.off.map(function (x) { return '<span class="tn off' + (x.name === ST.hl ? ' hl' : '') + '" title="' + esc(x.name + ' — ' + x.reason) + '">' + esc(shortName(x.name)) + '</span>'; }).join('')
       : '') + '</td>';
 
-    body += '<tr class="r' + (r.event ? ' evr' : '') + '">' + dateCell + cells + offCell + '</tr>';
+    body += '<tr class="r' + (r.event ? ' evr' : '') + '">' + dateCell + cells + offCell + stXCells(r) + '</tr>';
   });
 
   var people = D.members.map(function (m) { return m.name; });
   var hlSel = '<select class="hlsel" onchange="ST.hl=this.value;render();">' +
     '<option value="">사람 강조 없음</option>' +
-    people.map(function (n) { return '<option value="' + esc(n) + '"' + (n === ST.hl ? ' selected' : '') + '>' + esc(n) + (n === D.who ? ' (나)' : '') + '</option>'; }).join('') +
+    people.map(function (n) { return '<option value="' + esc(n) + '"' + (n === ST.hl ? ' selected' : '') + '>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'; }).join('') +
     '</select>';
-
-  var mine = '';
-  if (D.who) {
-    mine = '<div class="panel"><div class="sechead"><span class="chip">내가 안 되는 날</span>' +
-        (picking ? '' : '<button class="btn mini accent" onclick="ST.pick=[];render();">＋ 날짜 고르기</button>') + '</div>' +
-      (ST.mine.length
-        ? ST.mine.map(function (x) {
-            return '<div class="offrow"><span class="od">' + (x.label ? esc(x.label) : fmtDate(x.date)) + '</span>' +
-              '<span class="or">' + esc(x.reason) + '</span>' +
-              '<button class="btn mini" onclick="clearOff(\'' + esc(jsq(x.date)) + '\')">해제</button></div>';
-          }).join('')
-        : '<p class="empty">표시해 둔 날이 없습니다. 안 되는 날을 미리 적어두면 팀장 · 인도자가 편성할 때 바로 보입니다.</p>') +
-      '</div>';
-  }
 
   var bar = picking
     ? '<div class="stbar"><div class="stbar-in">' +
@@ -371,7 +357,7 @@ function schedTab() {
     return '<option value="' + x[0] + '"' + (ST.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>';
   }).join('') + '</select>';
 
-  return '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + viewSeg + '</div>' +
+  return '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + stOffBtn(picking) + viewSeg + '</div>' + stMinePanel(picking) +
       '<div class="sttools">' + rangeSel + hlSel + '</div>' +
       '<div class="docbar" style="margin:0 4px 8px;">' + docBtn('스케줄표 PDF 미리보기 · 다운로드', 'hubDoc(\'hubScheduleDoc\',[TOKEN,ST.range],\'stDocMsg\')') + '<p class="msg docmsg" id="stDocMsg"></p></div>' +
       '<p class="hint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.'
@@ -382,7 +368,7 @@ function schedTab() {
       (ST.view === 'card' ? stCards(groups, kn, picking, mineSet)
         : '<div class="stwrap"><table class="st"><thead>' + head1 + head2 + '</thead><tbody>' + body + '</tbody></table></div>') +
       '<p class="msg" id="stMsg"></p>' +
-    '</div>' + mine;
+    '</div>';
 }
 
 function stCards(groups, kn, picking, mineSet) {
@@ -398,9 +384,8 @@ function stCards(groups, kn, picking, mineSet) {
     out += '<div class="stc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + '">' +
       '<button type="button" class="stch" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
         (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
-        (r.event ? '<b>' + md(r.date) + '</b><span class="wd">' + WD[d.getDay()] + '</span>'
-                 : stPracHtml(r) + '<b>' + md(r.date) + '</b><span class="wd">(주일)</span>') +
-        (r.event ? '<span class="evtag">' + esc(r.event.kind) + '</span><span class="evn">' + esc(r.event.name) + '</span>' : '') +
+        stPracHtml(r) + '<b>' + md(r.date) + '</b><span class="wd">' + (r.event ? WD[d.getDay()] : '(주일)') + '</span>' +
+        (r.event ? '<span class="evn">' + esc(r.event.name) + '</span>' : '') +
         '<span class="sp"></span>' +
         (mineOff ? '<span class="mo">나 불가</span>' : '') +
         (r.off.length ? '<span class="oc">불가 ' + r.off.length + '</span>' : '') +
@@ -418,7 +403,7 @@ function stCards(groups, kn, picking, mineSet) {
         }).join('') + '</div>';
       }).join('') +
       (r.off.length ? '<div class="stoff">불가 · ' + r.off.map(function (x) {
-        return '<b>' + esc(x.name) + '</b> ' + esc(x.reason);
+        return '<b>' + esc(dispName(x.name)) + '</b> ' + esc(x.reason);
       }).join(' · ') + '</div>' : '') +
     '</div>';
   });
@@ -434,7 +419,7 @@ function stDay(key) {
     return g[1].map(function (p) {
       var names = r.slots[p.key] || [];
       return '<div class="yc-r"><span class="stpl">' + esc(p.label) + '</span><div class="v">' +
-        (names.length ? names.map(function (n) { return '<span class="nm' + (off[n] ? ' off' : '') + '">' + face(n) + esc(n) + '</span>'; }).join(' ')
+        (names.length ? names.map(function (n) { return '<span class="nm' + (off[n] ? ' off' : '') + '">' + face(n) + esc(dispName(n)) + '</span>'; }).join(' ')
                       : '<span class="tbd">미정</span>') + '</div></div>';
     }).join('');
   }).join('');
@@ -442,7 +427,7 @@ function stDay(key) {
   var html = '<div class="yc-h"><h3>' + stTitle(r) + '</h3></div>' +
     (r.event ? '<p class="stsub">' + esc(fmtRange(r.event.date, r.event.endDate)) + (r.event.place ? ' · ' + esc(r.event.place) : '') + '</p>' : '') +
     (r.verse ? '<div class="verse" style="margin-bottom:10px;"><div class="vq">' + esc(r.verse) + '</div></div>' : '') +
-    (r.off.length ? '<div class="offbar"><b>불가</b><br>' + r.off.map(function (x) { return esc(x.name) + ' — ' + esc(x.reason); }).join('<br>') + '</div>' : '') +
+    (r.off.length ? '<div class="offbar"><b>불가</b><br>' + r.off.map(function (x) { return esc(dispName(x.name)) + ' — ' + esc(x.reason); }).join('<br>') + '</div>' : '') +
     lines + stPracBox(r) +
     (D.who
       ? (mine
@@ -976,7 +961,7 @@ function arDays() {
 }
 
 function arTitle(d) {
-  return d.event ? '<span class="evtag">' + esc(d.event.kind) + '</span>' + esc(d.event.name)
+  return d.event ? esc(d.event.name)
                  : esc(d.date.replace(/-/g, '.')) + ' 주일';
 }
 

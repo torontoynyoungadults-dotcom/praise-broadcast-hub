@@ -682,7 +682,7 @@
     host.innerHTML =
       '<div class="hm">' +
       '<div class="pv-sec"><h4>① 악보 분석 — 코드 · 오선 · 멜로디</h4>' +
-        '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="an-page">🔍 이 페이지 분석</button><button type="button" class="pv-btn2" data-a="an-all">전체 페이지 분석</button></div>' +
+        '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="an-page">' + YI('search') + ' 이 페이지 분석</button><button type="button" class="pv-btn2" data-a="an-all">전체 페이지 분석</button></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="ocr"><span></span><b>PDF 글자 대신 OCR 로 읽기</b></label>' +
         '<div class="hm-stat" role="status" aria-live="polite"></div>' +
         '<p class="pv-help">PDF 는 글자층에서 코드와 위치를 정확히 읽습니다. 글자가 없는 스캔 · 사진 악보는 OCR(처음 한 번 도구를 내려받음)로 읽습니다. 오선이 반듯한 악보일수록 멜로디 인식이 잘 됩니다.</p></div>' +
@@ -699,10 +699,10 @@
         '<p class="pv-help">알토는 멜로디 3도 아래(높으면 위 6도), 테너는 아래 6도 · 옥타브 · 안쪽 화음음을 코드음 안에서 골라, 앞뒤 도약과 병행 5도/8도를 피하도록 곡 전체를 함께 계산합니다. 표시는 인쇄된 악보의 조(원래 조) 기준입니다.</p></div>' +
       '<div class="pv-sec"><h4>④ 손으로 고치기</h4>' +
         '<div class="hm-seg" role="group" aria-label="고치기 방식"><button type="button" data-mode="view">보기</button><button type="button" data-mode="harmony">화음</button><button type="button" data-mode="melody">멜로디</button><button type="button" data-mode="chord">코드</button></div>' +
-        '<div class="hm-seg hm-sub" data-sub="melody" style="display:none" role="group" aria-label="멜로디 도구"><button type="button" data-sub="move">이동</button><button type="button" data-sub="add">＋ 추가</button><button type="button" data-sub="del">🗑 지우기</button></div>' +
+        '<div class="hm-seg hm-sub" data-sub="melody" style="display:none" role="group" aria-label="멜로디 도구"><button type="button" data-sub="move">이동</button><button type="button" data-sub="add">＋ 추가</button><button type="button" data-sub="del">' + YI('trash') + ' 지우기</button></div>' +
         '<div class="hm-seg hm-sub" data-sub="chord" style="display:none" role="group" aria-label="코드 도구"><button type="button" data-sub="edit">고치기 · 지우기</button><button type="button" data-sub="add">＋ 추가</button></div>' +
         '<div class="hm-sel" style="display:none"></div>' +
-        '<div class="pv-row"><button type="button" class="pv-btn2" data-a="undo">↶ 되돌리기</button></div>' +
+        '<div class="pv-row"><button type="button" class="pv-btn2" data-a="undo">' + YI('undo') + ' 되돌리기</button></div>' +
         '<p class="pv-help hm-modehelp"></p></div>' +
       '<div class="pv-sec"><h4>⑤ 화음 미리듣기</h4>' +
         '<div class="pv-row" style="align-items:center"><button type="button" class="pv-btn2 primary" data-a="play" style="min-width:190px">▶ 화음 미리듣기</button><label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800">BPM <input class="hm-num" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="3" data-o="bpm" aria-label="BPM"></label></div>' +
@@ -710,7 +710,7 @@
         '<div class="hm-keys" style="margin-top:10px;grid-template-columns:1fr 1fr"><label>소리 높이<select class="pv-sel" data-o="keymode" aria-label="미리듣기 조"><option value="target">목표 조로 듣기</option><option value="orig">원래 조로 듣기</option></select></label><label>음량<input type="range" min="10" max="150" data-o="vol" aria-label="음량"></label></div>' +
         '<p class="pv-help">음 길이는 음표 모양(빈 머리 · 줄기 · 꼬리 · 점)으로 짐작하므로 실제 리듬과 다를 수 있습니다. 화음을 끌어 옮기는 동안에도 그 음이 들립니다.</p></div>' +
       '<div class="pv-sec hm-staffs" style="display:none"><h4>멜로디로 쓸 오선 (이 페이지)</h4><div class="hm-stafflist"></div><p class="pv-help">피아노 반주(큰 보표)의 아래 줄이 멜로디로 읽히면 체크를 끄세요.</p></div>' +
-      '<div class="pv-sec"><div class="pv-row"><button type="button" class="pv-btn2" data-a="png">🖼 바뀐 코드·화음 넣은 그림 저장 (이 페이지)</button></div></div>' +
+      '<div class="pv-sec"><div class="pv-row"><button type="button" class="pv-btn2" data-a="png">' + YI('image') + ' 바뀐 코드·화음 넣은 그림 저장 (이 페이지)</button></div></div>' +
       '</div>';
     var $ = function (sel) { return host.querySelector(sel); };
     var statEl = $('.hm-stat'), semisEl = $('.hm-semis'), selEl = $('.hm-sel'), helpEl = $('.hm-modehelp'), selOrig = $('[data-o=orig]'), selTarget = $('[data-o=target]'), songBtn = $('[data-a=song-key]');
@@ -763,7 +763,7 @@
           info = '<b style="color:' + (sel.kind === 'alto' ? COL.alto : COL.tenor) + '">' + (sel.kind === 'alto' ? '알토' : '테너') + '</b> ' + HC.staffPitchName(mid, S.okey) + ' · 멜로디 ' + HC.staffPitchName(nt.midi, S.okey) + '의 ' + HC.intervalName(nt.midi, mid) + (nt.chord ? ' · 코드 ' + h(nt.chord.text) : '') + (nt.nct ? ' · 멜로디가 코드음이 아님' : '') + (ed ? ' · <b>손으로 고침</b>' : '') +
             '<div class="pv-row"><button type="button" class="pv-btn2" data-a="nudge-" aria-label="반음 내리기">♭ 반음↓</button><button type="button" class="pv-btn2" data-a="nudge+" aria-label="반음 올리기">♯ 반음↑</button>' + (ed ? '<button type="button" class="pv-btn2" data-a="reset-sel">자동값으로</button>' : '') + '</div>';
         } else if (nt && sel.kind === 'melody') {
-          info = '<b style="color:' + COL.mel + '">멜로디</b> ' + HC.staffPitchName(nt.midi, S.okey) + (nt.chord ? ' · 코드 ' + h(nt.chord.text) : '') + '<div class="pv-row"><button type="button" class="pv-btn2 warn" data-a="del-sel">🗑 이 음표 지우기</button></div>';
+          info = '<b style="color:' + COL.mel + '">멜로디</b> ' + HC.staffPitchName(nt.midi, S.okey) + (nt.chord ? ' · 코드 ' + h(nt.chord.text) : '') + '<div class="pv-row"><button type="button" class="pv-btn2 warn" data-a="del-sel">' + YI('trash') + ' 이 음표 지우기</button></div>';
         }
       }
       selEl.style.display = info ? '' : 'none'; selEl.innerHTML = info;

@@ -527,7 +527,7 @@
         '<label class="yt-setrow"><input type="checkbox" data-c="svcOn"> <span>예배 시작 시각</span> <input class="yt-in yt-tm" type="time" data-c="svc" step="60"></label>' +
         '<label class="yt-setrow"><input type="checkbox" data-c="pracOn"> <span>연습 종료 시각</span> <input class="yt-in yt-tm" type="time" data-c="prac" step="60"></label>' +
         '<p class="yt-sethelp">이 기기에만 저장됩니다. 켜 두면 위 막대에 "몇 분 남았는지" 가 나옵니다.</p></div>' +
-      '<div class="yt-side"><button type="button" class="yt-ib yt-setb" data-a="cfg" aria-expanded="false" aria-label="시간 설정 (예배 시작 · 연습 종료 시각)" title="예배 시작 · 연습 종료 시각 설정">⚙</button><span class="yt-sync" data-s="connecting" role="status" aria-live="polite"><i></i><b>연결 중</b></span>' +
+      '<div class="yt-side"><button type="button" class="yt-ib yt-setb" data-a="cfg" aria-expanded="false" aria-label="시간 설정 (예배 시작 · 연습 종료 시각)" title="예배 시작 · 연습 종료 시각 설정">' + YI('gear') + '</button><span class="yt-sync" data-s="connecting" role="status" aria-live="polite"><i></i><b>연결 중</b></span>' +
         '<button type="button" class="yt-ib yt-minb" data-a="mini" aria-pressed="false" aria-label="작게 보기" title="작게 보기 (예배 경과만) / 크게 보기"><svg class="yt-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>' +
         '<button type="button" class="yt-ib yt-exp" data-a="expand" aria-haspopup="dialog" aria-expanded="false" aria-label="방송 모드 열기" title="방송 모드 (큰 글씨)">' + svg('expand') + '</button></div>' +
       '<div class="yt-toast" role="alert" hidden></div>';

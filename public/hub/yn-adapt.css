@@ -10,31 +10,116 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { b
 .yn.yn-main #body { min-width: 0; }
 
 /* 강조색 — 어두운 화면: 주황 · 밝은 화면: 진한 주황 */
-.yn.yn-main, .yn.yn-portal { --accent: #FF8A3D; --tone-rgb: 255, 138, 61; }
+.yn.yn-main, .yn.yn-portal { --accent: #FFB48A; --tone: #FFB48A; --tone-rgb: 255, 180, 138; --on-tone: #33200F; }
 html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
-  --accent: #E8703C !important; --tone: #E8703C !important; --tone-rgb: 232, 112, 60 !important;
-  --lt-or: #E8703C; --lt-or-ink: #B24A1C; --lt-or-soft: rgba(232, 112, 60, .14); --lt-on-or: #FFFFFF; --lt-ring: 0 0 0 3px rgba(232, 112, 60, .28);
+  --accent: #C46A38 !important; --tone: #C46A38 !important; --tone-rgb: 244, 165, 125 !important; --on-tone: #43220F;
+  --lt-or: #F4A57D; --lt-or-ink: #A8552A; --lt-or-soft: rgba(244, 165, 125, .22); --lt-on-or: #43220F; --lt-ring: 0 0 0 3px rgba(244, 165, 125, .38);
 }
 
 /* 팀 고르기 (팀이 둘 이상일 때) */
 .ph-teamcard { padding: 14px 16px; }
 
-/* ---------- 연습일 (이 앱) — 카드 머리의 "10/2(금) –" 를 눌러 바꿉니다 ---------- */
+/* ---------- 연습일 (이 앱) — 카드 머리의 "연습 10/2(금)" 알약을 눌러 바꿉니다 ---------- */
 .yn .stch .stpr {
-  cursor: pointer; border-radius: 8px; padding: 2px 6px; margin: -2px 2px -2px -6px;
-  text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-color: rgba(var(--tone-rgb), .55);
-  transition: background .15s ease, color .15s ease;
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border-radius: 999px; padding: 3px 9px 3px 8px; margin: 0 8px 0 0;
+  font-size: 12.5px; font-weight: 800; letter-spacing: -.01em; text-decoration: none; white-space: nowrap;
+  background: rgba(var(--tone-rgb), .13); border: 1px solid rgba(var(--tone-rgb), .26);
+  transition: background .15s ease, border-color .15s ease;
 }
-.yn .stch .stpr:hover, .yn .stch .stpr:focus-visible { background: rgba(var(--tone-rgb), .14); color: var(--accent) !important; outline: none; }
+.yn .stch .stpr .prl { font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: .05em; opacity: .75; }
+.yn .stpr .prw { font-style: normal; font-size: 10.5px; font-weight: 800; padding: 0 5px; border-radius: 99px; background: rgba(var(--tone-rgb), .28); margin-left: 1px; }
+.yn .stch .stpr:hover, .yn .stch .stpr:focus-visible { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .5); outline: none; }
 .yn .stch .stpr.set { color: var(--accent) !important; }
-html[data-theme="light"] .yn .stch .stpr { color: #475569 !important; }
-html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #B24A1C !important; }
-html[data-theme="light"] .yn .st .dc .stpr { color: #475569; }
-.yn .stch .stpr.none, .yn .st .stpr.none { opacity: .75; font-style: italic; }
-.yn .st .dc .stpr { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+html[data-theme="light"] .yn .stch .stpr { color: #5B4636 !important; }
+html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #A8552A !important; }
+html[data-theme="light"] .yn .st .dc .stpr { color: #5B4636; }
+.yn .stch .stpr.none, .yn .st .stpr.none { opacity: .72; }
+.yn .st .dc .stpr { cursor: pointer; }
+.yn .st td.dc .sd { font-size: 10.5px; line-height: 1.25; }
+.yn .st td.dc .sd .prw { font-style: normal; padding: 0 4px; border-radius: 99px; background: rgba(var(--tone-rgb), .28); }
+.yn .st td.dc .dcn { font-weight: 800; color: var(--accent); max-width: 92px; margin-inline: auto; overflow-wrap: anywhere; line-height: 1.2; }
+.yn .stch .evn { font-weight: 800; letter-spacing: -.01em; }
 .yn .stprrow .stpl { flex: none; width: 82px; font-size: 13px; font-weight: 800; color: var(--ink-3); }
 .yn .stprrow .v { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .yn .stprrow .stprv.none { color: var(--ink-3); font-style: italic; }
+.yn .stprrow .stprw { flex-basis: 100%; font-size: 12.5px; color: var(--ink-3); }
+
+/* ---------- 연습일 시트 (아래에서 올라오는 흰 창) ---------- */
+.yn .yc-sh .prfri { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 12px; }
+.yn .yc-sh .chipbtn {
+  height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+  color: #4A3426; background: #FAF3EC; border: 1px solid rgba(120, 80, 50, .22);
+}
+.yn .yc-sh .chipbtn:hover { background: #F6E6D8; }
+.yn .yc-sh .prlist { display: grid; gap: 6px; max-height: 232px; overflow: auto; -webkit-overflow-scrolling: touch; padding: 2px; margin: -2px; }
+.yn .yc-sh .prchk {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; border-radius: 13px;
+  background: #FBF8F4; border: 1px solid rgba(26, 25, 23, .12); color: #1A1917;
+}
+.yn .yc-sh .prchk:has(input:checked) { background: #FFF1E6; border-color: rgba(var(--tone-rgb), .6); }
+.yn .yc-sh .prchk.dis { opacity: .42; cursor: not-allowed; }
+.yn .yc-sh .prchk input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--tone, #F2A27C); }
+.yn .yc-sh .prchk .pcn { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.yn .yc-sh .prchk .pcn b { font-size: 14px; font-weight: 800; }
+.yn .yc-sh .prchk .pcn i { font-style: normal; font-size: 12px; color: #7B7068; }
+.yn .yc-sh .prchk .pcs { flex: none; font-style: normal; font-size: 12px; font-weight: 800; color: #9A6240; }
+
+/* ---------- 스케줄표 머리 — [스케줄표] [내가 안 되는 날] ........ [카드|테이블] 한 줄 ---------- */
+.yn .stpanel > .sechead { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.yn .stpanel > .sechead .chip { flex: none; white-space: nowrap; }
+.yn .stpanel > .sechead .stseg { margin-left: auto; flex: none; }
+.yn .stoffbtn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px 0 10px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 800; white-space: nowrap; letter-spacing: -.01em;
+  color: var(--accent); background: rgba(var(--tone-rgb), .13); border: 1px solid rgba(var(--tone-rgb), .34);
+  transition: background .15s ease, border-color .15s ease;
+}
+.yn .stoffbtn svg { width: 16px; height: 16px; flex: none; }
+.yn .stoffbtn:hover, .yn .stoffbtn.on { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .6); }
+.yn .stoffbtn .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--accent); color: #3B2314; }
+html[data-theme="light"] .yn .stoffbtn { color: #A8552A; }
+.yn .stmine { margin: 2px 0 12px; }
+.yn .stmine-in { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 16px; background: rgba(var(--tone-rgb), .09); border: 1px solid rgba(var(--tone-rgb), .26); }
+.yn .offchips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.yn .offchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 11px; border-radius: 99px; font-size: 13px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(var(--tone-rgb), .34); }
+html[data-theme="light"] .yn .offchip { background: rgba(255, 255, 255, .7); }
+.yn .offchip b { font-weight: 800; }
+.yn .offchip i { font-style: normal; opacity: .78; }
+.yn .offchip button { width: 24px; height: 24px; padding: 0; border: none; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: inherit; background: rgba(var(--tone-rgb), .22); }
+.yn .offchip button svg { width: 12px; height: 12px; }
+.yn .stmine .btn svg { width: 14px; height: 14px; vertical-align: -2px; }
+
+/* ---------- 스케줄표 테이블 — 네모칸이 또렷하게 ---------- */
+.yn { --grid: rgba(255, 255, 255, .26); --grid-hd: rgba(255, 255, 255, .42); --st-head: #2D2C38; --st-date: #262530; --st-zebra: rgba(255, 255, 255, .045); --st-mrow: #37323F; --st-ev: rgba(var(--tone-rgb), .13); }
+html[data-theme="light"] .yn { --grid: rgba(90, 60, 40, .24); --grid-hd: rgba(90, 60, 40, .4); --st-head: #F7EADF; --st-date: #FFF9F3; --st-zebra: rgba(200, 140, 100, .08); --st-mrow: #F1DECF; --st-ev: rgba(var(--tone-rgb), .16); }
+.yn .stwrap { border: 2px solid var(--grid-hd) !important; border-radius: 16px; }
+.yn table.st { border-collapse: separate; border-spacing: 0; }
+.yn .st th, .yn .st td { border-right: 1px solid var(--grid) !important; border-bottom: 1px solid var(--grid) !important; }
+.yn .st tr > :last-child { border-right: none !important; }
+.yn .st tbody tr:last-child > td { border-bottom: none !important; }
+.yn .st thead th { background: var(--st-head) !important; color: var(--ink-1) !important; border-bottom: 2px solid var(--grid-hd) !important; }
+.yn .st thead tr.g th { color: var(--ink-3) !important; }
+.yn .st .dc { background: var(--st-date) !important; border-right: 2px solid var(--grid-hd) !important; }
+.yn .st thead .dc { background: var(--st-head) !important; }
+.yn .st tbody tr.r:nth-of-type(even) td:not(.dc) { background: var(--st-zebra); }
+.yn .st tr.mrow td, .yn .st tr.mrow td.dc { background: var(--st-mrow) !important; color: var(--ink-1) !important; font-size: 12.5px; letter-spacing: .06em; }
+.yn .st tr.evr td:not(.dc) { background: var(--st-ev); }
+.yn .st tr.evr td.dc { box-shadow: inset 3px 0 0 var(--accent); }
+.yn .st td.c { height: 46px; }
+.yn .st td.dc b { white-space: nowrap; }
+.yn .st td.c .tn { white-space: normal; word-break: keep-all; }
+.yn .st td.c .tn.none { opacity: .45; }
+.yn .st td.c .tn.hl { box-shadow: 0 0 0 1.5px rgba(var(--tone-rgb), .6); background: rgba(var(--tone-rgb), .18); }
+.yn .st td.offc { background: transparent !important; }
+.yn .st td.offc .tn.off { font-size: 12.5px; }
+.yn .st .xc { display: none; }
+.yn .st td.xc { padding: 6px 8px; text-align: left; vertical-align: middle; font-size: 13px; }
+.yn .st td.xc b { font-weight: 800; }
+.yn .st td.xc i { display: block; font-style: normal; font-size: 12px; opacity: .8; }
+.yn .st td.xc em { display: block; font-style: normal; font-size: 11.5px; color: var(--accent); }
+.yn .st td.xc .pn { opacity: .5; }
+.yn .st td.xc.pc.ed:hover { background: rgba(var(--tone-rgb), .12); cursor: pointer; }
+.yn .st td.xs { text-align: center; width: 54px; cursor: pointer; }
 
 /* 라이브러리 날짜별 · 악보 파일 · 녹음의 기간 고르기 — 폰에서 칸보다 길면 church-app 은 칸 밖으로 삐져나옵니다.
    여기서는 칸 안에서 옆으로 밀어 보게 합니다 (모양은 같음) */
@@ -49,7 +134,7 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #475569; }
   border: 1px solid rgba(26, 25, 23, .16) !important; color-scheme: light;
 }
 .yn .yc-sh input::placeholder, .yn .yc-sh textarea::placeholder { color: #8A847C !important; -webkit-text-fill-color: #8A847C; }
-.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #E8703C !important; box-shadow: 0 0 0 3px rgba(232, 112, 60, .22); outline: none; }
+.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #E39866 !important; box-shadow: 0 0 0 3px rgba(244, 165, 125, .32); outline: none; }
 
 /* 글씨 기본색 — church-app 은 body 글씨색이 밝은 화면 값(#1A1917)이라 어두운 유리 위 글씨를 "가독성 지킴이"(hub/contrast.js)가
    그린 뒤에 흰색으로 고칩니다. 여기서는 처음부터 .shell 의 글씨 변수(어두운 화면 = 흰색 · 밝은 화면 = 진한 남색)로 시작해
@@ -61,3 +146,21 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #475569; }
   color: #1A1917 !important; background: #F5F3EF !important; border: 1px solid rgba(26, 25, 23, .14) !important;
 }
 .yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red):hover { background: #EDE9E3 !important; }
+
+/* ---------- 태블릿 가로 (폭 900px 이상 · 가로 방향) — 한눈에 더 많이 ---------- */
+@media (min-width: 900px) and (orientation: landscape) {
+  .yn .st .xc { display: table-cell; }                 /* 표에 연습 · 곡 칸 */
+  .yn .st td.dc .sd { display: none; }                 /* 날짜 칸의 작은 연습 줄은 따로 칸이 생겼으니 숨김 */
+  .yn .st td.dc { min-width: 76px; }
+  .yn .st td.c { min-width: 50px; height: 50px; }
+  .yn .st td.offc, .yn .st th.offc { min-width: 104px; text-align: left; padding: 6px 8px; }
+  .yn .st td.xc.pc { min-width: 100px; }
+  .yn .st td.offc .tn { display: inline-block; margin: 2px 3px 2px 0; }
+  .yn .stwrap { max-height: 78vh; }
+  .yn .stcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; align-items: start; }
+  .yn .stcards > .stmon { grid-column: 1 / -1; margin: 8px 0 -2px; }
+  .yn .stcards > .stc { margin: 0; }
+  .yn .stpanel .sttools { display: inline-flex; flex-wrap: nowrap; gap: 10px; vertical-align: top; margin-right: 10px; padding-bottom: 8px; }
+  .yn .stpanel .sttools select, .yn .stpanel .sttools .hlsel { flex: 0 0 auto; width: auto; max-width: none; min-width: 190px; }
+  .yn .stpanel .docbar { display: inline-block; vertical-align: top; }
+}

@@ -6,6 +6,7 @@
 (function (root) {
   'use strict';
   var doc = root.document;
+  function I(n) { return root.YNIcon ? root.YNIcon.get(n) : ''; }       // v8.3 — 직접 그린 아이콘
   function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function need(name, mod, host) {
     if (mod) return true;
@@ -70,7 +71,7 @@
         Array.prototype.forEach.call(el.querySelectorAll('button,input'), function (x) { x.disabled = lock; });
         el.classList.toggle('locked', lock);
         var rt = P.rt();
-        note.textContent = mode === 'send' ? '🎚 내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? '🎚 ' + (rt && rt.clicker || '') + ' 님이 클릭 컨트롤 — 자동으로 따라감' : '';
+        note.innerHTML = mode === 'send' ? I('metronome') + '내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? I('metronome') + h(rt && rt.clicker || '') + ' 님이 클릭 컨트롤 — 자동으로 따라감' : '';
       }
       function beat(e) {
         var ds = dots.children; for (var i = 0; i < ds.length; i++) ds[i].classList.remove('on');
@@ -358,11 +359,11 @@
     };
 
     /* ------------------------------------------------------------ 필기 */
-    tabs.push({ id: 'anno', icon: '✏️', label: '필기', build: function (host) {
+    tabs.push({ id: 'anno', icon: 'pen', label: '필기', build: function (host) {
       host.innerHTML =
-        '<div class="pv-sec"><h4>누가 볼 수 있나요</h4><label class="pv-chk"><input type="checkbox" data-o="mineonly"> 🔒 나만 보기</label>' +
+        '<div class="pv-sec"><h4>누가 볼 수 있나요</h4><label class="pv-chk"><input type="checkbox" data-o="mineonly"> ' + I('lock') + '나만 보기</label>' +
           '<p class="pv-help">체크하면 내 필기는 나에게만 보입니다. 체크하지 않으면(기본) 이 예배를 연 모든 사람 화면에 실시간으로 공유됩니다.</p></div>' +
-        '<div class="pv-sec"><h4>필기가 붙는 곳</h4><div class="pv-radio" data-g="scope"><button data-v="song">📌 이 곡에 계속</button><button data-v="date">📅 이 날짜(콘티)만</button></div>' +
+        '<div class="pv-sec"><h4>필기가 붙는 곳</h4><div class="pv-radio" data-g="scope"><button data-v="song">' + I('pin') + '이 곡에 계속</button><button data-v="date">' + I('calendar') + '이 날짜(콘티)만</button></div>' +
           '<p class="pv-help">"이 곡에 계속"은 다음 주에 같은 악보를 열어도 남아 있고, "이 날짜만"은 이번 예배에서만 보입니다.</p></div>' +
         '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
@@ -372,7 +373,7 @@
         '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
-        '<div class="pv-sec"><h4>화면 설정</h4><div class="pv-radio" data-g="layout"><button data-v="tablet">📱 태블릿</button><button data-v="computer">💻 컴퓨터</button></div>' +
+        '<div class="pv-sec"><h4>화면 설정</h4><div class="pv-radio" data-g="layout"><button data-v="tablet">' + I('tablet') + '태블릿</button><button data-v="computer">' + I('laptop') + '컴퓨터</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="lefty"> 왼손잡이 (도구 막대를 왼쪽에)</label>' +
           '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 1 2 3) · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더.</p></div>';
       var an = function () { return P.anno(); };
@@ -414,7 +415,7 @@
     } });
 
     /* ------------------------------------------------------------ 송폼 */
-    tabs.push({ id: 'form', icon: '🎼', label: '송폼', build: function (host) {
+    tabs.push({ id: 'form', icon: 'form', label: '송폼', build: function (host) {
       if (!need('송폼', root.YNForm, host)) return;
       host.innerHTML = '<div class="pv-sec"><h4>곡</h4><select class="pv-sel" data-role="song"></select><div class="pv-songmeta" data-role="meta"></div></div>' +
         '<div class="pv-sec"><h4>송폼 순서</h4><div data-role="player"></div>' +
@@ -495,7 +496,7 @@
     } });
 
     /* ------------------------------------------------------------ 메트로놈 + 음성 큐 */
-    tabs.push({ id: 'metro', icon: '⏱', label: '메트로놈', build: function (host) {
+    tabs.push({ id: 'metro', icon: 'metronome', label: '메트로놈', build: function (host) {
       var m = metro(); if (!need('메트로놈', m, host)) return;
       var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['rep', '반복 · 콜아웃'], ['dyn', '다이내믹'], ['in', '들어가기']];
       host.innerHTML =
@@ -505,9 +506,9 @@
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
           '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div>' +
           '<p class="pv-help pv-dotshelp">원(박)을 누르면 ">" 강세가 켜지고 꺼집니다 — 강세 박은 더 높고 크게 울립니다.</p>' +
-          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> 💡 전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
+          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> ' + I('bulb') + '전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
           '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
-          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ⏱ 악보 화면 위에 메트로놈 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
+          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ' + I('timer') + '악보 화면 위에 메트로놈 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
           '<div class="pv-msg2" data-role="msg"></div></div>' +
         '<div class="pv-sec"><h4>음성 큐 — 눌러서 알려주기</h4><p class="pv-help" data-role="cuehelp"></p>' +
           GROUPS.map(function (g) { return '<div class="pv-cuegrp"><span>' + g[1] + '</span><div class="pv-cues">' + CUES.filter(function (c) { return c.g === g[0]; }).map(function (c) { return '<button class="pv-cue" data-cue="' + c.id + '"></button>'; }).join('') + '</div></div>'; }).join('') +
@@ -563,8 +564,8 @@
         host.classList.toggle('pv-locked', lock);
         ['[data-a="b-"]', '[data-a="b+"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
         Array.prototype.forEach.call(dotsEl.children, function (d) { d.disabled = lock; });
-        if (mode === 'send') note.innerHTML = '🎚 <b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 메트로놈에 전달됩니다.';
-        else if (lock) note.innerHTML = '🎚 <b>' + h(rt.clicker) + '</b> 님이 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
+        if (mode === 'send') note.innerHTML = I('metronome') + '<b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 메트로놈에 전달됩니다.';
+        else if (lock) note.innerHTML = I('metronome') + '<b>' + h(rt.clicker) + '</b> 님이 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'mix';
@@ -678,7 +679,7 @@
       if (!root.YNPitch) { P.toast('시작음 피아노 도구를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true); return false; }
       if (!piano) {
         var w = doc.createElement('div'); w.className = 'pv-piano'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', '시작음 피아노');
-        w.innerHTML = '<div class="pv-piano-h"><b>🎹 시작음 피아노</b><small class="pv-piano-k"></small><button type="button" class="pv-piano-x" aria-label="피아노 닫기" title="닫기">✕</button></div><div class="pv-piano-b"></div>';
+        w.innerHTML = '<div class="pv-piano-h"><b>' + I('piano_small') + '시작음 피아노</b><small class="pv-piano-k"></small><button type="button" class="pv-piano-x" aria-label="피아노 닫기" title="닫기">' + YI('close') + '</button></div><div class="pv-piano-b"></div>';
         w.innerHTML = '<div class="pv-pianowrap">' + w.innerHTML + '</div>';                    // ⋮⋮ 손잡이(왼쪽) 옆에 머리줄 + 건반
         var s = P.song(), pr = root.YNPitch.mount(w.querySelector('.pv-piano-b'), { key: s && s.key || '', onError: function (x) { P.toast(x, true); } });
         var kEl = w.querySelector('.pv-piano-k');
@@ -696,9 +697,9 @@
       return true;
     }
     var pianoBtns = [];
-    function paintPianoBtns() { var on = !!(piano && !piano.el.classList.contains('pv-piano-off')); pianoBtns.forEach(function (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? '🎹 피아노 닫기' : '🎹 피아노 보기 (떠 있는 창)'; }); }
+    function paintPianoBtns() { var on = !!(piano && !piano.el.classList.contains('pv-piano-off')); pianoBtns.forEach(function (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.innerHTML = I('piano_small') + (on ? '피아노 닫기' : '피아노 보기 (떠 있는 창)'); }); }
     P.piano = pianoWin;
-    tabs.push({ id: 'harmony', icon: '🎶', label: '화음 · 시작음', build: function (host) {
+    tabs.push({ id: 'harmony', icon: 'harmony', label: '화음 · 시작음', build: function (host) {
       var sec = doc.createElement('div'); sec.className = 'pv-sec pv-pianosec';
       sec.innerHTML = '<h4>시작음 <small>곡의 Key · 첫 음 확인</small></h4><button type="button" class="pv-btn2 primary pv-pianobtn" aria-pressed="false"></button>' +
         '<p class="pv-help">피아노가 악보 위 작은 창으로 뜹니다 — ⋮⋮ 를 끌어 옮기고, ✕ 로 닫습니다.</p>';
@@ -714,7 +715,7 @@
     /* (가사 추출은 Step 2.8 에서 허브 화면의 "가사 도구"(방송팀 요청 바로 위)로 옮겼습니다 — public/worship/hubtools.js) */
 
     /* ------------------------------------------------------------ 함께 (페이지 컨트롤 · 클릭 컨트롤 · 동기화 끄기) */
-    tabs.push({ id: 'together', icon: '👥', label: '함께', build: function (host) {
+    tabs.push({ id: 'together', icon: 'together', label: '함께', build: function (host) {
       function paint() {
         var rt = P.rt(), st = rt ? rt.state : 'unavailable', on = st === 'online', lead = on ? rt.leader : null, mine = on && rt.isLeader;
         var clk = on ? rt.clicker : null, cmine = on && rt.isClicker, manual = P.manual(), fp = P.follow(), fm = P.followMetro();
@@ -723,9 +724,9 @@
           (rt && rt.error && !on ? '<div class="pv-help">' + h(rt.error) + '</div>' : '') + '</div>';
         if (on) {
           html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) {
-            return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? '📄 ' : '') + (p.click ? '🎚 ' : '') + h(p.name) +
+            return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? YI('page') + ' ' : '') + (p.click ? YI('metronome') + ' ' : '') + h(p.name) +
               (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + (p.follow && p.follow.page === false ? ' <small class="pv-pf">· 페이지 따로</small>' : '') + '</li>'; }).join('') + '</ul></div>';
-          html += '<div class="pv-sec"><h4>📄 페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
+          html += '<div class="pv-sec"><h4>' + I('page') + '페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
             (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
           html += '<div class="pv-sec pv-follows"><h4>따라가기</h4>' +
             '<label class="pv-switch"><input type="checkbox" data-a="follow"' + (fp ? ' checked' : '') + '><span></span><b>페이지 컨트롤 따라가기</b></label>' +

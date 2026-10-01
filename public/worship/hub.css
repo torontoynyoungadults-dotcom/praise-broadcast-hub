@@ -828,10 +828,10 @@ body.ht-lock { overflow: hidden; }
 .offpill { position: fixed; left: 50%; top: max(10px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 2147483000;
   display: none; align-items: center; gap: 8px; max-width: min(92vw, 640px); padding: 8px 14px; border-radius: 999px;
   background: rgba(28, 22, 18, .82); color: #fff; font: 600 12.5px/1.35 -apple-system, "Segoe UI", sans-serif; text-align: left;
-  border: 1px solid rgba(255, 138, 61, .55); box-shadow: 0 6px 22px rgba(0, 0, 0, .45);
+  border: 1px solid rgba(255, 180, 138, .55); box-shadow: 0 6px 22px rgba(0, 0, 0, .45);
   -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%); pointer-events: none; }
 .offpill.on { display: flex; }
-.offpill i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #FF8A3D; box-shadow: 0 0 0 3px rgba(255, 138, 61, .25); }
+.offpill i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #FFB48A; box-shadow: 0 0 0 3px rgba(255, 180, 138, .25); }
 .offpill.sync i { background: #7BD88F; box-shadow: 0 0 0 3px rgba(123, 216, 143, .25); animation: offblink 1s ease-in-out infinite; }
 @keyframes offblink { 50% { opacity: .35; } }
 
@@ -1678,3 +1678,35 @@ html[data-theme="light"] body .pvgo:not(.pvstartbtn) { background: linear-gradie
   .pvstartbtn small { display: none; }
   .pvauto { min-height: 36px; padding: 5px 10px; font-size: 12px; border-radius: 10px; }
 }
+
+/* =========================================================
+   v8.3 — 직접 그린 아이콘 (YNIcon, public/worship/icons.js)
+   · 글자 크기(em)를 따라가고 글자색을 씁니다: 어두운 · 밝은 화면, 눌린(주황) 상태 모두 같은 규칙
+   ========================================================= */
+.yi { width: 1.22em; height: 1.22em; flex: none; display: inline-block; vertical-align: -0.24em; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.yi .f { fill: currentColor; fill-opacity: .17; }
+.yi .k { fill: currentColor; stroke: none; }
+.pv-b .yi, .pv-chip .yi, .pv-pill .yi { vertical-align: middle; }
+.pv-b .yi { width: 1.3em; height: 1.3em; }
+.pv-tool .ic { display: grid; place-items: center; height: 22px; }
+.pv-tool .ic .yi { width: 22px; height: 22px; vertical-align: 0; stroke-width: 1.6; }
+.pv-tool.sm .ic .yi { width: 20px; height: 20px; }
+.pv-tablet .pv-tool .ic .yi { width: 26px; height: 26px; }
+.pv-tablet .pv-tool .ic { height: 26px; }
+.pv-tool.on .yi .f { fill-opacity: .28; }
+.pv-tabbtn > span { display: grid; place-items: center; height: 22px; }
+.pv-tabbtn > span .yi { width: 21px; height: 21px; vertical-align: 0; }
+.pv-tablet .pv-tabbtn > span .yi { width: 24px; height: 24px; }
+.pv-menubtn .ic, .pv-toolsbtn .ic { display: inline-grid; place-items: center; }
+.pv-menubtn .ic .yi { width: 20px; height: 20px; vertical-align: 0; }
+.pv-toolsbtn .ic .yi { width: 17px; height: 17px; vertical-align: 0; }
+.pv .pv-themebtn .yi, .pv .pv-flt .yi { width: 20px; height: 20px; vertical-align: middle; }
+.pv .pv-themebtn .yi.yi-sun { color: #ffb347; } .pv .pv-themebtn .yi.yi-moon { color: #8fb4ff; }
+.pv .pv-pager .pv-b .yi { width: 20px; height: 20px; }
+.pv-fsbar .pv-b .yi { width: 19px; height: 19px; margin-right: 2px; }
+.pv-pill .yi { width: 15px; height: 15px; margin-right: 5px; vertical-align: -3px; }
+.pv-radio button .yi, .pv-chk .yi, .pv-btn2 .yi { width: 17px; height: 17px; vertical-align: -4px; margin-right: 5px; }
+.pv-seg button .yi { width: 18px; height: 18px; vertical-align: -4px; }
+.pv-rt-sec b .yi, .pv-sec h4 .yi { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+.pv-dh b .yi { width: 18px; height: 18px; vertical-align: -4px; margin-right: 6px; }
+.pv-chip .yi { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
