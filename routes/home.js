@@ -39,6 +39,7 @@ router.get('/', async (req, res) => {
     <p class="ph-sub">위 탭을 눌러 예배콘티 · 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리를 오갈 수 있어요.</p>
   </div>
   <div class="ph-card">
+    <a class="ph-btn" href="/profile">👤 내 정보 수정</a>
     ${isAdmin ? '<a class="ph-btn" href="/admin">관리자 화면</a>' : ''}
     <a class="ph-btn" href="/logout">로그아웃</a>
   </div>`;

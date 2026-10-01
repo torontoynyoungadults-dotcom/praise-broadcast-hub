@@ -12,6 +12,7 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
+const { ROLE_OPTIONS } = require('../lib/schema');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -27,34 +28,63 @@ async function requireTeam(req, res, next) {
 
 function backTo(req, res, team) { spa.redirect(req, res, `/roster?team=${encodeURIComponent(team)}`); }
 
-function personRow(name, info, rosterRow, isAdmin) {
+function roleChips(myRoles) {
+  return `<div class="ph-chips">${ROLE_OPTIONS.map((r) => `<label class="ph-chip"><input type="checkbox" name="역할" value="${r}"${myRoles.includes(r) ? ' checked' : ''}><span>${avatar.roleIcon(r)} ${r}</span></label>`).join('')}</div>`;
+}
+
+function personRow(name, info, isAdmin) {
   const statusChip = info.가입 ? '<span class="ph-badge" style="margin:0;">가입완료</span>' : '<span class="ph-badge" style="margin:0;background:var(--glass-2);color:var(--dim);border-color:var(--line);">가입 대기중</span>';
-  const adminForm = (isAdmin && rosterRow) ? `
+  const myRoles = String(info.역할 || '').split(',').map((s) => s.trim()).filter(Boolean);
+  let adminForm = '';
+  if (isAdmin && info.가입) {
+    // 이미 가입한 사람은 사진·성별은 본인이 직접 수정하고(내 정보), 관리자는 역할만 여기서 정해줄 수 있음.
+    adminForm = `
+    <details class="ph-row-edit">
+      <summary>⋯</summary>
+      <form method="post" action="/roster/member-role" class="ph-inlineform">
+        <input type="hidden" name="__row" value="${info.가입행}">
+        <input type="hidden" name="team" value="${esc(info.__team || '')}">
+        <label>역할 (여러 개 가능)</label>
+        ${roleChips(myRoles)}
+        <button class="ph-btn pri" type="submit">저장</button>
+      </form>
+      ${info.명단행 ? `<form method="post" action="/roster/delete" onsubmit="return confirm('명단에서 ${esc(name)}님을 뺄까요? (이미 가입한 사람은 가입이 취소되지 않아요)')">
+        <input type="hidden" name="__row" value="${info.명단행}"><input type="hidden" name="team" value="${esc(info.__team || '')}">
+        <button class="ph-btn" type="submit" style="margin-top:6px;">명단에서 빼기</button>
+      </form>` : ''}
+    </details>`;
+  } else if (isAdmin && info.명단행) {
+    // 아직 가입 전인 사람 — 관리자가 성별·사진·역할을 전부 미리 정해둘 수 있음(가입하면 역할은 그대로 물려받음).
+    adminForm = `
     <details class="ph-row-edit">
       <summary>⋯</summary>
       <form method="post" action="/roster/update" enctype="multipart/form-data" class="ph-inlineform">
-        <input type="hidden" name="__row" value="${rosterRow}">
+        <input type="hidden" name="__row" value="${info.명단행}">
         <input type="hidden" name="team" value="${esc(info.__team || '')}">
         <label>성별</label>
         <div class="ph-chips">
           <label class="ph-chip"><input type="radio" name="성별" value="남"${info.성별 === '남' ? ' checked' : ''}><span>남</span></label>
           <label class="ph-chip"><input type="radio" name="성별" value="여"${info.성별 === '여' ? ' checked' : ''}><span>여</span></label>
         </div>
+        <label>역할 (여러 개 가능)</label>
+        ${roleChips(myRoles)}
         <label>사진 교체 (선택)</label>
         <input type="file" name="사진" accept="image/*">
         <button class="ph-btn pri" type="submit">저장</button>
       </form>
-      <form method="post" action="/roster/delete" onsubmit="return confirm('명단에서 ${esc(name)}님을 뺄까요? (이미 가입한 사람은 가입이 취소되지 않아요)')">
-        <input type="hidden" name="__row" value="${rosterRow}"><input type="hidden" name="team" value="${esc(info.__team || '')}">
+      <form method="post" action="/roster/delete" onsubmit="return confirm('명단에서 ${esc(name)}님을 뺄까요?')">
+        <input type="hidden" name="__row" value="${info.명단행}"><input type="hidden" name="team" value="${esc(info.__team || '')}">
         <button class="ph-btn" type="submit" style="margin-top:6px;">명단에서 빼기</button>
       </form>
-    </details>` : '';
+    </details>`;
+  }
   return `<div class="ph-list-item ph-rosteritem">
     <div class="ph-li-main" style="display:flex;align-items:center;gap:12px;">
       ${avatar.avatarHtml(name, info, 'lg')}
       <div>
         <div class="ph-li-title">${esc(name)}</div>
         <div class="ph-li-sub" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px;">${statusChip}</div>
+        ${avatar.roleBadgesHtml(info.역할)}
       </div>
     </div>
     ${adminForm}
@@ -64,13 +94,8 @@ function personRow(name, info, rosterRow, isAdmin) {
 router.get('/roster', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
-  const [infoMap, rosterRows] = await Promise.all([
-    avatar.teamInfoMap(team),
-    sheetsDb.readAll('팀원명단'),
-  ]);
-  const myRosterRows = rosterRows.filter((r) => r['팀ID'] === team);
-  const rowByName = {};
-  myRosterRows.forEach((r) => { rowByName[r['이름']] = r.__row; });
+  const infoMap = await avatar.teamInfoMap(team);
+  const rosterCount = Object.values(infoMap).filter((i) => i.명단행).length;
 
   const names = Object.keys(infoMap).sort((a, b) => {
     const ai = infoMap[a], bi = infoMap[b];
@@ -89,6 +114,8 @@ router.get('/roster', requireTeam, async (req, res) => {
           <label class="ph-chip"><input type="radio" name="성별" value="남" required><span>남</span></label>
           <label class="ph-chip"><input type="radio" name="성별" value="여" required><span>여</span></label>
         </div>
+        <label>역할 (여러 개 가능 — 나중에 가입할 때 본인이 따로 고르지 않으면 이 값을 그대로 물려받아요)</label>
+        ${roleChips([])}
         <input type="file" name="사진" accept="image/*">
         <button class="ph-btn pri" type="submit">명단에 추가</button>
         <p class="ph-msg err">${esc(req.query.e || '')}</p>
@@ -100,13 +127,13 @@ router.get('/roster', requireTeam, async (req, res) => {
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, {})}
-    <p class="ph-sub" style="margin:0 0 ${ctx.isAdmin ? '4px' : '0'};">회원가입 때 적은 이름이 이 명단과 같아야 가입이 돼요${myRosterRows.length ? '' : ' (이 팀은 아직 명단이 없어서 지금은 누구나 가입할 수 있어요)'}.</p>
+    <p class="ph-sub" style="margin:0 0 ${ctx.isAdmin ? '4px' : '0'};">회원가입 때 적은 이름이 이 명단과 같아야 가입이 돼요${rosterCount ? '' : ' (이 팀은 아직 명단이 없어서 지금은 누구나 가입할 수 있어요)'}.</p>
     ${addForm}
   </div>
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">팀원 (${names.length}명)</h2>
-    <div class="ph-list">${names.length ? names.map((n) => personRow(n, { ...infoMap[n], __team: team }, rowByName[n], ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 팀원이 없어요.</p>'}</div>
+    <div class="ph-list">${names.length ? names.map((n) => personRow(n, { ...infoMap[n], __team: team }, ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 팀원이 없어요.</p>'}</div>
   </div>
   `;
   spa.send(req, res, content, { title: `${team} 팀원관리` });
@@ -123,11 +150,12 @@ router.post('/roster/add', requireTeam, upload.single('사진'), async (req, res
   if (!['남', '여'].includes(gender)) return res.redirect(`/roster?team=${encodeURIComponent(team)}&e=${encodeURIComponent('성별을 선택해주세요.')}`);
   const dup = (await sheetsDb.readAll('팀원명단')).find((r) => r['팀ID'] === team && r['이름'] === name);
   if (dup) return res.redirect(`/roster?team=${encodeURIComponent(team)}&e=${encodeURIComponent(`'${name}'님은 이미 명단에 있어요.`)}`);
+  const roles = [].concat(b['역할'] || []).filter(Boolean);
   let photoUrl = '';
   try { if (req.file) photoUrl = await driveStore.uploadPublic('팀원사진', req.file); } catch (e) { console.error('[팀원사진 업로드 실패]', e.message); }
   await sheetsDb.appendRow('팀원명단', {
     'ID': 'M' + Date.now().toString(36), '팀ID': team, '이름': name, '성별': gender, '사진': photoUrl,
-    '등록시각': new Date().toISOString(),
+    '등록시각': new Date().toISOString(), '역할': roles.join(','),
   });
   backTo(req, res, team);
 });
@@ -144,7 +172,25 @@ router.post('/roster/update', requireTeam, upload.single('사진'), async (req, 
       let photoUrl = found['사진'] || '';
       try { if (req.file) photoUrl = await driveStore.uploadPublic('팀원사진', req.file); } catch (e) { console.error('[팀원사진 업로드 실패]', e.message); }
       const gender = ['남', '여'].includes(b['성별']) ? b['성별'] : found['성별'];
-      await sheetsDb.updateRow('팀원명단', row, { ...found, '성별': gender, '사진': photoUrl });
+      const roles = [].concat(b['역할'] || []).filter(Boolean);
+      await sheetsDb.updateRow('팀원명단', row, { ...found, '성별': gender, '사진': photoUrl, '역할': roles.join(',') });
+    }
+  }
+  backTo(req, res, team);
+});
+
+// 이미 가입한 사람의 역할만 관리자가 여기서 바로 정해줄 수 있게(사진·성별은 본인이 /profile에서 직접 관리).
+router.post('/roster/member-role', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (!req.ctx.isAdmin) return backTo(req, res, team);
+  const row = Number(b.__row);
+  if (row) {
+    const rows = await sheetsDb.readAll('회원');
+    const found = rows.find((r) => r.__row === row);
+    if (found) {
+      const roles = [].concat(b['역할'] || []).filter(Boolean);
+      await sheetsDb.updateRow('회원', row, { ...found, '역할': roles.join(',') });
     }
   }
   backTo(req, res, team);

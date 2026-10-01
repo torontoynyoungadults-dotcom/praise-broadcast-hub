@@ -162,10 +162,16 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   // 팀원 명단(화이트리스트) 확인 — 관리자가 그 팀 명단을 아직 하나도 안 적어 뒀으면(이 기능을 아직 안 쓰는 팀)
   // 막지 않고 그대로 가입을 받아줍니다. 명단이 있는 팀인데 이름이 거기 없으면 가입을 막습니다.
   const roster = (await sheetsDb.readAll('팀원명단')).filter((r) => r['팀ID'] === team);
-  if (roster.length && !roster.some((r) => String(r['이름']).trim() === name)) {
+  const rosterMatch = roster.find((r) => String(r['이름']).trim() === name);
+  if (roster.length && !rosterMatch) {
     return res.redirect('/signup?e=' + encodeURIComponent(
       `'${name}'님은 ${team} 팀원 명단에서 찾을 수 없어요. 이름을 다시 확인해 주세요. 계속 안 되면 팀 담당자(관리자)에게 문의해주세요.`,
     ));
+  }
+  // 본인이 역할을 따로 안 골랐고, 관리자가 명단에 미리 역할을 정해뒀으면 그 값을 그대로 물려받습니다.
+  let finalRoles = roles;
+  if (!finalRoles.length && rosterMatch && rosterMatch['역할']) {
+    finalRoles = String(rosterMatch['역할']).split(',').map((s) => s.trim()).filter(Boolean);
   }
 
   let photoUrl = '';
@@ -175,7 +181,7 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   await sheetsDb.appendRow('회원', {
     'ID': 'U' + Date.now().toString(36),
     '이메일': email, '이름': name, '전화번호': phone, '소속팀': team,
-    '역할': roles.join(','), '프로필사진': photoUrl, '관리자여부': 'FALSE',
+    '역할': finalRoles.join(','), '프로필사진': photoUrl, '관리자여부': 'FALSE',
     '가입일': new Date().toISOString().slice(0, 10), '성별': gender,
   });
   session.clearPendingEmail(res);

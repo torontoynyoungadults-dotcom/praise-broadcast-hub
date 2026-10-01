@@ -52,6 +52,17 @@
     loadPartial(url.pathname + url.search, true);
   });
 
+  // 파일 첨부가 있는 폼(enctype=multipart 또는 <input type=file>)만 FormData(=multipart)로 보내고,
+  // 그 외 평범한 폼은 urlencoded로 보냅니다. fetch에 FormData를 그대로 넘기면 브라우저가 무조건
+  // Content-Type을 multipart/form-data로 강제해버리는데, 서버의 폼 라우트 대부분은 그 포맷을 해석하는
+  // multer 미들웨어가 없어서(파일이 없는 폼이라 안 붙여둠) req.body가 통째로 비어버리는 문제가 있었음
+  // (관리자 설정 저장 등 여러 폼이 "눌러도 저장 안 되는" 상태였음 — 실제 브라우저 클릭 테스트로 발견).
+  function needsMultipart(form) {
+    var enctype = (form.getAttribute('enctype') || '').toLowerCase();
+    if (enctype.indexOf('multipart') !== -1) return true;
+    return !!form.querySelector('input[type=file]');
+  }
+
   document.addEventListener('submit', function (e) {
     var form = e.target;
     if (!form || form.tagName !== 'FORM') return;
@@ -65,12 +76,16 @@
       loadPartial(url.pathname + '?' + qs.toString(), true);
       return;
     }
-    fetch(url.pathname + url.search, {
-      method: method,
-      body: new FormData(form),
-      headers: { 'X-PH-Partial': '1' },
-      credentials: 'same-origin',
-    })
+    var opts = { method: method, headers: { 'X-PH-Partial': '1' }, credentials: 'same-origin' };
+    if (needsMultipart(form)) {
+      opts.body = new FormData(form);
+    } else {
+      var usp = new URLSearchParams();
+      new FormData(form).forEach(function (v, k) { usp.append(k, v); });
+      opts.body = usp.toString();
+      opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
+    fetch(url.pathname + url.search, opts)
       .then(function (r) { return r.json(); })
       .then(function (d) { loadPartial((d && d.redirect) || (url.pathname + url.search), true); })
       .catch(function () { form.submit(); });

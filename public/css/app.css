@@ -349,6 +349,13 @@ a { color: var(--accent); text-decoration: none; }
 .ph-avatar-lg { width: 52px; height: 52px; }
 .ph-avatar-lg .ph-avatar-txt { font-size: 20px; }
 .ph-avatar-lg .ph-avatar-badge { width: 20px; height: 20px; font-size: 11px; }
+
+.ph-roletags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.ph-roletag {
+  display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700;
+  color: var(--sub); background: var(--glass-2); border: 1px solid var(--line);
+  padding: 3px 9px; border-radius: 999px;
+}
 .ph-assignform { display: flex; gap: 6px; flex: none; }
 .ph-assignform input { min-height: 32px !important; padding: 4px 10px !important; font-size: 13.5px !important; width: 110px; border-radius: 999px !important; }
 .ph-assignform button { flex: none; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13px; cursor: pointer; }

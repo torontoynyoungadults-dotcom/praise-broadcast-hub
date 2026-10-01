@@ -5,6 +5,7 @@
  *   /auth/google        구글 로그인 시작
  *   /auth/google/callback  구글 로그인 콜백
  *   /signup             최초 로그인 시 가입 폼
+ *   /profile            내 정보 수정 (본인 전화번호·성별·사진·역할)
  *   /admin              관리자 화면 (관리자만 — 찬양팀 · 멤버 · 태그라인 관리)
  *   /roster             팀원관리 (팀원 명단 — 회원가입 화이트리스트, 아이콘·사진·이름으로 가입현황 보기)
  *   /healthz            서버 상태 확인 (Render 헬스체크)
@@ -37,6 +38,7 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.get('/healthz', (req, res) => res.type('text').send('ok'));
 
 app.use(require('./routes/auth'));
+app.use(require('./routes/profile'));
 app.use(require('./routes/roster'));
 app.use(require('./routes/conti'));
 app.use(require('./routes/notices'));
