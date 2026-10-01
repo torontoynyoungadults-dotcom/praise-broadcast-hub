@@ -7,7 +7,13 @@ const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
 const { ROLE_OPTIONS } = require('../lib/schema');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+// defParamCharset: 'utf8' 중요 — 안 넣으면 한글 필드 이름(이름/전화번호/소속팀 등)이
+// 깨진 채로 들어와서 req.body에서 값을 못 찾습니다 (busboy 기본값은 필드 이름을 latin1로 해석함).
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  defParamCharset: 'utf8',
+});
 const router = express.Router();
 
 function redirectUri() {
@@ -80,7 +86,7 @@ router.get('/signup', async (req, res) => {
       </div>
       <div class="ph-field">
         <label>전화번호</label>
-        <input type="tel" name="전화번호" required placeholder="010-0000-0000">
+        <input type="tel" name="전화번호" id="ph-phone" required placeholder="416-777-1004" inputmode="numeric" maxlength="12">
       </div>
       <div class="ph-field">
         <label>소속 찬양팀</label>
@@ -99,7 +105,20 @@ router.get('/signup', async (req, res) => {
       <button class="ph-btn pri" type="submit">가입하고 시작하기</button>
       <p class="ph-msg err">${pageShell.esc(req.query.e || '')}</p>
     </form>
-  </div>`;
+  </div>
+  <script>
+    (function () {
+      var el = document.getElementById('ph-phone');
+      if (!el) return;
+      el.addEventListener('input', function () {
+        var d = el.value.replace(/\\D/g, '').slice(0, 10);
+        var out = d;
+        if (d.length > 6) out = d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+        else if (d.length > 3) out = d.slice(0, 3) + '-' + d.slice(3);
+        el.value = out;
+      });
+    })();
+  </script>`;
   res.type('html').send(await pageShell.render(content, { title: '회원가입' }));
 });
 
