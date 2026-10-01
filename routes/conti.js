@@ -16,7 +16,7 @@ const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
-const { POSITION_GROUPS, ALL_POSITIONS, positionIcon } = require('../lib/positions');
+const { POSITION_GROUPS, ALL_POSITIONS, positionIcon, canonicalPosition } = require('../lib/positions');
 const rosterPicker = require('../lib/rosterPicker');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
@@ -70,7 +70,7 @@ async function weekAssignments(team, date) {
   const [assignRows, roster, infoMap] = await Promise.all([sheetsDb.readAll('찬양편성'), teamRoster(team), avatar.teamInfoMap(team)]);
   const rows = assignRows.filter((r) => r['팀ID'] === team && r['날짜'] === date);
   const byPos = {};
-  rows.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push({ 이름: r['이름'], __row: r.__row }); });
+  rows.forEach((r) => { const p = canonicalPosition(r['포지션']); (byPos[p] = byPos[p] || []).push({ 이름: r['이름'], __row: r.__row }); });
   return { byPos, roster, infoMap };
 }
 
@@ -597,7 +597,7 @@ router.post('/conti/lineup/assign', requireTeam, async (req, res) => {
   const pos = String(b['포지션'] || '').trim();
   const name = rosterPicker.resolveName(b);
   if (pos && name) {
-    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && r['포지션'] === pos && r['이름'] === name);
+    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && canonicalPosition(r['포지션']) === canonicalPosition(pos) && r['이름'] === name);
     if (!dup) await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
   }
   backTo(req, res, team, date);

@@ -11,7 +11,7 @@ const sheetsDb = require('../lib/sheetsDb');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
-const { POSITION_GROUPS } = require('../lib/positions');
+const { POSITION_GROUPS, canonicalPosition } = require('../lib/positions');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const rosterPicker = require('../lib/rosterPicker');
@@ -168,7 +168,7 @@ function positionCell(date, posKey, names, roster, offSet, hl, rangeKey, view) {
 
 function dateCard(d, roster, meName, hl, rangeKey, view) {
   const byPos = {};
-  d.assign.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push({ 이름: r['이름'], __row: r.__row, 팀: r['팀ID'] }); });
+  d.assign.forEach((r) => { const p = canonicalPosition(r['포지션']); (byPos[p] = byPos[p] || []).push({ 이름: r['이름'], __row: r.__row, 팀: r['팀ID'] }); });
   const offSet = new Set(d.off.map((o) => o['이름']));
   const groups = POSITION_GROUPS.map(([label, keys]) => `
     <div class="ph-posgroup">
@@ -219,7 +219,7 @@ function tableView(days, roster, hl, rangeKey, team) {
   const tables = POSITION_GROUPS.map(([label, keys]) => {
     const rows = days.map((d) => {
       const byPos = {};
-      d.assign.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push(r['이름']); });
+      d.assign.forEach((r) => { const p = canonicalPosition(r['포지션']); (byPos[p] = byPos[p] || []).push(r['이름']); });
       const cells = keys.map((k) => {
         const names = byPos[k] || [];
         return `<td>${names.length ? names.map((n) => `<span class="ph-tblname${hl && n === hl ? ' hl' : ''}" title="${esc(n)}">${avatar.avatarHtml(n, roster.infoMap[n] || {}, 'sm')}${esc(avatar.givenName(n))}</span>`).join('') : '<span class="ph-tbldash">–</span>'}</td>`;
@@ -327,7 +327,7 @@ router.post('/schedule/assign', requireTeam, async (req, res) => {
   const pos = String(b['포지션'] || '').trim();
   const name = rosterPicker.resolveName(b);
   if (pos && name) {
-    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && r['포지션'] === pos && r['이름'] === name);
+    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && canonicalPosition(r['포지션']) === canonicalPosition(pos) && r['이름'] === name);
     if (!dup) {
       await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
     }
