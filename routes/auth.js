@@ -16,21 +16,6 @@ function redirectUri() {
   return base + '/auth/google/callback';
 }
 
-// 임시 점검용 — redirect_uri_mismatch 등 OAuth 설정 문제를 원격에서 바로 확인하기 위함.
-// 비밀값은 내보내지 않음(클라이언트ID 앞 12자만). 문제 해결되면 지웁니다.
-router.get('/debug/oauth', (req, res) => {
-  let computed = null, computeErr = null;
-  try { computed = redirectUri(); } catch (e) { computeErr = e.message; }
-  res.json({
-    BASE_URL: process.env.BASE_URL || null,
-    computed_redirect_uri: computed,
-    compute_error: computeErr,
-    GOOGLE_LOGIN_CLIENT_ID_set: !!process.env.GOOGLE_LOGIN_CLIENT_ID,
-    GOOGLE_LOGIN_CLIENT_ID_prefix: (process.env.GOOGLE_LOGIN_CLIENT_ID || '').slice(0, 14),
-    GOOGLE_LOGIN_CLIENT_SECRET_set: !!process.env.GOOGLE_LOGIN_CLIENT_SECRET,
-  });
-});
-
 router.get('/auth/google', (req, res) => {
   try {
     const client = loginClient(redirectUri());
