@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
       ${navLink(`/conti?team=${encodeURIComponent(team)}`, '🎵 예배콘티', true)}
       ${navLink(`/notices?team=${encodeURIComponent(team)}`, '📋 공지 및 모임', true)}
       ${navLink(`/schedule?team=${encodeURIComponent(team)}`, '🗓 스케줄표', true)}
-      ${navLink('#', '🗂 라이브러리', false)}
+      ${navLink(`/library?team=${encodeURIComponent(team)}`, '🗂 라이브러리', true)}
       ${navLink('#', '🔧 장비·수리', false)}
     </div>
   </div>
