@@ -294,7 +294,8 @@ router.get('/schedule', requireTeam, async (req, res) => {
   const view = req.query.view === 'table' ? 'table' : 'card';
 
   const [assignRows, offRows, myPractice] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), practiceDates(team)]);
-  const myAssign = assignRows.filter((r) => r['팀ID'] === team);
+  // 행사ID가 있는 행(특정 행사 전용 편성)은 이 "여러 주 보기" 스케줄표에는 보이지 않습니다 — 그 행사의 콘티 화면에서만 보입니다.
+  const myAssign = assignRows.filter((r) => r['팀ID'] === team && !r['행사ID']);
   const myOffAll = offRows.filter((r) => r['팀ID'] === team);
   const { infoMap, names: rosterNames } = await teamInfoList(team);
   const roster = { team, names: rosterNames, infoMap };
@@ -376,7 +377,7 @@ router.post('/schedule/assign', requireTeam, async (req, res) => {
   const pos = String(b['포지션'] || '').trim();
   const name = rosterPicker.resolveName(b);
   if (pos && name) {
-    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && canonicalPosition(r['포지션']) === canonicalPosition(pos) && r['이름'] === name);
+    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && !r['행사ID'] && canonicalPosition(r['포지션']) === canonicalPosition(pos) && r['이름'] === name);
     if (!dup) {
       await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
     }

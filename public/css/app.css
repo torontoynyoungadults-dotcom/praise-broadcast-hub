@@ -228,6 +228,12 @@ a { color: var(--accent); text-decoration: none; }
 }
 .ph-weekdate-label { flex: 1; text-align: center; font-weight: 800; font-size: 15.5px; }
 
+/* ---------- 행사-주일예배 교차 안내 배너(conti.js dayBanner) ---------- */
+.ph-eventsbanner { border-left: 3px solid var(--accent); }
+.ph-eventsbanner .ph-sub { margin: 0 0 8px; }
+.ph-eventsbanner .ph-sub:last-child { margin-bottom: 0; }
+.ph-eventsbanner .ph-list { margin-bottom: 0; }
+
 /* ---------- 목록(곡 · 악보 · 녹음 · 댓글 공용) ---------- */
 .ph-h3 { font-size: 15px; font-weight: 800; color: var(--sub); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: .03em; }
 .ph-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }

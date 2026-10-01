@@ -41,13 +41,22 @@ async function specialServices(team) {
 function eventItem(s, team, isAdmin) {
   return `<div class="ph-list-item">
     <div class="ph-li-main">
-      <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(s['날짜'])}">${esc(s['이름'])}</a>
+      <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(s['ID'])}">🎪 ${esc(s['이름'])} 콘티 보기 →</a>
       <div class="ph-li-sub">${esc(week.labelKo(s['날짜']))}</div>
     </div>
-    ${isAdmin ? `<form method="post" action="/events/delete" onsubmit="return confirm('${esc(s['이름'])}(${esc(s['날짜'])}) 표시를 지울까요? (콘티 내용 자체는 안 지워져요)')">
-      <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}">
-      <button class="ph-row-del" type="submit" title="삭제">✕</button>
-    </form>` : ''}
+    ${isAdmin ? `<details class="ph-row-edit">
+      <summary title="수정">⋯</summary>
+      <form method="post" action="/events/add" class="ph-inlineform">
+        <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}">
+        <input type="date" name="날짜" value="${esc(s['날짜'])}" required>
+        <input type="text" name="이름" list="ph-special-suggest" value="${esc(s['이름'])}" maxlength="40" required>
+        <button class="ph-btn pri" type="submit">저장</button>
+      </form>
+      <form method="post" action="/events/delete" onsubmit="return confirm('${esc(s['이름'])}(${esc(s['날짜'])}) 표시를 지울까요? (콘티 내용 자체는 안 지워져요)')">
+        <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}">
+        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">✕ 이 행사 삭제</button>
+      </form>
+    </details>` : ''}
   </div>`;
 }
 
@@ -97,10 +106,17 @@ router.post('/events/add', requireTeam, async (req, res) => {
   if (!req.ctx.isAdmin) return backTo(req, res, team);
   const date = week.normalizeDate(b['날짜']);
   const name = String(b['이름'] || '').trim();
+  const editRow = Number(b.__row) || 0;
   if (date && name) {
-    const existing = await sheetsDb.findWhere('특별예배', (r) => r['팀ID'] === team && r['날짜'] === date);
-    if (existing) await sheetsDb.updateRow('특별예배', existing.__row, { ...existing, '이름': name });
-    else await sheetsDb.appendRow('특별예배', { 'ID': 'S' + Date.now().toString(36), '팀ID': team, '날짜': date, '이름': name, '등록시각': new Date().toISOString() });
+    if (editRow) {
+      // 기존 행사 수정 — 날짜라도 다른 행사와 같아질 수 있으므로 덮어쓰기(upsert)는 하지 않고 이 행만 바꿉니다.
+      const rows = await sheetsDb.readAll('특별예배');
+      const existing = rows.find((r) => r.__row === editRow && r['팀ID'] === team);
+      if (existing) await sheetsDb.updateRow('특별예배', editRow, { ...existing, '날짜': date, '이름': name });
+    } else {
+      // 새 행사 추가 — 같은 날짜에 주일예배와 행사가, 또는 행사가 여러 개 겹칠 수 있으므로 항상 새 행으로 추가합니다.
+      await sheetsDb.appendRow('특별예배', { 'ID': 'S' + Date.now().toString(36), '팀ID': team, '날짜': date, '이름': name, '등록시각': new Date().toISOString() });
+    }
   }
   backTo(req, res, team);
 });
