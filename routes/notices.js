@@ -9,6 +9,7 @@ const teamContext = require('../lib/teamContext');
 const spa = require('../lib/spa');
 
 const ui = require('../lib/uiIcons');
+const honorific = require('../lib/honorific');
 const router = express.Router();
 const esc = pageShell.esc;
 
@@ -32,7 +33,7 @@ function item(n) {
       <div class="ph-li-sub">${kindChip}${String(n['고정']).toUpperCase() === 'TRUE' ? ' · 고정' : ''}</div>
       ${n['제목'] ? `<div class="ph-li-title">${esc(n['제목'])}</div>` : ''}
       <div class="ph-li-note" style="white-space:pre-wrap;">${esc(n['내용'])}</div>
-      <div class="ph-li-sub" style="margin-top:6px;">${esc(n['올린사람'] || '')}</div>
+      <div class="ph-li-sub" style="margin-top:6px;">${esc(honorific.forTeam(n['팀ID'], n['올린사람'] || ''))}</div>
     </div>
     <div class="ph-row-actions">
       <form method="post" action="/notices/pin">
@@ -51,6 +52,7 @@ function item(n) {
 router.get('/notices', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
+  await honorific.prime(team);
   const filter = ['공지', '기도제목'].includes(req.query.filter) ? req.query.filter : '';
   const all = (await sheetsDb.readAll('공지및모임')).filter((r) => r['팀ID'] === team);
   const list = (filter ? all.filter((r) => r['구분'] === filter) : all)

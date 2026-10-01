@@ -720,7 +720,7 @@
       if (!m || m.cid === S.cid || !m.kind) return;
       var k = ck(m.kind, m.key);
       if (m.value == null) delete S.cfg.team[k]; else S.cfg.team[k] = m.value;
-      if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast((m.by || '팀') + ' 님이 쪽 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
+      if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast(YNHon.say(m.by || '팀') + ' 쪽 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
       P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by });
     }
     function applySongPatch(kind, seq, patch, by, remote) {
@@ -729,7 +729,7 @@
       Object.assign(songs[i], patch); applySongCfg();
       if (i === S.songIdx) setSong(i, true);
       renderSongSel(); P.emit('songedit', songs[i], !!remote);
-      if (remote) toast((by || '팀') + ' 님이 "' + songs[i].title + '" 곡 정보를 바꿨습니다.', false, 2400);
+      if (remote) toast(YNHon.say(by || '팀') + ' "' + songs[i].title + '" 곡 정보를 바꿨습니다.', false, 2400);
     }
     function songsSig(list) { return (list || []).map(function (x) { return [x.title, x.key, x.bpm, x.form, x.link, x.team, x.seq, x.kind].join('\u0002'); }).join('\u0001'); }
     var refetchT = 0;
@@ -770,6 +770,7 @@
       if (!m) {
         var saved = {}, shared = cfgGet('map', f.id);
         if (shared) saved = JSON.parse(JSON.stringify(shared)); else { try { saved = JSON.parse(ls('map.' + (S.room || '') + '.' + f.id) || '{}') || {}; } catch (e) { saved = {}; } }
+        if (!shared && !Object.keys(saved).length && f.map) { saved = {}; Object.keys(f.map).forEach(function (p) { saved[p] = f.map[p]; }); }       // 곡별 악보로 저장해 둔 쪽 범위가 기본 연결
         m = S.maps[f.id] = { auto: {}, manual: saved, scanned: false, scanning: false, base: guessSong(f.name, songs) };
       }
       return m;
@@ -810,7 +811,8 @@
       var sel = $('.pv-songsel'); if (!sel) return;
       if (!songs.length) { sel.style.display = 'none'; return; }
       var f = sheets[S.sheetIdx], m = mapOf(f), man = m.manual[S.page], auto = autoSongAt(f, S.page);
-      var html = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('');
+      var html = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('') +
+        (canTeam() && opts.callServer && S.room ? '<option value="__split">▸ 곡별 악보로 저장…</option>' : '');
       sel.innerHTML = html; sel.value = man != null ? String(man) : 'auto'; sel.style.display = '';
       sel.classList.toggle('manual', man != null);
     }
@@ -845,7 +847,23 @@
     }
     /** 배지가 쪽 맨 위를 가리지 않게, 글자가 시작하는 곳을 배지 아래로 (컴퓨터 화면은 배지가 오른쪽 위 빈 곳에 뜨므로 그대로) */
     function badgePad() { return 0; }                                  // v6 — 송폼은 악보 위가 아니라 떠 있는 "송폼" 창에 (쪽 맨 위를 가리지 않음)
+    /** 지금 악보의 쪽 ↔ 곡 연결(자동 + 직접 고른 것)을 곡별 악보(곡 + 쪽 범위)로 저장 — 다음에 그 곡을 콘티에 가져오면 쪽 범위도 같이 따라옵니다 */
+    function saveSplit() {
+      var f = sheets[S.sheetIdx], total = S.pages || 0;
+      if (!f || !S.doc || !total) { toast('악보가 열린 뒤에 저장할 수 있습니다.', true); return; }
+      var by = {}, i, pg;
+      for (pg = 1; pg <= total; pg++) { i = resolveSong(f, pg); if (i != null && i >= 0 && songs[i]) (by[i] = by[i] || []).push(pg); }
+      var keys = Object.keys(by);
+      if (!keys.length) { toast('곡에 연결된 쪽이 없습니다. "이 쪽부터 곡 선택" 으로 먼저 연결해주세요.', true); return; }
+      function spec(a) { var o = [], j = 0; while (j < a.length) { var k = j; while (k + 1 < a.length && a[k + 1] === a[k] + 1) k++; o.push(k > j ? a[j] + '–' + a[k] : String(a[j])); j = k + 1; } return o.join(', '); }
+      var lines = keys.map(function (k) { return (+k + 1) + '. ' + songs[k].title + ' — ' + spec(by[k]) + '쪽'; });
+      if (!root.confirm('이 악보를 곡별로 나눠 저장할까요?\n\n' + lines.join('\n') + '\n\n저장하면 각 곡의 악보로 남아, 다음에 그 곡을 콘티에 가져올 때 쪽 범위도 함께 따라옵니다.')) return;
+      opts.callServer('worshipSheetSplit', [opts.token, S.room, f.id, by], function (r) {
+        toast('곡별 악보로 저장했습니다 (' + ((r && r.songs && r.songs.length) || keys.length) + '곡).', false, 2600);
+      }, function (e) { toast((e && e.message) || '저장하지 못했습니다.', true); });
+    }
     $('.pv-songsel').onchange = function () {
+      if (this.value === '__split') { renderSongSel(); saveSplit(); return; }
       var f = sheets[S.sheetIdx], m = mapOf(f), v = this.value;
       if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
       saveManual(f); var idx = resolveSong(f, S.page);
@@ -1243,7 +1261,7 @@
       rt.on('nav', function (n) { applyNav(n, false); });
       rt.on('leader', function (m) {
         if (rt.isLeader) sendNav();
-        else if (m && m.name && m.reason === 'takeover') toast(m.name + ' 님이 페이지 컨트롤을 넘겨받았습니다.');
+        else if (m && m.name && m.reason === 'takeover') toast(YNHon.say(m.name) + ' 페이지 컨트롤을 넘겨받았습니다.');
         else if (m && !m.name && m.reason === 'left') toast('페이지 컨트롤이 나갔습니다.');
         renderChips();
       });
@@ -1253,7 +1271,7 @@
         toast('보내지 못한 필기가 있습니다: ' + r.error.message, true); P.emit('sync');
       });
       rt.on('clicker', function (m) {
-        if (m && m.name && m.reason === 'takeover' && !rt.isClicker) toast(m.name + ' 님이 클릭 컨트롤을 넘겨받았습니다.');
+        if (m && m.name && m.reason === 'takeover' && !rt.isClicker) toast(YNHon.say(m.name) + ' 클릭 컨트롤을 넘겨받았습니다.');
         else if (m && !m.name && m.reason === 'left') toast('클릭 컨트롤이 나갔습니다.');
       });
       rt.on('cue', function (c) { P.emit('cue', c); });

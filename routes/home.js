@@ -26,6 +26,12 @@ router.get('/', async (req, res) => {
   if (!ctx) return res.redirect('/logout');
   const { isAdmin, roles, current: team } = ctx;
 
+  // 첫 화면(허브 소개)은 없애고, 팀이 있으면 곧바로 예배 콘티로 — 고른 팀은 그대로 유지
+  if (team && ctx.teams.length) {
+    const q = req.query.team && ctx.teams.includes(String(req.query.team)) ? `?team=${encodeURIComponent(String(req.query.team))}` : '';
+    return spa.redirect(req, res, '/conti' + q);
+  }
+
   const hero = pageShell.hero({
     eyebrow: isAdmin ? '관리자' : (roles.join(' · ') || '팀원'),
     title: `${team || '찬양팀'} 허브`,

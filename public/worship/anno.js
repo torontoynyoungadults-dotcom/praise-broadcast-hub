@@ -333,7 +333,7 @@
         if (l.pg !== S.page || !l.p || l.p.length < 2) return;
         drawItem(ctx, { t: l.t, c: l.c, w: l.w, p: l.p }, S.W, S.H, { alpha: 0.85 });
         var lx = l.p[l.p.length - 2] * S.W, ly = l.p[l.p.length - 1] * S.H;
-        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var tw = ctx.measureText(l.by || '').width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(l.by || '', lx + 10, ly - 9); ctx.restore();
+        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var lb = window.YNHon ? YNHon.name(l.by || '') : (l.by || ''); var tw = ctx.measureText(lb).width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(lb, lx + 10, ly - 9); ctx.restore();
       });
       if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(true); }, 1200);
       if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl')) {

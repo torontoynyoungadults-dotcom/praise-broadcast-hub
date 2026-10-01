@@ -650,7 +650,7 @@ function statsTab() {
     seg('kind', [['all', '전체'], ['콘티', '콘티'], ['결단', '결단찬양']]) +
     '<select onchange="SS.lead=this.value;SS.more=false;render();"><option value="">인도자 전체</option>' +
       Object.keys(leads).sort().map(function (n) {
-        return '<option value="' + esc(n) + '"' + (SS.lead === n ? ' selected' : '') + '>' + esc(n) + '</option>';
+        return '<option value="' + esc(n) + '"' + (SS.lead === n ? ' selected' : '') + '>' + esc(dispName(n)) + '</option>';
       }).join('') + '</select>' +
     '<input type="search" id="ssq" placeholder="곡 · 팀 검색" value="' + esc(SS.q) + '" ' +
       'oninput="SS.q=this.value;SS.more=false;statRedraw();">' +
@@ -717,7 +717,7 @@ function statView(list) {
     list.forEach(function (i) { lineup(i.key).lead.forEach(function (n) { bump(g, n, i); }); });
     var rows = sortN(g).map(function (r) { r.n = Object.keys(r.keys).length; return r; })
       .sort(function (a, b) { return b.n - a.n; });
-    return rows.length ? bars(rows, function (r) { return r.name; },
+    return rows.length ? bars(rows, function (r) { return dispName(r.name); },
       function (r) { return Object.keys(r.songs).length + '곡 · 자주: ' + topSongs(r.songs, 2); }, '번 인도')
       : '<p class="empty">편성에 인도자가 적힌 예배가 없습니다.</p>';
   }
@@ -786,7 +786,7 @@ function songSheet(c) {
   function chips(o, unit) {
     var ks = Object.keys(o).sort(function (a, b) { return o[b] - o[a]; });
     return ks.length ? '<div class="sschips">' + ks.slice(0, 16).map(function (k) {
-      return '<span class="ssc">' + esc(k) + ' <b>' + o[k] + unit + '</b></span>';
+      return '<span class="ssc">' + esc(dispName(k)) + ' <b>' + o[k] + unit + '</b></span>';
     }).join('') + '</div>' : '<p class="empty" style="margin:4px 0 0;">기록 없음</p>';
   }
   var spells = Object.keys(SS.spell[c] || {});
@@ -1128,7 +1128,7 @@ function rpSongs() {
 
 function rpOpts(map, cur, all) {
   return '<option value="">' + all + '</option>' + Object.keys(map).sort(function (a, b) { return a.localeCompare(b, 'ko'); }).map(function (k) {
-    return '<option value="' + esc(k) + '"' + (cur === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('');
+    return '<option value="' + esc(k) + '"' + (cur === k ? ' selected' : '') + '>' + esc(dispName(k)) + '</option>'; }).join('');
 }
 
 function rpFilterCount() { return (RP.key ? 1 : 0) + (RP.team ? 1 : 0) + (RP.theme ? 1 : 0) + (RP.leader ? 1 : 0) + (RP.onlySheet ? 1 : 0); }
@@ -1210,7 +1210,7 @@ function rpDetail(s) {
   } else {
     h += '<div class="rp-info">' + (s.memo ? '<p>' + rpNl(s.memo) + '</p>' : '') +
       '<p class="hint">Key: ' + (Object.keys(s.keys).map(function (k) { return esc(k) + '(' + s.keys[k] + ')'; }).join(' ') || '—') +
-      ' · 인도자: ' + (Object.keys(s.leaders).map(function (k) { return esc(k) + '(' + s.leaders[k] + ')'; }).join(' ') || '—') + '</p>' +
+      ' · 인도자: ' + (Object.keys(s.leaders).map(function (k) { return esc(dispName(k)) + '(' + s.leaders[k] + ')'; }).join(' ') || '—') + '</p>' +
       (D.canEdit ? '<button class="btn mini" onclick="rpEditSong(this)">원곡팀 · 주제 · 메모 고치기</button>' : '') + '</div>';
   }
   if (s.sheets.length) {
@@ -1225,14 +1225,14 @@ function rpDetail(s) {
           '<div class="sv-btns"><button class="btn mini" onclick="rpSheetSave(this)">저장</button><button class="btn mini" onclick="RP.editSheet=\'\';rpRedraw();">취소</button></div><p class="msg"></p></div>';
       }
       return '<div class="rp-sh" data-sid="' + esc(x.id) + '"><a target="_blank" rel="noopener" href="' + esc(x.url) + '">📄 ' + esc(x.name || x.title) + '</a>' +
-        '<small>' + [x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.date && rpDay(x.date), x.leader, x.pages && x.pages + '쪽', x.note].filter(Boolean).map(esc).join(' · ') + '</small>' +
+        '<small>' + [x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.date && rpDay(x.date), dispList(x.leader), x.range ? x.range + '쪽' : (x.pages && x.pages + '쪽'), x.note].filter(Boolean).map(esc).join(' · ') + '</small>' +
         (D.canEdit ? '<button class="btn mini" onclick="rpEditSheet(this)">정보 고치기</button>' : '') + '</div>';
     }).join('');
   } else h += '<p class="hint">올려 둔 악보 PDF가 없습니다.</p>';
   if (s.history.length) {
     h += '<div class="sv-sub">지난 콘티 기록</div><div class="rp-hist">' + s.history.slice(0, 10).map(function (x) {
       var solo = (x.solo || []).map(function (y) { return (y.name || '') + (y.part ? '(' + y.part + ')' : ''); }).join(', ');
-      return '<div class="rp-h"><b>' + esc(x.date) + '</b><span>' + [x.kind === '결단' && '결단', x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.form, solo && '솔로 ' + solo, x.leader && '인도 ' + x.leader].filter(Boolean).map(esc).join(' · ') + '</span>' +
+      return '<div class="rp-h"><b>' + esc(x.date) + '</b><span>' + [x.kind === '결단' && '결단', x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.form, solo && '솔로 ' + solo, x.leader && '인도 ' + dispList(x.leader)].filter(Boolean).map(esc).join(' · ') + '</span>' +
         (x.note ? '<em>' + esc(x.note) + '</em>' : '') + (x.link ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(x.link) + '">▶ 링크</a>' : '') + '</div>';
     }).join('') + '</div>';
   }

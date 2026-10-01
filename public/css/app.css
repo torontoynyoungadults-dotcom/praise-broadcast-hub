@@ -821,53 +821,57 @@ a { color: var(--accent-ink); text-decoration: none; }
 /* ======================================================================
    V10 — 예배콘티: 곡 카드(청년부 앱처럼) · 유튜브 펼침 검색 · 이전 콘티 가져오기 · 카톡 복사 · 오프라인 다운로드
    ====================================================================== */
-.cn-songs { display: flex; flex-direction: column; gap: 10px; }
-.cn-song { position: relative; padding: 14px 14px 12px; border-radius: 18px; background: var(--glass); border: 1px solid var(--line);
+.cn-songs { display: flex; flex-direction: column; gap: 8px; }
+.cn-song { position: relative; padding: 10px 12px 9px; border-radius: 16px; background: var(--glass); border: 1px solid var(--line);
   box-shadow: inset 0 1px 0 var(--inset-hi); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .cn-song.fin { border-color: color-mix(in srgb, var(--accent-2) 55%, var(--line)); background: color-mix(in srgb, var(--accent-2) 9%, var(--glass)); }
 /* ① 순서 · 제목 · Key · BPM — 한눈에 */
-.cn-shead { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
-.cn-no { flex: none; width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center; font-size: 17px; font-weight: 900;
+.cn-shead { display: flex; align-items: center; gap: 8px; }
+.cn-tb { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cn-no { flex: none; width: 28px; height: 28px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; font-weight: 900;
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); box-shadow: 0 4px 12px rgba(var(--accent-rgb), .3); }
-.cn-no .yi { width: 18px; height: 18px; }
-.cn-ti { flex: 1 1 130px; min-width: 0; font-size: 19px; font-weight: 850; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; word-break: keep-all; }
-.cn-badges { flex: none; display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
-.cn-kb { display: inline-flex; align-items: baseline; gap: 2px; padding: 4px 11px; border-radius: 99px; font-size: 15px; font-weight: 900; line-height: 1.2; border: 1px solid transparent; }
+.cn-no .yi { width: 15px; height: 15px; }
+.cn-ti { min-width: 0; font-size: 17px; font-weight: 850; letter-spacing: -.02em; line-height: 1.25; overflow-wrap: anywhere; word-break: keep-all; }
+.cn-badges { flex: none; display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; align-items: center; margin-left: auto; }
+.cn-kb { display: inline-flex; align-items: baseline; gap: 2px; padding: 2px 9px; border-radius: 99px; font-size: 13.5px; font-weight: 900; line-height: 1.25; border: 1px solid transparent; }
 .cn-kb small { font-size: 10px; font-weight: 800; opacity: .8; margin-left: 2px; }
 .cn-kb.key { color: var(--c-lav); background: color-mix(in srgb, var(--c-lav) 20%, transparent); border-color: color-mix(in srgb, var(--c-lav) 50%, transparent); }
 .cn-kb.bpm { color: var(--c-sky); background: color-mix(in srgb, var(--c-sky) 18%, transparent); border-color: color-mix(in srgb, var(--c-sky) 48%, transparent); }
 /* ② 원곡팀 · 유튜브 */
 .cn-smeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 9px; padding-left: 44px; }
-.cn-team { font-size: 14px; font-weight: 700; color: var(--sub); }
-.cn-ytlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 99px; font-size: 12.5px; font-weight: 800; color: var(--c-rose);
+.cn-team { font-size: 12.5px; font-weight: 700; color: var(--sub); line-height: 1.2; }
+.cn-ytlink { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 800; color: var(--c-rose);
   background: color-mix(in srgb, var(--c-rose) 16%, transparent); border: 1px solid color-mix(in srgb, var(--c-rose) 45%, transparent); }
 .cn-ytlink .yi { width: 14px; height: 14px; }
 /* ③ 송폼 칩 */
-.cn-sform { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 3px; margin-top: 11px; padding-left: 44px; }
-.cn-fc { display: inline-flex; align-items: baseline; gap: 3px; padding: 5px 10px; border-radius: 10px; font-size: 14px; line-height: 1.15; border: 1px solid transparent; }
-.cn-fc b { font-weight: 900; font-size: 15px; } .cn-fc i { font-style: normal; font-size: 11px; font-weight: 750; opacity: .85; }
-.cn-fc small { font-size: 10px; font-weight: 700; opacity: .75; } .cn-fc em { font-style: normal; font-size: 11.5px; font-weight: 900; }
+.cn-sform { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 2px; margin-top: 7px; padding-left: 36px; }
+.cn-fc { display: inline-flex; align-items: baseline; gap: 2px; padding: 2px 7px; border-radius: 8px; font-size: 12.5px; line-height: 1.15; border: 1px solid transparent; }
+.cn-fc b { font-weight: 900; font-size: 13px; } .cn-fc i { font-style: normal; font-size: 10px; font-weight: 750; opacity: .8; }
+.cn-fc small { font-size: 9px; font-weight: 700; opacity: .75; } .cn-fc em { font-style: normal; font-size: 10.5px; font-weight: 900; }
 .cn-fc-v { color: var(--c-sky); background: color-mix(in srgb, var(--c-sky) 17%, transparent); border-color: color-mix(in srgb, var(--c-sky) 45%, transparent); }
 .cn-fc-pc { color: var(--c-lav); background: color-mix(in srgb, var(--c-lav) 17%, transparent); border-color: color-mix(in srgb, var(--c-lav) 45%, transparent); }
 .cn-fc-c { color: var(--c-a2); background: rgba(var(--c-a-rgb), .2); border-color: rgba(var(--c-a-rgb), .6); }
 .cn-fc-b { color: var(--c-mint); background: color-mix(in srgb, var(--c-mint) 17%, transparent); border-color: color-mix(in srgb, var(--c-mint) 45%, transparent); }
 .cn-fc-io { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); border-color: color-mix(in srgb, var(--ink) 24%, transparent); }
 .cn-fc-etc { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); border: 1px dashed color-mix(in srgb, var(--ink) 35%, transparent); }
-.cn-arrow { color: var(--dim); font-size: 14px; font-weight: 800; }
+.cn-arrow { color: var(--dim); font-size: 11px; font-weight: 800; opacity: .7; }
 /* ④ 설명 */
-.cn-snote { margin-top: 11px; margin-left: 44px; padding: 9px 12px; border-radius: 12px; font-size: 14.5px; line-height: 1.7; color: var(--sub); white-space: pre-wrap; overflow-wrap: anywhere;
+.cn-snote { margin-top: 7px; margin-left: 36px; padding: 6px 10px; border-radius: 10px; font-size: 13.5px; line-height: 1.55; color: var(--sub); white-space: pre-wrap; overflow-wrap: anywhere;
   background: color-mix(in srgb, var(--ink) 5%, transparent); border-left: 3px solid color-mix(in srgb, var(--accent) 60%, transparent); }
-.cn-song .ph-songsheets { margin-top: 10px; margin-left: 44px; }
-.cn-song .cn-edit { margin-top: 8px; margin-left: 44px; flex: none; }
-.cn-song .cn-edit > summary { width: auto; height: auto; min-height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13.5px; font-weight: 750; border-radius: 12px; }
-.cn-song .cn-edit > summary .yi { width: 15px; height: 15px; }
+.cn-song .ph-songsheets { margin-top: 7px; margin-left: 36px; gap: 4px 8px; }
+.cn-song .cn-edit { margin-top: 0; margin-left: auto; flex: 0 0 auto; }
+.cn-song .cn-edit[open] { flex: 1 1 100%; margin-left: 0; }
+.cn-song .ph-songsheet-add[open] { flex: 1 1 100%; }
+.cn-song .cn-edit > summary { width: auto; height: auto; min-height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12.5px; font-weight: 750; border-radius: 10px; }
+.cn-song .cn-edit > summary .yi { width: 13px; height: 13px; }
 @media (max-width: 480px) {
-  .cn-smeta, .cn-sform { padding-left: 0; }
-  .cn-snote, .cn-song .ph-songsheets, .cn-song .cn-edit { margin-left: 0; }
-  .cn-ti { font-size: 18px; flex: 1 1 0; min-width: 5em; }
+  .cn-sform { padding-left: 0; }
+  .cn-snote, .cn-song .ph-songsheets { margin-left: 0; }
+  .cn-ti { font-size: 16.5px; }
   .cn-badges { gap: 4px; }
-  .cn-kb { padding: 3px 9px; font-size: 14px; }
+  .cn-kb { padding: 2px 8px; font-size: 13px; }
   .cn-kb small { font-size: 9px; }
+  .cn-ytlink span { display: none; }
 }
 
 /* ---------- 유튜브 — 입력칸 밑에 펼쳐지는 검색 · 미리보기 ---------- */
@@ -1026,3 +1030,14 @@ a { color: var(--accent-ink); text-decoration: none; }
 .cn-glrow { display: flex; gap: 8px; align-items: center; }
 .cn-glrow input { flex: 1; min-width: 0; font-size: .82rem; }
 .cn-glform { margin-top: 8px; }
+
+/* V12 — 곡별로 저장한 악보의 쪽 범위 · 곡 만들 때 올리는 악보 칸 · 목사님 칩 */
+.ph-songsheet .ph-pr { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 99px; font-size: 10.5px; font-weight: 800; color: var(--accent-2, var(--accent)); background: color-mix(in srgb, var(--accent-2, var(--accent)) 16%, transparent); vertical-align: 1px; }
+.cn-newsheet { display: flex; flex-direction: column; gap: 6px; }
+.cn-newsheet label { font-size: 13px; font-weight: 750; color: var(--sub); }
+.cn-newsheet input[type=file] { font-size: 13px; max-width: 100%; }
+.ph-namechip.pastor .ph-chipname { font-weight: 800; }
+/* V12 — 곡 카드 안의 악보 줄을 더 작게 */
+.cn-song .ph-songsheets .ph-li-link { font-size: 13px; margin-top: 0; }
+.cn-song .ph-songsheet .ph-row-del { width: 22px; height: 22px; font-size: 11px; }
+.cn-song .ph-songsheet-add > summary { padding: 3px 8px; min-height: 0; font-size: 12.5px; line-height: 1.3; }

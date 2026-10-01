@@ -12,6 +12,7 @@ const pageShell = require('../lib/pageShell');
 const week = require('../lib/weekUtil');
 const ui = require('../lib/uiIcons');
 const guestLink = require('../lib/guestLink');
+const honorific = require('../lib/honorific');
 const hubApi = require('../lib/hubApi');
 const prac = require('../lib/practice');
 const { ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
@@ -54,11 +55,11 @@ async function send(req, res, active, hero, body, title) {
 router.get('/b/:token', gate, (req, res) => res.redirect(req.guest.base + '/conti'));
 
 /* ---------------------------------------------------------------- 예배 콘티 */
-function lineupReadonly(rows, scope) {
+function lineupReadonly(rows, scope, team) {
   const by = {};
   rows.filter((r) => (scope.event ? r['행사ID'] === scope.event : (!r['행사ID'] && r['날짜'] === scope.date))).forEach((r) => {
     const p = canonicalPosition(String(r['포지션'] || '').trim()), n = String(r['이름'] || '').trim();
-    if (p && n) (by[p] = by[p] || []).push(n);
+    if (p && n) (by[p] = by[p] || []).push(honorific.forTeam(team, n));
   });
   const keys = ALL_POSITIONS.filter((k) => by[k] && by[k].length);
   if (!keys.length) return '';
@@ -102,7 +103,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
   const body = `
     <div class="ph-card">${weekNav}${evBox}</div>
     ${practice}
-    ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope)}
+    ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope, team)}
     <div class="ph-card top-accent"><h2 class="ph-h2">콘티</h2>
       <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => card(s, i + 1, '콘티')).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div></div>
     <div class="ph-card"><h2 class="ph-h2">설교 후 찬양</h2>
@@ -148,6 +149,7 @@ const RANGE_LABEL = { next3: '앞으로 3개월', next6: '앞으로 6개월', pa
 router.get('/b/:token/schedule', gate, async (req, res) => {
   const { team, base } = req.guest;
   const range = RANGE_LABEL[req.query.range] ? req.query.range : 'next3';
+  await honorific.prime(team);
   const sched = await hubApi.FNS.worshipSchedule({ name: '', team, canEdit: false, admin: false }, range);
   const poss = hubApi.positions();
   const rows = sched.rows;
@@ -157,7 +159,7 @@ router.get('/b/:token/schedule', gate, async (req, res) => {
     const pr = r.practice;
     const prTxt = pr && pr.none ? '연습 없음' : (pr && pr.date ? `연습 ${mdDow(pr.date)}` : '');
     return `<div class="ph-card gs-week${r.date < today ? ' past' : ''}"><div class="gs-head"><b>${esc(mdDow(r.date))}</b>${r.event ? `<span class="gs-evname">${esc(r.event.name)}</span>` : ''}${prTxt ? `<small>${esc(prTxt)}</small>` : ''}</div>
-      ${slots.length ? `<div class="gs-line">${slots.map((p) => `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(p.key)}</span><i>${esc(p.label)}</i><b>${esc(r.slots[p.key].join(', '))}</b></span>`).join('')}</div>` : '<p class="ph-sub" style="margin:4px 0 0;">아직 편성이 없어요.</p>'}</div>`;
+      ${slots.length ? `<div class="gs-line">${slots.map((p) => `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(p.key)}</span><i>${esc(p.label)}</i><b>${esc(r.slots[p.key].map((n) => honorific.forTeam(team, n)).join(', '))}</b></span>`).join('')}</div>` : '<p class="ph-sub" style="margin:4px 0 0;">아직 편성이 없어요.</p>'}</div>`;
   }).join('');
   const tabs = Object.keys(RANGE_LABEL).map((k) => `<a class="gs-ev${k === range ? ' on' : ''}" href="${base}/schedule?range=${k}">${RANGE_LABEL[k]}</a>`).join('');
   await send(req, res, 'schedule', { eyebrow: `${team} · 방송팀`, title: '스케줄표', sub: '포지션 편성 · 연습일' },

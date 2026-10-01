@@ -41,7 +41,7 @@ router.get('/profile', requireLogin, async (req, res) => {
       <div class="ph-li-main" style="display:flex;align-items:center;gap:12px;">
         ${avatar.avatarHtml(m['이름'], { 사진: m['프로필사진'], 성별: m['성별'] }, 'lg')}
         <div>
-          <div class="ph-li-title">${esc(m['이름'])}</div>
+          <div class="ph-li-title">${esc(m['이름'])}${/(^|,)\s*목회자\s*(,|$)/.test(String(m['역할'] || '')) ? ' 목사님' : ''}</div>
           <div class="ph-li-sub">${esc(ctx.teams.join(' · ') || m['소속팀'])}</div>
         </div>
       </div>

@@ -779,7 +779,7 @@
       var syncEl = $('.yt-sync'), tx = SYNC_TX[st] || SYNC_TX.connecting;
       syncEl.setAttribute('data-s', st); syncEl.title = tx[1]; syncEl.querySelector('b').textContent = tx[0];
       $('.yt-only-ro').hidden = lead; $('.yt-only-lead').hidden = !lead;
-      var by = s && s.by ? s.by + ' 님이 마지막으로 조작' : '';
+      var by = s && s.by ? (window.YNHon ? YNHon.say(s.by) : s.by + ' 님이') + ' 마지막으로 조작' : '';
       set(F('by'), 'by', by); set(F('by2'), 'by2', by);
       tick();
       if (!s || !lead) return;

@@ -71,7 +71,7 @@
         Array.prototype.forEach.call(el.querySelectorAll('button,input'), function (x) { x.disabled = lock; });
         el.classList.toggle('locked', lock);
         var rt = P.rt();
-        note.innerHTML = mode === 'send' ? I('metronome') + '내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? I('metronome') + h(rt && rt.clicker || '') + ' 님이 클릭 컨트롤 — 자동으로 따라감' : '';
+        note.innerHTML = mode === 'send' ? I('metronome') + '내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? I('metronome') + h(YNHon.say(rt && rt.clicker || '')) + ' 클릭 컨트롤 — 자동으로 따라감' : '';
       }
       function beat(e) {
         var ds = dots.children; for (var i = 0; i < ds.length; i++) ds[i].classList.remove('on');
@@ -250,7 +250,7 @@
       if (rt.clicker) return 'locked';
       return 'local';
     }
-    function lockedMsg() { var rt = P.rt(); return (rt && rt.clicker ? rt.clicker : '다른 사람') + ' 님이 클릭 컨트롤입니다. 직접 쓰려면 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요.'; }
+    function lockedMsg() { var rt = P.rt(); return YNHon.say(rt && rt.clicker ? rt.clicker : '다른 사람') + ' 클릭 컨트롤입니다. 직접 쓰려면 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요.'; }
     /** 지금 내 메트로놈 상태를 서버로 (내가 클릭 컨트롤일 때) */
     function sendState(o) {
       var rt = P.rt(), m = metro(); if (!rt || !m || ctl() !== 'send') return;
@@ -565,7 +565,7 @@
         ['[data-a="b-"]', '[data-a="b+"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
         Array.prototype.forEach.call(dotsEl.children, function (d) { d.disabled = lock; });
         if (mode === 'send') note.innerHTML = I('metronome') + '<b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 메트로놈에 전달됩니다.';
-        else if (lock) note.innerHTML = I('metronome') + '<b>' + h(rt.clicker) + '</b> 님이 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
+        else if (lock) note.innerHTML = I('metronome') + '<b>' + h(YNHon.say(rt.clicker)) + '</b> 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'mix';

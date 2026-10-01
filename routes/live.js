@@ -19,13 +19,15 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
+const honorific = require('../lib/honorific');
+const pageSpec = require('../lib/pageSpec');
 const liveAuth = require('../lib/liveAuth');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca83-4';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca83-5';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -56,11 +58,22 @@ async function liveData(team, scope) {
   const sheets = sheetRows.filter((s) => s['팀ID'] === team && liveStore.inScope(s, scope) && s['파일링크'])
     .map((s) => ({ s, ord: s['곡ID'] && orderById.has(s['곡ID']) ? orderById.get(s['곡ID']) : 1000, at: String(s['올린시각'] || '') }))
     .sort((a, b) => a.ord - b.ord || a.at.localeCompare(b.at));
-  const seen = new Set(), list = [];
-  sheets.forEach(({ s }) => {
-    const id = liveStore.sheetIdOf(team, s['파일링크']);
-    if (seen.has(id)) return; seen.add(id);
-    list.push({ id, name: sheetName(s, titleById.get(s['곡ID']) || '') });
+  // 같은 파일(악보 id)은 한 번만 — 대표 줄은 "쪽"이 없는 줄(패키지 · 곡 전체 악보) 우선. 곡별로 저장해 둔 쪽 범위(쪽)는 쪽 ↔ 곡 연결의 기본값(map)으로
+  const byFile = new Map();
+  sheets.forEach((x) => { const id = liveStore.sheetIdOf(team, x.s['파일링크']); (byFile.get(id) || byFile.set(id, []).get(id)).push(x.s); });
+  const list = [];
+  byFile.forEach((rows, id) => {
+    const rep = rows.find((r) => !String(r['쪽'] || '').trim()) || rows[0];
+    const whole = !String(rep['쪽'] || '').trim();
+    const map = {};
+    rows.forEach((r) => {
+      const idx = orderById.get(r['곡ID']);
+      if (idx == null) return;
+      pageSpec.specToRanges(r['쪽']).forEach(([a]) => { map[a] = idx; });                       // 그 곡 쪽 범위의 첫 쪽부터 그 곡
+    });
+    const item = { id, name: whole ? sheetName(rep, titleById.get(rep['곡ID']) || '') : sheetName(rep, '') };
+    if (Object.keys(map).length) item.map = map;
+    list.push(item);
   });
   const recs = recRows.filter((r) => r['팀ID'] === team && liveStore.inScope(r, scope))
     .map((r) => ({ id: liveStore.driveIdOf(r['링크']), r })).filter((x) => x.id)
@@ -94,6 +107,7 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
   const start = String(req.query.sheet || '').trim();
   const boot = {
     token: liveAuth.mint(ctx.member, team, ctx.isAdmin), room: d.room, me: String(ctx.member['이름'] || ''),
+    pastors: Array.from(await honorific.pastorSet(team)),
     sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
   };
   const v = `?v=${LIVE_V}`;
@@ -125,6 +139,8 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
 <body>
 <div class="lv-fallback" id="lvFallback"><p>라이브 악보를 여는 중…</p><p><a href="${esc(back)}">← 예배콘티로 돌아가기</a></p></div>
 <script>window.__LIVE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};</script>
+<script>(function(){var P={};((window.__LIVE__||{}).pastors||[]).forEach(function(n){P[n]=1});
+window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사님':n},say:function(n){n=String(n||'');return P[n.trim()]?n+' 목사님이':n+' 님이'}};})();</script>
 <script defer src="/socket.io/socket.io.js"></script>
 <script defer src="/worship/icons.js${v}"></script>
 <script defer src="/worship/icons-plus.js${v}"></script>
@@ -225,6 +241,14 @@ function timerRoute(kind) {
 router.post('/api/worshipTimerGet', timerRoute('get'));
 router.post('/api/worshipTimerCmd', timerRoute('cmd'));
 
+const splitChains = new Map();
+function serialSplit(key, fn) {
+  const prev = splitChains.get(key) || Promise.resolve();
+  const job = prev.catch(() => {}).then(fn);
+  splitChains.set(key, job);
+  return job.finally(() => { if (splitChains.get(key) === job) splitChains.delete(key); });
+}
+
 const FNS = {
   /** 필기 읽기 → { team, mine, me, canEdit } (mineOnly 면 team: null — 실시간 서버에서 따로 받음) */
   async worshipAnnoLoad(u, file, scope, mineOnly) {
@@ -257,6 +281,44 @@ const FNS = {
     key = liveStore._internals.cfgKey(kind, key);
     if (layer === 'team' && rt) rt.broadcast(room, 'cfg', { kind, key, value: clean, by: u.name, cid: String(cid || '').slice(0, 40), layer: 'team' }, u.team);
     return { ok: true, layer, kind, key, value: clean, by: u.name };
+  },
+  /** 라이브 악보에서 정한 "쪽 ↔ 곡" 을 곡별 악보로 저장 — byIdx = { '곡 번호(0부터)': [쪽, 쪽, …] }.
+   *  이 예배의 그 악보 파일(패키지)을 곡마다 "곡ID + 쪽 범위" 줄로 저장해 두면, 콘티 · 라이브러리에서 곡 악보로 쓰이고
+   *  다른 주 콘티로 곡을 가져올 때 쪽 범위도 함께 따라가며 라이브 악보에서 쪽 ↔ 곡이 자동으로 연결됩니다. 다시 저장하면 이전 저장을 바꿔 놓습니다. */
+  async worshipSheetSplit(u, room, fileId, byIdx) {
+    if (!u.canEdit) throw new Error('곡별 악보 저장은 팀장 · 인도자만 할 수 있습니다.');
+    const scope = liveStore.scopeOfRoom(room);
+    fileId = String(fileId || '').trim();
+    if (!fileId || !byIdx || typeof byIdx !== 'object') throw new Error('저장할 내용이 없습니다.');
+    return serialSplit(u.team + '\u0001' + room, async () => {
+      const [songRows, sheetRows] = await Promise.all([sheetsDb.readAll('찬양콘티', { fresh: true }), sheetsDb.readAll('악보저장소', { fresh: true })]);
+      const { conti, fin } = liveStore.orderedSongs(songRows, u.team, scope);
+      const ordered = conti.concat(fin);
+      const here = sheetRows.filter((r) => r['팀ID'] === u.team && liveStore.inScope(r, scope) && r['파일링크'] && liveStore.sheetIdOf(u.team, r['파일링크']) === fileId);
+      const src = here.find((r) => !String(r['쪽'] || '').trim()) || here[0];
+      if (!src) throw new Error('이 예배에서 그 악보를 찾지 못했습니다. 화면을 새로 열어주세요.');
+      const plan = [];
+      Object.keys(byIdx).forEach((k) => {
+        const i = Number(k), row = Number.isInteger(i) ? ordered[i] : null, pages = pageSpec.cleanPages(byIdx[k]);
+        if (row && pages.length) plan.push({ i, row, pages, spec: pageSpec.pagesToSpec(pages) });
+      });
+      if (!plan.length) throw new Error('곡에 연결된 쪽이 없습니다. 먼저 "이 쪽부터 곡 선택" 으로 쪽을 곡에 연결해주세요.');
+      plan.sort((a, b) => a.i - b.i);
+      // 이 파일의 이전 곡별 저장(쪽 있는 줄)은 지우고 새로
+      const olds = here.filter((r) => String(r['쪽'] || '').trim()).sort((a, b) => b.__row - a.__row);
+      for (const r of olds) await sheetsDb.deleteRow('악보저장소', r.__row);
+      const base = Date.now().toString(36);
+      for (let n = 0; n < plan.length; n++) {
+        const p = plan[n];
+        await sheetsDb.appendRow('악보저장소', {
+          'ID': 'F' + base + n + Math.random().toString(36).slice(2, 4), '팀ID': u.team, '날짜': src['날짜'] || '', '행사ID': src['행사ID'] || '', '제목': String(src['제목'] || '악보'),
+          '파일링크': src['파일링크'], '올린사람': u.name, '올린시각': new Date().toISOString(), '곡ID': p.row['ID'],
+          'Key': String(p.row['Key'] || ''), 'BPM': String(p.row['BPM'] || ''), '인도자': '', '쪽수': p.pages.length, '메모': '', '저장소날짜': '', '쪽': p.spec,
+        });
+      }
+      songsChanged(u.team, scope, 'saveSheetSplit');
+      return { ok: true, replaced: olds.length, songs: plan.map((p) => ({ title: String(p.row['제목'] || ''), pages: p.spec })) };
+    });
   },
   async worshipSongsOf(u, room) { return { songs: await liveStore.songsOf(u.team, room) }; },
   /** 곡 정보(BPM · 송폼 · 유튜브 링크) 일부만 고치기 — 예배콘티의 그 곡 줄이 바뀝니다. 팀 모두에게 실시간 전달 */
