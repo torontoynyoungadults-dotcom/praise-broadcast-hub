@@ -366,3 +366,8 @@ a { color: var(--accent); text-decoration: none; }
 }
 .ph-hubtab.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
 #ph-tabbody.ph-loading { opacity: .45; transition: opacity .1s linear; pointer-events: none; }
+
+/* ---------- 스케줄표 — 객원/강조/불가 이름 배지 (church-app처럼) ---------- */
+.ph-namechip.guest { border-style: dashed; color: var(--sub); }
+.ph-namechip.off { opacity: .55; text-decoration: line-through; }
+.ph-namechip.hl { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; font-weight: 800; }

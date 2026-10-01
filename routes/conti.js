@@ -3,6 +3,8 @@
  *  - "이주의 말씀"(성경구절) 기능은 뺌
  *  - "가사도구"는 뺌
  *  - 녹음은 유지하지만 드라이브 폴더 자동 스캔/자동링크는 빼고, 직접 업로드 또는 링크 입력으로 대체
+ *  - church-app처럼 "주일 편성"(이번 주 포지션 배정)도 콘티 화면 안에 바로 둠 (더 상세한 여러 주 보기·
+ *    "안 되는 날"은 스케줄표 화면에 — 같은 찬양편성 시트를 함께 씀)
  * 로그인 없이 보는 공개 링크(팀+주차 단위, 읽기 전용)도 이 파일에서 함께 처리합니다.
  */
 const express = require('express');
@@ -13,6 +15,7 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
+const { POSITION_GROUPS } = require('../lib/positions');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -33,6 +36,46 @@ async function requireTeam(req, res, next) {
 
 function backTo(req, res, team, date) {
   spa.redirect(req, res, `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`);
+}
+
+/* ---------- 주일 편성 (church-app의 "이 주의 편성" — 이번 주 포지션 배정) ---------- */
+async function teamRoster(team) {
+  const members = await sheetsDb.readAll('회원');
+  return members.filter((m) => String(m['소속팀'] || '').split(',').map((s) => s.trim()).includes(team)).map((m) => m['이름']).filter(Boolean);
+}
+
+function lineupCell(date, team, posKey, names, roster) {
+  return `<div class="ph-poscell">
+    <div class="ph-poslabel">${esc(posKey)}</div>
+    <div class="ph-posnames">${names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}">${esc(n.이름)}
+      <form method="post" action="/conti/lineup/unassign" style="display:inline;">
+        <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
+        <button type="submit" aria-label="빼기">&times;</button>
+      </form></span>`).join('') : '<span class="ph-namechip none">미정</span>'}</div>
+    <form method="post" action="/conti/lineup/assign" class="ph-assignform">
+      <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">
+      <input type="text" name="이름" list="ph-roster" placeholder="+ 이름" maxlength="20">
+      <button type="submit">추가</button>
+    </form>
+  </div>`;
+}
+
+async function lineupCard(team, date) {
+  const [assignRows, roster] = await Promise.all([sheetsDb.readAll('찬양편성'), teamRoster(team)]);
+  const rows = assignRows.filter((r) => r['팀ID'] === team && r['날짜'] === date);
+  const byPos = {};
+  rows.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push({ 이름: r['이름'], __row: r.__row }); });
+  const groups = POSITION_GROUPS.map(([label, keys]) => `
+    <div class="ph-posgroup">
+      <div class="ph-posgrouplabel">${esc(label)}</div>
+      <div class="ph-posrow">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster)).join('')}</div>
+    </div>`).join('');
+  return `<div class="ph-card">
+    <h2 class="ph-h2">주일 편성</h2>
+    <datalist id="ph-roster">${roster.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+    ${groups}
+    <p class="ph-sub" style="margin-top:8px;"><a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a></p>
+  </div>`;
 }
 
 /* ---------- 조회(읽기) 공통 — 로그인 화면과 공개 화면이 함께 씁니다 ---------- */
@@ -231,6 +274,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const publicUrl = `/public/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
 
   const hero = pageShell.hero({ eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
+  const lineup = await lineupCard(team, date);
 
   const content = `
   ${pageShell.hubNav('conti', team)}
@@ -241,6 +285,8 @@ router.get('/conti', requireTeam, async (req, res) => {
     <a class="ph-btn pri" style="margin-top:12px;" href="/conti/practice?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">🎤 연습 화면 열기 (라이브 악보 · 메트로놈)</a>
     <p class="ph-msg" style="margin-top:10px;"><a href="${publicUrl}" target="_blank" rel="noopener">🔗 로그인 없이 보는 공개 링크</a></p>
   </div>
+
+  ${lineup}
 
   ${soloSummaryBox(w.conti, w.final)}
 
@@ -361,6 +407,25 @@ router.get('/conti/practice', requireTeam, async (req, res) => {
   <script src="/js/practice.js" defer></script>
   `;
   res.type('html').send(await pageShell.render(content, { title: `${team} 연습 화면` }));
+});
+
+router.post('/conti/lineup/assign', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
+  const pos = String(b['포지션'] || '').trim();
+  const name = String(b['이름'] || '').trim();
+  if (pos && name) {
+    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && r['포지션'] === pos && r['이름'] === name);
+    if (!dup) await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
+  }
+  backTo(req, res, team, date);
+});
+
+router.post('/conti/lineup/unassign', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const row = Number(b.__row);
+  if (row) { try { await sheetsDb.deleteRow('찬양편성', row); } catch (e) { console.error('[편성 삭제 실패]', e.message); } }
+  backTo(req, res, b.team, week.normalizeDate(b.date));
 });
 
 router.post('/conti/songs', requireTeam, async (req, res) => {
