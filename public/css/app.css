@@ -303,3 +303,24 @@ a { color: var(--accent); text-decoration: none; }
 .ph-ssrow .sst { color: var(--dim); }
 .ph-ssrow em { color: var(--dim); font-style: normal; }
 .ph-ssrow em::before { content: '· '; }
+
+/* ---------- 스케줄표 ---------- */
+.ph-weekcard { padding-bottom: 14px; }
+.ph-weektitle { font-weight: 800; font-size: 16.5px; margin-bottom: 10px; }
+.ph-posgroup + .ph-posgroup { margin-top: 12px; }
+.ph-posgrouplabel { font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.ph-posrow { display: flex; flex-direction: column; gap: 8px; }
+.ph-poscell { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.ph-poslabel { flex: none; width: 64px; font-size: 13.5px; font-weight: 700; color: var(--sub); }
+.ph-posnames { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 80px; }
+.ph-namechip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; }
+.ph-namechip.none { color: var(--dim); font-weight: 600; background: transparent; border-style: dashed; }
+.ph-namechip button { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
+.ph-namechip button:hover { color: var(--bad); }
+.ph-assignform { display: flex; gap: 6px; flex: none; }
+.ph-assignform input { min-height: 32px !important; padding: 4px 10px !important; font-size: 13.5px !important; width: 110px; border-radius: 999px !important; }
+.ph-assignform button { flex: none; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13px; cursor: pointer; }
+.ph-offline { margin-top: 10px; font-size: 13.5px; color: var(--bad); }
+.ph-offline b { font-weight: 800; }
+.ph-offline em { font-style: normal; color: var(--dim); margin-left: 2px; }
+.ph-offline em::before { content: '· '; }

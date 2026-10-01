@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
     <div class="ph-navgrid">
       ${navLink(`/conti?team=${encodeURIComponent(team)}`, '🎵 예배콘티', true)}
       ${navLink(`/notices?team=${encodeURIComponent(team)}`, '📋 공지 및 모임', true)}
-      ${navLink('#', '🗓 스케줄표', false)}
+      ${navLink(`/schedule?team=${encodeURIComponent(team)}`, '🗓 스케줄표', true)}
       ${navLink('#', '🗂 라이브러리', false)}
       ${navLink('#', '🔧 장비·수리', false)}
     </div>

@@ -1,0 +1,194 @@
+/**
+ * 스케줄표 — church-app의 "스케줄표"(주차별 포지션 편성 + 내가 안 되는 날)를 그대로.
+ * - 포지션별로 누가 서는지 여러 주 한눈에 보고, 눌러서 배정/해제합니다.
+ * - 누구나 자신의 "안 되는 날"을 사유와 함께 미리 표시해 둘 수 있습니다(팀장이 편성할 때 참고).
+ * (church-app의 "테이블 보기"는 빼고 카드 보기만, "강조할 사람 고르기"·"행사 연동"은 당장은 뺐습니다.)
+ */
+const express = require('express');
+const sheetsDb = require('../lib/sheetsDb');
+const pageShell = require('../lib/pageShell');
+const teamContext = require('../lib/teamContext');
+const week = require('../lib/weekUtil');
+const { POSITION_GROUPS } = require('../lib/positions');
+
+const router = express.Router();
+const esc = pageShell.esc;
+
+async function requireTeam(req, res, next) {
+  if (!req.session) return res.redirect('/');
+  const ctx = await teamContext.resolve(req);
+  if (!ctx) return res.redirect('/logout');
+  if (!ctx.teams.length) {
+    return res.type('html').send(await pageShell.render(
+      `<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
+      { title: '스케줄표' },
+    ));
+  }
+  req.ctx = ctx;
+  next();
+}
+
+function backTo(res, team) {
+  res.redirect(`/schedule?team=${encodeURIComponent(team || '')}`);
+}
+
+async function teamRoster(team) {
+  const members = await sheetsDb.readAll('회원');
+  return members.filter((m) => String(m['소속팀'] || '').split(',').map((s) => s.trim()).includes(team)).map((m) => m['이름']).filter(Boolean);
+}
+
+function positionCell(date, posKey, names, roster) {
+  return `<div class="ph-poscell">
+    <div class="ph-poslabel">${esc(posKey)}</div>
+    <div class="ph-posnames">
+      ${names.length ? names.map((n) => `<span class="ph-namechip">${esc(n.이름)}
+        <form method="post" action="/schedule/unassign" style="display:inline;">
+          <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(n.팀)}">
+          <input type="hidden" name="date" value="${esc(date)}">
+          <button type="submit" aria-label="빼기">&times;</button>
+        </form></span>`).join('') : '<span class="ph-namechip none">미정</span>'}
+    </div>
+    <form method="post" action="/schedule/assign" class="ph-assignform">
+      <input type="hidden" name="team" value="${esc(roster.team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">
+      <input type="text" name="이름" list="ph-roster" placeholder="+ 이름" maxlength="20">
+      <button type="submit">추가</button>
+    </form>
+  </div>`;
+}
+
+function dateCard(d, roster, meName) {
+  const byPos = {};
+  d.assign.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push({ 이름: r['이름'], __row: r.__row, 팀: r['팀ID'] }); });
+  const groups = POSITION_GROUPS.map(([label, keys]) => `
+    <div class="ph-posgroup">
+      <div class="ph-posgrouplabel">${esc(label)}</div>
+      <div class="ph-posrow">${keys.map((k) => positionCell(d.date, k, byPos[k] || [], { team: roster.team })).join('')}</div>
+    </div>`).join('');
+
+  const myOff = d.off.find((o) => o['이름'] === meName);
+  const offLine = d.off.length
+    ? `<div class="ph-offline">🙅 불가 — ${d.off.map((o) => `<b>${esc(o['이름'])}</b>${o['사유'] ? `<em>${esc(o['사유'])}</em>` : ''}`).join(', ')}</div>`
+    : '';
+
+  return `<div class="ph-card ph-weekcard">
+    <div class="ph-weektitle">${esc(week.labelKo(d.date))}</div>
+    ${groups}
+    ${offLine}
+    ${myOff
+      ? `<form method="post" action="/schedule/off/clear" class="ph-inlineform" style="margin-top:8px;">
+          <input type="hidden" name="__row" value="${myOff.__row}"><input type="hidden" name="team" value="${esc(roster.team)}">
+          <button class="ph-btn" type="submit">내 "안 돼요" 표시 지우기</button>
+        </form>`
+      : `<details class="ph-add" style="margin-top:8px;">
+          <summary>+ 이 날 저는 안 돼요</summary>
+          <form method="post" action="/schedule/off" class="ph-inlineform">
+            <input type="hidden" name="team" value="${esc(roster.team)}"><input type="hidden" name="date" value="${esc(d.date)}">
+            <input type="text" name="사유" placeholder="사유 (예: 출장 · 시험 · 가족 행사)" maxlength="100">
+            <button class="ph-btn pri" type="submit">표시</button>
+          </form>
+        </details>`}
+  </div>`;
+}
+
+router.get('/schedule', requireTeam, async (req, res) => {
+  const ctx = req.ctx;
+  const team = ctx.current;
+  const from = week.normalizeDate(req.query.from);
+  const weeksCount = Math.min(26, Math.max(1, parseInt(req.query.weeks, 10) || 8));
+  const dates = Array.from({ length: weeksCount }, (_, i) => week.shiftWeek(from, i));
+  const dateSet = new Set(dates);
+
+  const [assignRows, offRows] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정')]);
+  const myAssign = assignRows.filter((r) => r['팀ID'] === team);
+  const myOffAll = offRows.filter((r) => r['팀ID'] === team);
+  const roster = await teamRoster(team);
+
+  const days = dates.map((date) => ({
+    date,
+    assign: myAssign.filter((r) => r['날짜'] === date),
+    off: myOffAll.filter((r) => r['날짜'] === date),
+  }));
+
+  const meName = ctx.member['이름'];
+  const today = week.todayStr();
+  const myOffUpcoming = myOffAll.filter((r) => r['이름'] === meName && r['날짜'] >= today).sort((a, b) => a['날짜'].localeCompare(b['날짜']));
+
+  const hero = pageShell.hero({ eyebrow: `${team} · 스케줄표`, title: '스케줄표', sub: `${week.labelKo(from)} 부터 ${weeksCount}주` });
+
+  const content = `
+  ${hero}
+  <datalist id="ph-roster">${roster.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+  <div class="ph-card">
+    ${teamContext.teamSwitcher(ctx, { keep: { from, weeks: weeksCount } })}
+    <p class="ph-sub">칸의 <b>+ 이름</b>에 적어 넣으면 바로 배정됩니다. 이름 옆 ✕로 뺄 수 있어요.</p>
+  </div>
+
+  <div class="ph-card">
+    <h2 class="ph-h2">내가 안 되는 날</h2>
+    ${myOffUpcoming.length
+      ? `<div class="ph-list">${myOffUpcoming.map((o) => `<div class="ph-list-item">
+          <div class="ph-li-main"><div class="ph-li-title">${esc(week.labelKo(o['날짜']))}</div>${o['사유'] ? `<div class="ph-li-sub">${esc(o['사유'])}</div>` : ''}</div>
+          <form method="post" action="/schedule/off/clear"><input type="hidden" name="__row" value="${o.__row}"><input type="hidden" name="team" value="${esc(team)}">
+            <button class="ph-row-del" type="submit" title="해제">✕</button></form>
+        </div>`).join('')}</div>`
+      : '<p class="ph-sub">표시해 둔 날이 없어요. 미리 적어두면 편성할 때 바로 보여요.</p>'}
+    <details class="ph-add">
+      <summary>+ 다른 날짜도 표시하기</summary>
+      <form method="post" action="/schedule/off" class="ph-inlineform">
+        <input type="hidden" name="team" value="${esc(team)}">
+        <input type="date" name="date" required>
+        <input type="text" name="사유" placeholder="사유 (예: 출장 · 시험 · 가족 행사)" maxlength="100">
+        <button class="ph-btn pri" type="submit">표시</button>
+      </form>
+    </details>
+  </div>
+
+  ${days.map((d) => dateCard(d, { team }, meName)).join('')}
+
+  <div class="ph-card">
+    <a class="ph-btn" href="/schedule?team=${encodeURIComponent(team)}&from=${encodeURIComponent(from)}&weeks=${weeksCount + 8}">+ 더보기 (8주 더)</a>
+  </div>
+  `;
+  res.type('html').send(await pageShell.render(content, { title: `${team} 스케줄표` }));
+});
+
+router.post('/schedule/assign', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
+  const pos = String(b['포지션'] || '').trim();
+  const name = String(b['이름'] || '').trim();
+  if (pos && name) {
+    const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && r['날짜'] === date && r['포지션'] === pos && r['이름'] === name);
+    if (!dup) {
+      await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
+    }
+  }
+  backTo(res, team);
+});
+
+router.post('/schedule/unassign', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const row = Number(b.__row);
+  if (row) { try { await sheetsDb.deleteRow('찬양편성', row); } catch (e) { console.error('[편성 삭제 실패]', e.message); } }
+  backTo(res, b.team);
+});
+
+router.post('/schedule/off', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
+  const name = req.ctx.member['이름'];
+  const reason = String(b['사유'] || '').trim() || '불가';
+  const existing = await sheetsDb.findWhere('불가일정', (r) => r['팀ID'] === team && r['날짜'] === date && r['이름'] === name);
+  if (existing) await sheetsDb.updateRow('불가일정', existing.__row, { ...existing, '사유': reason, '등록시각': new Date().toISOString() });
+  else await sheetsDb.appendRow('불가일정', { 'ID': 'O' + Date.now().toString(36), '팀ID': team, '이름': name, '날짜': date, '사유': reason, '등록시각': new Date().toISOString() });
+  backTo(res, team);
+});
+
+router.post('/schedule/off/clear', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const row = Number(b.__row);
+  if (row) { try { await sheetsDb.deleteRow('불가일정', row); } catch (e) { console.error('[불가 해제 실패]', e.message); } }
+  backTo(res, b.team);
+});
+
+module.exports = router;

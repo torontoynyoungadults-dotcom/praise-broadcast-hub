@@ -11,8 +11,10 @@
  *   /conti/practice     연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io로 실시간 동기화)
  *   /public/conti       로그인 없이 보는 공개 예배콘티
  *   /socket.io/         실시간 (연습 화면 동기화)
+ *   /notices            공지 및 모임 (공지사항 + 토요모임 기도제목 나누기)
+ *   /schedule           스케줄표 (주차별 포지션 편성 + 내가 안 되는 날)
  *
- * 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리 · 관리자 대시보드는 다음 단계에서 이어 붙입니다.
+ * 라이브러리 · 장비·수리 · 관리자 대시보드는 다음 단계에서 이어 붙입니다.
  */
 process.env.TZ = process.env.TZ || 'America/Toronto';
 
@@ -33,6 +35,7 @@ app.get('/healthz', (req, res) => res.type('text').send('ok'));
 app.use(require('./routes/auth'));
 app.use(require('./routes/conti'));
 app.use(require('./routes/notices'));
+app.use(require('./routes/schedule'));
 app.use(require('./routes/home'));
 
 app.use((req, res) => res.status(404).type('text').send('Not found'));
