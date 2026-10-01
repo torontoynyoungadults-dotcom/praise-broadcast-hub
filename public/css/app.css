@@ -180,3 +180,53 @@ a { color: var(--accent); text-decoration: none; }
 .ph-footer { margin-top: 30px; padding: 22px 16px 40px; text-align: center; color: var(--dim); font-size: 13px; line-height: 1.9; }
 .ph-footer .tag { color: var(--sub); font-size: 14.5px; font-weight: 700; margin-bottom: 6px; }
 .ph-footer a { color: var(--sub); }
+
+/* ---------- 허브 내비게이션 / 팀 전환 ---------- */
+.ph-navgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.ph-teamswitch { margin-bottom: 4px; }
+.ph-teamswitch select {
+  width: 100%; min-height: 46px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--bg-2); color: var(--ink); font-size: 15px; font-weight: 700;
+}
+
+/* ---------- 주차 이동 ---------- */
+.ph-weeknav { display: flex; align-items: center; gap: 10px; }
+.ph-weekdate { flex: 1; }
+.ph-weekdate input[type=date] {
+  width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--bg-2); color: var(--ink); font-size: 15px; text-align: center;
+}
+.ph-weekdate-label { flex: 1; text-align: center; font-weight: 800; font-size: 15.5px; }
+
+/* ---------- 목록(곡 · 악보 · 녹음 · 댓글 공용) ---------- */
+.ph-h3 { font-size: 15px; font-weight: 800; color: var(--sub); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: .03em; }
+.ph-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.ph-list-item {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  padding: 12px 14px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--line);
+}
+.ph-li-main { min-width: 0; }
+.ph-li-title { font-weight: 800; font-size: 15.5px; }
+.ph-li-sub { color: var(--dim); font-size: 13px; margin-top: 2px; }
+.ph-li-note { color: var(--sub); font-size: 14px; margin-top: 4px; }
+.ph-li-link { display: inline-block; margin-top: 4px; font-size: 14px; font-weight: 700; }
+.ph-li-link.strong { margin-top: 0; font-size: 15.5px; font-weight: 800; color: var(--ink); }
+.ph-row-del {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: transparent;
+  color: var(--dim); font-size: 15px; cursor: pointer;
+}
+.ph-row-del:hover { background: var(--glass-2); color: var(--bad); }
+
+/* ---------- 추가 폼 (details/summary로 접어 둠) ---------- */
+.ph-add { margin-top: 4px; }
+.ph-add > summary {
+  cursor: pointer; font-weight: 800; color: var(--accent); font-size: 14.5px; list-style: none; padding: 8px 2px;
+}
+.ph-add > summary::-webkit-details-marker { display: none; }
+.ph-inlineform { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.ph-inlineform input[type=text], .ph-inlineform input[type=date], .ph-inlineform select {
+  width: 100%; min-height: 46px; padding: 9px 13px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--bg-2); color: var(--ink); font-size: 15px;
+}
+.ph-inlineform input[type=file] { color: var(--sub); font-size: 14px; }
+.ph-inline3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }

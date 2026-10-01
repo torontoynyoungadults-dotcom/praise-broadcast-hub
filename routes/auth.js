@@ -1,5 +1,5 @@
 const express = require('express');
-const multer = require('multer');
+const upload = require('../lib/upload');
 const { loginClient } = require('../lib/googleAuth');
 const session = require('../lib/session');
 const sheetsDb = require('../lib/sheetsDb');
@@ -7,13 +7,6 @@ const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
 const { ROLE_OPTIONS } = require('../lib/schema');
 
-// defParamCharset: 'utf8' 중요 — 안 넣으면 한글 필드 이름(이름/전화번호/소속팀 등)이
-// 깨진 채로 들어와서 req.body에서 값을 못 찾습니다 (busboy 기본값은 필드 이름을 latin1로 해석함).
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
-  defParamCharset: 'utf8',
-});
 const router = express.Router();
 
 function redirectUri() {

@@ -29,6 +29,7 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.get('/healthz', (req, res) => res.type('text').send('ok'));
 
 app.use(require('./routes/auth'));
+app.use(require('./routes/conti'));
 app.use(require('./routes/home'));
 
 app.use((req, res) => res.status(404).type('text').send('Not found'));

@@ -1,6 +1,7 @@
 const express = require('express');
 const pageShell = require('../lib/pageShell');
 const sheetsDb = require('../lib/sheetsDb');
+const teamContext = require('../lib/teamContext');
 
 const router = express.Router();
 
@@ -21,28 +22,35 @@ router.get('/', async (req, res) => {
     return res.type('html').send(await pageShell.render(content, { title: '찬양방송팀 허브' }));
   }
 
-  const member = await sheetsDb.findOne('회원', '이메일', req.session.email);
-  if (!member) {
-    // 세션은 있지만 명부에서 지워진 경우 등 — 다시 로그인하게 합니다
-    return res.redirect('/logout');
-  }
-  const isAdmin = String(member['관리자여부']).toUpperCase() === 'TRUE';
-  const teams = String(member['소속팀'] || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const roles = String(member['역할'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const ctx = await teamContext.resolve(req);
+  if (!ctx) return res.redirect('/logout');
+  const { member, isAdmin, roles, current: team } = ctx;
 
   const hero = pageShell.hero({
     eyebrow: isAdmin ? '관리자' : (roles.join(' · ') || '팀원'),
-    title: `${teams[0] || '찬양팀'} 허브`,
+    title: `${team || '찬양팀'} 허브`,
     sub: `${member['이름']}님, 환영합니다!`,
   });
+  const navLink = (href, label, ready) => ready
+    ? `<a class="ph-btn" href="${href}">${label}</a>`
+    : `<span class="ph-btn" style="opacity:.45;pointer-events:none;">${label} (준비중)</span>`;
   const content = `
   ${hero}
   <div class="ph-card">
-    <p class="ph-sub">예배콘티 · 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리는 다음 단계에서 이어서 만듭니다. 지금은 로그인/가입 골격이 동작하는 것만 확인하는 단계예요.</p>
+    ${teamContext.teamSwitcher(ctx)}
+    <div class="ph-navgrid">
+      ${navLink(`/conti?team=${encodeURIComponent(team)}`, '🎵 예배콘티', true)}
+      ${navLink('#', '📋 공지 및 모임', false)}
+      ${navLink('#', '🗓 스케줄표', false)}
+      ${navLink('#', '🗂 라이브러리', false)}
+      ${navLink('#', '🔧 장비·수리', false)}
+    </div>
+  </div>
+  <div class="ph-card">
     ${isAdmin ? '<a class="ph-btn" href="/admin">관리자 화면</a>' : ''}
     <a class="ph-btn" href="/logout">로그아웃</a>
   </div>`;
-  res.type('html').send(await pageShell.render(content, { title: `${teams[0] || '찬양팀'} 허브` }));
+  res.type('html').send(await pageShell.render(content, { title: `${team || '찬양팀'} 허브` }));
 });
 
 router.get('/admin', async (req, res) => {
