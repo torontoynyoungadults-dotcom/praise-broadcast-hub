@@ -15,6 +15,7 @@
  *   /socket.io/         실시간 (연습 화면 동기화)
  *   /notices            공지 및 모임 (공지사항 + 토요모임 기도제목 나누기)
  *   /schedule           스케줄표 (주차별 포지션 편성 + 내가 안 되는 날)
+ *   /events             행사 (주일 외 서는 날 — 성탄절 · 송구영신예배 · 특별새벽기도 · 부흥회 등)
  *   /library            라이브러리 (지난 콘티 · 악보 · 녹음 모아보기 + 곡 순위)
  *   /equipment          장비 · 수리 (오늘 점검 + 수리 요청, 단일 페이지 — iframe 없음)
  *
@@ -43,6 +44,7 @@ app.use(require('./routes/roster'));
 app.use(require('./routes/conti'));
 app.use(require('./routes/notices'));
 app.use(require('./routes/schedule'));
+app.use(require('./routes/events'));
 app.use(require('./routes/library'));
 app.use(require('./routes/equipment'));
 app.use(require('./routes/admin'));
