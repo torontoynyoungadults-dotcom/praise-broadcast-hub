@@ -50,19 +50,24 @@ async function teamRoster(team) {
 
 function lineupCell(date, team, posKey, names, roster, infoMap) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할 }));
-  return `<div class="ph-poscell">
-    <div class="ph-poslabel">${positionIcon(posKey)} ${esc(posKey)}</div>
-    <div class="ph-posnames">${names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}" title="${esc(n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}${esc(avatar.givenName(n.이름))}
+  const chips = names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}" title="${esc(n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}${esc(avatar.givenName(n.이름))}
       <form method="post" action="/conti/lineup/unassign" style="display:inline;">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
         <button type="submit" aria-label="빼기">&times;</button>
-      </form></span>`).join('') : '<span class="ph-namechip none">미정</span>'}</div>
+      </form></span>`).join('') : '<span class="ph-namechip none">미정</span>';
+  return `<details class="ph-poscell">
+    <summary class="ph-possummary">
+      <span class="ph-posicon">${positionIcon(posKey)}</span>
+      <span class="ph-poslabel">${esc(posKey)}</span>
+      <span class="ph-posnames">${chips}</span>
+      <span class="ph-poschevron">›</span>
+    </summary>
     <form method="post" action="/conti/lineup/assign" class="ph-assignform">
       <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="포지션" value="${esc(posKey)}">
       ${rosterPicker.pickerFields(rosterObjs, posKey)}
       <button type="submit">추가</button>
     </form>
-  </div>`;
+  </details>`;
 }
 
 /** 이번 주 포지션 배정(byPos)과 팀 명단(roster) — 주일 편성 카드와 @태그 칩이 함께 씁니다 */
@@ -77,8 +82,8 @@ async function weekAssignments(team, date) {
 async function lineupCard(team, date, byPos, roster, infoMap) {
   const groups = POSITION_GROUPS.map(([label, keys]) => `
     <div class="ph-posgroup">
-      <div class="ph-posgrouplabel">${esc(label)}</div>
-      <div class="ph-posrow">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster, infoMap)).join('')}</div>
+      <div class="ph-posgrouplabel"><span>${esc(label)}</span></div>
+      <div class="ph-posrow${label === '세션' ? ' ph-posrow-grid' : ''}">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster, infoMap)).join('')}</div>
     </div>`).join('');
   return `<div class="ph-card">
     <h2 class="ph-h2">주일 편성</h2>
@@ -135,9 +140,8 @@ function specialCard(team, list, isAdmin, currentDate) {
 
 /* ---------- 조회(읽기) 공통 — 로그인 화면과 공개 화면이 함께 씁니다 ---------- */
 async function loadWeek(team, date) {
-  const [songs, metaRows, sheets, recs, comments] = await Promise.all([
+  const [songs, sheets, recs, comments] = await Promise.all([
     sheetsDb.readAll('찬양콘티'),
-    sheetsDb.readAll('콘티메타'),
     sheetsDb.readAll('악보저장소'),
     sheetsDb.readAll('녹음'),
     sheetsDb.readAll('콘티댓글'),
@@ -148,7 +152,6 @@ async function loadWeek(team, date) {
   return {
     conti: list.filter((r) => r['구분'] !== '결단').sort(order),
     final: list.filter((r) => r['구분'] === '결단').sort(order),
-    meta: metaRows.find((r) => r['팀ID'] === team && r['날짜'] === date) || null,
     sheets: mine(sheets),
     recs: mine(recs),
     comments: mine(comments).sort((a, b) => String(a['작성시각']).localeCompare(String(b['작성시각']))),
@@ -238,7 +241,29 @@ function atTagsHtml(roster, byPos) {
   </div>`;
 }
 
-function songRow(s, { editable, roster, byPos }) {
+/** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
+function songSheetsHtml(s, sheets, editable) {
+  const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(f['파일링크'])}" target="_blank" rel="noopener">📄 ${esc(f['제목'] || '악보')}</a>${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+    <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}"><input type="hidden" name="date" value="${esc(f['날짜'])}">
+    <button class="ph-row-del" type="submit" title="삭제">✕</button>
+  </form>` : ''}</span>`).join('');
+  const addForm = editable ? `<details class="ph-add ph-songsheet-add">
+    <summary>+ 이 곡 악보 올리기</summary>
+    <form method="post" action="/conti/sheets" enctype="multipart/form-data" class="ph-inlineform">
+      <input type="hidden" name="team" value="${esc(s['팀ID'])}"><input type="hidden" name="date" value="${esc(s['날짜'])}">
+      <input type="hidden" name="곡ID" value="${esc(s['ID'])}">
+      <input type="hidden" name="제목" value="${esc(s['제목'] || '악보')}">
+      <input type="file" name="파일" accept=".pdf,image/*">
+      <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신)">
+      <button class="ph-btn pri" type="submit">올리기</button>
+    </form>
+  </details>` : '';
+  if (!list && !addForm) return '';
+  return `<div class="ph-songsheets">${list}${addForm}</div>`;
+}
+
+function songRow(s, { editable, roster, byPos, sheets }) {
   const solo = parseSolo(s['솔로']);
   const formPretty = s['송폼'] ? YNForm.pretty(s['송폼']) : '';
   const bits = [s['팀'], s['Key'] && `Key ${s['Key']}`, formPretty, s['BPM'] && `${s['BPM']} BPM`].filter(Boolean).join(' · ');
@@ -249,6 +274,7 @@ function songRow(s, { editable, roster, byPos }) {
       ${s['유튜브'] ? `<a class="ph-li-link" href="${esc(s['유튜브'])}" target="_blank" rel="noopener">▶ 유튜브</a>` : ''}
       ${solo.length ? `<div class="ph-solo-badges">🎤 솔로 — ${solo.map((x) => esc(x.name) + (x.part ? `<em>${esc(x.part)}</em>` : '')).join(', ')}</div>` : ''}
       ${s['비고'] ? `<div class="ph-li-note">${esc(s['비고'])}</div>` : ''}
+      ${songSheetsHtml(s, sheets, editable)}
     </div>
     ${editable ? `<details class="ph-row-edit">
       <summary title="수정">⋯</summary>
@@ -283,7 +309,7 @@ function songRow(s, { editable, roster, byPos }) {
 function soloSummaryBox(conti, final) {
   const rows = [];
   conti.forEach((s, i) => parseSolo(s['솔로']).forEach((x) => rows.push([`${i + 1}`, s['제목'], x])));
-  final.forEach((s) => parseSolo(s['솔로']).forEach((x) => rows.push(['결단', s['제목'], x])));
+  final.forEach((s) => parseSolo(s['솔로']).forEach((x) => rows.push(['설교 후', s['제목'], x])));
   if (!rows.length) return '';
   return `<div class="ph-solosum">
     <div class="ssh">🎤 방송팀 체크 — 솔로 마이크</div>
@@ -292,7 +318,7 @@ function soloSummaryBox(conti, final) {
 }
 
 function songForm(kind, team, date, roster, byPos) {
-  const label = kind === '결단' ? '결단찬양' : '콘티';
+  const label = kind === '결단' ? '설교 후 찬양' : '콘티';
   const uid = `new${kind === '결단' ? 'f' : 'c'}`;
   return `
   <details class="ph-add">
@@ -335,6 +361,26 @@ function sheetItem(s, editable) {
       <input type="hidden" name="team" value="${esc(s['팀ID'])}"><input type="hidden" name="date" value="${esc(s['날짜'])}">
       <button class="ph-row-del" type="submit" title="삭제">✕</button>
     </form>` : ''}
+  </div>`;
+}
+
+/** 패키지(콘티 전체) 악보 — 특정 곡(곡ID)에 안 묶인 것들만. 콘티 목록 바로 아래 카드로 둠. */
+function packageSheetsCard(team, date, sheets, editable) {
+  const pkg = (sheets || []).filter((s) => !s['곡ID']);
+  return `<div class="ph-card">
+    <h2 class="ph-h2">악보</h2>
+    <p class="ph-sub">이번 주 콘티 전체를 한 패키지로 올려두거나, 곡 목록에서 "+ 이 곡 악보 올리기"로 곡별로 올릴 수 있어요.</p>
+    <div class="ph-list">${pkg.length ? pkg.map((s) => sheetItem(s, editable)).join('') : '<p class="ph-sub">아직 올라온 패키지 악보가 없어요.</p>'}</div>
+    ${editable ? `<details class="ph-add">
+      <summary>+ 전체 콘티 악보(패키지) 올리기</summary>
+      <form method="post" action="/conti/sheets" enctype="multipart/form-data" class="ph-inlineform">
+        <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
+        <input type="text" name="제목" placeholder="예: ${esc(week.labelKo(date))} 콘티 전체 악보" required>
+        <input type="file" name="파일" accept=".pdf,image/*">
+        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신)">
+        <button class="ph-btn pri" type="submit">올리기</button>
+      </form>
+    </details>` : ''}
   </div>`;
 }
 
@@ -402,41 +448,17 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
-    <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: true, roster, byPos })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
+    <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: true, roster, byPos, sheets: w.sheets })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
     ${songForm('콘티', team, date, roster, byPos)}
   </div>
 
   <div class="ph-card">
-    <h2 class="ph-h2">결단찬양</h2>
-    <div class="ph-list">${w.final.length ? w.final.map((s) => songRow(s, { editable: true, roster, byPos })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <h2 class="ph-h2">설교 후 찬양</h2>
+    <div class="ph-list">${w.final.length ? w.final.map((s) => songRow(s, { editable: true, roster, byPos, sheets: w.sheets })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     ${songForm('결단', team, date, roster, byPos)}
   </div>
 
-  <div class="ph-card">
-    <h2 class="ph-h2">이번 주 정보</h2>
-    <form method="post" action="/conti/meta" class="ph-inlineform">
-      <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
-      <div class="ph-field"><label>토요연습시간</label><input type="text" name="토요연습시간" placeholder="예: 토요일 오후 2시" value="${esc(w.meta && w.meta['토요연습시간'] || '')}"></div>
-      <div class="ph-field"><label>유튜브 재생목록</label><input type="text" name="유튜브재생목록" placeholder="연습용 유튜브 재생목록 링크" value="${esc(w.meta && w.meta['유튜브재생목록'] || '')}"></div>
-      <div class="ph-field"><label>방송팀 요청</label><input type="text" name="방송팀요청" placeholder="방송팀에 전달할 요청사항" value="${esc(w.meta && w.meta['방송팀요청'] || '')}"></div>
-      <button class="ph-btn" type="submit">저장</button>
-    </form>
-  </div>
-
-  <div class="ph-card">
-    <h2 class="ph-h2">악보</h2>
-    <div class="ph-list">${w.sheets.length ? w.sheets.map((s) => sheetItem(s, true)).join('') : '<p class="ph-sub">아직 올라온 악보가 없어요.</p>'}</div>
-    <details class="ph-add">
-      <summary>+ 악보 올리기</summary>
-      <form method="post" action="/conti/sheets" enctype="multipart/form-data" class="ph-inlineform">
-        <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
-        <input type="text" name="제목" placeholder="곡 제목" required>
-        <input type="file" name="파일" accept=".pdf,image/*">
-        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신)">
-        <button class="ph-btn pri" type="submit">올리기</button>
-      </form>
-    </details>
-  </div>
+  ${packageSheetsCard(team, date, w.sheets, true)}
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
@@ -700,20 +722,6 @@ router.post('/conti/songs/delete', requireTeam, async (req, res) => {
   backTo(req, res, b.team, week.normalizeDate(b.date));
 });
 
-router.post('/conti/meta', requireTeam, async (req, res) => {
-  const b = req.body || {};
-  const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
-  const existing = await sheetsDb.findWhere('콘티메타', (r) => r['팀ID'] === team && r['날짜'] === date);
-  const row = {
-    'ID': existing ? existing['ID'] : 'M' + Date.now().toString(36), '팀ID': team, '날짜': date,
-    '토요연습시간': b['토요연습시간'] || '', '유튜브재생목록': b['유튜브재생목록'] || '', '방송팀요청': b['방송팀요청'] || '',
-    '수정시각': new Date().toISOString(),
-  };
-  if (existing) await sheetsDb.updateRow('콘티메타', existing.__row, row);
-  else await sheetsDb.appendRow('콘티메타', row);
-  backTo(req, res, team, date);
-});
-
 router.post('/conti/sheets', requireTeam, upload.single('파일'), async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
@@ -725,6 +733,7 @@ router.post('/conti/sheets', requireTeam, upload.single('파일'), async (req, r
   await sheetsDb.appendRow('악보저장소', {
     'ID': 'F' + Date.now().toString(36), '팀ID': team, '날짜': date, '제목': title,
     '파일링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
+    '곡ID': String(b['곡ID'] || '').trim(),
   });
   backTo(req, res, team, date);
 });
@@ -794,16 +803,13 @@ router.get('/public/conti', async (req, res) => {
   ${soloSummaryBox(w.conti, w.final)}
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
-    <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: false })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
+    <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: false, sheets: w.sheets })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
   </div>
   <div class="ph-card">
-    <h2 class="ph-h2">결단찬양</h2>
-    <div class="ph-list">${w.final.length ? w.final.map((s) => songRow(s, { editable: false })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <h2 class="ph-h2">설교 후 찬양</h2>
+    <div class="ph-list">${w.final.length ? w.final.map((s) => songRow(s, { editable: false, sheets: w.sheets })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
   </div>
-  <div class="ph-card">
-    <h2 class="ph-h2">악보</h2>
-    <div class="ph-list">${w.sheets.length ? w.sheets.map((s) => sheetItem(s, false)).join('') : '<p class="ph-sub">아직 올라온 악보가 없어요.</p>'}</div>
-  </div>
+  ${packageSheetsCard(team, date, w.sheets, false)}
   `;
   res.type('html').send(await pageShell.render(content, { title: `${teamRow['팀명']} 예배콘티 (공개)` }));
 });

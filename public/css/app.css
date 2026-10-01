@@ -237,6 +237,13 @@ a { color: var(--accent); text-decoration: none; }
 .ph-li-note { color: var(--sub); font-size: 14px; margin-top: 4px; }
 .ph-li-link { display: inline-block; margin-top: 4px; font-size: 14px; font-weight: 700; }
 .ph-li-link.strong { margin-top: 0; font-size: 15.5px; font-weight: 800; color: var(--ink); }
+/* 곡 한 줄 밑에 붙는 "이 곡 전용 악보" (packageSheetsCard의 전체 패키지 악보와는 별개) */
+.ph-songsheets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.ph-songsheet { display: inline-flex; align-items: center; gap: 2px; }
+.ph-songsheet .ph-li-link { margin-top: 0; }
+.ph-songsheet .ph-row-del { width: 24px; height: 24px; font-size: 12px; }
+.ph-songsheet-add { display: inline-block; }
+.ph-songsheet-add summary { font-size: 13px; color: var(--dim); }
 .ph-row-del {
   flex: none; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: transparent;
   color: var(--dim); font-size: 15px; cursor: pointer;
@@ -330,13 +337,37 @@ a { color: var(--accent); text-decoration: none; }
 /* ---------- 스케줄표 ---------- */
 .ph-weekcard { padding-bottom: 14px; }
 .ph-weektitle { font-weight: 800; font-size: 16.5px; margin-bottom: 10px; }
-.ph-posgroup + .ph-posgroup { margin-top: 12px; }
-.ph-posgrouplabel { font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.ph-posgroup + .ph-posgroup { margin-top: 18px; }
+.ph-posgrouplabel { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.ph-posgrouplabel::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
 .ph-posrow { display: flex; flex-direction: column; gap: 8px; }
-.ph-poscell { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi); }
-.ph-poslabel { flex: none; width: 76px; font-size: 13.5px; font-weight: 700; color: var(--sub); }
-.ph-posnames { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 80px; }
-.ph-namechip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi); }
+/* church-app 느낌 — "세션" 자리만 좁은 화면에서도 2칸 그리드로 나란히 */
+.ph-posrow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 460px) { .ph-posrow-grid { grid-template-columns: 1fr; } }
+
+/* 포지션 한 자리 = 둥근 "알약" 카드. 평소엔 아이콘 배지 + 이름 칩 + 화살표만 보이고,
+   눌러서 펼치면(＜details＞) 그 안에서 바로 배정/해제. church-app 주일편성·스케줄표의 카드 느낌. */
+.ph-poscell {
+  border-radius: 16px; background: var(--glass); border: 1px solid var(--line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi); overflow: hidden; transition: border-color .15s;
+}
+.ph-poscell[open] { border-color: var(--line-hi); }
+.ph-possummary {
+  list-style: none; display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ph-possummary::-webkit-details-marker, .ph-possummary::marker { display: none; content: ''; }
+.ph-posicon {
+  flex: none; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--glass-2); font-size: 14px; box-shadow: inset 0 1px 0 var(--inset-hi);
+}
+.ph-poslabel { flex: none; font-size: 12.5px; font-weight: 800; color: var(--sub); min-width: 44px; }
+.ph-posnames { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.ph-poschevron { flex: none; color: var(--dim); font-size: 17px; font-weight: 700; transition: transform .15s ease, color .15s ease; }
+.ph-poscell[open] .ph-poschevron { transform: rotate(90deg); color: var(--accent); }
+.ph-poscell .ph-assignform { margin: 0 12px 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.ph-namechip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px 3px 3px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 13px; font-weight: 700; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi); }
 .ph-namechip.none { color: var(--dim); font-weight: 600; background: transparent; border-style: dashed; }
 .ph-namechip button { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
 .ph-namechip button:hover { color: var(--bad); }
@@ -463,7 +494,8 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ---------- 스케줄표 테이블 보기(church-app처럼, 훑어보기 전용 — 날짜를 누르면 카드 보기로 이동) ---------- */
 .ph-tblwrap { overflow-x: auto; margin-bottom: 18px; -webkit-overflow-scrolling: touch; }
-.ph-tblcaption { font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.ph-tblcaption { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.ph-tblcaption::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
 .ph-sctable { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 13px; }
 .ph-sctable th, .ph-sctable td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .ph-sctable thead th { font-size: 12px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .02em; }
