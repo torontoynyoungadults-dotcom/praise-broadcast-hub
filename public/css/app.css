@@ -61,9 +61,10 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
   margin: 0;
+  overflow-x: hidden; /* 안전장치: 자식 요소 폭 계산이 잘못돼도 화면 전체가 가로로 밀리지 않게 */
   background:
     radial-gradient(1100px 700px at 12% -12%, rgba(255,138,61,.12), transparent 60%),
     var(--bg);
@@ -302,7 +303,11 @@ a { color: var(--accent); text-decoration: none; }
 .ph-solorow { display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; }
 .ph-solorow input { min-height: 42px !important; font-size: 14.5px !important; }
 .ph-list-item { flex-wrap: wrap; }
-.ph-row-edit { flex: none; }
+/* details가 flex:none이면 내용(칩들) 크기만큼 넓어지려 해서 화면 밖으로 넘쳐버림(가로 스크롤 생김) —
+   줄바꿈된 한 줄 전체 폭을 쓰게 강제하고, 자식(칩들)은 그 안에서 줄바꿈되게 함. */
+.ph-row-edit { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+.ph-row-edit .ph-inlineform { box-sizing: border-box; min-width: 0; }
+.ph-row-edit .ph-chips { min-width: 0; }
 .ph-row-edit > summary {
   cursor: pointer; list-style: none; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line);
   background: transparent; color: var(--dim); font-size: 18px; display: flex; align-items: center; justify-content: center;
