@@ -1,0 +1,151 @@
+/* ============================================================
+   라이브 악보 바탕 — church-app(yntoronto.2026 v6) views/Theme.html 에서 라이브 악보 화면(.pv)에 실제로 닿는 규칙만 그대로 옮긴 것.
+   church-app 에서는 모든 화면에 Theme.html 이 들어가서 이 규칙들이 라이브 악보의 입력칸 · 고르기 · 체크박스 · 글꼴에 적용됩니다.
+   이 앱의 라이브 악보 화면은 따로 떨어진 화면이라 똑같이 보이도록 여기에 모았습니다 (줄 번호는 Theme.html 기준).
+   ============================================================ */
+/* views/Worship.html 7행 — 찬양 허브 화면의 강조색 */
+:root { --accent: #6C4FD3; --tone-rgb: 108,79,211; }
+/* Theme.html 12–69 */
+:root {
+  /* 강조색 — 페이지에서 --accent 와 --tone-rgb 로 정합니다.
+     (--tone-rgb 는 여기서 값을 정하지 않습니다. 정해버리면 페이지 설정을 덮어씁니다) */
+  --tone: var(--accent, #D2511F);
+  --tone-soft: rgba(var(--tone-rgb, 210,81,31), .10);
+  --tone-line: rgba(var(--tone-rgb, 210,81,31), .28);
+
+  /* 글자 */
+  --ink-1: #1A1917;
+  --ink-2: #35322D;
+  --ink-3: #5A554E;
+  --ink-4: #7C766E;
+
+  /* 면 */
+  --surface: #FFFFFF;
+  --canvas: #F4F2EE;
+  --sunken: #EAE7E1;
+  --night: #0C0C0C;
+  --night-2: #171716;
+  --night-3: #242322;
+  --night-ink: #FFFFFF;
+  --night-sub: #D2CCC4;
+
+  /* 선 */
+  --hair: rgba(26, 25, 23, .13);
+  --hair-2: rgba(26, 25, 23, .21);
+  --hair-night: rgba(255, 255, 255, .14);
+
+  /* 상태색 */
+  --good: #1D7A56;  --good-bg: #E6F2EC;
+  --warn: #8A5E12;  --warn-bg: #FBF2E1;
+  --bad:  #A82F16;  --bad-bg:  #FBEADF;
+
+  /* 그림자 */
+  --sh-1: 0 1px 2px rgba(26,25,23,.05);
+  --sh-2: 0 2px 8px rgba(26,25,23,.06), 0 1px 2px rgba(26,25,23,.04);
+  --sh-3: 0 10px 30px rgba(26,25,23,.11), 0 2px 6px rgba(26,25,23,.05);
+
+  /* 모서리 */
+  --r-xs: 8px; --r-sm: 10px; --r-md: 13px; --r-lg: 17px; --r-xl: 21px;
+
+  /* 예전 이름들 — 기존 페이지가 그대로 돌아가도록 새 토큰에 연결합니다 */
+  --ink: var(--ink-1);
+  --muted: var(--ink-3);
+  --line: var(--hair-2);
+  --paper: var(--surface);
+  --panel: var(--canvas);
+  --chip: var(--ink-1);
+  --orange: var(--tone);
+  --danger: var(--bad);
+  --low: var(--bad);
+  --mid: #B14A12;
+  --mid-bg: var(--bad-bg);
+  --absent: var(--bad);
+  --absent-bg: var(--bad-bg);
+  --accent-soft: var(--tone-soft);
+  --accent-deep: var(--tone);
+}
+/* Theme.html 74–89 (지도 바탕 그림 body::before 는 빼고) */
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink-1);
+  line-height: 1.84;
+  letter-spacing: -0.006em;
+  font-feature-settings: "tnum" 1, "case" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body, input, select, textarea, button {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo",
+               "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+* { -webkit-tap-highlight-color: transparent; }
+/* Theme.html 209–245 */
+input, select, textarea {
+  width: 100%;
+  padding: 11px 13px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--ink-1);
+  background: var(--surface);
+  border: 1px solid var(--hair-2) !important;
+  border-radius: var(--r-sm) !important;
+  box-shadow: var(--sh-1);
+  outline: none;
+  -webkit-appearance: none; appearance: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+input[type="checkbox"], input[type="radio"] { width: auto; }
+/* v6.3: 위의 appearance:none 때문에 체크 표시가 안 보이던 기본 체크박스 — 브라우저 체크박스로 되돌리고 주황으로 칠합니다
+   (따로 꾸민 체크박스는 더 구체적인 규칙이 그대로 이깁니다) */
+input[type="checkbox"], input[type="radio"] {
+  -webkit-appearance: auto; appearance: auto; padding: 0; width: 18px; height: 18px; min-height: 0;
+  flex: none; box-shadow: none; accent-color: var(--tone, #FF8A2B); cursor: pointer; vertical-align: middle;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--tone) !important;
+  box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 210,81,31), .15);
+}
+input::placeholder, textarea::placeholder { color: var(--ink-4); }
+input:disabled, select:disabled, textarea:disabled {
+  background: var(--sunken); color: var(--ink-3); box-shadow: none;
+}
+textarea { resize: vertical; min-height: 66px; line-height: 1.78; }
+select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%238B857C' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: auto !important;
+  padding-right: 32px !important;
+}
+/* Theme.html 1757–1768 */
+html[data-theme="light"] {
+  color-scheme: light;
+  --lt-bg: #F3F4F6; --lt-card: #FFFFFF; --lt-card-2: #F8FAFC; --lt-sunk: #EEF0F3;
+  --lt-ink: #0F172A; --lt-ink-2: #334155; --lt-ink-3: #64748B; --lt-ink-4: #94A3B8;
+  --lt-line: rgba(15,23,42,.09); --lt-line-2: rgba(15,23,42,.16);
+  --lt-or: #46BDC6; --lt-or-ink: #0B6E77; --lt-or-soft: rgba(70,189,198,.14); --lt-on-or: #06363B;   /* v6.1 — 밝은 화면 메인 색 #46BDC6 (글씨용은 진한 청록 #0B6E77 · 색 칸 위 글씨 #06363B) */
+  --lt-sh-1: 0 1px 2px rgba(15,23,42,.05);
+  --lt-sh-2: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.06);
+  --lt-ring: 0 0 0 3px rgba(70,189,198,.32);
+  --accent: #46BDC6 !important; --tone: #46BDC6 !important; --tone-rgb: 70,189,198 !important;   /* v6.1 — 모든 페이지의 강조색이 밝은 화면에서는 #46BDC6 (관리 화면이 영역마다 넣는 색보다 우선) */
+}
+html[data-theme="light"] body { background: var(--lt-bg); color: var(--lt-ink); }
+/* Theme.html 1840–1846 */
+html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+html[data-theme="light"] body select, html[data-theme="light"] body textarea {
+  background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; color: var(--lt-ink) !important; box-shadow: var(--lt-sh-1) !important;
+}
+html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus,
+html[data-theme="light"] body select:focus, html[data-theme="light"] body textarea:focus { border-color: var(--lt-or) !important; box-shadow: var(--lt-ring) !important; outline: none !important; }
+html[data-theme="light"] body input::placeholder, html[data-theme="light"] body textarea::placeholder { color: var(--lt-ink-4) !important; }
+/* Theme.html 1913–1916 */
+html[data-theme="light"] body :is(.pv, .yg, .fp) input:not([type=checkbox]):not([type=radio]):not([type=range]),
+html[data-theme="light"] body :is(.pv, .yg, .fp) select, html[data-theme="light"] body :is(.pv, .yg, .fp) textarea {
+  background-color: rgba(15,23,42,.05) !important; border-color: rgba(15,23,42,.16) !important; color: #0F172A !important;
+}
+/* Theme.html 1989–1991 */
+html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]), html[data-theme="light"] body select, html[data-theme="light"] body textarea {
+  border: 1px solid #94A3B8 !important;
+}

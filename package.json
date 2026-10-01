@@ -18,5 +18,8 @@
     "multer": "^2.0.1",
     "socket.io": "^4.8.4"
   },
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
 }

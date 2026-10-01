@@ -10,7 +10,9 @@
  *   /roster             팀원관리 (팀원 명단 — 회원가입 화이트리스트, 아이콘·사진·이름으로 가입현황 보기)
  *   /healthz            서버 상태 확인 (Render 헬스체크)
  *   /conti              예배콘티 (콘티 · 결단찬양 · 악보 · 녹음 · 댓글)
- *   /conti/practice     연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io로 실시간 동기화)
+ *   /conti/practice     라이브 악보 (church-app 라이브 악보 그대로 — 필기 · 메트로놈 · 콜아웃 · 화음 · 함께 보기, Socket.io 실시간)
+ *   /sheet/:id · /audio/:id   라이브 악보가 여는 악보 · 녹음 파일 (같은 출처)
+ *   /api/*              라이브 악보의 서버 호출 (church-app callServer 와 같은 약속)
  *   /public/conti       로그인 없이 보는 공개 예배콘티
  *   /socket.io/         실시간 (연습 화면 동기화)
  *   /notices            공지 및 모임 (공지사항 + 토요모임 기도제목 나누기)
@@ -38,10 +40,14 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
 app.get('/healthz', (req, res) => res.type('text').send('ok'));
 
+const live = require('./routes/live');     // 라이브 악보 (/conti/practice · /sheet · /audio · /api/*) — conti 보다 먼저
+const conti = require('./routes/conti');
+
 app.use(require('./routes/auth'));
 app.use(require('./routes/profile'));
 app.use(require('./routes/roster'));
-app.use(require('./routes/conti'));
+app.use(live);
+app.use(conti);
 app.use(require('./routes/notices'));
 app.use(require('./routes/schedule'));
 app.use(require('./routes/events'));
@@ -58,10 +64,32 @@ app.use((err, req, res, next) => {
 
 const server = http.createServer(app);
 
-// 실시간(Socket.io) — 연습 화면(메트로놈 · 라이브 악보 보기)의 동기화에 씁니다.
-const { Server } = require('socket.io');
-const io = new Server(server, { cors: { origin: false } });
-require('./lib/realtime')(io);
+// 실시간(Socket.io) — 라이브 악보(church-app 그대로)의 페이지 · 클릭 컨트롤, 팀 필기, 메트로놈, 큐, 예배 타이머.
+// lib/realtime.js 는 church-app 파일에 "팀 구분"만 더한 것이고, 시트와는 아래 세 함수로만 만납니다.
+const realtime = require('./lib/realtime');
+const liveStore = require('./lib/liveStore');
+const liveAuth = require('./lib/liveAuth');
+const rt = realtime.attach(server, {
+  log: (...a) => console.error(...a),
+  auth: (token) => liveAuth.verify(token),
+  loadAnno: (file, scope, team) => liveStore.readLayer(team, file, scope, '*'),
+  saveAnno: (file, scope, items, by, team) => liveStore.writeLayer(team, file, scope, '*', items, by),
+});
+live.setRealtime(rt);
+conti.setLiveNotify(live.songsChanged);
+liveStore.loadAnnos().catch((e) => console.error('[찬양주석 불러오기 실패 — 필기를 열 때 다시 시도합니다]', e && e.message));
+
+// 서버가 꺼질 때(Render 배포 · 재시작) — 아직 시트에 안 쓴 팀 필기를 마저 저장합니다
+let stopping = false;
+async function shutdown(sig) {
+  if (stopping) return; stopping = true;
+  console.log(`[${sig}] 남은 필기를 저장하고 끕니다…`);
+  try { rt.flushAll(); } catch (e) { console.error('[종료 저장]', e && e.message); }
+  try { await liveStore.drain(8000); } catch (e) { /* 끄는 중 */ }
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`찬양방송팀 허브 — http://localhost:${PORT}`));
