@@ -226,6 +226,9 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--dim); font-size: 15px; cursor: pointer;
 }
 .ph-row-del:hover { background: var(--glass-2); color: var(--bad); }
+.ph-row-actions { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.ph-row-actions form { margin: 0; }
+.ph-notice.pinned { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, var(--bg-2)); }
 
 /* ---------- 추가 폼 (details/summary로 접어 둠) ---------- */
 .ph-add { margin-top: 4px; }
