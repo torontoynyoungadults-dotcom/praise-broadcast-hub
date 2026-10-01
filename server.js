@@ -5,7 +5,7 @@
  *   /auth/google        구글 로그인 시작
  *   /auth/google/callback  구글 로그인 콜백
  *   /signup             최초 로그인 시 가입 폼
- *   /admin              관리자 화면 (관리자만)
+ *   /admin              관리자 화면 (관리자만 — 찬양팀 · 멤버 · 태그라인 관리)
  *   /healthz            서버 상태 확인 (Render 헬스체크)
  *   /conti              예배콘티 (콘티 · 결단찬양 · 악보 · 녹음 · 댓글)
  *   /conti/practice     연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io로 실시간 동기화)
@@ -40,6 +40,7 @@ app.use(require('./routes/notices'));
 app.use(require('./routes/schedule'));
 app.use(require('./routes/library'));
 app.use(require('./routes/equipment'));
+app.use(require('./routes/admin'));
 app.use(require('./routes/home'));
 
 app.use((req, res) => res.status(404).type('text').send('Not found'));

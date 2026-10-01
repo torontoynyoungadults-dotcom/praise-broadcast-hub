@@ -1,6 +1,5 @@
 const express = require('express');
 const pageShell = require('../lib/pageShell');
-const sheetsDb = require('../lib/sheetsDb');
 const teamContext = require('../lib/teamContext');
 
 const router = express.Router();
@@ -53,18 +52,6 @@ router.get('/', async (req, res) => {
   res.type('html').send(await pageShell.render(content, { title: `${team || '찬양팀'} 허브` }));
 });
 
-router.get('/admin', async (req, res) => {
-  if (!req.session) return res.redirect('/');
-  const member = await sheetsDb.findOne('회원', '이메일', req.session.email);
-  if (!member || String(member['관리자여부']).toUpperCase() !== 'TRUE') return res.redirect('/');
-  const content = `
-  <div class="ph-card top-accent">
-    <span class="ph-badge">관리자</span>
-    <h1 class="ph-h1">관리자 설정</h1>
-    <p class="ph-sub">찬양팀 추가/제거 · 멤버 관리 · 드라이브 설정 화면은 다음 단계에서 만듭니다.</p>
-    <a class="ph-btn" href="/">← 허브로</a>
-  </div>`;
-  res.type('html').send(await pageShell.render(content, { title: '관리자' }));
-});
+// /admin 은 routes/admin.js 가 맡습니다 (찬양팀 · 멤버 · 태그라인 관리).
 
 module.exports = router;

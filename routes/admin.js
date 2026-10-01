@@ -1,0 +1,139 @@
+/**
+ * 관리자 대시보드 — 찬양팀 추가/비활성화, 멤버 관리(소속팀·역할·관리자 지정), 바닥글 태그라인 설정.
+ */
+const express = require('express');
+const sheetsDb = require('../lib/sheetsDb');
+const pageShell = require('../lib/pageShell');
+const { ROLE_OPTIONS } = require('../lib/schema');
+
+const router = express.Router();
+const esc = pageShell.esc;
+
+async function requireAdmin(req, res, next) {
+  if (!req.session) return res.redirect('/');
+  const member = await sheetsDb.findOne('회원', '이메일', req.session.email);
+  if (!member || String(member['관리자여부']).toUpperCase() !== 'TRUE') return res.redirect('/');
+  req.member = member;
+  next();
+}
+
+function splitList(s) { return String(s || '').split(',').map((x) => x.trim()).filter(Boolean); }
+
+function teamRow(t) {
+  const active = String(t['활성여부']).toUpperCase() !== 'FALSE';
+  return `<div class="ph-list-item">
+    <div class="ph-li-main"><div class="ph-li-title">${esc(t['팀명'])}</div>
+      <div class="ph-li-sub">${active ? '활성' : '비활성'}</div></div>
+    <form method="post" action="/admin/teams/toggle">
+      <input type="hidden" name="__row" value="${t.__row}"><input type="hidden" name="to" value="${active ? 'FALSE' : 'TRUE'}">
+      <button class="ph-btn" type="submit">${active ? '비활성화' : '다시 활성화'}</button>
+    </form>
+  </div>`;
+}
+
+function memberRow(m, teams) {
+  const myTeams = splitList(m['소속팀']);
+  const myRoles = splitList(m['역할']);
+  const isAdmin = String(m['관리자여부']).toUpperCase() === 'TRUE';
+  return `<details class="ph-add" style="border-top:1px solid var(--line);padding-top:10px;">
+    <summary>${esc(m['이름'])} <span class="ph-li-sub" style="display:inline;">· ${esc(m['이메일'])}${isAdmin ? ' · 관리자' : ''}</span></summary>
+    <form method="post" action="/admin/members/update" class="ph-inlineform">
+      <input type="hidden" name="__row" value="${m.__row}">
+      <label>소속 찬양팀 (여러 개 가능)</label>
+      <div class="ph-chips">${teams.map((t) => `<label class="ph-chip"><input type="checkbox" name="소속팀" value="${esc(t['팀명'])}"${myTeams.includes(t['팀명']) ? ' checked' : ''}><span>${esc(t['팀명'])}</span></label>`).join('')}</div>
+      <label>역할 (여러 개 가능)</label>
+      <div class="ph-chips">${ROLE_OPTIONS.map((r) => `<label class="ph-chip"><input type="checkbox" name="역할" value="${r}"${myRoles.includes(r) ? ' checked' : ''}><span>${r}</span></label>`).join('')}</div>
+      <label class="ph-chip" style="width:fit-content;"><input type="checkbox" name="관리자여부"${isAdmin ? ' checked' : ''}><span>관리자</span></label>
+      <button class="ph-btn pri" type="submit">저장</button>
+    </form>
+  </details>`;
+}
+
+router.get('/admin', requireAdmin, async (req, res) => {
+  const [teams, members, tagline] = await Promise.all([
+    sheetsDb.readAll('찬양팀'),
+    sheetsDb.readAll('회원'),
+    sheetsDb.getSetting('태그라인', '소망이 넘치는 교회'),
+  ]);
+  const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
+
+  const content = `
+  ${hero}
+  <div class="ph-card"><a class="ph-btn" href="/">← 허브로</a></div>
+
+  <div class="ph-card top-accent">
+    <h2 class="ph-h2">허브 바닥글 태그라인</h2>
+    <form method="post" action="/admin/tagline" class="ph-inlineform">
+      <input type="text" name="태그라인" value="${esc(tagline)}" maxlength="60">
+      <button class="ph-btn pri" type="submit">저장</button>
+    </form>
+  </div>
+
+  <div class="ph-card">
+    <h2 class="ph-h2">찬양팀</h2>
+    <div class="ph-list">${teams.length ? teams.map(teamRow).join('') : '<p class="ph-sub">아직 찬양팀이 없어요.</p>'}</div>
+    <details class="ph-add">
+      <summary>+ 찬양팀 추가</summary>
+      <form method="post" action="/admin/teams" class="ph-inlineform">
+        <input type="text" name="팀명" placeholder="예: 2부 찬양팀" required>
+        <button class="ph-btn pri" type="submit">추가</button>
+      </form>
+    </details>
+  </div>
+
+  <div class="ph-card">
+    <h2 class="ph-h2">멤버 (${members.length}명)</h2>
+    <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
+  </div>
+  `;
+  res.type('html').send(await pageShell.render(content, { title: '관리자' }));
+});
+
+router.post('/admin/tagline', requireAdmin, async (req, res) => {
+  const value = String((req.body || {})['태그라인'] || '').trim();
+  const existing = await sheetsDb.findWhere('설정', (r) => r['키'] === '태그라인');
+  const row = { '키': '태그라인', '값': value, '설명': '허브 바닥글에 보이는 한 줄 문구' };
+  if (existing) await sheetsDb.updateRow('설정', existing.__row, row);
+  else await sheetsDb.appendRow('설정', row);
+  res.redirect('/admin');
+});
+
+router.post('/admin/teams', requireAdmin, async (req, res) => {
+  const name = String((req.body || {})['팀명'] || '').trim();
+  if (name) {
+    const dup = await sheetsDb.findOne('찬양팀', '팀명', name);
+    if (!dup) await sheetsDb.appendRow('찬양팀', { 'ID': 'T' + Date.now().toString(36), '팀명': name, '생성일': new Date().toISOString(), '활성여부': 'TRUE' });
+  }
+  res.redirect('/admin');
+});
+
+router.post('/admin/teams/toggle', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const row = Number(b.__row);
+  if (row) {
+    const rows = await sheetsDb.readAll('찬양팀');
+    const found = rows.find((r) => r.__row === row);
+    if (found) await sheetsDb.updateRow('찬양팀', row, { ...found, '활성여부': b.to === 'TRUE' ? 'TRUE' : 'FALSE' });
+  }
+  res.redirect('/admin');
+});
+
+router.post('/admin/members/update', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const row = Number(b.__row);
+  if (row) {
+    const rows = await sheetsDb.readAll('회원');
+    const found = rows.find((r) => r.__row === row);
+    if (found) {
+      const teams = [].concat(b['소속팀'] || []).filter(Boolean);
+      const roles = [].concat(b['역할'] || []).filter(Boolean);
+      await sheetsDb.updateRow('회원', row, {
+        ...found, '소속팀': teams.join(','), '역할': roles.join(','),
+        '관리자여부': b['관리자여부'] ? 'TRUE' : 'FALSE',
+      });
+    }
+  }
+  res.redirect('/admin');
+});
+
+module.exports = router;
