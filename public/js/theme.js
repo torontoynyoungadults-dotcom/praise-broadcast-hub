@@ -31,7 +31,17 @@
   }
 
   /** 단추 모양을 지금 상태에 맞춥니다 (탭을 옮겨 새로 그려진 배너에도) */
+  /** 메뉴가 화면보다 길면 지금 탭이 보이도록 가로로 밀어 둡니다 (폰에서 라이브러리 · 장비 · 팀원 탭) */
+  function showTab() {
+    Array.prototype.forEach.call(document.querySelectorAll('.ph-hubnav-in'), function (n) {
+      var on = n.querySelector('.ph-hubtab.on');
+      if (!on || n.scrollWidth <= n.clientWidth + 1) return;
+      var left = on.offsetLeft - (n.clientWidth - on.offsetWidth) / 2;
+      n.scrollLeft = Math.max(0, Math.min(left, n.scrollWidth - n.clientWidth));
+    });
+  }
   function paint() {
+    showTab();
     var light = theme() === 'light';
     Array.prototype.forEach.call(document.querySelectorAll('[data-ph-act="theme"]'), function (b) {
       b.setAttribute('aria-checked', light ? 'true' : 'false');
