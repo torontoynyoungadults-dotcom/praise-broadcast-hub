@@ -414,7 +414,14 @@ router.get('/conti', requireTeam, async (req, res) => {
   spa.send(req, res, content, { title: `${team} 예배콘티` });
 });
 
-/* ================= 연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io 실시간 동기화) ================= */
+/** 악보 링크 모양으로 짐작 — 알 수 없으면 클라이언트가 PDF로 먼저 시도하고 안 되면 사진으로, 그래도 안 되면 "원본 열기" 링크 */
+function sheetKind(link) {
+  if (/\.pdf(\?|$)/i.test(link)) return 'pdf';
+  if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(link)) return 'image';
+  return 'unknown';
+}
+
+/* ================= 연습 화면 (라이브 악보 보기 + 필기 · 송폼 · 메트로놈 · 시작음 · 함께, church-app처럼) ================= */
 router.get('/conti/practice', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
@@ -422,44 +429,109 @@ router.get('/conti/practice', requireTeam, async (req, res) => {
   const w = await loadWeek(team, date);
   const songs = [...w.conti, ...w.final].map((s) => ({
     title: s['제목'] || '(제목 없음)', team: s['팀'] || '', key: s['Key'] || '', bpm: Number(s['BPM']) || 0,
-    youtube: s['유튜브'] || '', note: s['비고'] || '', solo: parseSolo(s['솔로']),
+    youtube: s['유튜브'] || '', note: s['비고'] || '', form: s['송폼'] || '', solo: parseSolo(s['솔로']),
   }));
-  const sheets = w.sheets.map((s) => ({ id: String(s.__row), title: s['제목'] || '악보', link: s['파일링크'] || '' }));
+  const sheets = w.sheets.map((s) => {
+    const link = s['파일링크'] || '';
+    return {
+      id: String(s.__row), title: s['제목'] || '악보', kind: sheetKind(link),
+      proxyUrl: `/conti/sheet-proxy?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}&url=${encodeURIComponent(link)}`,
+      openUrl: link,
+    };
+  });
   const roomId = `practice:${team}::${date}`;
-  const hero = pageShell.hero({ eyebrow: `${team} · 연습 화면`, title: '연습 화면', sub: week.labelKo(date) });
+  const pvData = {
+    room: roomId, team, date, memberName: ctx.member['이름'] || '',
+    songs, sheets,
+    annoLoadUrl: `/conti/anno/load?team=${encodeURIComponent(team)}`,
+    annoSaveUrl: '/conti/anno/save',
+  };
 
   const content = `
-  ${hero}
-  <div class="ph-card">
-    <a class="ph-btn" href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">← 예배콘티로</a>
-    <p class="ph-sub" style="margin-top:10px;">같은 링크를 연 모든 기기에 곡 선택·악보·메트로놈이 실시간으로 함께 바뀝니다.</p>
-  </div>
-
-  <div class="ph-card top-accent" id="pv-songwrap">
-    <h2 class="ph-h2">곡</h2>
-    <div class="pv-songtabs" id="pv-songtabs"></div>
-    <div class="pv-stage" id="pv-stage"></div>
-    <div class="pv-sheetpicker" id="pv-sheetpicker"></div>
-  </div>
-
-  <div class="ph-card" id="pv-metro">
-    <h2 class="ph-h2">메트로놈</h2>
-    <div class="pv-metrorow">
-      <button class="ph-icon-btn" id="pv-bpmdown" type="button">−</button>
-      <div class="pv-bpm"><span id="pv-bpmnum">80</span><span class="pv-bpmlabel">BPM</span></div>
-      <button class="ph-icon-btn" id="pv-bpmup" type="button">+</button>
-      <div class="pv-beat" id="pv-beat"></div>
+  <div class="pv-wrap" id="pv-wrap">
+    <div class="pv-main">
+      <div class="pv-topbar">
+        <a class="ph-icon-btn" href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}" title="예배콘티로">←</a>
+        <div class="pv-songtabs" id="pv-songtabs"></div>
+      </div>
+      <div class="pv-stagewrap">
+        <div class="pv-pagebox" id="pv-pagebox">
+          <canvas class="pv-pdf" id="pv-pdfcanvas"></canvas>
+          <img class="pv-sheetimg" id="pv-sheetimg" alt="">
+          <canvas class="pv-anno" id="pv-annocanvas"></canvas>
+          <div class="pv-songinfo" id="pv-songinfo"></div>
+        </div>
+        <div class="pv-pagenav" id="pv-pagenav"></div>
+      </div>
+      <div class="pv-sheetpicker" id="pv-sheetpicker"></div>
     </div>
-    <div class="pv-metrobtns">
-      <button class="ph-btn pri" id="pv-startstop" type="button">▶ 시작</button>
-      <button class="ph-btn" id="pv-tap" type="button">탭으로 템포 맞추기</button>
+    <div class="pv-panel">
+      <div class="pv-tabs" id="pv-tabs">
+        <button type="button" class="pv-tabbtn on" data-pvtab="anno">✏️ 필기</button>
+        <button type="button" class="pv-tabbtn" data-pvtab="form">🎼 송폼</button>
+        <button type="button" class="pv-tabbtn" data-pvtab="metro">⏱ 메트로놈</button>
+        <button type="button" class="pv-tabbtn" data-pvtab="pitch">🎵 시작음</button>
+        <button type="button" class="pv-tabbtn" data-pvtab="together">👥 함께</button>
+      </div>
+      <div class="pv-panelbody" id="pv-panelbody"></div>
     </div>
   </div>
-  <script>window.PV_DATA = ${JSON.stringify({ room: roomId, songs, sheets }).replace(/</g, '\\u003c')};</script>
+  <script>window.PV_DATA = ${JSON.stringify(pvData).replace(/</g, '\\u003c')};</script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/practice.js" defer></script>
   `;
   res.type('html').send(await pageShell.render(content, { title: `${team} 연습 화면` }));
+});
+
+/** 악보 파일을 서버가 대신 받아서 돌려줌 — 구글 드라이브 등은 브라우저에서 바로 fetch(PDF.js)하면 CORS로 막히는 경우가 많아,
+ * 우리 서버(같은 출처)를 한 번 거치게 함. 이번 주 악보 목록에 실제로 있는 링크만 허용(아무 주소나 열어주는 프록시가 되지 않게). */
+router.get('/conti/sheet-proxy', requireTeam, async (req, res) => {
+  const team = String(req.query.team || '').trim();
+  const date = week.normalizeDate(req.query.date);
+  const target = String(req.query.url || '').trim();
+  if (!req.ctx.teams.includes(team) || !target) return res.status(403).type('text').send('허용되지 않은 요청입니다.');
+  const sheets = await sheetsDb.readAll('악보저장소');
+  const ok = sheets.some((s) => s['팀ID'] === team && s['날짜'] === date && s['파일링크'] === target);
+  if (!ok) return res.status(403).type('text').send('이번 주 악보 목록에 없는 링크입니다.');
+  try {
+    const upstream = await fetch(target);
+    if (!upstream.ok || !upstream.body) return res.status(502).type('text').send('원본 악보를 불러오지 못했습니다.');
+    res.set('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+    res.set('Cache-Control', 'private, max-age=300');
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.send(buf);
+  } catch (e) {
+    res.status(502).type('text').send('원본 악보를 불러오지 못했습니다: ' + e.message);
+  }
+});
+
+/** 필기 불러오기 — 이 팀에서 볼 수 있는(공개='TRUE') 모든 사람 것 + 본인 것(나만 보기여도) */
+router.get('/conti/anno/load', requireTeam, async (req, res) => {
+  const team = String(req.query.team || '').trim();
+  if (!req.ctx.teams.includes(team)) return res.status(403).json({ ok: false });
+  const sheetId = String(req.query.sheetId || '').trim();
+  const me = req.ctx.member['이름'];
+  const rows = (await sheetsDb.readAll('악보필기')).filter((r) => r['팀ID'] === team && r['악보ID'] === sheetId && (r['작성자'] === me || String(r['공개']).toUpperCase() !== 'FALSE'));
+  const byAuthor = {};
+  rows.forEach((r) => { try { byAuthor[r['작성자']] = JSON.parse(r['필기'] || '[]'); } catch (e) { byAuthor[r['작성자']] = []; } });
+  res.json({ ok: true, me, byAuthor });
+});
+
+/** 필기 저장 — 한 사람 · 한 악보 = 한 행 (upsert). church-app처럼 "이 곡에 계속"(날짜 구분 없이 악보 1개 공용)만 지원. */
+router.post('/conti/anno/save', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (!req.ctx.teams.includes(team)) return res.status(403).json({ ok: false });
+  const sheetId = String(b.sheetId || '').trim();
+  if (!sheetId) return res.status(400).json({ ok: false });
+  const me = req.ctx.member['이름'];
+  const strokes = typeof b.strokes === 'string' ? b.strokes : JSON.stringify(b.strokes || []);
+  const open = b.public === false || b.public === 'false' ? 'FALSE' : 'TRUE';
+  const existing = await sheetsDb.findWhere('악보필기', (r) => r['팀ID'] === team && r['악보ID'] === sheetId && r['작성자'] === me);
+  const row = { 'ID': existing ? existing['ID'] : 'N' + Date.now().toString(36), '팀ID': team, '악보ID': sheetId, '작성자': me, '필기': strokes, '공개': open, '수정시각': new Date().toISOString() };
+  if (existing) await sheetsDb.updateRow('악보필기', existing.__row, row);
+  else await sheetsDb.appendRow('악보필기', row);
+  res.json({ ok: true });
 });
 
 router.post('/conti/lineup/assign', requireTeam, async (req, res) => {

@@ -29,6 +29,7 @@ const app = express();
 app.set('trust proxy', true);
 app.disable('x-powered-by');
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' })); // 필기(연습 화면) 저장처럼 JS가 JSON으로 보내는 요청용 — 폼 전송(urlencoded)과 공존
 app.use(session.middleware);
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
