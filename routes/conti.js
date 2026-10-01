@@ -15,7 +15,8 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
-const { POSITION_GROUPS, ALL_POSITIONS } = require('../lib/positions');
+const avatar = require('../lib/avatar');
+const { POSITION_GROUPS, ALL_POSITIONS, positionIcon } = require('../lib/positions');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
 
@@ -46,10 +47,10 @@ async function teamRoster(team) {
   return members.filter((m) => String(m['소속팀'] || '').split(',').map((s) => s.trim()).includes(team)).map((m) => m['이름']).filter(Boolean);
 }
 
-function lineupCell(date, team, posKey, names, roster) {
+function lineupCell(date, team, posKey, names, roster, infoMap) {
   return `<div class="ph-poscell">
-    <div class="ph-poslabel">${esc(posKey)}</div>
-    <div class="ph-posnames">${names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}">${esc(n.이름)}
+    <div class="ph-poslabel">${positionIcon(posKey)} ${esc(posKey)}</div>
+    <div class="ph-posnames">${names.length ? names.map((n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}${esc(n.이름)}
       <form method="post" action="/conti/lineup/unassign" style="display:inline;">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}">
         <button type="submit" aria-label="빼기">&times;</button>
@@ -64,24 +65,24 @@ function lineupCell(date, team, posKey, names, roster) {
 
 /** 이번 주 포지션 배정(byPos)과 팀 명단(roster) — 주일 편성 카드와 @태그 칩이 함께 씁니다 */
 async function weekAssignments(team, date) {
-  const [assignRows, roster] = await Promise.all([sheetsDb.readAll('찬양편성'), teamRoster(team)]);
+  const [assignRows, roster, infoMap] = await Promise.all([sheetsDb.readAll('찬양편성'), teamRoster(team), avatar.teamInfoMap(team)]);
   const rows = assignRows.filter((r) => r['팀ID'] === team && r['날짜'] === date);
   const byPos = {};
   rows.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push({ 이름: r['이름'], __row: r.__row }); });
-  return { byPos, roster };
+  return { byPos, roster, infoMap };
 }
 
-async function lineupCard(team, date, byPos, roster) {
+async function lineupCard(team, date, byPos, roster, infoMap) {
   const groups = POSITION_GROUPS.map(([label, keys]) => `
     <div class="ph-posgroup">
       <div class="ph-posgrouplabel">${esc(label)}</div>
-      <div class="ph-posrow">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster)).join('')}</div>
+      <div class="ph-posrow">${keys.map((k) => lineupCell(date, team, k, byPos[k] || [], roster, infoMap)).join('')}</div>
     </div>`).join('');
   return `<div class="ph-card">
     <h2 class="ph-h2">주일 편성</h2>
     <datalist id="ph-roster">${roster.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
     ${groups}
-    <p class="ph-sub" style="margin-top:8px;"><a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a></p>
+    <p class="ph-sub" style="margin-top:8px;"><a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a> · <a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a></p>
   </div>`;
 }
 
@@ -326,8 +327,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   const publicUrl = `/public/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
 
   const hero = pageShell.hero({ eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
-  const { byPos, roster } = await weekAssignments(team, date);
-  const lineup = await lineupCard(team, date, byPos, roster);
+  const { byPos, roster, infoMap } = await weekAssignments(team, date);
+  const lineup = await lineupCard(team, date, byPos, roster, infoMap);
 
   const content = `
   ${pageShell.hubNav('conti', team)}

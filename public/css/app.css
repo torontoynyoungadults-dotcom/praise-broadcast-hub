@@ -9,9 +9,12 @@
   --ink: #F7F4EE;
   --sub: #C7C2B8;
   --dim: #938D81;
-  --glass: rgba(255,255,255,.055);
-  --glass-2: rgba(255,255,255,.095);
-  --line: rgba(255,255,255,.13);
+  --glass: rgba(255,255,255,.07);
+  --glass-2: rgba(255,255,255,.11);
+  --line: rgba(255,255,255,.14);
+  --line-hi: rgba(255,255,255,.32);
+  --inset-hi: rgba(255,255,255,.09);
+  --glass-blur: blur(22px) saturate(165%);
   --accent: #FF8A3D;
   --accent-2: #FF5F6D;
   --on-accent: #1B0F05;
@@ -37,9 +40,11 @@
   --ink: #241F19;
   --sub: #5C564A;
   --dim: #8C8575;
-  --glass: rgba(36,31,25,.035);
-  --glass-2: rgba(36,31,25,.065);
-  --line: rgba(36,31,25,.11);
+  --glass: rgba(255,255,255,.55);
+  --glass-2: rgba(255,255,255,.72);
+  --line: rgba(36,31,25,.12);
+  --line-hi: rgba(255,255,255,.85);
+  --inset-hi: rgba(255,255,255,.65);
   --accent: #E8703C;
   --accent-2: #D6453A;
   --on-accent: #FFF8F0;
@@ -77,16 +82,19 @@ a { color: var(--accent); text-decoration: none; }
   position: sticky; top: 0; z-index: 40;
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; padding: 13px 18px;
-  background: rgba(17,19,26,.72); backdrop-filter: blur(16px) saturate(1.25); -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  background: rgba(17,19,26,.66); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 var(--inset-hi);
 }
-:root[data-theme="light"] .ph-topbar { background: rgba(251,246,238,.82); }
+:root[data-theme="light"] .ph-topbar { background: rgba(251,246,238,.74); }
 .ph-title { font-size: 18px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
 .ph-tools { display: flex; align-items: center; gap: 4px; }
 .ph-icon-btn {
   width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass);
   color: var(--ink); font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;
   transition: transform .12s ease, background .15s ease;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi);
 }
 .ph-icon-btn:active { transform: translateY(1px) scale(.97); }
 .ph-icon-btn:hover { background: var(--glass-2); }
@@ -125,14 +133,15 @@ a { color: var(--accent); text-decoration: none; }
 .ph-hero-title { font-size: 27px; font-weight: 800; color: #FFF9F0; letter-spacing: -.02em; text-shadow: 0 2px 14px rgba(0,0,0,.3); margin: 0; }
 .ph-hero-sub { font-size: 14.5px; color: rgba(255,249,240,.86); margin: 6px 0 0; }
 
-/* ---------- 카드 ---------- */
+/* ---------- 카드 (고급스러운 글래스모피즘 — 블러 + 상단 하이라이트 + 깊은 그림자) ---------- */
 .ph-card {
   position: relative;
   background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 24px; margin-bottom: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 14px 36px rgba(0,0,0,.3), inset 0 1px 0 var(--inset-hi);
 }
-:root[data-theme="light"] .ph-card { box-shadow: 0 10px 24px rgba(60,40,10,.07); }
+:root[data-theme="light"] .ph-card { box-shadow: 0 14px 30px rgba(60,40,10,.1), inset 0 1px 0 var(--inset-hi); }
 .ph-card.top-accent::before {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; border-radius: var(--radius) var(--radius) 0 0;
   background: linear-gradient(90deg, var(--hero-sky-3), var(--accent), var(--hero-mtn-1));
@@ -154,10 +163,12 @@ a { color: var(--accent); text-decoration: none; }
   min-height: 52px; padding: 12px 20px; border-radius: 14px; border: 1.5px solid var(--line);
   background: var(--glass-2); color: var(--ink); font-size: 16px; font-weight: 700; cursor: pointer; width: 100%;
   transition: transform .12s ease, box-shadow .15s ease;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi);
 }
 .ph-btn.pri {
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent;
-  box-shadow: 0 10px 24px rgba(255,95,109,.3);
+  box-shadow: 0 10px 24px rgba(255,95,109,.35), inset 0 1px 0 rgba(255,255,255,.35);
 }
 .ph-btn:active { transform: translateY(1px) scale(.99); }
 .ph-btn:hover { box-shadow: 0 12px 26px rgba(0,0,0,.18); }
@@ -180,6 +191,8 @@ a { color: var(--accent); text-decoration: none; }
   display: inline-block; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line);
   background: var(--glass-2); font-size: 14.5px; font-weight: 700; color: var(--sub);
   transition: background .15s ease, color .15s ease;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi);
 }
 .ph-chip input:checked + span { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
 
@@ -213,7 +226,9 @@ a { color: var(--accent); text-decoration: none; }
 .ph-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .ph-list-item {
   display: flex; align-items: center; gap: 10px; justify-content: space-between;
-  padding: 12px 14px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--line);
+  padding: 12px 14px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi);
 }
 .ph-li-main { min-width: 0; }
 .ph-li-title { font-weight: 800; font-size: 15.5px; }
@@ -249,6 +264,8 @@ a { color: var(--accent); text-decoration: none; }
 .pv-tab {
   flex: none; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass-2);
   color: var(--sub); font-weight: 700; font-size: 14.5px; cursor: pointer; white-space: nowrap;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi);
 }
 .pv-tab.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
 .pv-stage {
@@ -293,7 +310,7 @@ a { color: var(--accent); text-decoration: none; }
 .ph-row-edit > summary::-webkit-details-marker { display: none; }
 .ph-row-edit > summary:hover { background: var(--glass-2); color: var(--ink); }
 .ph-row-edit[open] > summary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
-.ph-row-edit .ph-inlineform { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 8px; width: 100%; }
+.ph-row-edit .ph-inlineform { background: var(--glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 8px; width: 100%; box-shadow: inset 0 1px 0 var(--inset-hi); }
 .ph-row-edit form + form { margin-top: 8px; }
 
 .ph-solosum { border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, var(--bg-2)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); padding: 12px 14px; margin-bottom: 12px; }
@@ -310,13 +327,28 @@ a { color: var(--accent); text-decoration: none; }
 .ph-posgroup + .ph-posgroup { margin-top: 12px; }
 .ph-posgrouplabel { font-size: 12.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .ph-posrow { display: flex; flex-direction: column; gap: 8px; }
-.ph-poscell { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
-.ph-poslabel { flex: none; width: 64px; font-size: 13.5px; font-weight: 700; color: var(--sub); }
+.ph-poscell { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi); }
+.ph-poslabel { flex: none; width: 76px; font-size: 13.5px; font-weight: 700; color: var(--sub); }
 .ph-posnames { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 80px; }
-.ph-namechip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; }
+.ph-namechip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--inset-hi); }
 .ph-namechip.none { color: var(--dim); font-weight: 600; background: transparent; border-style: dashed; }
 .ph-namechip button { border: none; background: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
 .ph-namechip button:hover { color: var(--bad); }
+
+/* ---------- 아바타(팀원 사진/이니셜 + 성별 아이콘 배지) — 주일 편성 · 팀원관리 공용 ---------- */
+.ph-avatar { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; overflow: visible; background: linear-gradient(135deg, var(--hero-sky-3), var(--accent)); box-shadow: inset 0 0 0 1.5px var(--line-hi); }
+.ph-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.ph-avatar-txt { color: #fff; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.ph-avatar-badge { position: absolute; right: -2px; bottom: -2px; border-radius: 50%; background: var(--bg-2); border: 1.5px solid var(--bg); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.ph-avatar-sm { width: 20px; height: 20px; }
+.ph-avatar-sm .ph-avatar-txt { font-size: 10px; }
+.ph-avatar-sm .ph-avatar-badge { width: 11px; height: 11px; font-size: 7px; }
+.ph-avatar-md { width: 34px; height: 34px; }
+.ph-avatar-md .ph-avatar-txt { font-size: 14px; }
+.ph-avatar-md .ph-avatar-badge { width: 15px; height: 15px; font-size: 9px; }
+.ph-avatar-lg { width: 52px; height: 52px; }
+.ph-avatar-lg .ph-avatar-txt { font-size: 20px; }
+.ph-avatar-lg .ph-avatar-badge { width: 20px; height: 20px; font-size: 11px; }
 .ph-assignform { display: flex; gap: 6px; flex: none; }
 .ph-assignform input { min-height: 32px !important; padding: 4px 10px !important; font-size: 13.5px !important; width: 110px; border-radius: 999px !important; }
 .ph-assignform button { flex: none; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13px; cursor: pointer; }
@@ -338,7 +370,7 @@ a { color: var(--accent); text-decoration: none; }
 .ph-kb { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--sub); }
 
 /* ---------- 장비 · 수리 ---------- */
-.ph-eqitem { padding: 12px 14px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--line); margin-bottom: 8px; }
+.ph-eqitem { padding: 12px 14px; border-radius: 14px; background: var(--glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--line); margin-bottom: 8px; box-shadow: inset 0 1px 0 var(--inset-hi); }
 .ph-eqitemname { font-weight: 800; font-size: 15px; }
 .ph-eqresults { display: flex; gap: 6px; margin-top: 8px; }
 .ph-eqresbtn { flex: 1; min-height: 38px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13.5px; cursor: pointer; }
@@ -363,6 +395,8 @@ a { color: var(--accent); text-decoration: none; }
 .ph-hubtab {
   flex: none; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass-2);
   color: var(--sub); font-weight: 700; font-size: 14.5px; white-space: nowrap; text-decoration: none;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--inset-hi);
 }
 .ph-hubtab.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
 #ph-tabbody.ph-loading { opacity: .45; transition: opacity .1s linear; pointer-events: none; }

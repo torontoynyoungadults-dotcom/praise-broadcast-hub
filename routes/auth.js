@@ -78,8 +78,16 @@ router.get('/signup', async (req, res) => {
   <div class="ph-card">
     <form method="post" action="/signup" enctype="multipart/form-data">
       <div class="ph-field">
-        <label>이름</label>
-        <input type="text" name="이름" required value="${pageShell.esc(hint.name || '')}">
+        <label>이름 (한글 3글자로 적어주세요 — 예: 홍길동)</label>
+        <input type="text" name="이름" id="ph-name" required maxlength="3" pattern="[가-힣]{3}" title="한글 3글자로 입력해주세요" value="${pageShell.esc(hint.name || '')}">
+        <p class="ph-msg" id="ph-name-hint" style="margin-top:6px;">소속 찬양팀의 팀원 명단에 있는 이름과 똑같이 적어주세요.</p>
+      </div>
+      <div class="ph-field">
+        <label>성별</label>
+        <div class="ph-chips">
+          <label class="ph-chip"><input type="radio" name="성별" value="남" required><span>남</span></label>
+          <label class="ph-chip"><input type="radio" name="성별" value="여" required><span>여</span></label>
+        </div>
       </div>
       <div class="ph-field">
         <label>전화번호</label>
@@ -115,6 +123,14 @@ router.get('/signup', async (req, res) => {
         el.value = out;
       });
     })();
+    (function () {
+      var el = document.getElementById('ph-name');
+      var hint = document.getElementById('ph-name-hint');
+      if (!el || !hint) return;
+      el.addEventListener('input', function () {
+        el.value = el.value.replace(/[^가-힣]/g, '').slice(0, 3);
+      });
+    })();
   </script>`;
   res.type('html').send(await pageShell.render(content, { title: '회원가입' }));
 });
@@ -124,16 +140,34 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   if (!email) return res.redirect('/');
   const body = req.body || {};
   const name = String(body['이름'] || '').trim();
+  const gender = String(body['성별'] || '').trim();
   const phone = String(body['전화번호'] || '').trim();
   const team = String(body['소속팀'] || '').trim();
   const roles = [].concat(body['역할'] || []).filter(Boolean);
   const missing = [];
   if (!name) missing.push('이름');
+  if (!gender) missing.push('성별');
   if (!phone) missing.push('전화번호');
   if (!team) missing.push('소속 찬양팀');
   if (missing.length) {
     return res.redirect('/signup?e=' + encodeURIComponent(missing.join(' · ') + ' 칸이 비어 있어요. (' + missing.join(', ') + ')'));
   }
+  if (!/^[가-힣]{3}$/.test(name)) {
+    return res.redirect('/signup?e=' + encodeURIComponent('이름은 한글 3글자로 적어주세요 (예: 홍길동).'));
+  }
+  if (!['남', '여'].includes(gender)) {
+    return res.redirect('/signup?e=' + encodeURIComponent('성별을 선택해주세요.'));
+  }
+
+  // 팀원 명단(화이트리스트) 확인 — 관리자가 그 팀 명단을 아직 하나도 안 적어 뒀으면(이 기능을 아직 안 쓰는 팀)
+  // 막지 않고 그대로 가입을 받아줍니다. 명단이 있는 팀인데 이름이 거기 없으면 가입을 막습니다.
+  const roster = (await sheetsDb.readAll('팀원명단')).filter((r) => r['팀ID'] === team);
+  if (roster.length && !roster.some((r) => String(r['이름']).trim() === name)) {
+    return res.redirect('/signup?e=' + encodeURIComponent(
+      `'${name}'님은 ${team} 팀원 명단에서 찾을 수 없어요. 이름을 다시 확인해 주세요. 계속 안 되면 팀 담당자(관리자)에게 문의해주세요.`,
+    ));
+  }
+
   let photoUrl = '';
   try { if (req.file) photoUrl = await driveStore.uploadPublic('프로필사진', req.file); }
   catch (e) { console.error('[프로필사진 업로드 실패]', e.message); }
@@ -142,7 +176,7 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
     'ID': 'U' + Date.now().toString(36),
     '이메일': email, '이름': name, '전화번호': phone, '소속팀': team,
     '역할': roles.join(','), '프로필사진': photoUrl, '관리자여부': 'FALSE',
-    '가입일': new Date().toISOString().slice(0, 10),
+    '가입일': new Date().toISOString().slice(0, 10), '성별': gender,
   });
   session.clearPendingEmail(res);
   session.login(res, { email, name });

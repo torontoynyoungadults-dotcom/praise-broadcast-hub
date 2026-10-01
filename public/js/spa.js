@@ -9,7 +9,7 @@
   if (window.__phSpaBound) return; // 탭 전환 후 내용이 통째로 바뀌어도 document 레벨 리스너는 유지되므로 1번만 bind
   window.__phSpaBound = true;
 
-  var SPA_PREFIXES = ['/conti', '/notices', '/schedule', '/library', '/equipment', '/admin'];
+  var SPA_PREFIXES = ['/conti', '/roster', '/notices', '/schedule', '/library', '/equipment', '/admin'];
 
   function isSpaPath(pathname) {
     if (pathname.indexOf('/conti/practice') === 0) return false; // 연습 화면은 독립된 화면으로 그대로 둠
