@@ -336,3 +336,20 @@ a { color: var(--accent); text-decoration: none; }
 .ph-art em { font-style: normal; color: var(--dim); font-weight: 600; margin-left: 4px; }
 .ph-art em::before { content: '· '; }
 .ph-kb { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--sub); }
+
+/* ---------- 장비 · 수리 ---------- */
+.ph-eqitem { padding: 12px 14px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--line); margin-bottom: 8px; }
+.ph-eqitemname { font-weight: 800; font-size: 15px; }
+.ph-eqresults { display: flex; gap: 6px; margin-top: 8px; }
+.ph-eqresbtn { flex: 1; min-height: 38px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13.5px; cursor: pointer; }
+.ph-eqresbtn.on.ok { background: #1f8a4c; border-color: #1f8a4c; color: #fff; }
+.ph-eqresbtn.on.bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.ph-eqresbtn.on:not(.ok):not(.bad) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ph-eqbadge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--glass-2); border: 1px solid var(--line); color: var(--sub); margin-left: 6px; vertical-align: middle; }
+.ph-eqbadge.ok { background: color-mix(in srgb, #1f8a4c 18%, var(--bg-2)); border-color: #1f8a4c; color: #1f8a4c; }
+.ph-eqbadge.bad { background: color-mix(in srgb, var(--bad) 15%, var(--bg-2)); border-color: var(--bad); color: var(--bad); }
+.ph-eqpri { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--bad); color: #fff; margin-left: 6px; }
+.ph-eqphotos { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.ph-eqphotos img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.ph-ticket { flex-direction: column; align-items: stretch; }
+.ph-ticketacts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }

@@ -14,8 +14,9 @@
  *   /notices            공지 및 모임 (공지사항 + 토요모임 기도제목 나누기)
  *   /schedule           스케줄표 (주차별 포지션 편성 + 내가 안 되는 날)
  *   /library            라이브러리 (지난 콘티 · 악보 · 녹음 모아보기 + 곡 순위)
+ *   /equipment          장비 · 수리 (오늘 점검 + 수리 요청, 단일 페이지 — iframe 없음)
  *
- * 장비·수리 · 관리자 대시보드는 다음 단계에서 이어 붙입니다.
+ * 관리자 대시보드는 다음 단계에서 이어 붙입니다.
  */
 process.env.TZ = process.env.TZ || 'America/Toronto';
 
@@ -38,6 +39,7 @@ app.use(require('./routes/conti'));
 app.use(require('./routes/notices'));
 app.use(require('./routes/schedule'));
 app.use(require('./routes/library'));
+app.use(require('./routes/equipment'));
 app.use(require('./routes/home'));
 
 app.use((req, res) => res.status(404).type('text').send('Not found'));

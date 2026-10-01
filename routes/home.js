@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
       ${navLink(`/notices?team=${encodeURIComponent(team)}`, '📋 공지 및 모임', true)}
       ${navLink(`/schedule?team=${encodeURIComponent(team)}`, '🗓 스케줄표', true)}
       ${navLink(`/library?team=${encodeURIComponent(team)}`, '🗂 라이브러리', true)}
-      ${navLink('#', '🔧 장비·수리', false)}
+      ${navLink(`/equipment?team=${encodeURIComponent(team)}`, '🔧 장비·수리', true)}
     </div>
   </div>
   <div class="ph-card">
