@@ -75,10 +75,14 @@ router.get('/signup', async (req, res) => {
     .map((t) => `<option value="${pageShell.esc(t['팀명'])}">${pageShell.esc(t['팀명'])}</option>`).join('')
     || '<option value="">(아직 등록된 찬양팀이 없습니다 — 관리자에게 문의해주세요)</option>';
 
+  const hero = pageShell.hero({
+    eyebrow: '첫 방문이시네요',
+    title: '회원가입',
+    sub: `${email} 계정으로 바로 가입하고 이용하실 수 있어요.`,
+  });
   const content = `
+  ${hero}
   <div class="ph-card">
-    <h1 class="ph-h1">회원가입</h1>
-    <p class="ph-sub">${pageShell.esc(email)} 계정으로 처음 오셨네요. 아래 정보를 입력하면 바로 이용하실 수 있어요.</p>
     <form method="post" action="/signup" enctype="multipart/form-data">
       <div class="ph-field">
         <label>이름</label>

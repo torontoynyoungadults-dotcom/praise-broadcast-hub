@@ -1,98 +1,166 @@
-/* 찬양방송팀 허브 — 토론토 찬양팀 느낌의 새 테마 (다크 글래스 + 오렌지 포인트)
-   원칙: 깔끔 · 직관적 · 가독성(글씨 크게). church-app 디자인을 베끼지 않고 새로 그립니다. */
+/* 찬양방송팀 허브 — 주보(교회 주보) 디자인에서 가져온 "새벽/노을 산" 모티프의 새 테마.
+   라이트 = 노을/일출, 다크 = 황혼/밤. church-app 디자인은 베끼지 않고 새로 그립니다.
+   원칙: 깔끔 · 직관적 · 가독성(글씨 크게) · 세련된 타이포그래피. */
 
 :root {
   color-scheme: dark;
-  --bg: #121316;
-  --bg-2: #1a1c21;
-  --ink: #F7F5F2;
-  --sub: #C9C5BE;
-  --dim: #9A958C;
-  --glass: rgba(255,255,255,.06);
-  --glass-2: rgba(255,255,255,.10);
-  --line: rgba(255,255,255,.14);
+  --bg: #11131A;
+  --bg-2: #181B24;
+  --ink: #F7F4EE;
+  --sub: #C7C2B8;
+  --dim: #938D81;
+  --glass: rgba(255,255,255,.055);
+  --glass-2: rgba(255,255,255,.095);
+  --line: rgba(255,255,255,.13);
   --accent: #FF8A3D;
   --accent-2: #FF5F6D;
   --on-accent: #1B0F05;
-  --good: #58D3A0;
+  --good: #5FD6A6;
   --bad: #FF8A7A;
-  --radius: 18px;
+  --radius: 20px;
   --font-scale: 1;
+
+  /* 새벽/황혼 산 일러스트 톤 (다크 = 황혼) */
+  --hero-sky-1: #2B2F55;
+  --hero-sky-2: #5A3659;
+  --hero-sky-3: #8C4A4E;
+  --hero-sun: #FFD9A0;
+  --hero-sun-glow: rgba(255,217,160,.35);
+  --hero-mtn-1: #1E2439;
+  --hero-mtn-2: #171B2C;
+  --hero-mtn-3: #11141F;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #F6F4F1;
+  --bg: #FBF6EE;
   --bg-2: #FFFFFF;
-  --ink: #221E18;
-  --sub: #5B554B;
-  --dim: #8A8377;
-  --glass: rgba(0,0,0,.035);
-  --glass-2: rgba(0,0,0,.06);
-  --line: rgba(0,0,0,.10);
-  --accent: #E06A1F;
+  --ink: #241F19;
+  --sub: #5C564A;
+  --dim: #8C8575;
+  --glass: rgba(36,31,25,.035);
+  --glass-2: rgba(36,31,25,.065);
+  --line: rgba(36,31,25,.11);
+  --accent: #E8703C;
   --accent-2: #D6453A;
-  --on-accent: #FFF7F0;
+  --on-accent: #FFF8F0;
+
+  /* 새벽/일출 산 일러스트 톤 (라이트 = 일출) */
+  --hero-sky-1: #FFDDA6;
+  --hero-sky-2: #FFB27A;
+  --hero-sky-3: #FF8A5C;
+  --hero-sun: #FFF3D9;
+  --hero-sun-glow: rgba(255,210,150,.55);
+  --hero-mtn-1: #2F6F72;
+  --hero-mtn-2: #1F5058;
+  --hero-mtn-3: #15373E;
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  background: radial-gradient(1200px 800px at 15% -10%, rgba(255,138,61,.14), transparent 60%), var(--bg);
+  background:
+    radial-gradient(1100px 700px at 12% -12%, rgba(255,138,61,.12), transparent 60%),
+    var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
   font-size: calc(17px * var(--font-scale));
-  line-height: 1.6;
+  line-height: 1.65;
   min-height: 100vh;
+  letter-spacing: -.003em;
 }
 
 a { color: var(--accent); text-decoration: none; }
 
+/* ---------- 상단바 ---------- */
 .ph-topbar {
   position: sticky; top: 0; z-index: 40;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; padding: 12px 16px;
-  background: rgba(18,19,22,.72); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  gap: 10px; padding: 13px 18px;
+  background: rgba(17,19,26,.72); backdrop-filter: blur(16px) saturate(1.25); -webkit-backdrop-filter: blur(16px) saturate(1.25);
   border-bottom: 1px solid var(--line);
 }
-:root[data-theme="light"] .ph-topbar { background: rgba(246,244,241,.78); }
-.ph-title { font-size: 18px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+:root[data-theme="light"] .ph-topbar { background: rgba(251,246,238,.82); }
+.ph-title { font-size: 18px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
 .ph-tools { display: flex; align-items: center; gap: 4px; }
 .ph-icon-btn {
   width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass);
   color: var(--ink); font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: transform .12s ease, background .15s ease;
 }
-.ph-icon-btn:active { transform: translateY(1px); }
+.ph-icon-btn:active { transform: translateY(1px) scale(.97); }
+.ph-icon-btn:hover { background: var(--glass-2); }
 
-.ph-wrap { max-width: 720px; margin: 0 auto; padding: 18px 16px 60px; }
+.ph-wrap { max-width: 740px; margin: 0 auto; padding: 20px 16px 64px; }
 
+/* ---------- 히어로 배너 (주보 표지 느낌의 산·여명 일러스트) ---------- */
+.ph-hero {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius); margin-bottom: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 40px rgba(0,0,0,.28);
+  min-height: clamp(200px, 48vw, 260px);
+}
+:root[data-theme="light"] .ph-hero { box-shadow: 0 14px 30px rgba(120,70,20,.12); }
+.ph-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ph-hero-text {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 24px 20px;
+  background: linear-gradient(to top, rgba(10,10,14,.62) 0%, rgba(10,10,14,.34) 60%, rgba(10,10,14,0) 100%);
+}
+.ph-hero-eyebrow {
+  display: inline-block; font-size: 13px; font-weight: 800; letter-spacing: .04em;
+  color: #FFE9CC; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.25);
+  padding: 4px 11px; border-radius: 999px; margin-bottom: 10px;
+}
+.ph-hero-title { font-size: 27px; font-weight: 800; color: #FFF9F0; letter-spacing: -.02em; text-shadow: 0 2px 14px rgba(0,0,0,.3); margin: 0; }
+.ph-hero-sub { font-size: 14.5px; color: rgba(255,249,240,.86); margin: 6px 0 0; }
+
+/* ---------- 카드 ---------- */
 .ph-card {
+  position: relative;
   background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 20px; margin-bottom: 14px;
+  padding: 24px; margin-bottom: 14px;
   box-shadow: 0 10px 30px rgba(0,0,0,.25);
 }
-:root[data-theme="light"] .ph-card { box-shadow: 0 10px 24px rgba(40,30,10,.06); }
+:root[data-theme="light"] .ph-card { box-shadow: 0 10px 24px rgba(60,40,10,.07); }
+.ph-card.top-accent::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, var(--hero-sky-3), var(--accent), var(--hero-mtn-1));
+}
 
-.ph-h1 { font-size: 26px; font-weight: 800; margin: 0 0 6px; letter-spacing: -.02em; }
-.ph-h2 { font-size: 19px; font-weight: 800; margin: 0 0 10px; }
-.ph-sub { color: var(--sub); font-size: 15px; line-height: 1.7; margin: 0 0 16px; }
+.ph-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .02em;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  padding: 5px 12px; border-radius: 999px; margin-bottom: 12px;
+}
+
+.ph-h1 { font-size: 27px; font-weight: 800; margin: 0 0 7px; letter-spacing: -.02em; }
+.ph-h2 { font-size: 19.5px; font-weight: 800; margin: 0 0 10px; letter-spacing: -.01em; }
+.ph-sub { color: var(--sub); font-size: 15.5px; line-height: 1.75; margin: 0 0 18px; }
 
 .ph-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 52px; padding: 12px 20px; border-radius: 14px; border: 1.5px solid var(--line);
   background: var(--glass-2); color: var(--ink); font-size: 16px; font-weight: 700; cursor: pointer; width: 100%;
+  transition: transform .12s ease, box-shadow .15s ease;
 }
 .ph-btn.pri {
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent;
-  box-shadow: 0 8px 22px rgba(255,95,109,.28);
+  box-shadow: 0 10px 24px rgba(255,95,109,.3);
 }
-.ph-btn:active { transform: translateY(1px); }
+.ph-btn:active { transform: translateY(1px) scale(.99); }
+.ph-btn:hover { box-shadow: 0 12px 26px rgba(0,0,0,.18); }
 
-.ph-field { margin-bottom: 16px; }
+.ph-field { margin-bottom: 17px; }
 .ph-field label { display: block; font-size: 14.5px; font-weight: 700; color: var(--sub); margin-bottom: 7px; }
 .ph-field input[type=text], .ph-field input[type=tel], .ph-field select {
   width: 100%; min-height: 50px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--line);
   background: var(--bg-2); color: var(--ink); font-size: 16px;
+  transition: border-color .15s ease;
+}
+.ph-field input[type=text]:focus, .ph-field input[type=tel]:focus, .ph-field select:focus {
+  outline: none; border-color: var(--accent);
 }
 .ph-field input[type=file] { width: 100%; color: var(--sub); font-size: 14.5px; }
 .ph-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -101,6 +169,7 @@ a { color: var(--accent); text-decoration: none; }
 .ph-chip span {
   display: inline-block; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line);
   background: var(--glass-2); font-size: 14.5px; font-weight: 700; color: var(--sub);
+  transition: background .15s ease, color .15s ease;
 }
 .ph-chip input:checked + span { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
 
