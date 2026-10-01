@@ -146,7 +146,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: { date } })}
     ${nav}
-    <p class="ph-msg" style="margin-top:12px;"><a href="${publicUrl}" target="_blank" rel="noopener">🔗 로그인 없이 보는 공개 링크</a></p>
+    <a class="ph-btn pri" style="margin-top:12px;" href="/conti/practice?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">🎤 연습 화면 열기 (라이브 악보 · 메트로놈)</a>
+    <p class="ph-msg" style="margin-top:10px;"><a href="${publicUrl}" target="_blank" rel="noopener">🔗 로그인 없이 보는 공개 링크</a></p>
   </div>
 
   <div class="ph-card top-accent">
@@ -217,6 +218,54 @@ router.get('/conti', requireTeam, async (req, res) => {
   </div>
   `;
   res.type('html').send(await pageShell.render(content, { title: `${team} 예배콘티` }));
+});
+
+/* ================= 연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io 실시간 동기화) ================= */
+router.get('/conti/practice', requireTeam, async (req, res) => {
+  const ctx = req.ctx;
+  const team = ctx.current;
+  const date = week.normalizeDate(req.query.date);
+  const w = await loadWeek(team, date);
+  const songs = [...w.conti, ...w.final].map((s) => ({
+    title: s['제목'] || '(제목 없음)', key: s['Key'] || '', bpm: Number(s['BPM']) || 0,
+    youtube: s['유튜브'] || '', note: s['비고'] || '',
+  }));
+  const sheets = w.sheets.map((s) => ({ id: String(s.__row), title: s['제목'] || '악보', link: s['파일링크'] || '' }));
+  const roomId = `practice:${team}::${date}`;
+  const hero = pageShell.hero({ eyebrow: `${team} · 연습 화면`, title: '연습 화면', sub: week.labelKo(date) });
+
+  const content = `
+  ${hero}
+  <div class="ph-card">
+    <a class="ph-btn" href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">← 예배콘티로</a>
+    <p class="ph-sub" style="margin-top:10px;">같은 링크를 연 모든 기기에 곡 선택·악보·메트로놈이 실시간으로 함께 바뀝니다.</p>
+  </div>
+
+  <div class="ph-card top-accent" id="pv-songwrap">
+    <h2 class="ph-h2">곡</h2>
+    <div class="pv-songtabs" id="pv-songtabs"></div>
+    <div class="pv-stage" id="pv-stage"></div>
+    <div class="pv-sheetpicker" id="pv-sheetpicker"></div>
+  </div>
+
+  <div class="ph-card" id="pv-metro">
+    <h2 class="ph-h2">메트로놈</h2>
+    <div class="pv-metrorow">
+      <button class="ph-icon-btn" id="pv-bpmdown" type="button">−</button>
+      <div class="pv-bpm"><span id="pv-bpmnum">80</span><span class="pv-bpmlabel">BPM</span></div>
+      <button class="ph-icon-btn" id="pv-bpmup" type="button">+</button>
+      <div class="pv-beat" id="pv-beat"></div>
+    </div>
+    <div class="pv-metrobtns">
+      <button class="ph-btn pri" id="pv-startstop" type="button">▶ 시작</button>
+      <button class="ph-btn" id="pv-tap" type="button">탭으로 템포 맞추기</button>
+    </div>
+  </div>
+  <script>window.PV_DATA = ${JSON.stringify({ room: roomId, songs, sheets }).replace(/</g, '\\u003c')};</script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/practice.js" defer></script>
+  `;
+  res.type('html').send(await pageShell.render(content, { title: `${team} 연습 화면` }));
 });
 
 router.post('/conti/songs', requireTeam, async (req, res) => {

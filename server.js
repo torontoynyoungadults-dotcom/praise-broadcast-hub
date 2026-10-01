@@ -7,10 +7,12 @@
  *   /signup             최초 로그인 시 가입 폼
  *   /admin              관리자 화면 (관리자만)
  *   /healthz            서버 상태 확인 (Render 헬스체크)
- *   /socket.io/         실시간 (연습 화면 — 다음 단계에서 기능 추가)
+ *   /conti              예배콘티 (콘티 · 결단찬양 · 악보 · 녹음 · 댓글)
+ *   /conti/practice     연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io로 실시간 동기화)
+ *   /public/conti       로그인 없이 보는 공개 예배콘티
+ *   /socket.io/         실시간 (연습 화면 동기화)
  *
- * 지금 단계(1단계): 로그인 → 가입 → 허브 진입이 끝까지 동작하는 것이 목표입니다.
- * 예배콘티 · 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리는 다음 단계에서 이어 붙입니다.
+ * 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리 · 관리자 대시보드는 다음 단계에서 이어 붙입니다.
  */
 process.env.TZ = process.env.TZ || 'America/Toronto';
 
@@ -40,10 +42,10 @@ app.use((err, req, res, next) => {
 
 const server = http.createServer(app);
 
-// 실시간(Socket.io)은 연습 화면을 만드는 단계에서 이어 붙입니다. 자리만 미리 마련해 둡니다.
-// const { Server } = require('socket.io');
-// const io = new Server(server, { cors: { origin: false } });
-// require('./lib/realtime')(io);
+// 실시간(Socket.io) — 연습 화면(메트로놈 · 라이브 악보 보기)의 동기화에 씁니다.
+const { Server } = require('socket.io');
+const io = new Server(server, { cors: { origin: false } });
+require('./lib/realtime')(io);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`찬양방송팀 허브 — http://localhost:${PORT}`));
