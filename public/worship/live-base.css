@@ -4,18 +4,18 @@
    이 앱의 라이브 악보 화면은 따로 떨어진 화면이라 똑같이 보이도록 여기에 모았습니다 (줄 번호는 Theme.html 기준).
    ============================================================ */
 /* views/Worship.html 7행 — 찬양 허브 화면의 강조색 */
-:root { --accent: #6C4FD3; --tone-rgb: 108,79,211; }
+:root { --accent: #F2A074; --tone-rgb: 242,160,116; }
 /* Theme.html 12–69 */
 :root {
   /* 강조색 — 페이지에서 --accent 와 --tone-rgb 로 정합니다.
      (--tone-rgb 는 여기서 값을 정하지 않습니다. 정해버리면 페이지 설정을 덮어씁니다) */
-  --tone: var(--accent, #D2511F);
-  --tone-soft: rgba(var(--tone-rgb, 210,81,31), .10);
-  --tone-line: rgba(var(--tone-rgb, 210,81,31), .28);
+  --tone: var(--accent, #C05931);
+  --tone-soft: rgba(var(--tone-rgb, 192,89,49), .10);
+  --tone-line: rgba(var(--tone-rgb, 192,89,49), .28);
 
   /* 글자 */
-  --ink-1: #1A1917;
-  --ink-2: #35322D;
+  --ink-1: #11201D;
+  --ink-2: #22403A;
   --ink-3: #5A554E;
   --ink-4: #7C766E;
 
@@ -23,26 +23,26 @@
   --surface: #FFFFFF;
   --canvas: #F4F2EE;
   --sunken: #EAE7E1;
-  --night: #0C0C0C;
-  --night-2: #171716;
-  --night-3: #242322;
+  --night: #08100E;
+  --night-2: #101d1b;
+  --night-3: #192e29;
   --night-ink: #FFFFFF;
   --night-sub: #D2CCC4;
 
   /* 선 */
-  --hair: rgba(26, 25, 23, .13);
-  --hair-2: rgba(26, 25, 23, .21);
+  --hair: rgba(17, 32, 29, .13);
+  --hair-2: rgba(17, 32, 29, .21);
   --hair-night: rgba(255, 255, 255, .14);
 
   /* 상태색 */
   --good: #1D7A56;  --good-bg: #E6F2EC;
-  --warn: #8A5E12;  --warn-bg: #FBF2E1;
-  --bad:  #A82F16;  --bad-bg:  #FBEADF;
+  --warn: #7E3B1E;  --warn-bg: #FBF2E1;
+  --bad:  #994825;  --bad-bg:  #FBEADF;
 
   /* 그림자 */
-  --sh-1: 0 1px 2px rgba(26,25,23,.05);
-  --sh-2: 0 2px 8px rgba(26,25,23,.06), 0 1px 2px rgba(26,25,23,.04);
-  --sh-3: 0 10px 30px rgba(26,25,23,.11), 0 2px 6px rgba(26,25,23,.05);
+  --sh-1: 0 1px 2px rgba(17,32,29,.05);
+  --sh-2: 0 2px 8px rgba(17,32,29,.06), 0 1px 2px rgba(17,32,29,.04);
+  --sh-3: 0 10px 30px rgba(17,32,29,.11), 0 2px 6px rgba(17,32,29,.05);
 
   /* 모서리 */
   --r-xs: 8px; --r-sm: 10px; --r-md: 13px; --r-lg: 17px; --r-xl: 21px;
@@ -57,7 +57,7 @@
   --orange: var(--tone);
   --danger: var(--bad);
   --low: var(--bad);
-  --mid: #B14A12;
+  --mid: #A14822;
   --mid-bg: var(--bad-bg);
   --absent: var(--bad);
   --absent-bg: var(--bad-bg);
@@ -101,11 +101,11 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
    (따로 꾸민 체크박스는 더 구체적인 규칙이 그대로 이깁니다) */
 input[type="checkbox"], input[type="radio"] {
   -webkit-appearance: auto; appearance: auto; padding: 0; width: 18px; height: 18px; min-height: 0;
-  flex: none; box-shadow: none; accent-color: var(--tone, #FF8A2B); cursor: pointer; vertical-align: middle;
+  flex: none; box-shadow: none; accent-color: var(--tone, #F4A272); cursor: pointer; vertical-align: middle;
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--tone) !important;
-  box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 210,81,31), .15);
+  box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 192,89,49), .15);
 }
 input::placeholder, textarea::placeholder { color: var(--ink-4); }
 input:disabled, select:disabled, textarea:disabled {
@@ -122,20 +122,20 @@ select {
 /* Theme.html 1757–1768 */
 html[data-theme="light"] {
   color-scheme: light;
-  --lt-bg: #F3F4F6; --lt-card: #FFFFFF; --lt-card-2: #F8FAFC; --lt-sunk: #EEF0F3;
-  --lt-ink: #0F172A; --lt-ink-2: #334155; --lt-ink-3: #64748B; --lt-ink-4: #94A3B8;
-  --lt-line: rgba(15,23,42,.09); --lt-line-2: rgba(15,23,42,.16);
-  --lt-or: #46BDC6; --lt-or-ink: #0B6E77; --lt-or-soft: rgba(70,189,198,.14); --lt-on-or: #06363B;   /* v6.1 — 밝은 화면 메인 색 #46BDC6 (글씨용은 진한 청록 #0B6E77 · 색 칸 위 글씨 #06363B) */
-  --lt-sh-1: 0 1px 2px rgba(15,23,42,.05);
-  --lt-sh-2: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.06);
-  --lt-ring: 0 0 0 3px rgba(70,189,198,.32);
-  --accent: #46BDC6 !important; --tone: #46BDC6 !important; --tone-rgb: 70,189,198 !important;   /* v6.1 — 모든 페이지의 강조색이 밝은 화면에서는 #46BDC6 (관리 화면이 영역마다 넣는 색보다 우선) */
+  --lt-bg: #F2F7F4; --lt-card: #FFFFFF; --lt-card-2: #F9FBFA; --lt-sunk: #ECF5F1;
+  --lt-ink: #122722; --lt-ink-2: #2c5c51; --lt-ink-3: #678880; --lt-ink-4: #9AB2AC;
+  --lt-line: rgba(18,39,34,.09); --lt-line-2: rgba(18,39,34,.16);
+  --lt-or: #F39E70; --lt-or-ink: #A94B1F; --lt-or-soft: rgba(243,158,112,.14); --lt-on-or: #17302A;   /* v6.1 — 밝은 화면 메인 색 #F39E70 (글씨용은 진한 청록 #A94B1F · 색 칸 위 글씨 #17302A) */
+  --lt-sh-1: 0 1px 2px rgba(18,39,34,.05);
+  --lt-sh-2: 0 1px 2px rgba(18,39,34,.04), 0 6px 20px rgba(18,39,34,.06);
+  --lt-ring: 0 0 0 3px rgba(243,158,112,.32);
+  --accent: #F39E70 !important; --tone: #F39E70 !important; --tone-rgb: 243,158,112 !important;   /* v6.1 — 모든 페이지의 강조색이 밝은 화면에서는 #F39E70 (관리 화면이 영역마다 넣는 색보다 우선) */
 }
 html[data-theme="light"] body { background: var(--lt-bg); color: var(--lt-ink); }
 /* Theme.html 1840–1846 */
 html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]),
 html[data-theme="light"] body select, html[data-theme="light"] body textarea {
-  background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; color: var(--lt-ink) !important; box-shadow: var(--lt-sh-1) !important;
+  background-color: #FFFFFF !important; border: 1px solid #D0DCD9 !important; color: var(--lt-ink) !important; box-shadow: var(--lt-sh-1) !important;
 }
 html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus,
 html[data-theme="light"] body select:focus, html[data-theme="light"] body textarea:focus { border-color: var(--lt-or) !important; box-shadow: var(--lt-ring) !important; outline: none !important; }
@@ -143,9 +143,9 @@ html[data-theme="light"] body input::placeholder, html[data-theme="light"] body 
 /* Theme.html 1913–1916 */
 html[data-theme="light"] body :is(.pv, .yg, .fp) input:not([type=checkbox]):not([type=radio]):not([type=range]),
 html[data-theme="light"] body :is(.pv, .yg, .fp) select, html[data-theme="light"] body :is(.pv, .yg, .fp) textarea {
-  background-color: rgba(15,23,42,.05) !important; border-color: rgba(15,23,42,.16) !important; color: #0F172A !important;
+  background-color: rgba(18,39,34,.05) !important; border-color: rgba(18,39,34,.16) !important; color: #122722 !important;
 }
 /* Theme.html 1989–1991 */
 html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]), html[data-theme="light"] body select, html[data-theme="light"] body textarea {
-  border: 1px solid #94A3B8 !important;
+  border: 1px solid #9AB2AC !important;
 }

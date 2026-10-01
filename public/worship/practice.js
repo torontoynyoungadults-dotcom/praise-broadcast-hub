@@ -15,6 +15,8 @@
 
   /* ------------------------------------------------------------ 작은 도구 */
   function ls(k, v) { try { if (v === undefined) return root.localStorage.getItem('yn.pv.' + k); root.localStorage.setItem('yn.pv.' + k, v); } catch (e) { /* 저장이 막힌 브라우저 */ } return null; }
+  /* 기본값 정리 v11 — 예전 버전이 컴퓨터에서 "자동으로" 써 둔 오른쪽 패널 열림(side=1)을 기기마다 한 번만 지움 (tools/patch-live-defaults.js) */
+  (function () { try { var s = root.localStorage; if (s.getItem('yn.pv.dv') === null) { if (s.getItem('yn.pv.side') === '1') s.removeItem('yn.pv.side'); s.setItem('yn.pv.dv', '11'); } } catch (e) { /* 저장이 막힌 브라우저 */ } }());
   function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function I(n, c) { return root.YNIcon ? root.YNIcon.get(n, c) : ''; }       // v8.3 — 직접 그린 아이콘 (icons.js)
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -230,7 +232,7 @@
       if (save) { ls('layout', S.layout); S.fit = S.layout === 'tablet' ? 'page' : 'width'; S.zoom = 1; }
       el.classList.toggle('pv-tablet', S.layout === 'tablet'); el.classList.toggle('pv-computer', S.layout === 'computer');
       el.classList.toggle('pv-lefty', S.hand === 'left');
-      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? ls('side') !== '0' : false);
+      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? ls('side') === '1' : false);
       Array.prototype.forEach.call(el.querySelectorAll('[data-layout]'), function (b) { b.classList.toggle('on', b.getAttribute('data-layout') === S.layout); b.setAttribute('aria-pressed', b.getAttribute('data-layout') === S.layout ? 'true' : 'false'); });
       an && an.setPenMode(S.layout === 'tablet' ? (ls('penmode') || 'auto') : 'off');
       if (S.compact !== calcCompact()) setCompact(calcCompact());
@@ -264,7 +266,7 @@
       } else {
         setDrawer(false);
         holders.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
-        if (S.layout === 'computer' && ls('side') !== '0') el.classList.add('pv-sideopen');
+        if (S.layout === 'computer' && ls('side') === '1') el.classList.add('pv-sideopen');
       }
     }
     function autoFit() {                                              // 폰을 옆으로 눕히면 한 쪽이 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
@@ -308,7 +310,7 @@
       S.dockMore = !!on; el.classList.toggle('pv-dockmore', S.dockMore); if (save) ls('dockmore', S.dockMore ? '1' : '0');
       var b = toolsEl.querySelector('[data-a="dockmore"]'); if (b) { b.setAttribute('aria-pressed', S.dockMore ? 'true' : 'false'); b.setAttribute('aria-expanded', S.dockMore ? 'true' : 'false'); }
     }
-    if (ls('tools') === '0') setTools(false, false);
+    if (ls('tools') !== '1') setTools(false, false);                      // 기본은 접힘 (v11) — "도구 열기" 로 펴면 '1' 로 기억
     /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
        ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
        악보를 한 번 톡 누르면 위쪽에 얇은 메뉴(나가기 · 쪽 · 맞춤 · 도구 · 패널)가 나타났다 5초 뒤 사라지고, 필기 중에는 위 가운데 작은 손잡이로 부릅니다. */
@@ -1778,7 +1780,8 @@
     }
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
     var SHOWS = [['timer', 'timer', '예배 타이머'], ['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];
-    function showOn(k) { return ls('show.' + k) !== '0'; }
+    var SHOW_DEF = { timer: false, form: true, metro: false };            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
+    function showOn(k) { var v = ls('show.' + k); return v === null ? SHOW_DEF[k] !== false : v !== '0'; }
     function paintShows() {
       SHOWS.forEach(function (s) {
         var on = showOn(s[0]); el.classList.toggle('pv-hide-' + s[0], !on);
@@ -1957,7 +1960,7 @@
     try { setupFloats(); } catch (e) { /* 떠 있는 창을 못 만들어도 악보 · 필기는 그대로 */ }
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
     loadSheet(S.sheetIdx, 1, false);
-    if (S.layout === 'computer' && ls('side') !== '0' && P.tabs.length) showTab(P.tabs[0].id);
+    if (S.layout === 'computer' && ls('side') === '1' && P.tabs.length) showTab(P.tabs[0].id);
     return api;
   }
 

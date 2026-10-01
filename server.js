@@ -13,7 +13,7 @@
  *   /conti/practice     라이브 악보 (church-app 라이브 악보 그대로 — 필기 · 메트로놈 · 콜아웃 · 화음 · 함께 보기, Socket.io 실시간)
  *   /sheet/:id · /audio/:id   라이브 악보가 여는 악보 · 녹음 파일 (같은 출처)
  *   /api/*              라이브 악보의 서버 호출 (church-app callServer 와 같은 약속)
- *   /public/conti       로그인 없이 보는 공개 예배콘티
+ *   /b/<열쇠>           방송팀(PPT) 보기 전용 — 로그인 없이 예배콘티 · 스케줄표만 (고칠 수 없음 · 댓글만 가능)
  *   /socket.io/         실시간 (연습 화면 동기화)
  *   /notices            공지 및 모임 (공지사항 + 토요모임 기도제목 나누기)
  *   /schedule           스케줄표 (주차별 포지션 편성 + 내가 안 되는 날)
@@ -29,16 +29,34 @@ const path = require('path');
 const http = require('http');
 const express = require('express');
 const session = require('./lib/session');
+const compression = require('compression');
 
 const app = express();
 app.set('trust proxy', true);
 app.disable('x-powered-by');
+// 글자 파일(HTML · CSS · JS · JSON)은 압축해서 보냄 — 악보(PDF) · 녹음 · 사진 · 실시간 연결은 이미 압축돼 있거나 부분 요청이라 제외
+app.use(compression({
+  threshold: 1024,
+  filter: (req, res) => {
+    const p = req.path || '';
+    if (p.indexOf('/sheet/') === 0 || p.indexOf('/audio/') === 0 || p.indexOf('/photo/') === 0 || p.indexOf('/socket.io/') === 0 || req.headers.range) return false;
+    return compression.filter(req, res);
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/worshipRepoSave', express.json({ limit: '20mb' }));   // 라이브러리 "＋ 악보 PDF" (12MB PDF → base64) — 아래 기본(2MB)보다 먼저
 app.use(express.json({ limit: '2mb' })); // 필기(연습 화면) 저장처럼 JS가 JSON으로 보내는 요청용 — 폼 전송(urlencoded)과 공존
 app.use(session.middleware);
 // 오프라인 일꾼 — 늘 새 것을 확인하게 (public/sw.js · 범위는 사이트 전체)
 app.get('/sw.js', (req, res) => { res.set({ 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' }); res.type('application/javascript').sendFile(path.join(__dirname, 'public', 'sw.js')); });
+// 화면 파일(js/css)은 주소에 ?v=<수정시각> 이 붙어 있어서 내용이 바뀌면 주소가 달라집니다 → 1년 동안 다시 묻지 않음. 라이브러리(vendor) · 큐 소리는 7일.
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    if (req.query && req.query.v && /\.(js|css|svg|png|woff2?)$/i.test(req.path)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    else if (/^\/(vendor|worship\/cues|icons)\//.test(req.path)) res.set('Cache-Control', 'public, max-age=604800');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
 app.get('/healthz', (req, res) => res.type('text').send('ok'));
@@ -52,7 +70,9 @@ app.use(require('./routes/profile'));
 app.use(require('./routes/roster'));
 app.use(live);
 app.use(conti);
+app.use(require('./routes/guest'));   // /b/<열쇠> — 방송팀 보기 전용 (로그인 없음 · 예배콘티 + 스케줄표 · 댓글만)
 app.use(require('./routes/notices'));
+app.use(require('./routes/scheduleImport'));   // /schedule/import (관리자) — /schedule 보다 먼저
 app.use(require('./routes/schedule'));
 app.use(require('./routes/events'));
 app.use(require('./routes/library'));

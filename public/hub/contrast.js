@@ -6,7 +6,7 @@
    ============================================================ */
 (function () {
   var BASE = [25, 25, 25];     // 배경 사진의 대략적인 밝기 (밝은 화면이면 아래 바탕밝기_ 가 바꿉니다)
-  function 바탕밝기_() { BASE = document.documentElement.getAttribute('data-theme') === 'light' ? [251, 246, 238] : [17, 19, 26]; }
+  function 바탕밝기_() { BASE = document.documentElement.getAttribute('data-theme') === 'light' ? [237, 244, 233] : [13, 26, 25]; }
   바탕밝기_();
   var 진하게 = '#141414';
   var 밝게 = '#FFFFFF';

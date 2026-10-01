@@ -75,24 +75,14 @@ root.walkRules((rule) => {
   if (!sels.length) { rule.remove(); nDropped++; return; }
   rule.selectors = sels; nRules++;
 });
-/* 색만 이 앱 것으로 — church-app 찬양 허브의 보라(#6C4FD3)를 이 앱의 주황으로 (모양 · 크기 · 배치는 그대로) */
-const BRAND = [
-  /* V9 파스텔 토론토 — 이 앱 살구빛 (어두운 화면 #FFB48A · 밝은 화면 #F4A57D · 글씨용 진한 살구 · 색 칸 위 진한 갈색 글씨) */
-  [/#6C4FD3/gi, '#F0A07A'], [/108,\s*79,\s*211/g, '240, 160, 122'], [/#A78BFA/gi, '#FFC9A8'], [/#F4F0FF/gi, '#FFF1E6'],
-  // 어두운 화면의 연보라(고른 곡 테두리 · 강조) → 이 앱 어두운 화면 살구
-  [/#8E73F2/gi, '#FFB48A'], [/142,\s*115,\s*242/g, '255, 180, 138'],
-  // 밝은 화면의 청록(church-app v6.1 밝은 화면 메인 색) → 이 앱 밝은 화면 살구 · 글씨용 진한 살구 · 색 칸 위 진한 갈색 글씨
-  [/#46BDC6/gi, '#F4A57D'], [/70,\s*189,\s*198/g, '244, 165, 125'], [/#2FA3AD/gi, '#C46A38'], [/47,\s*163,\s*173/g, '196, 106, 56'],
-  [/#0B6E77/gi, '#A8552A'], [/11,\s*110,\s*119/g, '168, 85, 42'], [/#06363B/gi, '#43220F'], [/#05353A/gi, '#43220F'],
-  // 밝은 화면의 옅은 청록 바탕 (키 칩 · 곡 줄 hover · 열린 곡) → 옅은 살구
-  [/#CCF1F4/gi, '#FDE6D6'], [/#064E55/gi, '#7A3A17'], [/#ECFEFF/gi, '#FFF6EF'], [/#F3FCFD/gi, '#FFFAF6'], [/#E7F6F8/gi, '#FFF0E6'],
-  [/#EDFAFB/gi, '#FFF6EF'], [/#DDF3F6/gi, '#FDE8D9'], [/#D9F1F4/gi, '#FCE3D2'],
-];
+/* 색만 이 앱 것으로 — V11 테마: church-app 의 보라 · 주황 · 청록 · 남색 슬레이트 · 분홍을 이 앱의 "청록 + 연한 주황 · 노랑" 팔레트로
+ * (모양 · 크기 · 배치는 그대로). 규칙은 tools/theme-remap.js — 색 계열 단위로 바꿉니다. */
+const { remapCss } = require('./theme-remap');
 let css = root.toString();
-BRAND.forEach(([re, to]) => { css = css.replace(re, to); });
+css = remapCss(css);
 fs.writeFileSync(path.join(OUT, 'yn.css'),
   '/* 자동 생성 — tools/port-church-hub.js (church-app views/Worship.html · views/Theme.html · public/worship/hub.css 를 .yn 안으로,\n' +
-  '   보라 → 이 앱 주황). 직접 고치지 마세요 — 이 앱에서 덧붙이는 규칙은 public/hub/yn-adapt.css */\n' + css + '\n');
+  '   보라 · 주황 · 청록 → 이 앱 청록 + 산호 주황 팔레트, tools/theme-remap.js). 직접 고치지 마세요 — 이 앱에서 덧붙이는 규칙은 public/hub/yn-adapt.css */\n' + css + '\n');
 console.log(`yn.css — 규칙 ${nRules}개 (.yn 안으로), 뺀 규칙 ${nDropped}개`);
 
 /* ================================================================ 2. JS — 이름으로 뽑기 */
@@ -223,7 +213,7 @@ copyPatched('public/budget/docview.js', path.join(OUT, 'docview.js'));
   if (c.length !== 1) throw new Error('Theme.html 가독성 지킴이 스크립트를 못 찾음 (' + c.length + ')');
   c = c[0];
   [
-    ['바탕색 — 이 앱 바탕 (--bg)', "? [243, 244, 246] : [25, 25, 25];", "? [251, 246, 238] : [17, 19, 26];"],
+    ['바탕색 — 이 앱 바탕 (--bg)', "? [243, 244, 246] : [25, 25, 25];", "? [237, 244, 233] : [13, 26, 25];"],
     ['.yn 바깥은 보지 않음', "return !!(el && el.closest && el.closest(안봄));", "return !!(el && el.closest && (el.closest(안봄) || !el.closest('.yn')));"],
     ['훑을 칸 — .yn 안쪽만', "function 훑기() {", "function ynCells() {\n    var a = [];\n    Array.prototype.forEach.call(document.querySelectorAll('.yn'), function (r) { if (!r.parentElement || !r.parentElement.closest('.yn')) a = a.concat(칸들(r)); });\n    return a;\n  }\n  function 훑기() {"],
     ['전체 훑기 (조금씩)', "일 = 칸들(document.body);", "일 = ynCells();"],

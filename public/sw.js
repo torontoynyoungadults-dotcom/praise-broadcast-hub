@@ -16,7 +16,7 @@ var KEEP = [SHELL, PAGES, SHEETS, PHOTOS];
 var PAGES_MAX = 80, PHOTOS_MAX = 150;
 
 /** 보관할 수 있는 페이지 — 로그인 · 관리자 · 업로드/저장 같은 것은 제외 */
-var PAGE_OK = /^\/($|conti(\/practice)?$|schedule(\/.*)?$|library(\/.*)?$|notices(\/.*)?$|events(\/.*)?$|roster(\/.*)?$|equipment(\/.*)?$|public\/conti$)/;
+var PAGE_OK = /^\/($|conti(\/practice)?$|schedule(\/.*)?$|library(\/.*)?$|notices(\/.*)?$|events(\/.*)?$|roster(\/.*)?$|equipment(\/.*)?$|b\/[A-Za-z0-9_-]+(\/(conti|schedule))?$)/;
 
 self.addEventListener('install', function (e) { e.waitUntil(self.skipWaiting()); });
 self.addEventListener('activate', function (e) {
@@ -30,10 +30,10 @@ function offlinePage() {
   return new Response(
     '<!doctype html><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<body style="font-family:-apple-system,Segoe UI,sans-serif;background:#1C1C1C;color:#fff;' +
+    '<body style="font-family:-apple-system,Segoe UI,sans-serif;background:#0D1A19;color:#F4EEDC;' +
     'display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">' +
     '<div><h3 style="margin:0 0 8px;">인터넷 연결을 확인해주세요</h3>' +
-    '<p style="color:#BDB8B1;margin:0;">연결되면 새로고침해주세요.<br>"오프라인용 다운로드"를 해 둔 예배 화면은 연결 없이도 열립니다.</p></div>',
+    '<p style="color:#C3CFC4;margin:0;">연결되면 새로고침해주세요.<br>"오프라인용 다운로드"를 해 둔 예배 화면은 연결 없이도 열립니다.</p></div>',
     { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 

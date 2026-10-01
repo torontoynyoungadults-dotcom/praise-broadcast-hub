@@ -45,3 +45,4 @@ for (const [file, from, to, times] of P) {
   fs.writeFileSync(p, s.split(from).join(to)); n++;
 }
 console.log(`라이브 악보 이모티콘 고치기 — ${n}곳 고침 (이미 고친 곳은 건너뜀)`);
+require('./patch-live-defaults.js');                                    // 이어서 — 처음 켰을 때 기본값(타이머 꺼짐 · 도구 접힘 · 메트로놈 축소형) 다시 적용

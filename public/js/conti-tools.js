@@ -249,6 +249,16 @@
     m.textContent = text; m.classList.toggle('bad', !!bad); m.classList.toggle('ok', !bad && !!text);
     clearTimeout(m.__t); if (text) m.__t = setTimeout(function () { m.textContent = ''; m.classList.remove('ok', 'bad'); }, 6000);
   }
+  /** 링크 한 줄 복사 ([data-cn-copy] = 복사할 글) */
+  function copyValue(btn) {
+    var text = btn.getAttribute('data-cn-copy') || '', card = btn.closest('.cn-guestlink') || btn.parentNode, msg = $('[data-cn-copymsg]', card), inp = $('input', card);
+    function show(t, bad) { if (!msg) return; msg.textContent = t; msg.classList.toggle('bad', !!bad); msg.classList.toggle('ok', !bad); clearTimeout(msg.__t); msg.__t = setTimeout(function () { msg.textContent = ''; msg.classList.remove('ok', 'bad'); }, 5000); }
+    function legacy() { try { if (!inp) return false; inp.focus(); inp.select(); inp.setSelectionRange(0, text.length); return !!document.execCommand('copy'); } catch (e) { return false; } }
+    function good() { show('링크를 복사했어요.'); }
+    function bad() { if (inp) { try { inp.focus(); inp.select(); } catch (e) {} } show('자동 복사가 안 돼요. 링크를 길게 눌러 직접 복사해 주세요.', true); }
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) navigator.clipboard.writeText(text).then(good, function () { legacy() ? good() : bad(); });
+    else { legacy() ? good() : bad(); }
+  }
   function kakaoCopy(btn) {
     var card = btn.closest('.ph-card') || document, ta = $('[data-cn-kakaotxt]', card), pv = $('[data-cn-kakaopv]', card);
     if (!ta) return;
@@ -347,6 +357,7 @@
         var imp = el.closest('[data-cn-import]'); if (imp) importCount(imp);
         return;
       }
+      if ((el = t.closest('[data-cn-copy]'))) { e.preventDefault(); copyValue(el); return; }
       if ((el = t.closest('[data-cn-kakao]'))) { e.preventDefault(); kakaoCopy(el); return; }
       if ((el = t.closest('[data-cn-offopen]'))) {
         e.preventDefault();

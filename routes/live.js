@@ -25,7 +25,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca83-2';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca83-4';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -104,17 +104,22 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1C1C1C">
+<meta name="theme-color" content="#0A1311">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="YN찬양팀Hub">
+<meta name="apple-mobile-web-app-title" content="YN찬양팀Hub">
 <title>${esc(title)}</title>
 <link rel="manifest" href="/site.webmanifest">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <script>(function(){try{var t=localStorage.getItem('ph.theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
 <style>
   html, body { min-height: 100%; }
   .lv-fallback { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; max-width: 520px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }
-  .lv-fallback a { color: #ff8a2a; font-weight: 700; }
+  .lv-fallback a { color: #F4A272; font-weight: 700; }
 </style>
 </head>
 <body>

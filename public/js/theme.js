@@ -12,7 +12,7 @@
   function theme() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
   function applyTheme(t) {
     root.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); put(THEME_KEY, theme());
-    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#FBF6EE' : '#11131A');
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#D6EDE3' : '#0D1A19');
     paint();
   }
 

@@ -1,6 +1,6 @@
 /* church-app 화면(.yn — public/hub/yn.css)을 이 앱 안에 앉히는 규칙 (손으로 쓴 파일)
  *  · 바탕은 이 앱 것 (church-app 의 검정 · 회색 바탕 대신 투명) · 폭은 이 앱 본문 폭
- *  · 강조색은 이 앱 주황 (church-app 밝은 화면의 청록 #46BDC6 대신)
+ *  · 강조색은 이 앱 산호 주황 (church-app 밝은 화면의 청록 #46BDC6 · 어두운 화면의 보라 대신) — V11 청록 + 연한 주황 테마
  *  · 이 앱에만 있는 연습일 표시 (눌러서 바꾸기) */
 .yn.yn-main, .yn.yn-portal,
 html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { background: transparent !important; }
@@ -9,13 +9,25 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { b
 .yn.yn-main > .shell { max-width: none; margin: 0; }
 .yn.yn-main #body { min-width: 0; }
 
-/* 강조색 — 어두운 화면: 주황 · 밝은 화면: 진한 주황 */
-.yn.yn-main, .yn.yn-portal { --accent: #FFB48A; --tone: #FFB48A; --tone-rgb: 255, 180, 138; --on-tone: #33200F; }
+/* 강조색 — 어두운 화면: 부드러운 산호 · 밝은 화면: 진한 산호(글씨) / 연한 산호(칸) · 칸 위 글씨는 진한 숲색 */
+.yn.yn-main, .yn.yn-portal { --accent: #F4A272; --tone: #F4A272; --tone-rgb: 244, 162, 114; --on-tone: #17302A; }
 html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
-  --accent: #C46A38 !important; --tone: #C46A38 !important; --tone-rgb: 244, 165, 125 !important; --on-tone: #43220F;
-  --lt-or: #F4A57D; --lt-or-ink: #A8552A; --lt-or-soft: rgba(244, 165, 125, .22); --lt-on-or: #43220F; --lt-ring: 0 0 0 3px rgba(244, 165, 125, .38);
+  --accent: #BE5528 !important; --tone: #BE5528 !important; --tone-rgb: 242, 148, 104 !important; --on-tone: #17302A;
+  --lt-or: #F39E70; --lt-or-ink: #A94B1F; --lt-or-soft: rgba(242, 148, 104, .2); --lt-on-or: #17302A; --lt-ring: 0 0 0 3px rgba(242, 148, 104, .36);
 }
 
+/* 산호 칸(지금 고른 것 · 주 단추) — 어두운 화면 · 밝은 화면 모두 칸은 부드러운 산호, 그 위 글씨는 진한 숲색.
+   (church-app 은 이 칸들 위에 흰 글씨를 썼는데 연한 산호 위에서는 대비가 모자랍니다 — 가독성 지킴이가 고치기 전부터 처음부터 맞게) */
+.yn :is(.wk.on, .sesbar button.on, .pick.on, .evseg button.on, .stseg button.on, .ssf .seg button.on, .rpc.on, .bk2.open .more, .dpk .d.on, .sidecal .dpk .d.on,
+  .tn.hl:not(.st .tn.hl), .ntp, .ssd .soon, .libnav button.on, .pgtabs button.on, .tabs button.on, .panel .picklist button.picked, .btn.accent, .btn.orange, .panel .submit,
+  #cropper .cbtns button.go, .stc.sel .stch .ck) { color: var(--on-tone) !important; }
+html[data-theme="light"] .yn :is(.wk.on, .sesbar button.on, .pick.on, .evseg button.on, .stseg button.on, .ssf .seg button.on, .rpc.on, .bk2.open .more, .dpk .d.on,
+  .sidecal .dpk .d.on, .tn.hl:not(.st .tn.hl), .ntp, .ssd .soon, .libnav button.on, .pgtabs button.on, .tabs button.on, .panel .picklist button.picked, .btn.accent, .btn.orange,
+  .panel .submit, #cropper .cbtns button.go, .st td.dc.sel, .stc.sel .stch .ck, .submit, .pwsubmit, .dirbtn) { background: var(--lt-or) !important; border-color: transparent !important; }
+
+/* 통계 막대 · 숫자 막대 — 밝은 화면에서도 진한 산호 대신 부드러운 산호 + 살구 노랑 */
+html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: linear-gradient(90deg, var(--lt-or), #F7BC84); }
+html[data-theme="light"] .yn .mcol .mbar { background: linear-gradient(180deg, #F7BC84, var(--lt-or)); }
 /* 팀 고르기 (팀이 둘 이상일 때) */
 .ph-teamcard { padding: 14px 16px; }
 
@@ -30,9 +42,9 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
 .yn .stpr .prw { font-style: normal; font-size: 10.5px; font-weight: 800; padding: 0 5px; border-radius: 99px; background: rgba(var(--tone-rgb), .28); margin-left: 1px; }
 .yn .stch .stpr:hover, .yn .stch .stpr:focus-visible { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .5); outline: none; }
 .yn .stch .stpr.set { color: var(--accent) !important; }
-html[data-theme="light"] .yn .stch .stpr { color: #5B4636 !important; }
-html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #A8552A !important; }
-html[data-theme="light"] .yn .st .dc .stpr { color: #5B4636; }
+html[data-theme="light"] .yn .stch .stpr { color: #2F5348 !important; }
+html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #A94B1F !important; }
+html[data-theme="light"] .yn .st .dc .stpr { color: #2F5348; }
 .yn .stch .stpr.none, .yn .st .stpr.none { opacity: .72; }
 .yn .st .dc .stpr { cursor: pointer; }
 .yn .st td.dc .sd { font-size: 10.5px; line-height: 1.25; }
@@ -48,21 +60,21 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #5B4636; }
 .yn .yc-sh .prfri { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 12px; }
 .yn .yc-sh .chipbtn {
   height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
-  color: #4A3426; background: #FAF3EC; border: 1px solid rgba(120, 80, 50, .22);
+  color: #1F4A3F; background: #F1F6EA; border: 1px solid rgba(31, 90, 76, .22);
 }
-.yn .yc-sh .chipbtn:hover { background: #F6E6D8; }
+.yn .yc-sh .chipbtn:hover { background: #E3EFE2; }
 .yn .yc-sh .prlist { display: grid; gap: 6px; max-height: 232px; overflow: auto; -webkit-overflow-scrolling: touch; padding: 2px; margin: -2px; }
 .yn .yc-sh .prchk {
   display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; border-radius: 13px;
-  background: #FBF8F4; border: 1px solid rgba(26, 25, 23, .12); color: #1A1917;
+  background: #F8FAF3; border: 1px solid rgba(21, 59, 49, .13); color: #153B31;
 }
-.yn .yc-sh .prchk:has(input:checked) { background: #FFF1E6; border-color: rgba(var(--tone-rgb), .6); }
+.yn .yc-sh .prchk:has(input:checked) { background: #FDEBDD; border-color: rgba(var(--tone-rgb), .6); }
 .yn .yc-sh .prchk.dis { opacity: .42; cursor: not-allowed; }
-.yn .yc-sh .prchk input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--tone, #F2A27C); }
+.yn .yc-sh .prchk input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--tone, #F39E70); }
 .yn .yc-sh .prchk .pcn { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .yn .yc-sh .prchk .pcn b { font-size: 14px; font-weight: 800; }
-.yn .yc-sh .prchk .pcn i { font-style: normal; font-size: 12px; color: #7B7068; }
-.yn .yc-sh .prchk .pcs { flex: none; font-style: normal; font-size: 12px; font-weight: 800; color: #9A6240; }
+.yn .yc-sh .prchk .pcn i { font-style: normal; font-size: 12px; color: #5A7168; }
+.yn .yc-sh .prchk .pcs { flex: none; font-style: normal; font-size: 12px; font-weight: 800; color: #A94B1F; }
 
 /* ---------- 스케줄표 머리 — [스케줄표] [내가 안 되는 날] ........ [카드|테이블] 한 줄 ---------- */
 .yn .stpanel > .sechead { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
@@ -76,8 +88,8 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #5B4636; }
 }
 .yn .stoffbtn svg { width: 16px; height: 16px; flex: none; }
 .yn .stoffbtn:hover, .yn .stoffbtn.on { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .6); }
-.yn .stoffbtn .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--accent); color: #3B2314; }
-html[data-theme="light"] .yn .stoffbtn { color: #A8552A; }
+.yn .stoffbtn .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--accent); color: #17302A; }
+html[data-theme="light"] .yn .stoffbtn { color: #A94B1F; }
 .yn .stmine { margin: 2px 0 12px; }
 .yn .stmine-in { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 16px; background: rgba(var(--tone-rgb), .09); border: 1px solid rgba(var(--tone-rgb), .26); }
 .yn .offchips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
@@ -103,8 +115,8 @@ html[data-theme="light"] .yn .offchip { background: rgba(255, 255, 255, .7); }
 .yn .tn.off.pr { border-style: dashed; opacity: .85; }
 
 /* ---------- 스케줄표 테이블 — 네모칸이 또렷하게 ---------- */
-.yn { --grid: rgba(255, 255, 255, .26); --grid-hd: rgba(255, 255, 255, .42); --st-head: #2D2C38; --st-date: #262530; --st-zebra: rgba(255, 255, 255, .045); --st-mrow: #37323F; --st-ev: rgba(var(--tone-rgb), .13); }
-html[data-theme="light"] .yn { --grid: rgba(90, 60, 40, .24); --grid-hd: rgba(90, 60, 40, .4); --st-head: #F7EADF; --st-date: #FFF9F3; --st-zebra: rgba(200, 140, 100, .08); --st-mrow: #F1DECF; --st-ev: rgba(var(--tone-rgb), .16); }
+.yn { --grid: rgba(190, 235, 220, .22); --grid-hd: rgba(190, 235, 220, .40); --st-head: #1D3A35; --st-date: #17302C; --st-zebra: rgba(190, 235, 220, .045); --st-mrow: #234640; --st-ev: rgba(248, 196, 140, .10); }
+html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .18); --grid-hd: rgba(21, 59, 49, .34); --st-head: #DDEEE5; --st-date: #F8FBF4; --st-zebra: rgba(47, 143, 126, .06); --st-mrow: #F8E8CB; --st-ev: rgba(247, 188, 132, .24); }
 .yn .stwrap { border: 2px solid var(--grid-hd) !important; border-radius: 16px; }
 .yn table.st { border-collapse: separate; border-spacing: 0; }
 .yn .st th, .yn .st td { border-right: 1px solid var(--grid) !important; border-bottom: 1px solid var(--grid) !important; }
@@ -143,11 +155,11 @@ html[data-theme="light"] .yn { --grid: rgba(90, 60, 40, .24); --grid-hd: rgba(90
 /* 시트(아래에서 올라오는 흰 창) 안의 입력칸 — church-app 어두운 화면 규칙(흰 글씨 · 투명 바탕)이 흰 시트 위에서는
    글씨가 안 보입니다 (객원 이름 · 사유 · 연습 메모를 쳐도 안 보임). 시트 안에서는 밝은 칸 · 진한 글씨로 */
 .yn .yc-sh input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .yn .yc-sh select, .yn .yc-sh textarea {
-  color: #1A1917 !important; -webkit-text-fill-color: #1A1917; background-color: #F5F3EF !important;
-  border: 1px solid rgba(26, 25, 23, .16) !important; color-scheme: light;
+  color: #153B31 !important; -webkit-text-fill-color: #153B31; background-color: #F3F7EE !important;
+  border: 1px solid rgba(21, 59, 49, .18) !important; color-scheme: light;
 }
-.yn .yc-sh input::placeholder, .yn .yc-sh textarea::placeholder { color: #8A847C !important; -webkit-text-fill-color: #8A847C; }
-.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #E39866 !important; box-shadow: 0 0 0 3px rgba(244, 165, 125, .32); outline: none; }
+.yn .yc-sh input::placeholder, .yn .yc-sh textarea::placeholder { color: #70877F !important; -webkit-text-fill-color: #70877F; }
+.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #E58E5F !important; box-shadow: 0 0 0 3px rgba(242, 148, 104, .32); outline: none; }
 
 /* 글씨 기본색 — church-app 은 body 글씨색이 밝은 화면 값(#1A1917)이라 어두운 유리 위 글씨를 "가독성 지킴이"(hub/contrast.js)가
    그린 뒤에 흰색으로 고칩니다. 여기서는 처음부터 .shell 의 글씨 변수(어두운 화면 = 흰색 · 밝은 화면 = 진한 남색)로 시작해
@@ -156,9 +168,9 @@ html[data-theme="light"] .yn { --grid: rgba(90, 60, 40, .24); --grid-hd: rgba(90
 
 /* 시트 안의 보통 단추 (완료 · 기본(금요일)으로 · 이 주는 연습 없음 …) — 흰 시트 위에서 처음부터 진한 글씨로 (가독성 지킴이가 고치기 전 깜빡임 없음) */
 .yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red) {
-  color: #1A1917 !important; background: #F5F3EF !important; border: 1px solid rgba(26, 25, 23, .14) !important;
+  color: #153B31 !important; background: #F3F7EE !important; border: 1px solid rgba(21, 59, 49, .16) !important;
 }
-.yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red):hover { background: #EDE9E3 !important; }
+.yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red):hover { background: #E4EEE3 !important; }
 
 /* ---------- 태블릿 가로 (폭 900px 이상 · 가로 방향) — 한눈에 더 많이 ---------- */
 @media (min-width: 900px) and (orientation: landscape) {

@@ -13,6 +13,7 @@
     "auth": "node scripts/get-refresh-token.js"
   },
   "dependencies": {
+    "compression": "^1.8.2",
     "express": "^5.1.0",
     "googleapis": "^182.0.0",
     "multer": "^2.0.1",

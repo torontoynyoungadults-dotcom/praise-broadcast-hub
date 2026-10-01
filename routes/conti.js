@@ -26,6 +26,7 @@ const ui = require('../lib/uiIcons');
 const prac = require('../lib/practice');
 const kakaoLib = require('../lib/kakao');
 const youtube = require('../lib/youtube');
+const guestLink = require('../lib/guestLink');
 const router = express.Router();
 
 /** 곡이 바뀌면 열려 있는 라이브 악보에 알림 (church-app 의 songs:changed) — server.js 가 routes/live.js 의 함수를 넣어 줌 */
@@ -298,6 +299,21 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind }) {
     </details>` : ''}
   </div>`;
 }
+/** 방송팀(PPT) 보기 전용 링크 칸 — 링크가 있으면 보여 주고 복사, 관리자는 만들기 · 새로 바꾸기 */
+function guestPanel(req, team, scope, token, isAdmin, open) {
+  if (!token && !isAdmin) return '';
+  const url = token ? `${req.protocol}://${req.get('host')}/b/${token}` : '';
+  const form = (label, confirmMsg, cls) => `<form method="post" action="/conti/guest-link" class="cn-glform"${confirmMsg ? ` onsubmit="return confirm('${confirmMsg}')"` : ''}>
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<button class="cn-mini${cls || ''}" type="submit">${label}</button></form>`;
+  return `<details class="cn-guestlink"${token && !open ? '' : ' open'}>
+    <summary>${ui.icon('link')} 방송팀 보기 링크</summary>
+    <p class="ph-sub">로그인 없이 <b>예배 콘티 · 스케줄표</b> 두 화면만 볼 수 있는 링크예요. 고칠 수는 없고 댓글만 남길 수 있어요.</p>
+    ${token ? `<div class="cn-glrow"><input type="text" readonly value="${esc(url)}" aria-label="방송팀 보기 링크" onfocus="this.select()">
+        <button type="button" class="cn-mini" data-cn-copy="${esc(url)}">${ui.icon('clipboard')} 복사</button></div>
+      <p class="ph-msg cn-toolmsg" data-cn-copymsg role="status"></p>` : '<p class="ph-sub">아직 만들지 않았어요.</p>'}
+    ${isAdmin ? (token ? form('새 링크로 바꾸기', '새 링크로 바꾸면 예전 링크는 바로 쓸 수 없어요. 바꿀까요?') : form('링크 만들기', '', ' ph-pri')) : ''}
+  </details>`;
+}
 const ytLinkOf = (link) => { link = String(link || '').trim(); return /^[A-Za-z0-9_-]{11}$/.test(link) ? 'https://youtu.be/' + link : link; };
 /** 링크는 http(s) 만 걸어 줍니다 (javascript: 같은 주소 방지) */
 const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
@@ -422,7 +438,7 @@ function packageSheetsCard(team, scope, sheets, editable) {
   const pkg = (sheets || []).filter((s) => !s['곡ID']);
   return `<div class="ph-card">
     <h2 class="ph-h2">악보</h2>
-    <p class="ph-sub">이번 주 콘티 전체를 한 패키지로 올려두거나, 곡 목록에서 "+ 이 곡 악보 올리기"로 곡별로 올릴 수 있어요.</p>
+    ${editable ? '<p class="ph-sub">이번 주 콘티 전체를 한 패키지로 올려두거나, 곡 목록에서 "+ 이 곡 악보 올리기"로 곡별로 올릴 수 있어요.</p>' : ''}
     <div class="ph-list">${pkg.length ? pkg.map((s) => sheetItem(s, editable)).join('') : '<p class="ph-sub">아직 올라온 패키지 악보가 없어요.</p>'}</div>
     ${editable ? `<details class="ph-add">
       <summary>+ 전체 콘티 악보(패키지) 올리기</summary>
@@ -532,7 +548,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     </div>`;
   }
 
-  const publicUrl = `/public/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
+  const guestToken = await guestLink.tokenFor(team).catch(() => '');
 
   const hero = pageShell.hero(scope.event
     ? { eyebrow: `${team} · 행사 콘티`, title: eventRow['이름'], sub: week.labelKo(date) }
@@ -569,7 +585,8 @@ router.get('/conti', requireTeam, async (req, res) => {
     const liveBtn = `<a class="ph-btn pri ph-livebtn" style="margin-top:12px;" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
     const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
     const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
-    const extras = liveBtn + `<div class="cn-toolrow">${kakaoBtn}${offBtn}${scope.event ? '' : `<a class="cn-mini" href="${publicUrl}" target="_blank" rel="noopener">${ui.icon('link')} 로그인 없이 보는 공개 링크</a>`}</div>
+    const extras = liveBtn + `<div class="cn-toolrow">${kakaoBtn}${offBtn}</div>
+    ${guestPanel(req, team, scope, guestToken, ctx.isAdmin, req.query.gl === '1')}
     <div class="cn-offpanel" data-cn-offpanel hidden></div>
     ${w.conti.length ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details><p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>` : '<p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>'}`;
     if (!switcher && !extras) return '';
@@ -879,38 +896,19 @@ router.post('/conti/comments', requireTeam, async (req, res) => {
   backTo(req, res, team, scope);
 });
 
-/* ================= 로그인 없이 보는 공개 화면 (예배콘티만) ================= */
-router.get('/public/conti', async (req, res) => {
-  const team = String(req.query.team || '').trim();
-  const date = week.normalizeDate(req.query.date);
-  if (!team) return res.status(404).type('text').send('팀을 찾을 수 없습니다.');
-  const teamRow = await sheetsDb.findOne('찬양팀', '팀명', team);
-  if (!teamRow || String(teamRow['활성여부']).toUpperCase() === 'FALSE') {
-    return res.status(404).type('text').send('존재하지 않거나 비활성화된 찬양팀입니다.');
+/* 로그인 없이 보는 화면은 "방송팀 보기 전용 링크"(routes/guest.js · /b/<열쇠>)로 옮겼습니다 — 예전 /public/conti 는 없앴습니다. */
+
+/** 방송팀 보기 링크 만들기 / 새로 바꾸기 (관리자) */
+router.post('/conti/guest-link', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (req.ctx.isAdmin && req.ctx.teams.includes(team)) {
+    try { await guestLink.regenerate(team); } catch (e) { console.error('[방송팀 링크 저장 실패]', e.message); }
   }
-  const scope = { event: '', date };
-  const w = await loadWeek(teamRow['팀명'], scope);
-  const nav = `<div class="ph-weeknav">
-    <a class="ph-icon-btn" href="/public/conti?team=${encodeURIComponent(team)}&date=${week.shiftWeek(date, -1)}">‹</a>
-    <div class="ph-weekdate-label">${esc(week.labelKo(date))}</div>
-    <a class="ph-icon-btn" href="/public/conti?team=${encodeURIComponent(team)}&date=${week.shiftWeek(date, 1)}">›</a>
-  </div>`;
-  const hero = pageShell.hero({ eyebrow: `${teamRow['팀명']} · 공개 콘티`, title: '예배콘티', sub: '로그인 없이 보는 공개 화면입니다.' });
-  const content = `
-  ${hero}
-  <div class="ph-card">${nav}</div>
-  <div class="ph-card top-accent">
-    <h2 class="ph-h2">콘티</h2>
-    <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, { editable: false, sheets: w.sheets, tagSet: ALL_POSITIONS, index: i + 1, kind: '콘티' })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
-  </div>
-  <div class="ph-card">
-    <h2 class="ph-h2">설교 후 찬양</h2>
-    <div class="cn-songs">${w.final.length ? w.final.map((s) => songCard(s, { editable: false, sheets: w.sheets, tagSet: ALL_POSITIONS, index: 1, kind: '결단' })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
-  </div>
-  ${packageSheetsCard(team, scope, w.sheets, false)}
-  `;
-  res.type('html').send(await pageShell.render(content, { title: `${teamRow['팀명']} 예배콘티 (공개)` }));
+  spa.redirect(req, res, contiUrl(team, scopeFrom(b)) + '&gl=1');            // 만든 직후에는 링크 칸을 펼쳐서 보여 줌
 });
 
 module.exports = router;
 module.exports.setLiveNotify = setLiveNotify;
+// 방송팀 보기 전용 화면(routes/guest.js)이 같은 조회 · 카드 모양을 쓰도록
+module.exports.shared = { loadWeek, songCard, packageSheetsCard, commentItem, practiceInfo, practiceCard, specialServices, specialServiceById, scopeFields, formChips };

@@ -1,0 +1,167 @@
+/**
+ * 방송팀(PPT) 보기 전용 링크 — 로그인 없이 "예배 콘티 · 스케줄표" 두 화면만 봅니다.
+ *   GET  /b/<열쇠>            → 예배 콘티로
+ *   GET  /b/<열쇠>/conti      그 주(또는 행사) 콘티 — 곡 · 송폼 · 설명 · 유튜브 · 악보 링크 · 댓글 (고칠 수 없음)
+ *   GET  /b/<열쇠>/schedule   스케줄표 — 주별 포지션 편성 · 연습일 (고칠 수 없음)
+ *   POST /b/<열쇠>/comments   댓글만 남길 수 있음 (이름 + 내용, 짧은 시간에 너무 많이 올리면 잠깐 막음)
+ * 열쇠는 lib/guestLink.js (설정 시트). 이 파일의 화면은 로그인 정보를 읽지 않고, 위 세 가지 외에는 아무것도 열지 않습니다.
+ */
+const express = require('express');
+const sheetsDb = require('../lib/sheetsDb');
+const pageShell = require('../lib/pageShell');
+const week = require('../lib/weekUtil');
+const ui = require('../lib/uiIcons');
+const guestLink = require('../lib/guestLink');
+const hubApi = require('../lib/hubApi');
+const prac = require('../lib/practice');
+const { ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
+const { positionIconSvg } = require('../lib/positionIcons');
+const conti = require('./conti');
+
+const router = express.Router();
+const esc = pageShell.esc;
+const S = () => conti.shared;
+
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+const md = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}/${x.getDate()}`; };
+const mdDow = (d) => `${md(d)}(${DOW[new Date(d + 'T12:00:00').getDay()]})`;
+
+/** 열쇠 확인 — 맞지 않으면 안내 화면 */
+async function gate(req, res, next) {
+  const team = await guestLink.teamOf(req.params.token).catch(() => null);
+  if (!team) {
+    res.status(404).set('Cache-Control', 'no-store').type('html').send(await pageShell.render(
+      `${pageShell.hero({ eyebrow: 'YN찬양팀Hub', title: '링크를 열 수 없어요', sub: '주소가 바뀌었거나 올바르지 않아요.' })}
+       <div class="ph-card"><p class="ph-sub">찬양팀 담당자에게 새 링크를 받아주세요.</p></div>`, { title: '링크를 열 수 없어요', head: '<meta name="robots" content="noindex">' }));
+    return;
+  }
+  req.guest = { team, token: req.params.token, base: `/b/${req.params.token}` };
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
+  next();
+}
+
+function nav(g, active) {
+  const tabs = [['conti', `${g.base}/conti`, '예배 콘티'], ['schedule', `${g.base}/schedule`, '스케줄표']];
+  return `<nav class="ph-hubnav" id="ph-hubnav" aria-label="메뉴"><div class="ph-hubnav-in">${tabs.map(([k, href, label]) =>
+    `<a class="ph-hubtab${active === k ? ' on' : ''}" href="${href}"${active === k ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</div></nav>`;
+}
+async function send(req, res, active, hero, body, title) {
+  const g = req.guest;
+  const content = `${pageShell.hero(hero)}${nav(g, active)}<div class="gs">${body}</div>`;
+  res.type('html').send(await pageShell.render(content, { title, head: '<meta name="robots" content="noindex">' }));
+}
+
+router.get('/b/:token', gate, (req, res) => res.redirect(req.guest.base + '/conti'));
+
+/* ---------------------------------------------------------------- 예배 콘티 */
+function lineupReadonly(rows, scope) {
+  const by = {};
+  rows.filter((r) => (scope.event ? r['행사ID'] === scope.event : (!r['행사ID'] && r['날짜'] === scope.date))).forEach((r) => {
+    const p = canonicalPosition(String(r['포지션'] || '').trim()), n = String(r['이름'] || '').trim();
+    if (p && n) (by[p] = by[p] || []).push(n);
+  });
+  const keys = ALL_POSITIONS.filter((k) => by[k] && by[k].length);
+  if (!keys.length) return '';
+  return `<div class="ph-card"><h2 class="ph-h2">이번 주 편성</h2><div class="gs-line">${keys.map((k) =>
+    `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(k)}</span><i>${esc(k)}</i><b>${esc(by[k].join(', '))}</b></span>`).join('')}</div></div>`;
+}
+
+router.get('/b/:token/conti', gate, async (req, res) => {
+  const { team, base } = req.guest;
+  const sh = S();
+  const eventRow = await sh.specialServiceById(team, String(req.query.event || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+  const scope = { event: eventRow ? eventRow['ID'] : '', date };
+  const [w, assign, evs, pinfo] = await Promise.all([sh.loadWeek(team, scope), sheetsDb.readAll('찬양편성'), sh.specialServices(team), sh.practiceInfo(team, scope, date)]);
+  const q = (d) => `${base}/conti?date=${encodeURIComponent(d)}`;
+  const weekNav = scope.event
+    ? `<p class="ph-sub"><b>${esc(eventRow['이름'])}</b> · ${esc(week.labelKo(date))} — <a href="${q(date)}">이 날짜의 주일 콘티 보기</a></p>`
+    : `<div class="ph-weeknav"><a class="ph-icon-btn" href="${q(week.shiftWeek(date, -1))}" aria-label="지난 주">‹</a>
+        <div class="ph-weekdate-label">${esc(week.labelKo(date))}</div>
+        <a class="ph-icon-btn" href="${q(week.shiftWeek(date, 1))}" aria-label="다음 주">›</a></div>
+       <p class="ph-sub" style="text-align:center;margin:6px 0 0;"><a href="${base}/conti">이번 주로</a></p>`;
+  const upcoming = evs.filter((e) => e['날짜'] >= week.todayStr()).slice(0, 6);
+  const evBox = upcoming.length ? `<div class="gs-evs">${upcoming.map((e) => `<a class="gs-ev${scope.event === e['ID'] ? ' on' : ''}" href="${base}/conti?event=${encodeURIComponent(e['ID'])}">${esc(e['이름'])} <small>${esc(md(e['날짜']))}</small></a>`).join('')}</div>` : '';
+  const p = pinfo.p;
+  const practice = `<div class="ph-card ph-practicecard"><div class="ph-pr-row"><span class="ph-pr-ic">${ui.icon('metronome')}</span>
+      <div class="ph-pr-main"><span class="ph-pr-label">연습일</span>${p.none ? '<span class="ph-pr-none">이 예배는 연습이 없어요</span>' : (p.unset || !p.date ? '<span class="ph-pr-none">아직 정해지지 않았어요</span>' : `<b>${esc(mdDow(p.date))}</b>${p.note ? `<span class="ph-pr-note">${esc(p.note)}</span>` : ''}`)}</div></div></div>`;
+  const tagSet = ALL_POSITIONS;
+  const card = (s, i, kind) => sh.songCard(s, { editable: false, sheets: w.sheets, tagSet, index: i, kind });
+  const comments = `<div class="ph-card" id="comments">
+    <h2 class="ph-h2">댓글</h2>
+    <div class="ph-list">${w.comments.length ? w.comments.map(sh.commentItem).join('') : '<p class="ph-sub">아직 댓글이 없어요.</p>'}</div>
+    <form method="post" action="${base}/comments" class="ph-inlineform gs-cform">
+      <input type="hidden" name="date" value="${esc(date)}">${scope.event ? `<input type="hidden" name="event" value="${esc(scope.event)}">` : ''}
+      <input type="text" name="name" placeholder="이름" maxlength="20" required autocomplete="name" data-gs-name>
+      <input type="text" name="content" placeholder="댓글을 남겨보세요 (예: 3번 곡 가사 확인 부탁해요)" maxlength="500" required>
+      <input type="text" name="website" value="" tabindex="-1" autocomplete="off" aria-hidden="true" class="gs-hp">
+      <button class="ph-btn" type="submit">등록</button>
+    </form>
+    ${req.query.c === 'ok' ? '<p class="ph-msg ok" role="status">댓글을 남겼어요.</p>' : ''}${req.query.c === 'wait' ? '<p class="ph-msg bad" role="status">잠시 후 다시 남겨주세요.</p>' : ''}${req.query.c === 'bad' ? '<p class="ph-msg bad" role="status">이름과 내용을 적어주세요.</p>' : ''}
+  </div>`;
+  const body = `
+    <div class="ph-card">${weekNav}${evBox}</div>
+    ${practice}
+    ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope)}
+    <div class="ph-card top-accent"><h2 class="ph-h2">콘티</h2>
+      <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => card(s, i + 1, '콘티')).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div></div>
+    <div class="ph-card"><h2 class="ph-h2">설교 후 찬양</h2>
+      <div class="cn-songs">${w.final.length ? w.final.map((s) => card(s, 1, '결단')).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    ${w.sheets.some((f) => !f['곡ID']) ? sh.packageSheetsCard(team, scope, w.sheets, false) : ''}
+    ${comments}
+    <script>(function(){try{var i=document.querySelector('[data-gs-name]');if(!i)return;i.value=localStorage.getItem('gs.name')||'';i.form.addEventListener('submit',function(){try{localStorage.setItem('gs.name',i.value.trim())}catch(e){}});}catch(e){}})();</script>`;
+  await send(req, res, 'conti', { eyebrow: `${team} · 방송팀`, title: scope.event ? eventRow['이름'] : '예배 콘티', sub: week.labelKo(date) }, body, `${team} 예배 콘티`);
+});
+
+/* 댓글 — 이름 + 내용만. IP 별로 10분에 8개까지, 열쇠 전체로 한 시간에 80개까지 */
+const HITS = new Map();
+function limited(key, max, ms) {
+  const now = Date.now(), list = (HITS.get(key) || []).filter((t) => now - t < ms);
+  if (list.length >= max) { HITS.set(key, list); return true; }
+  list.push(now); HITS.set(key, list);
+  if (HITS.size > 5000) { HITS.forEach((v, k) => { if (!v.length || now - v[v.length - 1] > 3600e3) HITS.delete(k); }); }
+  return false;
+}
+router.post('/b/:token/comments', gate, async (req, res) => {
+  const { team, base, token } = req.guest;
+  const b = req.body || {};
+  const sh = S();
+  const eventRow = await sh.specialServiceById(team, String(b.event || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(b.date);
+  const back = (c) => res.redirect(`${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}&c=${c}#comments`);
+  if (String(b.website || '').trim()) return back('ok');                                   // 로봇이 채운 칸 — 조용히 무시
+  const name = String(b.name || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 20);
+  const content = String(b.content || '').replace(/\r/g, '').trim().slice(0, 500);
+  if (!name || !content) return back('bad');
+  if (limited('ip|' + (req.ip || ''), 8, 10 * 60e3) || limited('tok|' + token, 80, 3600e3)) return back('wait');
+  try {
+    await sheetsDb.appendRow('콘티댓글', {
+      'ID': 'M' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), '팀ID': team, ...sh.scopeFields({ event: eventRow ? eventRow['ID'] : '', date }),
+      '이름': name + ' (방송팀)', '내용': content, '작성시각': new Date().toISOString(),
+    });
+  } catch (e) { console.error('[방송팀 댓글 저장 실패]', e.message); return back('wait'); }
+  back('ok');
+});
+
+/* ---------------------------------------------------------------- 스케줄표 */
+const RANGE_LABEL = { next3: '앞으로 3개월', next6: '앞으로 6개월', past3: '지난 3개월' };
+router.get('/b/:token/schedule', gate, async (req, res) => {
+  const { team, base } = req.guest;
+  const range = RANGE_LABEL[req.query.range] ? req.query.range : 'next3';
+  const sched = await hubApi.FNS.worshipSchedule({ name: '', team, canEdit: false, admin: false }, range);
+  const poss = hubApi.positions();
+  const rows = sched.rows;
+  const today = week.todayStr();
+  const cards = rows.map((r) => {
+    const slots = poss.filter((p) => r.slots[p.key] && r.slots[p.key].length);
+    const pr = r.practice;
+    const prTxt = pr && pr.none ? '연습 없음' : (pr && pr.date ? `연습 ${mdDow(pr.date)}` : '');
+    return `<div class="ph-card gs-week${r.date < today ? ' past' : ''}"><div class="gs-head"><b>${esc(mdDow(r.date))}</b>${r.event ? `<span class="gs-evname">${esc(r.event.name)}</span>` : ''}${prTxt ? `<small>${esc(prTxt)}</small>` : ''}</div>
+      ${slots.length ? `<div class="gs-line">${slots.map((p) => `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(p.key)}</span><i>${esc(p.label)}</i><b>${esc(r.slots[p.key].join(', '))}</b></span>`).join('')}</div>` : '<p class="ph-sub" style="margin:4px 0 0;">아직 편성이 없어요.</p>'}</div>`;
+  }).join('');
+  const tabs = Object.keys(RANGE_LABEL).map((k) => `<a class="gs-ev${k === range ? ' on' : ''}" href="${base}/schedule?range=${k}">${RANGE_LABEL[k]}</a>`).join('');
+  await send(req, res, 'schedule', { eyebrow: `${team} · 방송팀`, title: '스케줄표', sub: '포지션 편성 · 연습일' },
+    `<div class="ph-card"><div class="gs-evs">${tabs}</div></div>${cards || '<div class="ph-card"><p class="ph-sub">표시할 일정이 없어요.</p></div>'}`, `${team} 스케줄표`);
+});
+
+module.exports = router;

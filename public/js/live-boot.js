@@ -57,7 +57,7 @@
     t = t === 'light' ? 'light' : 'dark';
     root.setAttribute('data-theme', t);
     try { localStorage.setItem('ph.theme', t); } catch (e) { /* 저장이 막힌 브라우저 */ }
-    var m = doc.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#EFEBE5' : '#1C1C1C');
+    var m = doc.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#EDF4E9' : '#0A1311');
     return t;
   }
   window.YNTheme = { get: themeNow, set: themeSet, toggle: function () { return themeSet(themeNow() === 'light' ? 'dark' : 'light'); }, isAuto: function () { return false; }, auto: function () {} };

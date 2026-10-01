@@ -1,9 +1,21 @@
 {
-  "name": "찬양방송팀 허브",
-  "short_name": "찬양허브",
+  "id": "/",
+  "name": "YN찬양팀Hub",
+  "short_name": "YN찬양팀Hub",
+  "description": "토론토영락교회 찬양·방송팀을 위한 콘티, 악보, 일정 허브",
+  "lang": "ko",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#121316",
-  "theme_color": "#121316",
-  "icons": []
+  "orientation": "any",
+  "background_color": "#FCF3D2",
+  "theme_color": "#BFE6DA",
+  "categories": ["music", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }

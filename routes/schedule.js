@@ -81,6 +81,7 @@ router.get('/schedule', requireTeam, async (req, res) => {
   await hubPage.send(req, res, {
     nav: 'schedule', tab: 'sched', title: `${team} 스케줄표`,
     hero: { eyebrow: `${team} · 스케줄표`, title: '스케줄표', sub: '포지션 편성 · 연습일 · 내가 안 되는 날' },
+    extra: req.ctx.isAdmin ? `<div class="ph-adminrow"><a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}">엑셀로 스케줄 올리기</a></div>` : '',
   });
 });
 
