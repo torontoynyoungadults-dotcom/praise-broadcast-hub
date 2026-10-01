@@ -45,6 +45,7 @@ router.get('/auth/google/callback', async (req, res) => {
 
     const member = await sheetsDb.findOne('회원', '이메일', email);
     if (member) {
+      if (String(member['접속중지']).toUpperCase() === 'TRUE') return res.redirect('/?err=' + encodeURIComponent('접속이 일시 중지되었어요. 관리자에게 문의해주세요.'));
       session.login(res, { email, name: member['이름'] });
       return res.redirect('/');
     }
@@ -96,6 +97,10 @@ router.get('/signup', async (req, res) => {
       <div class="ph-field">
         <label>소속 찬양팀</label>
         <select name="소속팀" required>${teamOptions}</select>
+      </div>
+      <div class="ph-field">
+        <label class="ph-chip" style="display:inline-flex;"><input type="checkbox" name="객원" value="1"><span>객원 멤버로 가입</span></label>
+        <p class="ph-msg" style="margin-top:6px;">객원 멤버는 팀원 명단에 없어도 가입할 수 있고, <b>스케줄에 서는 날</b>의 콘티 · 라이브 악보 · 필기 · 댓글과 공지를 볼 수 있어요.</p>
       </div>
       <div class="ph-field">
         <label>역할 (여러 개 선택 가능)</label>
@@ -163,7 +168,12 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   // 막지 않고 그대로 가입을 받아줍니다. 명단이 있는 팀인데 이름이 거기 없으면 가입을 막습니다.
   const roster = (await sheetsDb.readAll('팀원명단')).filter((r) => r['팀ID'] === team);
   const rosterMatch = roster.find((r) => String(r['이름']).trim() === name);
-  if (roster.length && !rosterMatch) {
+  const isGuest = String(body['객원'] || '') === '1';
+  if (isGuest) {
+    // 객원 멤버는 명단 확인 없이 가입 — 대신 팀원 · 다른 객원과 이름이 겹치면 막습니다 (남의 스케줄을 보는 일이 없도록)
+    const same = (await sheetsDb.readAll('회원')).some((m) => String(m['이름']).trim() === name && String(m['소속팀'] || '').split(',').map((x) => x.trim()).includes(team));
+    if (rosterMatch || same) return res.redirect('/signup?e=' + encodeURIComponent(`'${name}'님은 ${team}에 이미 있는 이름이에요. 팀원이라면 "객원 멤버" 체크를 풀고 가입해주세요. 아니라면 관리자에게 문의해주세요.`));
+  } else if (roster.length && !rosterMatch) {
     return res.redirect('/signup?e=' + encodeURIComponent(
       `'${name}'님은 ${team} 팀원 명단에서 찾을 수 없어요. 이름을 다시 확인해 주세요. 계속 안 되면 팀 담당자(관리자)에게 문의해주세요.`,
     ));
@@ -182,7 +192,7 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
     'ID': 'U' + Date.now().toString(36),
     '이메일': email, '이름': name, '전화번호': phone, '소속팀': team,
     '역할': finalRoles.join(','), '프로필사진': photoUrl, '관리자여부': 'FALSE',
-    '가입일': new Date().toISOString().slice(0, 10), '성별': gender,
+    '가입일': new Date().toISOString().slice(0, 10), '성별': gender, '객원': isGuest ? 'TRUE' : '', '접속중지': '',
   });
   session.clearPendingEmail(res);
   session.login(res, { email, name });

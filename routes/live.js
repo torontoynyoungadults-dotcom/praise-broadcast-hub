@@ -21,6 +21,7 @@ const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
 const honorific = require('../lib/honorific');
 const pageSpec = require('../lib/pageSpec');
+const guestAccess = require('../lib/guestAccess');
 const liveAuth = require('../lib/liveAuth');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
@@ -95,6 +96,7 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
   const date = ev ? ev['날짜'] : week.normalizeDate(req.query.date);
   const scope = { event: ev ? ev['ID'] : '', date };
   const back = ev ? `/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(ev['ID'])}` : `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
+  if (guestAccess.isGuest(ctx.member)) await guestAccess.prime(ctx.member, team);     // 객원 멤버 — 이 방(서는 날)을 소켓이 알도록
   const d = await liveData(team, scope);
 
   if (!d.sheets.length) {
@@ -341,6 +343,12 @@ router.post('/api/:fn', async (req, res) => {
   try {
     const u = liveAuth.verify(args[0]);
     const rest = args.slice(1);
+    if (u.guest) {                                        // 객원 멤버 — 서는 날의 라이브 악보 · 필기 · 설정과 스케줄 보기만
+      await guestAccess.ensure(u);
+      const ROOM_AT = { worshipAnnoLoad: 1, worshipAnnoSaveMine: 1, worshipCfgLoad: 0, worshipCfgSave: 0, worshipSongsOf: 0, worshipSongPatch: 0, worshipSheetSplit: 0 };
+      if (own(ROOM_AT, fn)) { if (!guestAccess.roomOk(u, rest[ROOM_AT[fn]])) throw new Error('객원 멤버는 스케줄에 서는 날만 열 수 있습니다.'); }
+      else if (!['worshipSchedule', 'setMyUnavailableMany', 'removeMyUnavailable'].includes(fn)) throw new Error('객원 멤버는 쓸 수 없는 기능입니다.');
+    }
     if (fn === 'worshipRepoSongUse') rest.length = 4, rest.push((team, sc) => songsChanged(team, sc, 'saveWorshipSongs'));   // 콘티에 곡을 넣으면 열린 라이브 악보에 알림
     const result = await table[fn](u, ...rest);
     res.json({ ok: true, result });

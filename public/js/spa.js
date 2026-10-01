@@ -29,6 +29,7 @@
         return r.json();
       })
       .then(function (d) {
+        if (d && d.redirect) { loadPartial(d.redirect, push); return; }      // 서버가 "다른 화면으로" 라고 알려 줌 (첫 화면 → 예배콘티 등)
         if (!tabbody) { location.href = urlStr; return; }
         tabbody.innerHTML = d.html;
         tabbody.classList.remove('ph-loading');

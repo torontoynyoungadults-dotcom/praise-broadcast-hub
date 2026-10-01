@@ -59,6 +59,7 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
+app.use(require('./lib/guestGate').middleware);   // 접속 일시 중지 · 객원 멤버(서는 날만)
 app.get('/healthz', (req, res) => res.type('text').send('ok'));
 
 const live = require('./routes/live');     // 라이브 악보 (/conti/practice · /sheet · /audio · /api/*) — conti 보다 먼저

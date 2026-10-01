@@ -11,6 +11,8 @@ const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const spa = require('../lib/spa');
+const guestAccess = require('../lib/guestAccess');
+const guestGate = require('../lib/guestGate');
 const avatar = require('../lib/avatar');
 const { ROLE_OPTIONS } = require('../lib/schema');
 const ui = require('../lib/uiIcons');
@@ -31,6 +33,33 @@ function backTo(req, res, team) { spa.redirect(req, res, `/roster?team=${encodeU
 
 function roleChips(myRoles) {
   return `<div class="ph-chips">${ROLE_OPTIONS.map((r) => `<label class="ph-chip"><input type="checkbox" name="역할" value="${r}"${myRoles.includes(r) ? ' checked' : ''}><span>${avatar.roleIcon(r)} ${r}</span></label>`).join('')}</div>`;
+}
+
+/** 객원 멤버 관리 (관리자) — 가입할 때 "객원 멤버"로 체크한 사람들: 접속 일시 중지 · 다시 허용 · 삭제 */
+async function guestCard(team, infoMap) {
+  const rows = (await sheetsDb.readAll('회원')).filter((m) => guestAccess.isGuest(m) && String(m['소속팀'] || '').split(',').map((s) => s.trim()).includes(team));
+  const items = [];
+  for (const m of rows.sort((a, b) => String(a['이름']).localeCompare(String(b['이름']), 'ko'))) {
+    const { up } = await guestGate.serveDays(team, m);
+    const susp = guestAccess.isSuspended(m);
+    items.push(`<div class="ph-list-item rg-item${susp ? ' susp' : ''}">
+      <div class="ph-li-main">
+        <div class="ph-li-title">${esc(m['이름'])} <small class="rg-st ${susp ? 'off' : 'on'}">${susp ? '접속 중지' : '이용 중'}</small></div>
+        <div class="ph-li-sub">${esc(m['이메일'])} · ${up.length ? `서는 날 ${up.length}번 · 다음 ${esc(up[0].label)}` : '앞으로 서는 날 없음 (스케줄에 넣어 주세요)'}</div>
+      </div>
+      <div class="ph-row-actions rg-acts">
+        <form method="post" action="/roster/guest/pause"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="__row" value="${m.__row}"><input type="hidden" name="to" value="${susp ? '' : 'TRUE'}">
+          <button class="ph-btn" type="submit">${susp ? '다시 허용' : '일시 중지'}</button></form>
+        <form method="post" action="/roster/guest/delete" onsubmit="return confirm('${esc(m['이름'])} 객원 멤버를 삭제할까요? 삭제하면 로그인할 수 없고, 다시 가입해야 해요.')"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="__row" value="${m.__row}">
+          <button class="ph-row-del" type="submit" style="width:auto;padding:0 10px;">삭제</button></form>
+      </div>
+    </div>`);
+  }
+  return `<div class="ph-card">
+    <h2 class="ph-h2">객원 멤버 (${items.length}명)</h2>
+    <p class="ph-sub">가입할 때 "객원 멤버"로 체크한 사람이에요. 스케줄에 서는 날에만 콘티 · 라이브 악보를 볼 수 있어요. 접속을 잠시 막거나 삭제할 수 있어요.</p>
+    ${items.length ? items.join('') : '<p class="ph-sub">아직 객원 멤버가 없어요.</p>'}
+  </div>`;
 }
 
 function personRow(name, info, isAdmin) {
@@ -100,7 +129,8 @@ router.get('/roster', requireTeam, async (req, res) => {
   const infoMap = await avatar.teamInfoMap(team);
   const rosterCount = Object.values(infoMap).filter((i) => i.명단행).length;
 
-  const names = Object.keys(infoMap).sort((a, b) => a.localeCompare(b, 'ko')); // 가나다 순
+  const names = Object.keys(infoMap).filter((n) => !infoMap[n].객원).sort((a, b) => a.localeCompare(b, 'ko')); // 가나다 순 (객원 멤버는 아래 "객원 멤버" 칸에서 따로)
+  const guestHtml = ctx.isAdmin ? await guestCard(team, infoMap) : '';
 
   const hero = pageShell.hero({ eyebrow: `${team} · 팀원관리`, title: '팀원관리', sub: '팀원 명단을 관리하고, 가입 현황을 한눈에 봐요.' });
   const addForm = ctx.isAdmin ? `
@@ -134,6 +164,7 @@ router.get('/roster', requireTeam, async (req, res) => {
     <h2 class="ph-h2">팀원 (${names.length}명)</h2>
     <div class="ph-rrlist">${names.length ? names.map((n) => personRow(n, { ...infoMap[n], __team: team }, ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 팀원이 없어요.</p>'}</div>
   </div>
+  ${guestHtml}
   `;
   spa.send(req, res, content, { title: `${team} 팀원관리` });
 });
@@ -192,6 +223,25 @@ router.post('/roster/member-role', requireTeam, async (req, res) => {
       await sheetsDb.updateRow('회원', row, { ...found, '역할': roles.join(',') });
     }
   }
+  backTo(req, res, team);
+});
+
+/** 객원 멤버 접속 일시 중지 / 다시 허용 (관리자) */
+router.post('/roster/guest/pause', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (!req.ctx.isAdmin) return backTo(req, res, team);
+  const found = (await sheetsDb.readAll('회원', { fresh: true })).find((r) => r.__row === Number(b.__row));
+  if (found && guestAccess.isGuest(found)) await sheetsDb.updateRow('회원', found.__row, { ...found, '접속중지': b.to === 'TRUE' ? 'TRUE' : '' });
+  backTo(req, res, team);
+});
+/** 객원 멤버 삭제 (관리자) — 회원 줄을 지움 */
+router.post('/roster/guest/delete', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (!req.ctx.isAdmin) return backTo(req, res, team);
+  const found = (await sheetsDb.readAll('회원', { fresh: true })).find((r) => r.__row === Number(b.__row));
+  if (found && guestAccess.isGuest(found) && !(String(found['관리자여부']).toUpperCase() === 'TRUE')) await sheetsDb.deleteRow('회원', found.__row);
   backTo(req, res, team);
 });
 

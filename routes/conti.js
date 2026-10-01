@@ -17,6 +17,7 @@ const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const honorific = require('../lib/honorific');
+const guestGate = require('../lib/guestGate');
 const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
 const { positionIconSvg } = require('../lib/positionIcons');
 const rosterPicker = require('../lib/rosterPicker');
@@ -670,7 +671,7 @@ router.post('/conti/lineup/unassign', requireTeam, async (req, res) => {
   backTo(req, res, b.team, scopeFrom(b));
 });
 
-router.post('/conti/songs', requireTeam, upload.array('파일', 12), async (req, res) => {
+router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
@@ -782,7 +783,7 @@ async function saveSheetsFrom(req, team, scope, songId, extra, ignoreTyped) {
   return jobs.length;
 }
 /** 악보 올리기 — 제목은 안 써도 됩니다: 파일 이름이 제목이 되고(파일 여러 개를 한 번에도 가능), 링크만 넣으면 주소에서 따옴 */
-router.post('/conti/sheets', requireTeam, upload.array('파일', 12), async (req, res) => {
+router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
@@ -875,7 +876,7 @@ router.post('/conti/sheets/delete', requireTeam, async (req, res) => {
   backTo(req, res, b.team, scopeFrom(b));
 });
 
-router.post('/conti/recordings', requireTeam, upload.single('파일'), async (req, res) => {
+router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
