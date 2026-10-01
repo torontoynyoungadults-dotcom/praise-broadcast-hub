@@ -6,6 +6,7 @@ const express = require('express');
 const sheetsDb = require('../lib/sheetsDb');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -19,8 +20,8 @@ async function requireTeam(req, res, next) {
   next();
 }
 
-function backTo(res, team, filter) {
-  res.redirect(`/notices?team=${encodeURIComponent(team)}${filter ? `&filter=${encodeURIComponent(filter)}` : ''}`);
+function backTo(req, res, team, filter) {
+  spa.redirect(req, res, `/notices?team=${encodeURIComponent(team)}${filter ? `&filter=${encodeURIComponent(filter)}` : ''}`);
 }
 
 function item(n) {
@@ -62,6 +63,7 @@ router.get('/notices', requireTeam, async (req, res) => {
   const tab = (key, label) => `<a class="pv-tab${filter === key ? ' on' : ''}" href="/notices?team=${encodeURIComponent(team)}${key ? `&filter=${encodeURIComponent(key)}` : ''}">${label}</a>`;
 
   const content = `
+  ${pageShell.hubNav('notices', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: { filter } })}
@@ -82,7 +84,7 @@ router.get('/notices', requireTeam, async (req, res) => {
     </details>
   </div>
   `;
-  res.type('html').send(await pageShell.render(content, { title: `${team} 공지 및 모임` }));
+  spa.send(req, res, content, { title: `${team} 공지 및 모임` });
 });
 
 router.post('/notices', requireTeam, async (req, res) => {
@@ -96,7 +98,7 @@ router.post('/notices', requireTeam, async (req, res) => {
       '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
     });
   }
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/notices/pin', requireTeam, async (req, res) => {
@@ -107,14 +109,14 @@ router.post('/notices/pin', requireTeam, async (req, res) => {
     const found = rows.find((r) => r.__row === row);
     if (found) await sheetsDb.updateRow('공지및모임', row, { ...found, '고정': b.to === 'TRUE' ? 'TRUE' : 'FALSE' });
   }
-  backTo(res, b.team);
+  backTo(req, res, b.team);
 });
 
 router.post('/notices/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('공지및모임', row); } catch (e) { console.error('[공지삭제 실패]', e.message); } }
-  backTo(res, b.team);
+  backTo(req, res, b.team);
 });
 
 module.exports = router;

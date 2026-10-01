@@ -1,6 +1,7 @@
 const express = require('express');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 
@@ -30,26 +31,18 @@ router.get('/', async (req, res) => {
     title: `${team || '찬양팀'} 허브`,
     sub: `${member['이름']}님, 환영합니다!`,
   });
-  const navLink = (href, label, ready) => ready
-    ? `<a class="ph-btn" href="${href}">${label}</a>`
-    : `<span class="ph-btn" style="opacity:.45;pointer-events:none;">${label} (준비중)</span>`;
   const content = `
+  ${pageShell.hubNav('', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx)}
-    <div class="ph-navgrid">
-      ${navLink(`/conti?team=${encodeURIComponent(team)}`, '🎵 예배콘티', true)}
-      ${navLink(`/notices?team=${encodeURIComponent(team)}`, '📋 공지 및 모임', true)}
-      ${navLink(`/schedule?team=${encodeURIComponent(team)}`, '🗓 스케줄표', true)}
-      ${navLink(`/library?team=${encodeURIComponent(team)}`, '🗂 라이브러리', true)}
-      ${navLink(`/equipment?team=${encodeURIComponent(team)}`, '🔧 장비·수리', true)}
-    </div>
+    <p class="ph-sub">위 탭을 눌러 예배콘티 · 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리를 오갈 수 있어요.</p>
   </div>
   <div class="ph-card">
     ${isAdmin ? '<a class="ph-btn" href="/admin">관리자 화면</a>' : ''}
     <a class="ph-btn" href="/logout">로그아웃</a>
   </div>`;
-  res.type('html').send(await pageShell.render(content, { title: `${team || '찬양팀'} 허브` }));
+  spa.send(req, res, content, { title: `${team || '찬양팀'} 허브` });
 });
 
 // /admin 은 routes/admin.js 가 맡습니다 (찬양팀 · 멤버 · 태그라인 관리).

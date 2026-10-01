@@ -5,6 +5,7 @@ const express = require('express');
 const sheetsDb = require('../lib/sheetsDb');
 const pageShell = require('../lib/pageShell');
 const { ROLE_OPTIONS } = require('../lib/schema');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -58,6 +59,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
 
   const content = `
+  ${pageShell.hubNav('', '')}
   ${hero}
   <div class="ph-card"><a class="ph-btn" href="/">← 허브로</a></div>
 
@@ -86,7 +88,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
     <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
   </div>
   `;
-  res.type('html').send(await pageShell.render(content, { title: '관리자' }));
+  spa.send(req, res, content, { title: '관리자' });
 });
 
 router.post('/admin/tagline', requireAdmin, async (req, res) => {
@@ -95,7 +97,7 @@ router.post('/admin/tagline', requireAdmin, async (req, res) => {
   const row = { '키': '태그라인', '값': value, '설명': '허브 바닥글에 보이는 한 줄 문구' };
   if (existing) await sheetsDb.updateRow('설정', existing.__row, row);
   else await sheetsDb.appendRow('설정', row);
-  res.redirect('/admin');
+  spa.redirect(req, res, '/admin');
 });
 
 router.post('/admin/teams', requireAdmin, async (req, res) => {
@@ -104,7 +106,7 @@ router.post('/admin/teams', requireAdmin, async (req, res) => {
     const dup = await sheetsDb.findOne('찬양팀', '팀명', name);
     if (!dup) await sheetsDb.appendRow('찬양팀', { 'ID': 'T' + Date.now().toString(36), '팀명': name, '생성일': new Date().toISOString(), '활성여부': 'TRUE' });
   }
-  res.redirect('/admin');
+  spa.redirect(req, res, '/admin');
 });
 
 router.post('/admin/teams/toggle', requireAdmin, async (req, res) => {
@@ -115,7 +117,7 @@ router.post('/admin/teams/toggle', requireAdmin, async (req, res) => {
     const found = rows.find((r) => r.__row === row);
     if (found) await sheetsDb.updateRow('찬양팀', row, { ...found, '활성여부': b.to === 'TRUE' ? 'TRUE' : 'FALSE' });
   }
-  res.redirect('/admin');
+  spa.redirect(req, res, '/admin');
 });
 
 router.post('/admin/members/update', requireAdmin, async (req, res) => {
@@ -133,7 +135,7 @@ router.post('/admin/members/update', requireAdmin, async (req, res) => {
       });
     }
   }
-  res.redirect('/admin');
+  spa.redirect(req, res, '/admin');
 });
 
 module.exports = router;

@@ -10,6 +10,7 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const { POSITION_GROUPS } = require('../lib/positions');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -19,17 +20,17 @@ async function requireTeam(req, res, next) {
   const ctx = await teamContext.resolve(req);
   if (!ctx) return res.redirect('/logout');
   if (!ctx.teams.length) {
-    return res.type('html').send(await pageShell.render(
-      `<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
+    return spa.send(req, res,
+      `${pageShell.hubNav('schedule', '')}<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
       { title: '스케줄표' },
-    ));
+    );
   }
   req.ctx = ctx;
   next();
 }
 
-function backTo(res, team) {
-  res.redirect(`/schedule?team=${encodeURIComponent(team || '')}`);
+function backTo(req, res, team) {
+  spa.redirect(req, res, `/schedule?team=${encodeURIComponent(team || '')}`);
 }
 
 async function teamRoster(team) {
@@ -116,6 +117,7 @@ router.get('/schedule', requireTeam, async (req, res) => {
   const hero = pageShell.hero({ eyebrow: `${team} · 스케줄표`, title: '스케줄표', sub: `${week.labelKo(from)} 부터 ${weeksCount}주` });
 
   const content = `
+  ${pageShell.hubNav('schedule', team)}
   ${hero}
   <datalist id="ph-roster">${roster.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
   <div class="ph-card">
@@ -149,7 +151,7 @@ router.get('/schedule', requireTeam, async (req, res) => {
     <a class="ph-btn" href="/schedule?team=${encodeURIComponent(team)}&from=${encodeURIComponent(from)}&weeks=${weeksCount + 8}">+ 더보기 (8주 더)</a>
   </div>
   `;
-  res.type('html').send(await pageShell.render(content, { title: `${team} 스케줄표` }));
+  spa.send(req, res, content, { title: `${team} 스케줄표` });
 });
 
 router.post('/schedule/assign', requireTeam, async (req, res) => {
@@ -163,14 +165,14 @@ router.post('/schedule/assign', requireTeam, async (req, res) => {
       await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, '날짜': date, '포지션': pos, '이름': name });
     }
   }
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/schedule/unassign', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('찬양편성', row); } catch (e) { console.error('[편성 삭제 실패]', e.message); } }
-  backTo(res, b.team);
+  backTo(req, res, b.team);
 });
 
 router.post('/schedule/off', requireTeam, async (req, res) => {
@@ -181,14 +183,14 @@ router.post('/schedule/off', requireTeam, async (req, res) => {
   const existing = await sheetsDb.findWhere('불가일정', (r) => r['팀ID'] === team && r['날짜'] === date && r['이름'] === name);
   if (existing) await sheetsDb.updateRow('불가일정', existing.__row, { ...existing, '사유': reason, '등록시각': new Date().toISOString() });
   else await sheetsDb.appendRow('불가일정', { 'ID': 'O' + Date.now().toString(36), '팀ID': team, '이름': name, '날짜': date, '사유': reason, '등록시각': new Date().toISOString() });
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/schedule/off/clear', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('불가일정', row); } catch (e) { console.error('[불가 해제 실패]', e.message); } }
-  backTo(res, b.team);
+  backTo(req, res, b.team);
 });
 
 module.exports = router;

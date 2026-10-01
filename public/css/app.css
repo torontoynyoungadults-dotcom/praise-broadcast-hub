@@ -353,3 +353,16 @@ a { color: var(--accent); text-decoration: none; }
 .ph-eqphotos img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
 .ph-ticket { flex-direction: column; align-items: stretch; }
 .ph-ticketacts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+/* ---------- 허브 탭 바 (church-app의 TABS 처럼, 다섯 기능을 한 페이지 안에서 전환) ---------- */
+.ph-hubnav {
+  display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 12px;
+  margin: 0 0 14px; -webkit-overflow-scrolling: touch;
+}
+.ph-hubnav::-webkit-scrollbar { display: none; }
+.ph-hubtab {
+  flex: none; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass-2);
+  color: var(--sub); font-weight: 700; font-size: 14.5px; white-space: nowrap; text-decoration: none;
+}
+.ph-hubtab.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
+#ph-tabbody.ph-loading { opacity: .45; transition: opacity .1s linear; pointer-events: none; }

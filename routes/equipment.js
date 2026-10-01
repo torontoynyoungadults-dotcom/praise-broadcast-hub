@@ -12,6 +12,7 @@ const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -31,16 +32,16 @@ async function requireTeam(req, res, next) {
   const ctx = await teamContext.resolve(req);
   if (!ctx) return res.redirect('/logout');
   if (!ctx.teams.length) {
-    return res.type('html').send(await pageShell.render(
-      `<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
+    return spa.send(req, res,
+      `${pageShell.hubNav('equipment', '')}<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
       { title: '장비 · 수리' },
-    ));
+    );
   }
   req.ctx = ctx;
   next();
 }
 
-function backTo(res, team) { res.redirect(`/equipment?team=${encodeURIComponent(team || '')}`); }
+function backTo(req, res, team) { spa.redirect(req, res, `/equipment?team=${encodeURIComponent(team || '')}`); }
 
 function itemRow(it, record) {
   const rec = record || {};
@@ -117,6 +118,7 @@ router.get('/equipment', requireTeam, async (req, res) => {
   const hero = pageShell.hero({ eyebrow: `${team} · 장비 · 수리`, title: '장비 · 수리', sub: week.labelKo(date) });
 
   const content = `
+  ${pageShell.hubNav('equipment', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx)}
@@ -160,7 +162,7 @@ router.get('/equipment', requireTeam, async (req, res) => {
     </details>
   </div>
   `;
-  res.type('html').send(await pageShell.render(content, { title: `${team} 장비 · 수리` }));
+  spa.send(req, res, content, { title: `${team} 장비 · 수리` });
 });
 
 router.post('/equipment/items', requireTeam, async (req, res) => {
@@ -175,7 +177,7 @@ router.post('/equipment/items', requireTeam, async (req, res) => {
       '만든이': req.ctx.member['이름'], '만든시각': new Date().toISOString(), '수정자': '', '수정시각': '',
     });
   }
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/equipment/items/archive', requireTeam, async (req, res) => {
@@ -187,7 +189,7 @@ router.post('/equipment/items/archive', requireTeam, async (req, res) => {
     const found = rows.find((r) => r.__row === row);
     if (found) await sheetsDb.updateRow('장비점검항목', row, { ...found, '보관여부': 'TRUE', '수정자': req.ctx.member['이름'], '수정시각': new Date().toISOString() });
   }
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/equipment/check', requireTeam, async (req, res) => {
@@ -206,14 +208,14 @@ router.post('/equipment/check', requireTeam, async (req, res) => {
     if (existing) await sheetsDb.updateRow('장비점검기록', existing.__row, row);
     else await sheetsDb.appendRow('장비점검기록', row);
   }
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/equipment/tickets', requireTeam, upload.array('사진', 4), async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const title = String(b['제목'] || '').trim();
-  if (!title) return backTo(res, team);
+  if (!title) return backTo(req, res, team);
   let photos = [];
   try {
     if (req.files && req.files.length) photos = await Promise.all(req.files.map((f) => driveStore.uploadPublic('장비사진', f)));
@@ -223,7 +225,7 @@ router.post('/equipment/tickets', requireTeam, upload.array('사진', 4), async 
     '사진': photos.join(','), '상태': '접수', '요청자': req.ctx.member['이름'], '요청시각': new Date().toISOString(),
     '우선순위': b['우선순위'] === '긴급' ? '긴급' : '보통', '항목': b['항목'] || '', '처리자': '', '변경시각': '', '메모': '',
   });
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 router.post('/equipment/tickets/act', requireTeam, async (req, res) => {
@@ -241,7 +243,7 @@ router.post('/equipment/tickets/act', requireTeam, async (req, res) => {
       });
     }
   }
-  backTo(res, team);
+  backTo(req, res, team);
 });
 
 module.exports = router;

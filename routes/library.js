@@ -8,6 +8,7 @@ const sheetsDb = require('../lib/sheetsDb');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -17,10 +18,10 @@ async function requireTeam(req, res, next) {
   const ctx = await teamContext.resolve(req);
   if (!ctx) return res.redirect('/logout');
   if (!ctx.teams.length) {
-    return res.type('html').send(await pageShell.render(
-      `<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
+    return spa.send(req, res,
+      `${pageShell.hubNav('library', '')}<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
       { title: '라이브러리' },
-    ));
+    );
   }
   req.ctx = ctx;
   next();
@@ -145,6 +146,7 @@ router.get('/library', requireTeam, async (req, res) => {
   else body = daysView(all, team, q);
 
   const content = `
+  ${pageShell.hubNav('library', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: { view, q: req.query.q } })}
@@ -158,7 +160,7 @@ router.get('/library', requireTeam, async (req, res) => {
 
   <div class="ph-card top-accent">${body}</div>
   `;
-  res.type('html').send(await pageShell.render(content, { title: `${team} 라이브러리` }));
+  spa.send(req, res, content, { title: `${team} 라이브러리` });
 });
 
 module.exports = router;

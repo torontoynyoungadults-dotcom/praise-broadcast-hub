@@ -12,6 +12,7 @@ const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
+const spa = require('../lib/spa');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -21,17 +22,17 @@ async function requireTeam(req, res, next) {
   const ctx = await teamContext.resolve(req);
   if (!ctx) return res.redirect('/logout');
   if (!ctx.teams.length) {
-    return res.type('html').send(await pageShell.render(
-      `<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
+    return spa.send(req, res,
+      `${pageShell.hubNav('conti', '')}<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
       { title: '예배콘티' },
-    ));
+    );
   }
   req.ctx = ctx;
   next();
 }
 
-function backTo(res, team, date) {
-  res.redirect(`/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`);
+function backTo(req, res, team, date) {
+  spa.redirect(req, res, `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`);
 }
 
 /* ---------- 조회(읽기) 공통 — 로그인 화면과 공개 화면이 함께 씁니다 ---------- */
@@ -232,6 +233,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const hero = pageShell.hero({ eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
 
   const content = `
+  ${pageShell.hubNav('conti', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: { date } })}
@@ -310,7 +312,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   </div>
   ${SOLO_ROWS_SCRIPT}
   `;
-  res.type('html').send(await pageShell.render(content, { title: `${team} 예배콘티` }));
+  spa.send(req, res, content, { title: `${team} 예배콘티` });
 });
 
 /* ================= 연습 화면 (라이브 악보 보기 · 메트로놈, Socket.io 실시간 동기화) ================= */
@@ -366,7 +368,7 @@ router.post('/conti/songs', requireTeam, async (req, res) => {
   const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
   const kind = b['구분'] === '결단' ? '결단' : '콘티';
   const title = String(b['제목'] || '').trim();
-  if (!title) return backTo(res, team, date);
+  if (!title) return backTo(req, res, team, date);
   const all = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && r['날짜'] === date && r['구분'] === kind);
   await sheetsDb.appendRow('찬양콘티', {
     'ID': 'C' + Date.now().toString(36), '팀ID': team, '날짜': date, '구분': kind,
@@ -374,7 +376,7 @@ router.post('/conti/songs', requireTeam, async (req, res) => {
     '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': new Date().toISOString(),
     '솔로': JSON.stringify(soloFromBody(b)),
   });
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 /** 곡 제목·Key·BPM 등을 수정 (church-app처럼 삭제 후 다시 올리지 않아도 됩니다) */
@@ -393,7 +395,7 @@ router.post('/conti/songs/edit', requireTeam, async (req, res) => {
       });
     } catch (e) { console.error('[콘티 수정 실패]', e.message); }
   }
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 /** 한꺼번에 올리기 — 한 줄에 "제목 - 원곡팀 - Key" */
@@ -417,14 +419,14 @@ router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
       });
     }
   }
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 router.post('/conti/songs/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('찬양콘티', row); } catch (e) { console.error('[콘티 삭제 실패]', e.message); } }
-  backTo(res, b.team, week.normalizeDate(b.date));
+  backTo(req, res, b.team, week.normalizeDate(b.date));
 });
 
 router.post('/conti/meta', requireTeam, async (req, res) => {
@@ -438,52 +440,52 @@ router.post('/conti/meta', requireTeam, async (req, res) => {
   };
   if (existing) await sheetsDb.updateRow('콘티메타', existing.__row, row);
   else await sheetsDb.appendRow('콘티메타', row);
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 router.post('/conti/sheets', requireTeam, upload.single('파일'), async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
   const title = String(b['제목'] || '').trim();
-  if (!title) return backTo(res, team, date);
+  if (!title) return backTo(req, res, team, date);
   let link = String(b['링크'] || '').trim();
   try { if (req.file) link = await driveStore.uploadPublic('악보', req.file); } catch (e) { console.error('[악보 업로드 실패]', e.message); }
-  if (!link) return backTo(res, team, date);
+  if (!link) return backTo(req, res, team, date);
   await sheetsDb.appendRow('악보저장소', {
     'ID': 'F' + Date.now().toString(36), '팀ID': team, '날짜': date, '제목': title,
     '파일링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
   });
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 router.post('/conti/sheets/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('악보저장소', row); } catch (e) { console.error('[악보 삭제 실패]', e.message); } }
-  backTo(res, b.team, week.normalizeDate(b.date));
+  backTo(req, res, b.team, week.normalizeDate(b.date));
 });
 
 router.post('/conti/recordings', requireTeam, upload.single('파일'), async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
   const title = String(b['제목'] || '').trim();
-  if (!title) return backTo(res, team, date);
+  if (!title) return backTo(req, res, team, date);
   let link = String(b['링크'] || '').trim();
   try { if (req.file) link = await driveStore.uploadPublic('음원', req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); }
-  if (!link) return backTo(res, team, date);
+  if (!link) return backTo(req, res, team, date);
   await sheetsDb.appendRow('녹음', {
     'ID': 'R' + Date.now().toString(36), '팀ID': team, '날짜': date,
     '구분': b['구분'] === '예배' ? '예배' : '연습', '제목': title,
     '링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
   });
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 router.post('/conti/recordings/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('녹음', row); } catch (e) { console.error('[녹음 삭제 실패]', e.message); } }
-  backTo(res, b.team, week.normalizeDate(b.date));
+  backTo(req, res, b.team, week.normalizeDate(b.date));
 });
 
 router.post('/conti/comments', requireTeam, async (req, res) => {
@@ -496,7 +498,7 @@ router.post('/conti/comments', requireTeam, async (req, res) => {
       '이름': req.ctx.member['이름'], '내용': content, '작성시각': new Date().toISOString(),
     });
   }
-  backTo(res, team, date);
+  backTo(req, res, team, date);
 });
 
 /* ================= 로그인 없이 보는 공개 화면 (예배콘티만) ================= */
