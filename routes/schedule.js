@@ -176,7 +176,14 @@ function positionCell(date, posKey, names, roster, offSet, hl, rangeKey, view) {
   </details>`;
 }
 
-function dateCard(d, roster, meName, hl, rangeKey, view) {
+/** 다가오는 주일 직전의 금요일(보통 연습날) — 아직 연습 날짜가 없을 때 입력칸 기본값으로 씀 */
+function fridayBeforeSunday(sundayStr) {
+  const d = new Date(sundayStr + 'T12:00:00');
+  d.setDate(d.getDate() - 2);
+  return d.toISOString().slice(0, 10);
+}
+
+function dateCard(d, roster, meName, hl, rangeKey, view, isAdmin) {
   const byPos = {};
   d.assign.forEach((r) => { const p = canonicalPosition(r['포지션']); (byPos[p] = byPos[p] || []).push({ 이름: r['이름'], __row: r.__row, 팀: r['팀ID'] }); });
   const offSet = new Set(d.off.map((o) => o['이름']));
@@ -190,15 +197,45 @@ function dateCard(d, roster, meName, hl, rangeKey, view) {
   const offLine = d.off.length
     ? `<div class="ph-offline">🙅 불가 — ${d.off.map((o) => `<b>${esc(o['이름'])}</b>${o['사유'] ? `<em>${esc(o['사유'])}</em>` : ''}`).join(', ')}</div>`
     : '';
-  const practiceLine = (d.practice || []).length
-    ? `<div class="ph-practiceline">${d.practice.map((p) => `🎹 연습 — ${esc(week.labelKo(p['날짜']))}${p['비고'] ? `<em>${esc(p['비고'])}</em>` : ''}`).join(' · ')}</div>`
-    : '';
+
+  // 연습 날짜(있으면 주일 바로 앞 연습 하나를 대표로) — 헤더에 "연습일 – 주일" 범위로 합쳐서 보여줌
+  const practice = (d.practice || [])[0] || null;
+  const extraPractice = (d.practice || []).slice(1);
+  const rangeTitle = practice
+    ? `${week.shortKo(practice['날짜'], false)} – ${week.shortKo(d.date, true)}`
+    : week.shortKo(d.date, true);
+  const offBadge = d.off.length ? `<span class="ph-offbadge">불가 ${d.off.length}</span>` : '';
+
+  const practiceEditForm = isAdmin ? `
+    <form method="post" action="/schedule/practice/set" class="ph-inlineform ph-practiceform">
+      <input type="hidden" name="team" value="${esc(roster.team)}">
+      <input type="hidden" name="기준일" value="${esc(d.date)}">${extraHidden(rangeKey, hl, view)}
+      <label>연습 날짜</label>
+      <input type="date" name="날짜" value="${esc(practice ? practice['날짜'] : fridayBeforeSunday(d.date))}">
+      <input type="text" name="비고" value="${esc(practice ? (practice['비고'] || '') : '')}" placeholder="비고 (선택)" maxlength="60">
+      <button class="ph-btn pri" type="submit">저장</button>
+      ${practice ? `<button class="ph-btn" type="submit" name="지우기" value="1" title="연습 날짜를 지워요">연습 없음으로</button>` : ''}
+    </form>` : (practice ? `<p class="ph-sub" style="margin-top:4px;">🎹 연습 — ${esc(week.labelKo(practice['날짜']))}${practice['비고'] ? ` · ${esc(practice['비고'])}` : ''}</p>` : '');
+
+  const extraPracticeLine = extraPractice.length
+    ? `<p class="ph-sub" style="margin-top:4px;">그 외 연습 — ${extraPractice.map((p) => esc(week.labelKo(p['날짜']))).join(', ')}</p>` : '';
+
+  const weekHead = `<details class="ph-weekhead">
+    <summary class="ph-weekheadsum">
+      <span class="ph-weektitle ph-weekrange">${esc(rangeTitle)}</span>
+      ${offBadge}
+      <span class="ph-weekchevron">›</span>
+    </summary>
+    <div class="ph-weekheadbody">
+      ${offLine}
+      ${practiceEditForm}
+      ${extraPracticeLine}
+    </div>
+  </details>`;
 
   return `<div class="ph-card ph-weekcard" id="d-${esc(d.date)}">
-    <div class="ph-weektitle">${esc(week.labelKo(d.date))}</div>
-    ${practiceLine}
+    ${weekHead}
     ${groups}
-    ${offLine}
     ${myOff
       ? `<form method="post" action="/schedule/off/clear" class="ph-inlineform" style="margin-top:8px;">
           <input type="hidden" name="__row" value="${myOff.__row}"><input type="hidden" name="team" value="${esc(roster.team)}">${extraHidden(rangeKey, hl, view)}
@@ -234,7 +271,9 @@ function tableView(days, roster, hl, rangeKey, team) {
         const names = byPos[k] || [];
         return `<td>${names.length ? names.map((n) => `<span class="ph-tblname${hl && n === hl ? ' hl' : ''}" title="${esc(n)}">${avatar.avatarHtml(n, roster.infoMap[n] || {}, 'sm')}${esc(avatar.givenName(n))}</span>`).join('') : '<span class="ph-tbldash">–</span>'}</td>`;
       }).join('');
-      return `<tr><th><a href="${jumpQs(d.date)}">${esc(week.labelKo(d.date))}</a></th>${cells}</tr>`;
+      const practice = (d.practice || [])[0] || null;
+      const rangeTitle = practice ? `${week.shortKo(practice['날짜'], false)} – ${week.shortKo(d.date, true)}` : week.shortKo(d.date, true);
+      return `<tr><th><a href="${jumpQs(d.date)}">${esc(rangeTitle)}</a></th>${cells}</tr>`;
     }).join('');
     return `<div class="ph-tblwrap">
       <div class="ph-tblcaption">${esc(label)}</div>
@@ -326,7 +365,7 @@ router.get('/schedule', requireTeam, async (req, res) => {
 
   ${practiceCard(team, myPractice, ctx.isAdmin, rangeKey, hl, view)}
 
-  ${view === 'table' ? tableView(days, roster, hl, rangeKey, team) : days.map((d) => dateCard(d, roster, meName, hl, rangeKey, view)).join('')}
+  ${view === 'table' ? tableView(days, roster, hl, rangeKey, team) : days.map((d) => dateCard(d, roster, meName, hl, rangeKey, view, ctx.isAdmin)).join('')}
   `;
   spa.send(req, res, content, { title: `${team} 스케줄표` });
 });
@@ -392,6 +431,31 @@ router.post('/schedule/practice/delete', requireTeam, async (req, res) => {
     if (row) { try { await sheetsDb.deleteRow('연습일정', row); } catch (e) { console.error('[연습일정 삭제 실패]', e.message); } }
   }
   backTo(req, res, b.team, b);
+});
+
+/** 주차 카드 헤더에서 바로 연습 날짜를 바꾸는 라우트 — "그 주일 직전 7일" 창 안에 있는 연습 하나를 찾아 업데이트/삭제/새로 만듦
+ * (GET /schedule에서 카드별로 연습을 묶는 것과 같은 창을 씀: 기준일(주일) 직전 7일) */
+router.post('/schedule/practice/set', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (req.ctx.isAdmin) {
+    const serviceDate = week.normalizeDate(b['기준일']);
+    const clear = !!b['지우기'];
+    const newDate = (!clear && week.isValidDateStr(b['날짜'])) ? b['날짜'] : '';
+    const note = String(b['비고'] || '').trim();
+    const windowStart = week.shiftWeek(serviceDate, -1);
+    const existing = await sheetsDb.findWhere('연습일정', (r) => r['팀ID'] === team && r['날짜'] < serviceDate && r['날짜'] >= windowStart);
+    if (newDate) {
+      const dupAtNewDate = await sheetsDb.findWhere('연습일정', (r) => r['팀ID'] === team && r['날짜'] === newDate && (!existing || r.__row !== existing.__row));
+      if (!dupAtNewDate) {
+        if (existing) await sheetsDb.updateRow('연습일정', existing.__row, { ...existing, '날짜': newDate, '비고': note });
+        else await sheetsDb.appendRow('연습일정', { 'ID': 'P' + Date.now().toString(36), '팀ID': team, '날짜': newDate, '비고': note, '등록시각': new Date().toISOString() });
+      }
+    } else if (existing) {
+      try { await sheetsDb.deleteRow('연습일정', existing.__row); } catch (e) { console.error('[연습일정 삭제 실패]', e.message); }
+    }
+  }
+  backTo(req, res, team, b);
 });
 
 router.post('/schedule/practice/autofill', requireTeam, async (req, res) => {

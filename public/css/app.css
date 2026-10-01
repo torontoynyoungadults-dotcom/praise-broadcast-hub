@@ -343,6 +343,18 @@ a { color: var(--accent); text-decoration: none; }
 /* ---------- 스케줄표 ---------- */
 .ph-weekcard { padding-bottom: 14px; }
 .ph-weektitle { font-weight: 800; font-size: 16.5px; margin-bottom: 10px; }
+
+/* 주차 카드 맨 위 — 연습일–주일 범위 제목 + "불가 N" 배지, 눌러서 펼치면 연습날짜 수정/불가 명단 */
+.ph-weekhead { margin-bottom: 12px; }
+.ph-weekheadsum { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; padding: 2px 0; }
+.ph-weekheadsum::-webkit-details-marker, .ph-weekheadsum::marker { display: none; content: ''; }
+.ph-weekrange { margin-bottom: 0; }
+.ph-offbadge { flex: none; font-size: 12px; font-weight: 800; color: #fff; background: var(--bad); padding: 3px 9px; border-radius: 999px; }
+.ph-weekchevron { margin-left: auto; color: var(--dim); font-size: 18px; font-weight: 700; transition: transform .15s; }
+.ph-weekhead[open] .ph-weekchevron { transform: rotate(90deg); }
+.ph-weekheadbody { padding: 10px 0 2px; border-top: 1px dashed var(--line); margin-top: 6px; }
+.ph-practiceform { gap: 8px; }
+
 .ph-posgroup + .ph-posgroup { margin-top: 22px; }
 .ph-posgrouplabel { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
 .ph-posgrouplabel::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
