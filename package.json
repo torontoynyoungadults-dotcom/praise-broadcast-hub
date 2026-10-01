@@ -1,0 +1,22 @@
+{
+  "name": "praise-broadcast-hub",
+  "version": "0.1.0",
+  "description": "찬양방송팀 허브 — Render(Node.js) 서버",
+  "main": "server.js",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "auth": "node scripts/get-refresh-token.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "googleapis": "^182.0.0",
+    "multer": "^2.0.1",
+    "socket.io": "^4.8.4"
+  },
+  "license": "ISC"
+}

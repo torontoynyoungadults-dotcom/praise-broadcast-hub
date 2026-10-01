@@ -1,0 +1,9 @@
+{
+  "name": "찬양방송팀 허브",
+  "short_name": "찬양허브",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121316",
+  "theme_color": "#121316",
+  "icons": []
+}
