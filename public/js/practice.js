@@ -36,8 +36,9 @@
       var s = DATA.songs[state.songIdx];
       stage.innerHTML = s
         ? '<div class="pv-songinfo"><div class="pv-songtitle">' + esc(s.title) + '</div>'
-          + '<div class="pv-songmeta">' + [s.key && ('Key ' + s.key), s.bpm && (s.bpm + ' BPM')].filter(Boolean).map(esc).join(' · ') + '</div>'
+          + '<div class="pv-songmeta">' + [s.team, s.key && ('Key ' + s.key), s.bpm && (s.bpm + ' BPM')].filter(Boolean).map(esc).join(' · ') + '</div>'
           + (s.youtube ? '<a class="ph-li-link" href="' + esc(s.youtube) + '" target="_blank" rel="noopener">▶ 유튜브</a>' : '')
+          + ((s.solo || []).length ? '<div class="ph-solo-badges">🎤 솔로 — ' + s.solo.map(function (x) { return esc(x.name) + (x.part ? '<em>' + esc(x.part) + '</em>' : ''); }).join(', ') + '</div>' : '')
           + (s.note ? '<div class="ph-li-note">' + esc(s.note) + '</div>' : '') + '</div>'
         : '<p class="ph-sub">곡을 추가하면 여기 보여요.</p>';
     }

@@ -56,37 +56,127 @@ async function loadWeek(team, date) {
   };
 }
 
+/** '솔로' 칸(JSON 문자열) ↔ [{name,part}] 배열 */
+function parseSolo(str) {
+  if (!str) return [];
+  try { const a = JSON.parse(str); return Array.isArray(a) ? a.filter((x) => x && x.name) : []; } catch (e) { return []; }
+}
+function soloFromBody(b) {
+  const names = [].concat(b['솔로_이름'] || []);
+  const parts = [].concat(b['솔로_파트'] || []);
+  const out = [];
+  names.forEach((n, i) => { n = String(n || '').trim(); if (n) out.push({ name: n, part: String(parts[i] || '').trim() }); });
+  return out;
+}
+function soloRowHtml(r) {
+  r = r || { name: '', part: '' };
+  return `<div class="ph-solorow">
+    <input type="text" name="솔로_이름[]" placeholder="누가" value="${esc(r.name || '')}">
+    <input type="text" name="솔로_파트[]" placeholder="어디 (예: 1절 · 브릿지)" value="${esc(r.part || '')}">
+  </div>`;
+}
+function soloFieldsHtml(solo) {
+  const rows = (solo || []).slice();
+  while (rows.length < 3) rows.push({ name: '', part: '' });
+  return `<div class="ph-field">
+    <label>솔로 <span style="font-weight:600;">(있으면 — 방송팀이 마이크를 올립니다)</span></label>
+    <div class="ph-solorows">${rows.map(soloRowHtml).join('')}</div>
+    <button type="button" class="ph-btn" data-add-solo>+ 솔로 추가</button>
+  </div>`;
+}
+/** 리스트 어디서든 '+ 솔로 추가' 버튼을 한 번만 걸어두면 동작하는 위임 스크립트 */
+const SOLO_ROWS_SCRIPT = `<script>
+(function(){
+  if (window.__phSoloRowsBound) return; window.__phSoloRowsBound = true;
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-add-solo]'); if (!btn) return;
+    e.preventDefault();
+    var wrap = btn.previousElementSibling; if (!wrap) return;
+    var rows = wrap.querySelectorAll('.ph-solorow'); var last = rows[rows.length - 1];
+    var clone = last.cloneNode(true);
+    clone.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+    wrap.appendChild(clone);
+  });
+})();
+</script>`;
+
 function songRow(s, { editable }) {
-  const bits = [s['Key'] && `Key ${s['Key']}`, s['송폼'], s['BPM'] && `${s['BPM']} BPM`].filter(Boolean).join(' · ');
+  const solo = parseSolo(s['솔로']);
+  const bits = [s['팀'], s['Key'] && `Key ${s['Key']}`, s['송폼'], s['BPM'] && `${s['BPM']} BPM`].filter(Boolean).join(' · ');
   return `<div class="ph-list-item">
     <div class="ph-li-main">
       <div class="ph-li-title">${esc(s['제목'] || '(제목 없음)')}</div>
       ${bits ? `<div class="ph-li-sub">${esc(bits)}</div>` : ''}
       ${s['유튜브'] ? `<a class="ph-li-link" href="${esc(s['유튜브'])}" target="_blank" rel="noopener">▶ 유튜브</a>` : ''}
+      ${solo.length ? `<div class="ph-solo-badges">🎤 솔로 — ${solo.map((x) => esc(x.name) + (x.part ? `<em>${esc(x.part)}</em>` : '')).join(', ')}</div>` : ''}
       ${s['비고'] ? `<div class="ph-li-note">${esc(s['비고'])}</div>` : ''}
     </div>
-    ${editable ? `<form method="post" action="/conti/songs/delete" onsubmit="return confirm('이 곡을 지울까요?')">
-      <input type="hidden" name="__row" value="${s.__row}">
-      <input type="hidden" name="team" value="${esc(s['팀ID'])}"><input type="hidden" name="date" value="${esc(s['날짜'])}">
-      <button class="ph-row-del" type="submit" title="삭제">✕</button>
-    </form>` : ''}
+    ${editable ? `<details class="ph-row-edit">
+      <summary title="수정">⋯</summary>
+      <form method="post" action="/conti/songs/edit" class="ph-inlineform">
+        <input type="hidden" name="__row" value="${s.__row}">
+        <input type="hidden" name="team" value="${esc(s['팀ID'])}"><input type="hidden" name="date" value="${esc(s['날짜'])}">
+        <input type="hidden" name="구분" value="${esc(s['구분'])}"><input type="hidden" name="순서" value="${esc(s['순서'])}">
+        <input type="text" name="제목" value="${esc(s['제목'])}" placeholder="곡 제목" required>
+        <div class="ph-inline3">
+          <input type="text" name="팀" value="${esc(s['팀'] || '')}" placeholder="원곡팀">
+          <input type="text" name="Key" value="${esc(s['Key'] || '')}" placeholder="Key">
+          <input type="text" name="BPM" value="${esc(s['BPM'] || '')}" placeholder="BPM" inputmode="numeric">
+        </div>
+        <input type="text" name="송폼" value="${esc(s['송폼'] || '')}" placeholder="송폼 (예: V1-C-V2-C-B-C)">
+        <input type="text" name="유튜브" value="${esc(s['유튜브'] || '')}" placeholder="유튜브 링크">
+        <input type="text" name="비고" value="${esc(s['비고'] || '')}" placeholder="설명 — 간주·전조·반복 등">
+        ${soloFieldsHtml(solo)}
+        <button class="ph-btn pri" type="submit">저장</button>
+      </form>
+      <form method="post" action="/conti/songs/delete" onsubmit="return confirm('이 곡을 지울까요?')">
+        <input type="hidden" name="__row" value="${s.__row}">
+        <input type="hidden" name="team" value="${esc(s['팀ID'])}"><input type="hidden" name="date" value="${esc(s['날짜'])}">
+        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">✕ 이 곡 삭제</button>
+      </form>
+    </details>` : ''}
+  </div>`;
+}
+
+/** 콘티 맨 위 — 방송팀이 한눈에 보는 솔로 순서 (콘티 + 결단찬양 합산) */
+function soloSummaryBox(conti, final) {
+  const rows = [];
+  conti.forEach((s, i) => parseSolo(s['솔로']).forEach((x) => rows.push([`${i + 1}`, s['제목'], x])));
+  final.forEach((s) => parseSolo(s['솔로']).forEach((x) => rows.push(['결단', s['제목'], x])));
+  if (!rows.length) return '';
+  return `<div class="ph-solosum">
+    <div class="ssh">🎤 방송팀 체크 — 솔로 마이크</div>
+    ${rows.map((r) => `<div class="ph-ssrow"><span class="sst">${esc(r[0])}</span><b>${esc(r[1])}</b> — ${esc(r[2].name)}${r[2].part ? `<em>${esc(r[2].part)}</em>` : ''}</div>`).join('')}
   </div>`;
 }
 
 function songForm(kind, team, date) {
-  const label = kind === '결단' ? '결단찬양 추가' : '콘티에 곡 추가';
-  return `<details class="ph-add">
-    <summary>+ ${label}</summary>
+  const label = kind === '결단' ? '결단찬양' : '콘티';
+  return `
+  <details class="ph-add">
+    <summary>+ ${label} 한꺼번에 올리기</summary>
+    <form method="post" action="/conti/songs/bulk" class="ph-inlineform">
+      <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="구분" value="${kind}">
+      <p class="ph-sub">한 줄에 한 곡씩, <b>제목 - 원곡팀 - Key</b> 순서로 붙여넣으세요. 원곡팀·Key는 생략해도 됩니다.</p>
+      <textarea name="목록" rows="5" placeholder="주님의 사랑 - 마커스 - G
+은혜 - - A" style="width:100%;padding:10px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:15px;font-family:inherit;"></textarea>
+      <button class="ph-btn pri" type="submit">한 번에 추가</button>
+    </form>
+  </details>
+  <details class="ph-add">
+    <summary>+ ${label} 하나하나 올리기</summary>
     <form method="post" action="/conti/songs" class="ph-inlineform">
       <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(date)}"><input type="hidden" name="구분" value="${kind}">
       <input type="text" name="제목" placeholder="곡 제목" required>
       <div class="ph-inline3">
+        <input type="text" name="팀" placeholder="원곡팀 (예: 마커스)">
         <input type="text" name="Key" placeholder="Key (예: G)">
-        <input type="text" name="송폼" placeholder="송폼">
         <input type="text" name="BPM" placeholder="BPM" inputmode="numeric">
       </div>
+      <input type="text" name="송폼" placeholder="송폼 (예: V1-C-V2-C-B-C)">
       <input type="text" name="유튜브" placeholder="유튜브 링크 (선택)">
-      <input type="text" name="비고" placeholder="비고 (선택)">
+      <input type="text" name="비고" placeholder="설명 — 간주·전조·반복 등 (선택)">
+      ${soloFieldsHtml([])}
       <button class="ph-btn pri" type="submit">추가</button>
     </form>
   </details>`;
@@ -149,6 +239,8 @@ router.get('/conti', requireTeam, async (req, res) => {
     <a class="ph-btn pri" style="margin-top:12px;" href="/conti/practice?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">🎤 연습 화면 열기 (라이브 악보 · 메트로놈)</a>
     <p class="ph-msg" style="margin-top:10px;"><a href="${publicUrl}" target="_blank" rel="noopener">🔗 로그인 없이 보는 공개 링크</a></p>
   </div>
+
+  ${soloSummaryBox(w.conti, w.final)}
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
@@ -216,6 +308,7 @@ router.get('/conti', requireTeam, async (req, res) => {
       <button class="ph-btn" type="submit">등록</button>
     </form>
   </div>
+  ${SOLO_ROWS_SCRIPT}
   `;
   res.type('html').send(await pageShell.render(content, { title: `${team} 예배콘티` }));
 });
@@ -227,8 +320,8 @@ router.get('/conti/practice', requireTeam, async (req, res) => {
   const date = week.normalizeDate(req.query.date);
   const w = await loadWeek(team, date);
   const songs = [...w.conti, ...w.final].map((s) => ({
-    title: s['제목'] || '(제목 없음)', key: s['Key'] || '', bpm: Number(s['BPM']) || 0,
-    youtube: s['유튜브'] || '', note: s['비고'] || '',
+    title: s['제목'] || '(제목 없음)', team: s['팀'] || '', key: s['Key'] || '', bpm: Number(s['BPM']) || 0,
+    youtube: s['유튜브'] || '', note: s['비고'] || '', solo: parseSolo(s['솔로']),
   }));
   const sheets = w.sheets.map((s) => ({ id: String(s.__row), title: s['제목'] || '악보', link: s['파일링크'] || '' }));
   const roomId = `practice:${team}::${date}`;
@@ -277,9 +370,53 @@ router.post('/conti/songs', requireTeam, async (req, res) => {
   const all = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && r['날짜'] === date && r['구분'] === kind);
   await sheetsDb.appendRow('찬양콘티', {
     'ID': 'C' + Date.now().toString(36), '팀ID': team, '날짜': date, '구분': kind,
-    '순서': all.length + 1, '제목': title, 'Key': b['Key'] || '', '유튜브': b['유튜브'] || '',
+    '순서': all.length + 1, '제목': title, '팀': b['팀'] || '', 'Key': b['Key'] || '', '유튜브': b['유튜브'] || '',
     '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': new Date().toISOString(),
+    '솔로': JSON.stringify(soloFromBody(b)),
   });
+  backTo(res, team, date);
+});
+
+/** 곡 제목·Key·BPM 등을 수정 (church-app처럼 삭제 후 다시 올리지 않아도 됩니다) */
+router.post('/conti/songs/edit', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
+  const row = Number(b.__row);
+  const title = String(b['제목'] || '').trim();
+  if (row && title) {
+    try {
+      await sheetsDb.updateRow('찬양콘티', row, {
+        'ID': b['ID'] || '', '팀ID': team, '날짜': date, '구분': b['구분'] === '결단' ? '결단' : '콘티',
+        '순서': b['순서'] || 0, '제목': title, '팀': b['팀'] || '', 'Key': b['Key'] || '', '유튜브': b['유튜브'] || '',
+        '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': b['만든시각'] || new Date().toISOString(),
+        '솔로': JSON.stringify(soloFromBody(b)),
+      });
+    } catch (e) { console.error('[콘티 수정 실패]', e.message); }
+  }
+  backTo(res, team, date);
+});
+
+/** 한꺼번에 올리기 — 한 줄에 "제목 - 원곡팀 - Key" */
+router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim(), date = week.normalizeDate(b.date);
+  const kind = b['구분'] === '결단' ? '결단' : '콘티';
+  const lines = String(b['목록'] || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  if (lines.length) {
+    const all = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && r['날짜'] === date && r['구분'] === kind);
+    let seq = all.length;
+    for (const ln of lines) {
+      const parts = ln.replace(/^\d+[.)]\s*/, '').split(/\s+[-–|]\s+|\t/);
+      const title = (parts[0] || '').trim();
+      if (!title) continue;
+      seq += 1;
+      await sheetsDb.appendRow('찬양콘티', {
+        'ID': 'C' + Date.now().toString(36) + seq, '팀ID': team, '날짜': date, '구분': kind, '순서': seq,
+        '제목': title, '팀': (parts[1] || '').trim(), 'Key': (parts[2] || '').trim(), '유튜브': '',
+        '송폼': '', 'BPM': '', '비고': '', '만든시각': new Date().toISOString(), '솔로': '[]',
+      });
+    }
+  }
   backTo(res, team, date);
 });
 
@@ -381,6 +518,7 @@ router.get('/public/conti', async (req, res) => {
   const content = `
   ${hero}
   <div class="ph-card">${nav}</div>
+  ${soloSummaryBox(w.conti, w.final)}
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
     <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: false })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>

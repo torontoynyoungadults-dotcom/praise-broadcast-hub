@@ -276,3 +276,30 @@ a { color: var(--accent); text-decoration: none; }
 }
 .pv-beat.on { background: var(--accent); border-color: var(--accent); transform: scale(1.25); }
 .pv-metrobtns { display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------- 콘티 — 솔로 · 한 곡 수정 접기 ---------- */
+.ph-solo-badges { margin-top: 6px; font-size: 13.5px; color: var(--accent); font-weight: 700; }
+.ph-solo-badges em { color: var(--dim); font-weight: 600; font-style: normal; margin-left: 2px; }
+.ph-solo-badges em::before { content: '· '; }
+.ph-solorows { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.ph-solorow { display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; }
+.ph-solorow input { min-height: 42px !important; font-size: 14.5px !important; }
+.ph-list-item { flex-wrap: wrap; }
+.ph-row-edit { flex: none; }
+.ph-row-edit > summary {
+  cursor: pointer; list-style: none; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line);
+  background: transparent; color: var(--dim); font-size: 18px; display: flex; align-items: center; justify-content: center;
+}
+.ph-row-edit > summary::-webkit-details-marker { display: none; }
+.ph-row-edit > summary:hover { background: var(--glass-2); color: var(--ink); }
+.ph-row-edit[open] > summary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.ph-row-edit .ph-inlineform { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 8px; width: 100%; }
+.ph-row-edit form + form { margin-top: 8px; }
+
+.ph-solosum { border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, var(--bg-2)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); padding: 12px 14px; margin-bottom: 12px; }
+.ph-solosum .ssh { font-weight: 800; font-size: 13.5px; color: var(--accent); margin-bottom: 8px; }
+.ph-ssrow { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 4px 0; flex-wrap: wrap; }
+.ph-ssrow b { font-weight: 800; }
+.ph-ssrow .sst { color: var(--dim); }
+.ph-ssrow em { color: var(--dim); font-style: normal; }
+.ph-ssrow em::before { content: '· '; }
