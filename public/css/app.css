@@ -245,6 +245,7 @@ a { color: var(--accent); text-decoration: none; }
 .ph-row-actions { display: flex; flex-direction: column; gap: 6px; flex: none; }
 .ph-row-actions form { margin: 0; }
 .ph-notice.pinned { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, var(--bg-2)); }
+.ph-li-past { opacity: .55; }
 
 /* ---------- 추가 폼 (details/summary로 접어 둠) ---------- */
 .ph-add { margin-top: 4px; }
@@ -373,6 +374,11 @@ a { color: var(--accent); text-decoration: none; }
 .ph-offline b { font-weight: 800; }
 .ph-offline em { font-style: normal; color: var(--dim); margin-left: 2px; }
 .ph-offline em::before { content: '· '; }
+.ph-practiceline { margin-bottom: 10px; font-size: 13.5px; font-weight: 700; color: var(--accent); }
+.ph-practiceline em { font-style: normal; color: var(--dim); font-weight: 600; margin-left: 2px; }
+.ph-practiceline em::before { content: '· '; }
+.ph-checkline { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--sub); }
+.ph-checkline input { width: auto !important; min-height: auto !important; }
 
 /* ---------- 라이브러리 ---------- */
 .ph-arcard + .ph-arcard { margin-top: 10px; }

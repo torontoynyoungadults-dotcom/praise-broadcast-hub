@@ -87,6 +87,52 @@ async function lineupCard(team, date, byPos, roster, infoMap) {
   </div>`;
 }
 
+/* ---------- 주일 외 서는 날(성탄절 · 송구영신예배 · 특별새벽기도 · 부흥회 · 철야기도회 등) ---------- */
+const SPECIAL_SERVICE_SUGGESTIONS = ['성탄절 예배', '송구영신예배', '특별새벽기도', '부흥회', '철야기도회'];
+
+async function specialServices(team) {
+  const rows = await sheetsDb.readAll('특별예배');
+  return rows.filter((r) => r['팀ID'] === team).sort((a, b) => a['날짜'].localeCompare(b['날짜']));
+}
+
+async function specialServiceFor(team, date) {
+  const rows = await specialServices(team);
+  return rows.find((r) => r['날짜'] === date) || null;
+}
+
+function specialCard(team, list, isAdmin, currentDate) {
+  const today = week.todayStr();
+  const items = list.map((s) => {
+    const isPast = s['날짜'] < today;
+    return `<div class="ph-list-item${isPast ? ' ph-li-past' : ''}">
+      <div class="ph-li-main">
+        <a class="ph-li-link strong" href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(s['날짜'])}">${esc(s['이름'])}</a>
+        <div class="ph-li-sub">${esc(week.labelKo(s['날짜']))}</div>
+      </div>
+      ${isAdmin ? `<form method="post" action="/conti/special/delete" onsubmit="return confirm('${esc(s['이름'])}(${esc(s['날짜'])}) 표시를 지울까요? (콘티 내용 자체는 안 지워져요)')">
+        <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="date" value="${esc(currentDate)}">
+        <button class="ph-row-del" type="submit" title="삭제">✕</button>
+      </form>` : ''}
+    </div>`;
+  }).join('');
+  const addForm = isAdmin ? `
+    <details class="ph-add">
+      <summary>+ 주일 외 서는 날 추가 (성탄절 · 송구영신예배 등)</summary>
+      <form method="post" action="/conti/special/add" class="ph-inlineform">
+        <input type="hidden" name="team" value="${esc(team)}">
+        <input type="date" name="날짜" required>
+        <input type="text" name="이름" list="ph-special-suggest" placeholder="예: 성탄절 예배" maxlength="40" required>
+        <datalist id="ph-special-suggest">${SPECIAL_SERVICE_SUGGESTIONS.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
+        <button class="ph-btn pri" type="submit">추가</button>
+      </form>
+    </details>` : '';
+  return `<div class="ph-card">
+    <h2 class="ph-h2">주일 외 서는 날</h2>
+    ${items || '<p class="ph-sub">아직 등록된 날이 없어요. 성탄절·송구영신예배·특별새벽기도·부흥회·철야기도회 등을 추가해두면 그 날짜의 예배콘티로 바로 갈 수 있어요.</p>'}
+    ${addForm}
+  </div>`;
+}
+
 /* ---------- 조회(읽기) 공통 — 로그인 화면과 공개 화면이 함께 씁니다 ---------- */
 async function loadWeek(team, date) {
   const [songs, metaRows, sheets, recs, comments] = await Promise.all([
@@ -329,7 +375,11 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   const publicUrl = `/public/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
 
-  const hero = pageShell.hero({ eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
+  const [special, specialToday] = await Promise.all([specialServices(team), specialServiceFor(team, date)]);
+  const hero = pageShell.hero({
+    eyebrow: `${team} · 예배콘티`, title: '예배콘티',
+    sub: specialToday ? `${specialToday['이름']} · ${week.labelKo(date)}` : week.labelKo(date),
+  });
   const { byPos, roster, infoMap } = await weekAssignments(team, date);
   const lineup = await lineupCard(team, date, byPos, roster, infoMap);
 
@@ -343,6 +393,8 @@ router.get('/conti', requireTeam, async (req, res) => {
     <a class="ph-btn pri" style="margin-top:12px;" href="/conti/practice?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">🎤 연습 화면 열기 (라이브 악보 · 메트로놈)</a>
     <p class="ph-msg" style="margin-top:10px;"><a href="${publicUrl}" target="_blank" rel="noopener">🔗 로그인 없이 보는 공개 링크</a></p>
   </div>
+
+  ${specialCard(team, special, ctx.isAdmin, date)}
 
   ${lineup}
 
@@ -556,6 +608,30 @@ router.post('/conti/lineup/unassign', requireTeam, async (req, res) => {
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('찬양편성', row); } catch (e) { console.error('[편성 삭제 실패]', e.message); } }
   backTo(req, res, b.team, week.normalizeDate(b.date));
+});
+
+router.post('/conti/special/add', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (!req.ctx.isAdmin) return backTo(req, res, team, week.normalizeDate(null));
+  const date = week.normalizeDate(b['날짜']);
+  const name = String(b['이름'] || '').trim();
+  if (date && name) {
+    const existing = await sheetsDb.findWhere('특별예배', (r) => r['팀ID'] === team && r['날짜'] === date);
+    if (existing) await sheetsDb.updateRow('특별예배', existing.__row, { ...existing, '이름': name });
+    else await sheetsDb.appendRow('특별예배', { 'ID': 'S' + Date.now().toString(36), '팀ID': team, '날짜': date, '이름': name, '등록시각': new Date().toISOString() });
+  }
+  backTo(req, res, team, date);
+});
+
+router.post('/conti/special/delete', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (req.ctx.isAdmin) {
+    const row = Number(b.__row);
+    if (row) { try { await sheetsDb.deleteRow('특별예배', row); } catch (e) { console.error('[특별예배 삭제 실패]', e.message); } }
+  }
+  backTo(req, res, team, week.normalizeDate(b.date));
 });
 
 router.post('/conti/songs', requireTeam, async (req, res) => {
