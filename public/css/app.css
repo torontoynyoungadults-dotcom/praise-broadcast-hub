@@ -346,38 +346,29 @@ a { color: var(--accent); text-decoration: none; }
 .ph-posgroup + .ph-posgroup { margin-top: 22px; }
 .ph-posgrouplabel { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 800; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
 .ph-posgrouplabel::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
-/* church-app 참고 화면처럼 한눈에 보이는 3칸 그리드 — 포지션 전부 같은 크기 타일로 */
-.ph-posrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-@media (max-width: 380px) { .ph-posrow { grid-template-columns: repeat(2, 1fr); } }
-
-/* 포지션 한 자리 = 크고 또렷한 유리질감 타일. 아이콘+이름은 항상 보이고,
-   눌러서 펼치면(＜details＞) 그 안에서 배정/해제. church-app 주일편성·스케줄표의 "한눈에 보기" 느낌. */
-.ph-poscell {
-  position: relative; border-radius: 18px; background: var(--glass); border: 1px solid var(--line);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: inset 0 1px 0 var(--inset-hi); overflow: hidden; transition: border-color .15s, box-shadow .15s;
+/* church-app 참고 화면처럼 — 공간을 아끼는 얇은 표 느낌의 3칸 그리드.
+   칸마다 따로 카드 배경을 두지 않고, 가는 선(그리드 경계)만으로 나눔. */
+.ph-posrow {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 10px; overflow: hidden;
 }
-.ph-poscell[open] { border-color: var(--line-hi); box-shadow: 0 10px 26px rgba(0,0,0,.22), inset 0 1px 0 var(--inset-hi); }
+@media (max-width: 360px) { .ph-posrow { grid-template-columns: repeat(2, 1fr); } }
+
+/* 포지션 한 자리 — 평소엔 아이콘+라벨, 그 아래 배정된 사람(아바타+이름, 가로형, 여러 명이면 세로로 나열).
+   눌러서 펼치면(＜details＞) 바로 아래에 배정/해제 폼이 나옴. */
+.ph-poscell { position: relative; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.ph-poscell[open] { background: var(--glass); }
 .ph-possummary {
-  list-style: none; display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 16px 8px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: center;
+  list-style: none; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 10px 10px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .ph-possummary::-webkit-details-marker, .ph-possummary::marker { display: none; content: ''; }
-.ph-pos-head { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.ph-posicon {
-  flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--glass-2); color: var(--accent); box-shadow: inset 0 1px 0 var(--inset-hi), 0 0 0 1px var(--line);
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-}
-.ph-posicon svg { width: 20px; height: 20px; }
-.ph-poslabel { font-size: 13px; font-weight: 800; color: var(--sub); letter-spacing: -.01em; }
-.ph-posnames { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 0; }
-.ph-poschevron {
-  position: absolute; top: 10px; right: 12px; color: var(--dim); font-size: 16px; font-weight: 700;
-  transition: transform .15s ease, color .15s ease;
-}
-.ph-poscell[open] .ph-poschevron { transform: rotate(90deg); color: var(--accent); }
-.ph-posbody { padding: 0 12px 14px; border-top: 1px dashed var(--line); margin-top: 2px; padding-top: 10px; }
+.ph-pos-head { display: flex; align-items: center; gap: 5px; }
+.ph-posicon { flex: none; width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; color: var(--accent); }
+.ph-posicon svg { width: 100%; height: 100%; }
+.ph-poslabel { font-size: 14.5px; font-weight: 800; color: var(--ink); letter-spacing: -.01em; }
+.ph-posnames { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 0; width: 100%; }
+.ph-posbody { width: 100%; padding: 0 10px 12px; border-top: 1px dashed var(--line); margin-top: 2px; padding-top: 10px; }
 .ph-posassigned { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .ph-assignedrow { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; }
 .ph-assignedrow span { flex: 1; min-width: 0; }
@@ -387,11 +378,11 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
 }
 .ph-assignedrow button:hover { color: var(--bad); }
-.ph-namechip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.ph-chipname { font-size: 13.5px; font-weight: 800; color: var(--ink); max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ph-namechip.none .ph-chipname { color: var(--dim); font-weight: 600; }
+.ph-namechip { display: flex; align-items: center; gap: 6px; max-width: 100%; }
+.ph-chipname { font-size: 15px; font-weight: 800; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-namechip.none { color: var(--dim); }
+.ph-namechip.none .ph-dash { font-size: 16px; font-weight: 700; color: var(--dim); }
 .ph-namechip.guest .ph-chipname { color: var(--sub); font-style: italic; }
-.ph-avatar-empty { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--dim); font-weight: 700; }
 .ph-tblicon { display: inline-flex; width: 13px; height: 13px; margin-right: 3px; vertical-align: -2px; color: var(--accent); }
 .ph-tblicon svg { width: 100%; height: 100%; }
 
@@ -403,9 +394,9 @@ a { color: var(--accent); text-decoration: none; }
 .ph-avatar-sm { width: 20px; height: 20px; }
 .ph-avatar-sm .ph-avatar-txt { font-size: 10px; }
 .ph-avatar-sm .ph-avatar-badge { width: 11px; height: 11px; font-size: 7px; }
-.ph-avatar-md { width: 40px; height: 40px; }
-.ph-avatar-md .ph-avatar-txt { font-size: 16px; }
-.ph-avatar-md .ph-avatar-badge { width: 16px; height: 16px; font-size: 9.5px; }
+.ph-avatar-md { width: 32px; height: 32px; }
+.ph-avatar-md .ph-avatar-txt { font-size: 13px; }
+.ph-avatar-md .ph-avatar-badge { width: 14px; height: 14px; font-size: 8.5px; }
 .ph-avatar-lg { width: 52px; height: 52px; }
 .ph-avatar-lg .ph-avatar-txt { font-size: 20px; }
 .ph-avatar-lg .ph-avatar-badge { width: 20px; height: 20px; font-size: 11px; }
@@ -481,7 +472,7 @@ a { color: var(--accent); text-decoration: none; }
 /* ---------- 스케줄표 — 객원/강조/불가 이름 배지 (church-app처럼) ---------- */
 .ph-namechip.off .ph-avatar { opacity: .5; }
 .ph-namechip.off .ph-chipname { opacity: .6; text-decoration: line-through; }
-.ph-namechip.hl .ph-avatar { box-shadow: 0 0 0 2.5px var(--accent), inset 0 0 0 1.5px var(--line-hi); }
+.ph-namechip.hl { background: var(--glass-2); border-radius: 999px; padding: 4px 10px 4px 4px; margin: -4px 0 -4px -4px; }
 .ph-namechip.hl .ph-chipname { color: var(--accent); }
 
 /* ---------- 달력 띠(week strip) — church-app처럼 여러 주를 가로로 넘겨보는 날짜 선택 ---------- */

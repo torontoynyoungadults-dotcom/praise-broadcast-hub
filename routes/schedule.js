@@ -150,7 +150,7 @@ function positionCell(date, posKey, names, roster, offSet, hl, rangeKey, view) {
     const cls = ['ph-namechip', isOff ? 'off' : '', isGuest ? 'guest' : '', isHl ? 'hl' : ''].filter(Boolean).join(' ');
     return `<span class="${cls}" title="${esc(n.이름)}${isOff ? ' — 불가' : ''}${isGuest ? ' (객원)' : ''}">${avatar.avatarHtml(n.이름, roster.infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(avatar.givenName(n.이름))}</span></span>`;
   };
-  const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-avatar ph-avatar-md ph-avatar-empty">–</span><span class="ph-chipname">미정</span></span>';
+  const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
   const assignedRows = names.map((n) => {
     const isGuest = roster.names.indexOf(n.이름) === -1;
     return `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, roster.infoMap[n.이름] || {}, 'sm')}<span>${esc(n.이름)}${isGuest ? ' (객원)' : ''}</span>
@@ -162,7 +162,6 @@ function positionCell(date, posKey, names, roster, offSet, hl, rangeKey, view) {
   }).join('');
   return `<details class="ph-poscell">
     <summary class="ph-possummary">
-      <span class="ph-poschevron">›</span>
       <span class="ph-pos-head"><span class="ph-posicon">${positionIconSvg(posKey)}</span><span class="ph-poslabel">${esc(posKey)}</span></span>
       <span class="ph-posnames">${chips}</span>
     </summary>
