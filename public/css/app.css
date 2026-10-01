@@ -103,6 +103,16 @@ a { color: var(--accent); text-decoration: none; }
 }
 :root[data-theme="light"] .ph-hero { box-shadow: 0 14px 30px rgba(120,70,20,.12); }
 .ph-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* SVG 안의 fill/stop-color를 CSS 규칙으로 지정 (var()를 XML 속성값에 직접 쓰면 일부
+   브라우저에서 제대로 안 먹혀서 새까맣게 보이는 문제가 있어 클래스+스타일시트로 분리함) */
+.ph-stop-sky1 { stop-color: var(--hero-sky-1); }
+.ph-stop-sky2 { stop-color: var(--hero-sky-2); }
+.ph-stop-sky3 { stop-color: var(--hero-sky-3); }
+.ph-stop-glow { stop-color: var(--hero-sun-glow); }
+.ph-fill-sun { fill: var(--hero-sun); }
+.ph-fill-mtn1 { fill: var(--hero-mtn-1); }
+.ph-fill-mtn2 { fill: var(--hero-mtn-2); }
+.ph-fill-mtn3 { fill: var(--hero-mtn-3); }
 .ph-hero-text {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 24px 20px;
   background: linear-gradient(to top, rgba(10,10,14,.62) 0%, rgba(10,10,14,.34) 60%, rgba(10,10,14,0) 100%);
