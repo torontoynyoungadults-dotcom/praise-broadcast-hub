@@ -371,3 +371,79 @@ a { color: var(--accent); text-decoration: none; }
 .ph-namechip.guest { border-style: dashed; color: var(--sub); }
 .ph-namechip.off { opacity: .55; text-decoration: line-through; }
 .ph-namechip.hl { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; font-weight: 800; }
+
+/* ============================================================
+   송폼 빌더(public/js/formb.js) + @태그 · 유튜브 검색 보조(church-app의 formb.js/conti.js 스타일을 그대로)
+   다크 글래스모피즘 · 주황 포인트 — 자체 변수(--g-*, --c-*)를 쓰므로 바깥 테마와 안 겹침.
+   ============================================================ */
+.fb, .fp {
+  --g-bg: rgba(20, 20, 27, .74); --g-bg2: rgba(34, 34, 44, .62); --g-solid: #14141b;
+  --g-line: rgba(255, 255, 255, .15); --g-line2: rgba(255, 255, 255, .26);
+  --g-ink: #f8f5f0; --g-sub: #d4cfc7; --g-dim: #a9a39a;
+  --g-a: #ff8a2a; --g-a2: #ffb066; --g-a-rgb: 255, 138, 42; --g-ok: #5dff9a; --g-bad: #ff6b6b;
+}
+:root[data-theme="light"] .fb, :root[data-theme="light"] .fp {
+  --g-bg: rgba(255, 255, 255, .86); --g-bg2: rgba(255, 255, 255, .7); --g-solid: #FFFFFF;
+  --g-line: rgba(15, 23, 42, .12); --g-line2: rgba(15, 23, 42, .2);
+  --g-ink: #0F172A; --g-sub: #475569; --g-dim: #64748B;
+  --g-a: #2FA3AD; --g-a2: #0B6E77; --g-a-rgb: 70, 189, 198; --g-ok: #15803D; --g-bad: #B42318;
+}
+.fb button, .fp button { font-family: inherit; }
+.fb { color: var(--g-ink); background: rgba(20, 20, 27, .5); border: 1px solid var(--g-line2); border-radius: 16px; padding: 12px; backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%); }
+:root[data-theme="light"] .fb { background: rgba(255, 255, 255, .5); }
+.fb-seq { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 52px; padding: 8px; border-radius: 12px; background: rgba(0, 0, 0, .3); border: 1px dashed var(--g-line2); }
+:root[data-theme="light"] .fb-seq { background: rgba(15, 23, 42, .04); }
+.fb-chip { display: inline-flex; align-items: baseline; gap: 2px; padding: 7px 12px; border-radius: 11px; background: rgba(255, 255, 255, .12); border: 1px solid var(--g-line2); font-size: 15px; color: var(--g-ink); cursor: pointer; }
+.fb-chip b { font-weight: 800; } .fb-chip i { font-style: normal; font-size: 12px; color: var(--g-a2); font-weight: 800; }
+.fb-chip em { font-style: normal; font-size: 11.5px; font-weight: 800; color: var(--g-a2); margin-left: 4px; }
+.fb-chip.on { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; } .fb-chip.on i, .fb-chip.on em { color: #3a1c05; } .fb-chip.custom { border-style: dashed; }
+.fb-arr { color: var(--g-dim); font-size: 14px; } .fb-empty { color: var(--g-sub); font-size: 14px; }
+.fb-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.fb-t { padding: 8px 12px; border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); font-size: 13px; font-weight: 800; cursor: pointer; }
+.fb-t:disabled { opacity: .35; cursor: default; }
+.fb-t.on { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; }
+.fb-t.primary { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; font-weight: 800; }
+.fb-pal { display: flex; flex-direction: column; gap: 6px; } .fb-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-btn { min-width: 52px; height: 46px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .1); color: var(--g-ink); font-size: 16px; font-weight: 800; cursor: pointer; transition: transform .08s, background .12s; }
+.fb-btn:hover { background: rgba(var(--g-a-rgb), .3); border-color: var(--g-a); } .fb-btn:active { transform: scale(.94); background: var(--g-a); color: #160b03; }
+.fb-hint { margin: 10px 0 0; font-size: 12.5px; color: var(--g-sub); line-height: 1.6; }
+.fb-bars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid var(--g-line); }
+.fb-bars > span, .fb-custom > span { font-size: 12.5px; font-weight: 800; color: var(--g-a2); margin-right: 2px; }
+.fb-num { width: 62px; height: 40px; text-align: center; font-size: 16px; font-weight: 800; color: var(--g-ink); border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .08); }
+.fb-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--g-line); }
+.fb-cin { flex: 1 1 180px; min-width: 0; height: 42px; padding: 0 12px; font-size: 15px; color: var(--g-ink); border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .08); }
+.fp { display: flex; flex-wrap: wrap; gap: 7px; margin: 6px 0; }
+.fp-chip { display: flex; flex-direction: column; align-items: center; min-width: 56px; padding: 8px 10px; border-radius: 13px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); cursor: pointer; }
+.fp-chip b { font-size: 18px; font-weight: 800; } .fp-chip i { font-style: normal; font-size: 11px; color: var(--g-a2); font-weight: 800; } .fp-chip small { font-size: 10.5px; color: var(--g-sub); }
+.fp-chip em { font-style: normal; font-size: 11.5px; font-weight: 800; color: var(--g-a2); display: block; margin: 0; line-height: 1.1; }
+.fp-chip.on { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; box-shadow: 0 6px 20px rgba(var(--g-a-rgb), .4); } .fp-chip.on small, .fp-chip.on i { color: #3a1c05; } .fp-chip.done { opacity: .5; }
+
+/* ---------- @태그 칩 + 유튜브 검색 보조 (church-app conti.js 스타일) ---------- */
+.cn-mention, .cn-chips, .cn-chip, .cn-mini, .cn-mt {
+  --c-bg: rgba(20, 20, 27, .74); --c-bg2: rgba(34, 34, 44, .62); --c-line: rgba(255, 255, 255, .16); --c-line2: rgba(255, 255, 255, .28);
+  --c-ink: #f8f5f0; --c-sub: #d4cfc7; --c-dim: #a9a39a; --c-a: #ff8a2a; --c-a2: #ffb066; --c-ok: #5dff9a; --c-bad: #ff8a8a;
+}
+:root[data-theme="light"] .cn-mention, :root[data-theme="light"] .cn-chips, :root[data-theme="light"] .cn-chip, :root[data-theme="light"] .cn-mini, :root[data-theme="light"] .cn-mt {
+  --c-bg: rgba(255, 255, 255, .86); --c-bg2: rgba(255, 255, 255, .7); --c-line: rgba(15, 23, 42, .12); --c-line2: rgba(15, 23, 42, .2);
+  --c-ink: #0F172A; --c-sub: #475569; --c-dim: #64748B; --c-a: #2FA3AD; --c-a2: #0B6E77; --c-ok: #15803D; --c-bad: #B42318;
+}
+.cn-mention { margin-top: 10px; }
+.cn-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cn-chips-t { font-size: 12px; font-weight: 850; color: var(--c-a2); margin-right: 2px; }
+.cn-chip { min-height: 36px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--c-line2); background: rgba(255, 255, 255, .08); color: var(--c-ink); font: 750 13px/1 inherit; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cn-chip.off { color: var(--c-dim); border-style: dashed; } .cn-chip.name { border-color: rgba(244, 114, 182, .5); }
+.cn-chip:active { transform: scale(.96); }
+.cn-pvs:empty { display: none; } .cn-pvs { margin-top: 8px; }
+.cn-pv { font-size: 13px; color: var(--c-sub); line-height: 1.9; }
+.cn-warn { color: var(--c-a2); } .cn-dim { color: var(--c-dim); font-size: 12px; }
+.cn-mt { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; margin: 0 1px; border-radius: 99px; font-weight: 850; font-size: .94em; line-height: 1.7; vertical-align: baseline;
+  border: 1px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .12); color: var(--c-ink); white-space: nowrap; }
+.cn-mt-v { background: rgba(255, 138, 42, .24); border-color: rgba(255, 138, 42, .7); color: #ffd9b8; }
+.cn-mt-name { background: rgba(244, 114, 182, .22); border-color: rgba(244, 114, 182, .65); color: #ffd6ea; }
+.cn-mt-none { background: transparent; border-style: dashed; color: var(--c-dim); }
+.cn-titlerow { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.cn-titlerow input { flex: 1 1 180px; min-width: 0; }
+.cn-mini { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--c-line2);
+  background: rgba(255, 255, 255, .08); color: var(--c-ink); font: 750 13px/1.2 inherit; font-family: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cn-mini:hover { background: rgba(255, 255, 255, .16); }
+.cn-ytbtn { width: 100%; margin-top: 4px; text-align: left; }

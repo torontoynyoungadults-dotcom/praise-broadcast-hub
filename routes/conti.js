@@ -15,7 +15,9 @@ const pageShell = require('../lib/pageShell');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
-const { POSITION_GROUPS } = require('../lib/positions');
+const { POSITION_GROUPS, ALL_POSITIONS } = require('../lib/positions');
+// public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
+const YNForm = require('../public/js/formb.js');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -60,11 +62,16 @@ function lineupCell(date, team, posKey, names, roster) {
   </div>`;
 }
 
-async function lineupCard(team, date) {
+/** 이번 주 포지션 배정(byPos)과 팀 명단(roster) — 주일 편성 카드와 @태그 칩이 함께 씁니다 */
+async function weekAssignments(team, date) {
   const [assignRows, roster] = await Promise.all([sheetsDb.readAll('찬양편성'), teamRoster(team)]);
   const rows = assignRows.filter((r) => r['팀ID'] === team && r['날짜'] === date);
   const byPos = {};
   rows.forEach((r) => { (byPos[r['포지션']] = byPos[r['포지션']] || []).push({ 이름: r['이름'], __row: r.__row }); });
+  return { byPos, roster };
+}
+
+async function lineupCard(team, date, byPos, roster) {
   const groups = POSITION_GROUPS.map(([label, keys]) => `
     <div class="ph-posgroup">
       <div class="ph-posgrouplabel">${esc(label)}</div>
@@ -144,9 +151,49 @@ const SOLO_ROWS_SCRIPT = `<script>
 })();
 </script>`;
 
-function songRow(s, { editable }) {
+/* ---------- 송폼 빌더 — church-app처럼 칩을 눌러 Intro-V1-C-... 순서를 조립 (public/js/formb.js가 그림) ---------- */
+function songFormBuilderHtml(current, uid) {
+  const inputId = `ph-sform-${esc(uid)}`;
+  return `<div class="ph-field">
+    <label>송폼</label>
+    <input type="text" id="${inputId}" name="송폼" class="ph-songform-value" value="${esc(current || '')}" placeholder="송폼 (예: V1-C-V2-C-B-C)">
+    <details class="ph-sfbuilder">
+      <summary>송폼 빌더</summary>
+      <div class="ph-sfb" data-ph-sfb-host data-ph-sfb-input="${inputId}">
+        <p class="ph-sub">빌더를 불러오는 중…</p>
+      </div>
+    </details>
+  </div>`;
+}
+
+/** 유튜브 링크 입력 + "이 제목으로 유튜브 검색" 보조 링크 (church-app처럼 — 검색 API 없이 검색 결과 페이지로 보냄) */
+function youtubeFieldHtml(current) {
+  return `<div class="ph-titlerow">
+    <input type="text" name="유튜브" value="${esc(current || '')}" placeholder="유튜브 링크 (선택)">
+    <a href="#" class="cn-mini cn-ytbtn" data-ph-ytsearch target="_blank" rel="noopener">▶ YouTube 검색 (여러 버전 비교)</a>
+  </div>`;
+}
+
+/** @태그 — 설명 칸에 포지션/멤버 이름을 빠르게 넣는 칩 (church-app의 "@일렉 · @피아노 · @홍길동") + 지금 누가 받는지 미리보기 */
+function atTagsHtml(roster, byPos) {
+  byPos = byPos || {};
+  const slotsForJs = {};
+  const posChips = ALL_POSITIONS.map((p) => {
+    const who = (byPos[p] || []).map((n) => n.이름 || n).filter(Boolean);
+    slotsForJs[p] = who;
+    return `<button type="button" class="cn-chip${who.length ? '' : ' off'}" data-attag="@${esc(p)}" title="${esc(who.length ? who.join(', ') : '이번 주 배정 없음')}">@${esc(p)}</button>`;
+  }).join('');
+  const peopleChips = (roster || []).map((n) => `<button type="button" class="cn-chip name" data-attag="@${esc(n)}">@${esc(n)}</button>`).join('');
+  return `<div class="cn-mention" data-ph-attags data-ph-attag-slots='${esc(JSON.stringify(slotsForJs))}' data-ph-attag-roster='${esc(JSON.stringify(roster || []))}'>
+    <div class="cn-chips"><span class="cn-chips-t">@ 태그</span>${posChips}${peopleChips}</div>
+    <div class="cn-pvs" data-ph-attag-preview></div>
+  </div>`;
+}
+
+function songRow(s, { editable, roster, byPos }) {
   const solo = parseSolo(s['솔로']);
-  const bits = [s['팀'], s['Key'] && `Key ${s['Key']}`, s['송폼'], s['BPM'] && `${s['BPM']} BPM`].filter(Boolean).join(' · ');
+  const formPretty = s['송폼'] ? YNForm.pretty(s['송폼']) : '';
+  const bits = [s['팀'], s['Key'] && `Key ${s['Key']}`, formPretty, s['BPM'] && `${s['BPM']} BPM`].filter(Boolean).join(' · ');
   return `<div class="ph-list-item">
     <div class="ph-li-main">
       <div class="ph-li-title">${esc(s['제목'] || '(제목 없음)')}</div>
@@ -167,9 +214,11 @@ function songRow(s, { editable }) {
           <input type="text" name="Key" value="${esc(s['Key'] || '')}" placeholder="Key">
           <input type="text" name="BPM" value="${esc(s['BPM'] || '')}" placeholder="BPM" inputmode="numeric">
         </div>
-        <input type="text" name="송폼" value="${esc(s['송폼'] || '')}" placeholder="송폼 (예: V1-C-V2-C-B-C)">
-        <input type="text" name="유튜브" value="${esc(s['유튜브'] || '')}" placeholder="유튜브 링크">
-        <input type="text" name="비고" value="${esc(s['비고'] || '')}" placeholder="설명 — 간주·전조·반복 등">
+        ${songFormBuilderHtml(s['송폼'], `s${s.__row}`)}
+        <div class="ph-field"><label>유튜브</label>${youtubeFieldHtml(s['유튜브'])}</div>
+        <label>설명</label>
+        <textarea name="비고" rows="3" placeholder="간주 · 전조 · 반복 등 — 세션을 부르려면 @일렉 · @피아노 · @홍길동">${esc(s['비고'] || '')}</textarea>
+        ${atTagsHtml(roster, byPos)}
         ${soloFieldsHtml(solo)}
         <button class="ph-btn pri" type="submit">저장</button>
       </form>
@@ -194,8 +243,9 @@ function soloSummaryBox(conti, final) {
   </div>`;
 }
 
-function songForm(kind, team, date) {
+function songForm(kind, team, date, roster, byPos) {
   const label = kind === '결단' ? '결단찬양' : '콘티';
+  const uid = `new${kind === '결단' ? 'f' : 'c'}`;
   return `
   <details class="ph-add">
     <summary>+ ${label} 한꺼번에 올리기</summary>
@@ -217,9 +267,11 @@ function songForm(kind, team, date) {
         <input type="text" name="Key" placeholder="Key (예: G)">
         <input type="text" name="BPM" placeholder="BPM" inputmode="numeric">
       </div>
-      <input type="text" name="송폼" placeholder="송폼 (예: V1-C-V2-C-B-C)">
-      <input type="text" name="유튜브" placeholder="유튜브 링크 (선택)">
-      <input type="text" name="비고" placeholder="설명 — 간주·전조·반복 등 (선택)">
+      ${songFormBuilderHtml('', uid)}
+      <div class="ph-field"><label>유튜브</label>${youtubeFieldHtml('')}</div>
+      <label>설명</label>
+      <textarea name="비고" rows="3" placeholder="간주 · 전조 · 반복 등 — 세션을 부르려면 @일렉 · @피아노 · @홍길동"></textarea>
+      ${atTagsHtml(roster, byPos)}
       ${soloFieldsHtml([])}
       <button class="ph-btn pri" type="submit">추가</button>
     </form>
@@ -274,7 +326,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   const publicUrl = `/public/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
 
   const hero = pageShell.hero({ eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
-  const lineup = await lineupCard(team, date);
+  const { byPos, roster } = await weekAssignments(team, date);
+  const lineup = await lineupCard(team, date, byPos, roster);
 
   const content = `
   ${pageShell.hubNav('conti', team)}
@@ -292,14 +345,14 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
-    <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: true })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
-    ${songForm('콘티', team, date)}
+    <div class="ph-list">${w.conti.length ? w.conti.map((s) => songRow(s, { editable: true, roster, byPos })).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
+    ${songForm('콘티', team, date, roster, byPos)}
   </div>
 
   <div class="ph-card">
     <h2 class="ph-h2">결단찬양</h2>
-    <div class="ph-list">${w.final.length ? w.final.map((s) => songRow(s, { editable: true })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
-    ${songForm('결단', team, date)}
+    <div class="ph-list">${w.final.length ? w.final.map((s) => songRow(s, { editable: true, roster, byPos })).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    ${songForm('결단', team, date, roster, byPos)}
   </div>
 
   <div class="ph-card">
