@@ -138,7 +138,7 @@ router.get('/roster', requireTeam, async (req, res) => {
       <summary>+ 팀원 추가 (명단에 미리 등록)</summary>
       <form method="post" action="/roster/add" enctype="multipart/form-data" class="ph-inlineform">
         <input type="hidden" name="team" value="${esc(team)}">
-        <input type="text" name="이름" placeholder="한글 3글자 이름 (예: 홍길동)" maxlength="3" required>
+        <input type="text" name="이름" placeholder="한글 3글자 이름 (예: 홍길동)" required>
         <div class="ph-chips">
           <label class="ph-chip"><input type="radio" name="성별" value="남" required><span>남</span></label>
           <label class="ph-chip"><input type="radio" name="성별" value="여" required><span>여</span></label>

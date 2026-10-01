@@ -80,7 +80,7 @@ router.get('/signup', async (req, res) => {
     <form method="post" action="/signup" enctype="multipart/form-data">
       <div class="ph-field">
         <label>이름 (한글 3글자로 적어주세요 — 예: 홍길동)</label>
-        <input type="text" name="이름" id="ph-name" required maxlength="3" pattern="[가-힣]{3}" title="한글 3글자로 입력해주세요" value="${pageShell.esc(hint.name || '')}">
+        <input type="text" name="이름" id="ph-name" required pattern="[가-힣]{3}" autocomplete="name" autocapitalize="off" autocorrect="off" spellcheck="false" lang="ko" title="한글 3글자로 입력해주세요" value="${pageShell.esc(hint.name || '')}">
         <p class="ph-msg" id="ph-name-hint" style="margin-top:6px;">소속 찬양팀의 팀원 명단에 있는 이름과 똑같이 적어주세요.</p>
       </div>
       <div class="ph-field">
@@ -132,9 +132,15 @@ router.get('/signup', async (req, res) => {
       var el = document.getElementById('ph-name');
       var hint = document.getElementById('ph-name-hint');
       if (!el || !hint) return;
-      el.addEventListener('input', function () {
-        el.value = el.value.replace(/[^가-힣]/g, '').slice(0, 3);
-      });
+      // 한글은 자모를 조합하며 입력되므로(ㅎ → 하 → 한) 조합 중에는 건드리지 않고, 조합이 끝났을 때만 다듬습니다.
+      // (조합 중에 한글 음절이 아닌 글자를 지우면 한글 입력이 아예 안 되는 것처럼 보임)
+      var composing = false;
+      function clean() { var v = el.value.replace(/[^가-힣]/g, '').slice(0, 3); if (v !== el.value) el.value = v; }
+      el.addEventListener('compositionstart', function () { composing = true; });
+      el.addEventListener('compositionend', function () { composing = false; clean(); });
+      el.addEventListener('input', function (e) { if (!composing && !(e && e.isComposing)) clean(); });
+      el.addEventListener('blur', clean);
+      el.form && el.form.addEventListener('submit', clean);
     })();
   </script>`;
   res.type('html').send(await pageShell.render(content, { title: '회원가입' }));
