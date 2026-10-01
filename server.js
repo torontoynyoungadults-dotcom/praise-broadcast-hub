@@ -34,6 +34,7 @@ const app = express();
 app.set('trust proxy', true);
 app.disable('x-powered-by');
 app.use(express.urlencoded({ extended: true }));
+app.use('/api/worshipRepoSave', express.json({ limit: '20mb' }));   // 라이브러리 "＋ 악보 PDF" (12MB PDF → base64) — 아래 기본(2MB)보다 먼저
 app.use(express.json({ limit: '2mb' })); // 필기(연습 화면) 저장처럼 JS가 JSON으로 보내는 요청용 — 폼 전송(urlencoded)과 공존
 app.use(session.middleware);
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));

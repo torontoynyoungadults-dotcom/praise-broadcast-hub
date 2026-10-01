@@ -20,6 +20,7 @@ const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
 const liveAuth = require('../lib/liveAuth');
+const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
@@ -259,14 +260,19 @@ const FNS = {
   },
 };
 
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 router.post('/api/:fn', async (req, res) => {
   const fn = req.params.fn;
   const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
   res.set('Cache-Control', 'no-store');
-  if (!Object.prototype.hasOwnProperty.call(FNS, fn)) return res.json({ ok: false, error: '알 수 없는 요청입니다: ' + fn });
+  // 라이브 악보(FNS) + 스케줄표 · 라이브러리(lib/hubApi.js) — 둘 다 church-app callServer 약속
+  const table = own(FNS, fn) ? FNS : (own(hubApi.FNS, fn) ? hubApi.FNS : null);
+  if (!table) return res.json({ ok: false, error: '알 수 없는 요청입니다: ' + fn });
   try {
     const u = liveAuth.verify(args[0]);
-    const result = await FNS[fn](u, ...args.slice(1));
+    const rest = args.slice(1);
+    if (fn === 'worshipRepoSongUse') rest.length = 4, rest.push((team, sc) => songsChanged(team, sc, 'saveWorshipSongs'));   // 콘티에 곡을 넣으면 열린 라이브 악보에 알림
+    const result = await table[fn](u, ...rest);
     res.json({ ok: true, result });
   } catch (e) {
     if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[' + fn + ']', e);

@@ -1,0 +1,63 @@
+/* church-app 화면(.yn — public/hub/yn.css)을 이 앱 안에 앉히는 규칙 (손으로 쓴 파일)
+ *  · 바탕은 이 앱 것 (church-app 의 검정 · 회색 바탕 대신 투명) · 폭은 이 앱 본문 폭
+ *  · 강조색은 이 앱 주황 (church-app 밝은 화면의 청록 #46BDC6 대신)
+ *  · 이 앱에만 있는 연습일 표시 (눌러서 바꾸기) */
+.yn.yn-main, .yn.yn-portal,
+html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { background: transparent !important; }
+.yn.yn-main { margin: 0; min-height: 0; }
+.yn.yn-portal { margin: 0; padding: 0; min-height: 0; height: 0; line-height: normal; }
+.yn.yn-main > .shell { max-width: none; margin: 0; }
+.yn.yn-main #body { min-width: 0; }
+
+/* 강조색 — 어두운 화면: 주황 · 밝은 화면: 진한 주황 */
+.yn.yn-main, .yn.yn-portal { --accent: #FF8A3D; --tone-rgb: 255, 138, 61; }
+html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
+  --accent: #E8703C !important; --tone: #E8703C !important; --tone-rgb: 232, 112, 60 !important;
+  --lt-or: #E8703C; --lt-or-ink: #B24A1C; --lt-or-soft: rgba(232, 112, 60, .14); --lt-on-or: #FFFFFF; --lt-ring: 0 0 0 3px rgba(232, 112, 60, .28);
+}
+
+/* 팀 고르기 (팀이 둘 이상일 때) */
+.ph-teamcard { padding: 14px 16px; }
+
+/* ---------- 연습일 (이 앱) — 카드 머리의 "10/2(금) –" 를 눌러 바꿉니다 ---------- */
+.yn .stch .stpr {
+  cursor: pointer; border-radius: 8px; padding: 2px 6px; margin: -2px 2px -2px -6px;
+  text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-color: rgba(var(--tone-rgb), .55);
+  transition: background .15s ease, color .15s ease;
+}
+.yn .stch .stpr:hover, .yn .stch .stpr:focus-visible { background: rgba(var(--tone-rgb), .14); color: var(--accent) !important; outline: none; }
+.yn .stch .stpr.set { color: var(--accent) !important; }
+html[data-theme="light"] .yn .stch .stpr { color: #475569 !important; }
+html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #B24A1C !important; }
+html[data-theme="light"] .yn .st .dc .stpr { color: #475569; }
+.yn .stch .stpr.none, .yn .st .stpr.none { opacity: .75; font-style: italic; }
+.yn .st .dc .stpr { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.yn .stprrow .stpl { flex: none; width: 82px; font-size: 13px; font-weight: 800; color: var(--ink-3); }
+.yn .stprrow .v { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.yn .stprrow .stprv.none { color: var(--ink-3); font-style: italic; }
+
+/* 라이브러리 날짜별 · 악보 파일 · 녹음의 기간 고르기 — 폰에서 칸보다 길면 church-app 은 칸 밖으로 삐져나옵니다.
+   여기서는 칸 안에서 옆으로 밀어 보게 합니다 (모양은 같음) */
+.yn .ssf > .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.yn .ssf > .seg::-webkit-scrollbar { display: none; }
+.yn .ssf > .seg > button { flex: none; }
+
+/* 시트(아래에서 올라오는 흰 창) 안의 입력칸 — church-app 어두운 화면 규칙(흰 글씨 · 투명 바탕)이 흰 시트 위에서는
+   글씨가 안 보입니다 (객원 이름 · 사유 · 연습 메모를 쳐도 안 보임). 시트 안에서는 밝은 칸 · 진한 글씨로 */
+.yn .yc-sh input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .yn .yc-sh select, .yn .yc-sh textarea {
+  color: #1A1917 !important; -webkit-text-fill-color: #1A1917; background-color: #F5F3EF !important;
+  border: 1px solid rgba(26, 25, 23, .16) !important; color-scheme: light;
+}
+.yn .yc-sh input::placeholder, .yn .yc-sh textarea::placeholder { color: #8A847C !important; -webkit-text-fill-color: #8A847C; }
+.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #E8703C !important; box-shadow: 0 0 0 3px rgba(232, 112, 60, .22); outline: none; }
+
+/* 글씨 기본색 — church-app 은 body 글씨색이 밝은 화면 값(#1A1917)이라 어두운 유리 위 글씨를 "가독성 지킴이"(hub/contrast.js)가
+   그린 뒤에 흰색으로 고칩니다. 여기서는 처음부터 .shell 의 글씨 변수(어두운 화면 = 흰색 · 밝은 화면 = 진한 남색)로 시작해
+   잠깐 어둡게 보였다가 바뀌는 깜빡임이 없게 합니다 (결과 색은 같음) */
+.yn.yn-main > .shell { color: var(--ink-1); }
+
+/* 시트 안의 보통 단추 (완료 · 기본(금요일)으로 · 이 주는 연습 없음 …) — 흰 시트 위에서 처음부터 진한 글씨로 (가독성 지킴이가 고치기 전 깜빡임 없음) */
+.yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red) {
+  color: #1A1917 !important; background: #F5F3EF !important; border: 1px solid rgba(26, 25, 23, .14) !important;
+}
+.yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red):hover { background: #EDE9E3 !important; }

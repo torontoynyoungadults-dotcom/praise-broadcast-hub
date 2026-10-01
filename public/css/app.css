@@ -84,18 +84,7 @@ body {
 
 a { color: var(--accent); text-decoration: none; }
 
-/* ---------- 상단바 ---------- */
-.ph-topbar {
-  position: sticky; top: 0; z-index: 40;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; padding: 13px 18px;
-  background: rgba(17,19,26,.66); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 1px 0 var(--inset-hi);
-}
-:root[data-theme="light"] .ph-topbar { background: rgba(251,246,238,.74); }
-.ph-title { font-size: 18px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
-.ph-tools { display: flex; align-items: center; gap: 4px; }
+/* ---------- 작은 유리 단추 (공개 콘티의 ‹ › 등) — 예전 상단바는 없애고 도구를 맨 위 배너 안으로 옮겼습니다 ---------- */
 .ph-icon-btn {
   width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass);
   color: var(--ink); font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -106,7 +95,7 @@ a { color: var(--accent); text-decoration: none; }
 .ph-icon-btn:active { transform: translateY(1px) scale(.97); }
 .ph-icon-btn:hover { background: var(--glass-2); }
 
-.ph-wrap { max-width: 740px; margin: 0 auto; padding: 20px 16px 64px; }
+.ph-wrap { max-width: 740px; margin: 0 auto; padding: 14px 16px 64px; }
 
 /* ---------- 히어로 배너 (주보 표지 느낌의 산·여명 일러스트) ---------- */
 .ph-hero {
@@ -114,7 +103,8 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: var(--radius); margin-bottom: 16px;
   border: 1px solid var(--line);
   box-shadow: 0 16px 40px rgba(0,0,0,.28);
-  min-height: clamp(200px, 48vw, 260px);
+  min-height: clamp(236px, 56vw, 290px);
+  display: flex; flex-direction: column; justify-content: space-between;
 }
 :root[data-theme="light"] .ph-hero { box-shadow: 0 14px 30px rgba(120,70,20,.12); }
 .ph-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -129,7 +119,7 @@ a { color: var(--accent); text-decoration: none; }
 .ph-fill-mtn2 { fill: var(--hero-mtn-2); }
 .ph-fill-mtn3 { fill: var(--hero-mtn-3); }
 .ph-hero-text {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 24px 20px;
+  position: relative; z-index: 1; margin-top: auto; padding: 22px 24px 20px;
   background: linear-gradient(to top, rgba(10,10,14,.62) 0%, rgba(10,10,14,.34) 60%, rgba(10,10,14,0) 100%);
 }
 .ph-hero-eyebrow {
@@ -139,6 +129,87 @@ a { color: var(--accent); text-decoration: none; }
 }
 .ph-hero-title { font-size: 27px; font-weight: 800; color: #FFF9F0; letter-spacing: -.02em; text-shadow: 0 2px 14px rgba(0,0,0,.3); margin: 0; }
 .ph-hero-sub { font-size: 14.5px; color: rgba(255,249,240,.86); margin: 6px 0 0; }
+
+/* ---------- 배너 안 도구 (글자 크기 · 밝은/어두운 화면 · 새로고침) — 투명한 유리 캡슐 ---------- */
+.ph-hero-tools {
+  position: relative; z-index: 2; align-self: flex-end; margin: 14px 14px 0;
+  display: flex; align-items: center; gap: 8px;
+}
+/* 밝은 화면(일출 하늘) 위에서는 조금 더 진한 유리 + 진한 글씨 */
+:root[data-theme="light"] .ph-fs, :root[data-theme="light"] .ph-themesw, :root[data-theme="light"] .ph-hero-btn {
+  color: #5A2A12; background: linear-gradient(160deg, rgba(255,255,255,.72), rgba(255,246,236,.5));
+  border-color: rgba(255,255,255,.85); box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 8px 20px rgba(150,70,20,.16);
+}
+:root[data-theme="light"] .ph-fs-b:hover { background: rgba(90,42,18,.08); }
+:root[data-theme="light"] .ph-themesw-knob { background: linear-gradient(145deg, #FFB37A, #F07A45); box-shadow: 0 2px 8px rgba(160,70,20,.35); }
+:root[data-theme="light"] .ph-themesw[aria-checked="true"] .ph-themesw-i.light { color: #fff; }
+:root[data-theme="light"] .ph-themesw-i.dark { color: #5A2A12; }
+.ph-hero-tools button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ph-fs, .ph-themesw, .ph-hero-btn {
+  height: 38px; border-radius: 999px; color: #FFF9F0;
+  background: linear-gradient(160deg, rgba(255,255,255,.20), rgba(255,255,255,.07));
+  border: 1px solid rgba(255,255,255,.30);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 8px 22px rgba(0,0,0,.22);
+  backdrop-filter: blur(18px) saturate(170%); -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+.ph-fs { display: flex; align-items: center; padding: 0 3px; }
+.ph-fs-b {
+  width: 32px; height: 32px; border-radius: 50%; border: 0; background: transparent; color: inherit;
+  font-size: 19px; font-weight: 500; line-height: 1; display: flex; align-items: center; justify-content: center;
+  transition: background .15s ease, opacity .15s ease;
+}
+.ph-fs-b:hover { background: rgba(255,255,255,.14); }
+.ph-fs-b:disabled { opacity: .35; cursor: default; background: transparent; }
+.ph-fs-ind { min-width: 22px; text-align: center; font-weight: 800; font-size: 15px; letter-spacing: -.02em; transition: font-size .15s ease; }
+.ph-fs[data-step="-1"] .ph-fs-ind { font-size: 13px; }
+.ph-fs[data-step="1"] .ph-fs-ind { font-size: 17px; }
+.ph-fs[data-step="2"] .ph-fs-ind { font-size: 19px; }
+.ph-fs[data-step="3"] .ph-fs-ind { font-size: 21px; }
+.ph-themesw { position: relative; width: 70px; padding: 0; display: flex; align-items: center; justify-content: space-between; }
+.ph-themesw-i { position: relative; z-index: 1; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; opacity: .55; transition: opacity .2s ease, color .2s ease; }
+.ph-themesw-i svg { width: 17px; height: 17px; }
+.ph-themesw-knob {
+  position: absolute; top: 3px; left: 3px; width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255,255,255,.95), rgba(255,236,214,.82));
+  box-shadow: 0 2px 8px rgba(0,0,0,.28), inset 0 -1px 2px rgba(0,0,0,.08);
+  transition: transform .28s cubic-bezier(.3,1.3,.5,1);
+}
+.ph-themesw[aria-checked="false"] .ph-themesw-i.dark { opacity: 1; color: #2B2F55; }
+.ph-themesw[aria-checked="true"] .ph-themesw-knob { transform: translateX(34px); }
+.ph-themesw[aria-checked="true"] .ph-themesw-i.light { opacity: 1; color: #C2561F; }
+.ph-hero-btn { width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
+.ph-hero-btn svg { width: 18px; height: 18px; }
+.ph-hero-btn:hover { background: linear-gradient(160deg, rgba(255,255,255,.28), rgba(255,255,255,.1)); }
+.ph-hero-btn.spin svg { animation: phspin .7s linear infinite; }
+@keyframes phspin { to { transform: rotate(360deg); } }
+.ph-hero-tools button:focus-visible { outline: 2px solid #FFE0B8; outline-offset: 2px; }
+
+/* ---------- 배너 안 환영 인사 (프로필 사진 + 이름 + 내 정보 수정 · 관리) ---------- */
+.ph-hero-who { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin-top: 14px; }
+.ph-who-av {
+  flex: none; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: flex;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.85), 0 0 0 5px rgba(255,170,110,.35), 0 8px 20px rgba(0,0,0,.35);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.ph-who-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph-who-ini { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 19px; }
+.ph-who-hi { font-size: 18.5px; font-weight: 600; color: #FFF9F0; letter-spacing: -.02em; text-shadow: 0 1px 10px rgba(0,0,0,.35); }
+.ph-who-hi b { font-weight: 800; }
+.ph-who-links { display: flex; gap: 6px; margin-left: auto; }
+.ph-who-links a {
+  display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 700; color: #FFF9F0; letter-spacing: -.01em; white-space: nowrap;
+  background: linear-gradient(160deg, rgba(255,255,255,.18), rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.28); box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transition: background .15s ease;
+}
+.ph-who-links a:hover { background: linear-gradient(160deg, rgba(255,255,255,.28), rgba(255,255,255,.1)); }
+@media (max-width: 480px) {
+  .ph-hero-text { padding: 18px 18px 16px; }
+  .ph-hero-title { font-size: 24px; }
+  .ph-who-links { margin-left: 0; width: 100%; }
+}
 
 /* ---------- 카드 (고급스러운 글래스모피즘 — 블러 + 상단 하이라이트 + 깊은 그림자) ---------- */
 .ph-card {
@@ -444,17 +515,41 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ---------- 허브 탭 바 (church-app의 TABS 처럼, 다섯 기능을 한 페이지 안에서 전환) ---------- */
 .ph-hubnav {
-  display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 12px;
-  margin: 0 0 14px; -webkit-overflow-scrolling: touch;
+  position: sticky; top: 10px; z-index: 30; margin: 0 0 16px;
+  border-radius: 20px; padding: 5px;
+  background: linear-gradient(160deg, rgba(30,33,46,.62), rgba(18,20,28,.52));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 34px rgba(0,0,0,.30);
+  backdrop-filter: blur(24px) saturate(170%); -webkit-backdrop-filter: blur(24px) saturate(170%);
 }
-.ph-hubnav::-webkit-scrollbar { display: none; }
+:root[data-theme="light"] .ph-hubnav {
+  background: linear-gradient(160deg, rgba(255,255,255,.80), rgba(255,250,243,.62));
+  border-color: rgba(36,31,25,.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 12px 28px rgba(120,70,20,.10);
+}
+.ph-hubnav-in { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+.ph-hubnav-in::-webkit-scrollbar { display: none; }
 .ph-hubtab {
-  flex: none; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass-2);
-  color: var(--sub); font-weight: 700; font-size: 14.5px; white-space: nowrap; text-decoration: none;
-  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: inset 0 1px 0 var(--inset-hi);
+  flex: none; position: relative; padding: 10px 15px; border-radius: 15px; scroll-snap-align: start;
+  color: var(--sub); font-weight: 650; font-size: 15px; letter-spacing: -.015em; white-space: nowrap; text-decoration: none;
+  border: 1px solid transparent; transition: color .15s ease, background .15s ease;
 }
-.ph-hubtab.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border-color: transparent; }
+.ph-hubtab:hover { color: var(--ink); background: rgba(255,255,255,.06); }
+:root[data-theme="light"] .ph-hubtab:hover { background: rgba(36,31,25,.05); }
+.ph-hubtab.on {
+  color: #FFF8F0; font-weight: 750;
+  background: linear-gradient(135deg, rgba(255,138,61,.34), rgba(255,95,109,.26));
+  border-color: rgba(255,176,120,.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 18px rgba(255,110,70,.22);
+}
+.ph-hubtab.on::after {
+  content: ""; position: absolute; left: 50%; bottom: 4px; width: 16px; height: 2px; margin-left: -8px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)); opacity: .9;
+}
+:root[data-theme="light"] .ph-hubtab.on {
+  color: #8A3412; background: linear-gradient(135deg, rgba(255,160,100,.26), rgba(255,120,110,.18));
+  border-color: rgba(232,112,60,.35); box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 6px 16px rgba(232,112,60,.14);
+}
 #ph-tabbody.ph-loading { opacity: .45; transition: opacity .1s linear; pointer-events: none; }
 
 /* ---------- 스케줄표 — 객원/강조/불가 이름 배지 (church-app처럼) ---------- */

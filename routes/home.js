@@ -24,23 +24,21 @@ router.get('/', async (req, res) => {
 
   const ctx = await teamContext.resolve(req);
   if (!ctx) return res.redirect('/logout');
-  const { member, isAdmin, roles, current: team } = ctx;
+  const { isAdmin, roles, current: team } = ctx;
 
   const hero = pageShell.hero({
     eyebrow: isAdmin ? '관리자' : (roles.join(' · ') || '팀원'),
     title: `${team || '찬양팀'} 허브`,
-    sub: `${member['이름']}님, 환영합니다!`,
+    sub: '예배 콘티 · 공지 · 스케줄 · 라이브러리를 한곳에서',
   });
   const content = `
   ${pageShell.hubNav('', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx)}
-    <p class="ph-sub">위 탭을 눌러 예배콘티 · 공지및모임 · 스케줄표 · 라이브러리 · 장비·수리를 오갈 수 있어요.</p>
+    <p class="ph-sub">위 메뉴를 눌러 예배 콘티 · 공지 및 모임 · 스케줄표 · 라이브러리 · 장비 · 수리를 오갈 수 있어요.</p>
   </div>
   <div class="ph-card">
-    <a class="ph-btn" href="/profile">👤 내 정보 수정</a>
-    ${isAdmin ? '<a class="ph-btn" href="/admin">관리자 화면</a>' : ''}
     <a class="ph-btn" href="/logout">로그아웃</a>
   </div>`;
   spa.send(req, res, content, { title: `${team || '찬양팀'} 허브` });

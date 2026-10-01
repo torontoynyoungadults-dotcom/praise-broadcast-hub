@@ -12,7 +12,8 @@
   var SPA_PREFIXES = ['/conti', '/roster', '/notices', '/schedule', '/library', '/equipment', '/admin'];
 
   function isSpaPath(pathname) {
-    if (pathname.indexOf('/conti/practice') === 0) return false; // 연습 화면은 독립된 화면으로 그대로 둠
+    if (pathname.indexOf('/conti/practice') === 0) return false; // 라이브 악보는 독립된 화면으로 그대로 둠
+    if (pathname.indexOf('/schedule') === 0 || pathname.indexOf('/library') === 0) return false; // church-app 화면(스크립트 · 스타일 따로)은 페이지째 엶
     if (pathname === '/') return true;
     return SPA_PREFIXES.some(function (p) { return pathname.indexOf(p) === 0; });
   }
@@ -92,6 +93,7 @@
   });
 
   window.addEventListener('popstate', function () {
+    if (!isSpaPath(location.pathname)) { location.reload(); return; }      // 스케줄표 · 라이브러리 · 라이브 악보는 페이지째
     loadPartial(location.pathname + location.search, false);
   });
 })();
