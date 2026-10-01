@@ -111,8 +111,12 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   const phone = String(body['전화번호'] || '').trim();
   const team = String(body['소속팀'] || '').trim();
   const roles = [].concat(body['역할'] || []).filter(Boolean);
-  if (!name || !phone || !team) {
-    return res.redirect('/signup?e=' + encodeURIComponent('이름 · 전화번호 · 소속 찬양팀은 꼭 입력해주세요.'));
+  const missing = [];
+  if (!name) missing.push('이름');
+  if (!phone) missing.push('전화번호');
+  if (!team) missing.push('소속 찬양팀');
+  if (missing.length) {
+    return res.redirect('/signup?e=' + encodeURIComponent(missing.join(' · ') + ' 칸이 비어 있어요. (' + missing.join(', ') + ')'));
   }
   let photoUrl = '';
   try { if (req.file) photoUrl = await driveStore.uploadPublic('프로필사진', req.file); }
