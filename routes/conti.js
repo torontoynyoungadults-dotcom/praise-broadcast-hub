@@ -766,8 +766,28 @@ async function makePackage(req, onProgress) {
     }, sheetSearch.imagesToPdf);
     console.log(`[PDF 패키지] ${team} ${date} — 악보 받기 ${tFetched - t0}ms · 만들기 ${Date.now() - tFetched}ms · ${(pdf.length / 1024) | 0}KB`);
     const name = `${team} 콘티 ${date}${eventRow ? ' ' + eventRow['이름'] : ''}`.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim();
-    return { pdf, name };
+    const sig = pkgSig({ w, members, pr, title: eventRow ? String(eventRow['이름'] || '') : '', date });
+    return { pdf, name, sig, date, event: scope.event };
   }
+}
+
+/** 지금 콘티 · 악보 · 편성 · 연습 상태의 지문 — 확정한 PDF 를 만들 때와 같은지 비교해서 "확정 이후 바뀜"을 알려 줌 */
+function pkgSig({ w, members, pr, title, date }) {
+  const meta = (f) => [f['파일링크'], f['쪽'] || '', f['자르기'] || ''].join('|');
+  const all = [].concat(w.conti, w.final);
+  const songs = all.map((s) => [s['ID'], s['제목'], s['팀'], s['Key'], s['BPM'], kakaoLib.formText(s['송폼']), s['비고'], s['유튜브'],
+    w.sheets.filter((f) => f['곡ID'] === s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각']))).map(meta)]);
+  const extra = w.sheets.filter((r) => !r['곡ID'] && r['파일링크']).map(meta);
+  return require('crypto').createHash('sha1').update(JSON.stringify([pkgPdf.LAYOUT_V, title, date, pr && [pr.date, pr.note, pr.none], members, songs, extra])).digest('hex');
+}
+async function pkgContext(req) {
+  const team = req.ctx.current;
+  const eventRow = await specialServiceById(team, String((req.query && req.query.event) || (req.body && req.body.event) || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate((req.query && req.query.date) || (req.body && req.body.date));
+  return { team, eventRow, date, scope: { event: eventRow ? eventRow['ID'] : '', date } };
+}
+async function savedRow(team, scope) {
+  return (await sheetsDb.readAll('확정PDF', { fresh: true })).find((r) => r['팀ID'] === team && r['날짜'] === scope.date && String(r['행사ID'] || '') === (scope.event || '')) || null;
 }
 
 const pkgJobs = new Map();                      // 만드는 중인 PDF — 진행률을 화면에 보여 주려고 (10분 뒤 정리)
@@ -793,8 +813,48 @@ router.get('/conti/package/status', requireTeam, (req, res) => {
   if (!j || j.team !== req.ctx.current) return res.status(404).json({ gone: true });
   res.json({ pct: Math.round(j.pct * 100), label: j.label, done: j.done, err: j.err });
 });
+
+/** 확정해 둔 PDF 가 있는지 (+ 확정 이후 콘티 · 악보 · 편성이 바뀌었는지) */
+router.get('/conti/package/saved', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const { team, eventRow, date, scope } = await pkgContext(req);
+    const row = await savedRow(team, scope);
+    if (!row) return res.json({ saved: false });
+    const w = await loadWeek(team, scope);
+    const { byPos, infoMap } = await weekAssignments(team, scope);
+    const honor = (n) => (honorific.isPastorRoles((infoMap[n] || {}).역할) ? n + honorific.SUFFIX : n);
+    const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
+    const pinfo = await practiceInfo(team, scope, date);
+    const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
+    const sig = pkgSig({ w, members, pr: pr && { date: pr.date, note: pr.note, none: pr.none }, title: eventRow ? String(eventRow['이름'] || '') : '', date });
+    res.json({ saved: true, by: row['확정자'], at: row['확정시각'], stale: sig !== row['시그니처'] });
+  } catch (e) { console.error('[확정 PDF 확인 실패]', e.message); res.json({ saved: false }); }
+});
+
+/** 방금 만든 PDF(job)를 확정 — 드라이브에 저장하고, 다음부터는 이 파일을 바로 내려받음 (이미 있으면 교체) */
+router.post('/conti/package/confirm', requireTeam, async (req, res) => {
+  try {
+    const { team, scope } = await pkgContext(req);
+    const j = pkgJobs.get(String((req.body || {}).job || ''));
+    if (!j || j.team !== team || !j.result || j.result.date !== scope.date || (j.result.event || '') !== (scope.event || '')) return res.status(400).json({ ok: false, msg: '만든 PDF를 찾지 못했어요. 다시 만들어 주세요.' });
+    const link = await driveStore.uploadPrivate('인쇄용PDF', { originalname: `${j.result.name}.pdf`, mimetype: 'application/pdf', buffer: j.result.pdf });
+    const old = await savedRow(team, scope);
+    const row = { 'ID': 'P' + Date.now().toString(36), '팀ID': team, '날짜': scope.date, '행사ID': scope.event || '', '파일링크': link, '시그니처': j.result.sig, '확정자': req.ctx.member['이름'], '확정시각': new Date().toISOString(), '파일명': j.result.name };
+    if (old) { await sheetsDb.updateRow('확정PDF', old.__row, row); driveStore.removeByLink(old['파일링크']); } else await sheetsDb.appendRow('확정PDF', row);
+    res.json({ ok: true, by: row['확정자'], at: row['확정시각'] });
+  } catch (e) { console.error('[PDF 확정 실패]', e && e.stack || e); res.status(500).json({ ok: false, msg: '확정하지 못했어요. 잠시 뒤 다시 해 주세요.' }); }
+});
+
 router.get('/conti/package.pdf', requireTeam, async (req, res) => {
   try {
+    if (req.query.saved) {
+      const { team, scope } = await pkgContext(req);
+      const row = await savedRow(team, scope);
+      const buf = row ? await fileBytes.get(row['파일링크']) : null;
+      if (!buf) return res.status(404).type('text').send('확정한 PDF를 찾지 못했어요.');
+      return sendPdf(res, { pdf: buf, name: String(row['파일명'] || '콘티') });
+    }
     if (req.query.job) {
       const j = pkgJobs.get(String(req.query.job));
       if (!j || j.team !== req.ctx.current || !j.result) return res.status(404).type('text').send('만든 PDF를 찾지 못했어요. 다시 만들어 주세요.');

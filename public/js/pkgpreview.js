@@ -25,16 +25,22 @@
       '<div class="pkp-bar"><b class="pkp-ttl">인쇄용 PDF 패키지</b>' +
       '<label class="pkp-crop"><input type="checkbox" data-pkp="crop" checked> 악보 위 제목 자르기</label>' +
       '<button type="button" class="ph-btn" data-pkp="areas">악보 영역 조정</button>' +
+      '<button type="button" class="ph-btn" data-pkp="edit" hidden>수정하기</button>' +
+      '<button type="button" class="ph-btn" data-pkp="confirm" hidden>확정하기</button>' +
       '<button type="button" class="ph-btn pri" data-pkp="dl" disabled>다운로드</button>' +
       '<button type="button" class="ph-btn" data-pkp="print" disabled>인쇄</button>' +
       '<button type="button" class="pkp-close" data-pkp="close">닫기</button></div>' +
-      '<div class="pkp-msg" role="status"></div><div class="pkp-pages"></div><div class="pkp-ed" hidden></div></div>';
+      '<div class="pkp-sv" hidden></div><div class="pkp-msg" role="status"></div><div class="pkp-pages"></div><div class="pkp-ed" hidden></div></div>';
     document.body.appendChild(root);
     root.addEventListener('click', function (e) {
       if (e.target === root) return close();
       var t = e.target.closest('[data-pkp]'); if (!t) return;
       var a = t.getAttribute('data-pkp');
-      if (a === 'close') close(); else if (a === 'areas') openAreas(); else if (a === 'dl') download(); else if (a === 'print') printIt();
+      if (a === 'close') close(); else if (a === 'areas') openAreas(); else if (a === 'edit') askEdit(); else if (a === 'confirm') askConfirm(); else if (a === 'dl') download(); else if (a === 'print') printIt();
+    });
+    $('.pkp-sv').addEventListener('click', function (e) {
+      var t = e.target.closest('[data-sv]'); if (!t) return; var a = t.getAttribute('data-sv');
+      if (a === 'regen') { state.mode = 'fresh'; run(); } else if (a === 'ok') doConfirm(); else if (a === 'no') svShow();
     });
     $('[data-pkp="crop"]').addEventListener('change', function () { state.crop = this.checked; run(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && root && root.classList.contains('on')) close(); });
@@ -123,6 +129,64 @@
     try { return m ? decodeURIComponent(m[1]) : state.name; } catch (e) { return state.name; }
   }
 
+
+  /* ---- 확정: 한 번 만들어 확정하면 다음부터는 만들지 않고 바로 내려받음 ---- */
+  function baseQs() { var q = new URLSearchParams(state.href.replace(/^[^?]*\?/, '')); q.delete('crop'); return q; }
+  function fmtAt(iso) { try { var d = new Date(iso); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } catch (e) { return ''; } }
+  function svHide() { var e = $('.pkp-sv'); e.hidden = true; e.innerHTML = ''; }
+  // 지금 상태에 맞는 안내 줄 · 버튼
+  function svShow() {
+    var e = $('.pkp-sv'); e.hidden = false; e.className = 'pkp-sv';
+    $('[data-pkp="edit"]').hidden = state.mode !== 'saved';
+    $('[data-pkp="confirm"]').hidden = state.mode !== 'fresh';
+    if (state.mode === 'saved') {
+      var i = state.savedInfo || {};
+      e.innerHTML = '<b>확정된 PDF</b> · ' + esc(i.by || '') + ' · ' + esc(fmtAt(i.at)) + (i.stale ? '<span class="warn">확정 이후 콘티 · 악보 · 편성이 바뀌었어요. “수정하기”로 다시 만들어 확정해 주세요.</span>' : '<span>바로 다운로드돼요.</span>');
+      if (i.stale) e.classList.add('stale');
+    } else if (state.mode === 'fresh') {
+      e.innerHTML = '<span>미리보기예요. 확인한 뒤 <b>확정하기</b>를 누르면 다음부터는 만들지 않고 바로 다운로드돼요.</span>';
+    } else svHide();
+  }
+  function askConfirm() {
+    var e = $('.pkp-sv'); e.hidden = false; e.className = 'pkp-sv ask';
+    e.innerHTML = '<span>이 PDF로 확정할까요? 확정하면 다음부터 바로 다운로드돼요. (콘티가 바뀌면 나중에 수정할 수 있어요)' + (state.savedInfo ? ' 기존 확정본은 이 PDF로 바뀌어요.' : '') + '</span><button type="button" class="ph-btn pri" data-sv="ok">확정</button><button type="button" class="ph-btn" data-sv="no">취소</button>';
+  }
+  function askEdit() {
+    var e = $('.pkp-sv'); e.hidden = false; e.className = 'pkp-sv ask';
+    e.innerHTML = '<span>수정하려면 PDF를 새로 만들어요. 새로 만든 뒤 <b>확정하기</b>를 눌러야 기존 확정본이 바뀌어요. 계속할까요?</span><button type="button" class="ph-btn pri" data-sv="regen">새로 만들기</button><button type="button" class="ph-btn" data-sv="no">취소</button>';
+  }
+  function doConfirm() {
+    var e = $('.pkp-sv'); e.innerHTML = '<span>확정하는 중…</span>';
+    var body = baseQs(); body.set('job', state.jobId || '');
+    fetch('/conti/package/confirm', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j.ok, j: j }; }); })
+      .then(function (v) {
+        if (!v.ok) { svShow(); e.insertAdjacentHTML('beforeend', '<span class="warn">' + esc((v.j && v.j.msg) || '확정하지 못했어요.') + '</span>'); return; }
+        state.mode = 'saved'; state.savedInfo = { by: v.j.by, at: v.j.at, stale: false }; svShow();
+      }).catch(function () { svShow(); e.insertAdjacentHTML('beforeend', '<span class="warn">확정하지 못했어요. 다시 해 주세요.</span>'); });
+  }
+  function openFlow() {
+    state.mode = ''; state.savedInfo = null; state.jobId = ''; svHide();
+    $('[data-pkp="edit"]').hidden = true; $('[data-pkp="confirm"]').hidden = true;
+    var my = ++state.token; setBar(4, '확정된 PDF가 있는지 확인하는 중'); $('.pkp-pages').innerHTML = '';
+    fetch('/conti/package/saved?' + baseQs().toString(), { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+      if (my !== state.token) return;
+      if (j && j.saved) return loadSaved(j, my);
+      run();
+    }).catch(function () { if (my === state.token) run(); });
+  }
+  function loadSaved(info, my) {
+    state.mode = 'saved'; state.savedInfo = info; svShow(); setBar(40, '확정된 PDF를 불러오는 중');
+    return fetch('/conti/package.pdf?saved=1&' + baseQs().toString(), { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error('gone'); state.name = nameFromHeaders(r); return r.blob();
+    }).then(function (blob) {
+      if (my !== state.token) return;
+      state.blob = blob; $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false;
+      msg('미리보는 중…');
+      return Promise.all([loadPdfjs(), blob.arrayBuffer()]).then(function (v) { return v[0].getDocument({ data: new Uint8Array(v[1]) }).promise; }).then(function (doc) { return render(doc, my); });
+    }).catch(function () { if (my !== state.token) return; state.mode = ''; state.savedInfo = null; svHide(); run(); });   // 확정본을 못 읽으면 새로 만듦
+  }
+
   function setBar(pct, label) {
     var m = $('.pkp-msg'); m.hidden = false; m.classList.remove('bad');
     m.innerHTML = '<div class="pkp-prog"><div class="pkp-progbar"><i style="width:' + Math.max(3, pct) + '%"></i></div><div class="pkp-proginfo"><b>' + Math.round(pct) + '%</b><span>' + esc(label || '') + '</span></div></div>';
@@ -132,7 +196,8 @@
   function run() {
     var my = ++state.token;
     $('[data-pkp="dl"]').disabled = true; $('[data-pkp="print"]').disabled = true;
-    $('.pkp-pages').innerHTML = ''; state.blob = null;
+    $('.pkp-pages').innerHTML = ''; state.blob = null; state.jobId = '';
+    state.mode = ''; $('[data-pkp="edit"]').hidden = true; $('[data-pkp="confirm"]').hidden = true; svHide();
     setBar(2, '시작하는 중');
     var qs = state.href.replace(/^[^?]*\?/, '') + (state.crop ? '' : '&crop=0');
     var t0 = Date.now(), shown = 2;
@@ -160,12 +225,12 @@
       });
     }).then(function (id) {
       if (!id || my !== state.token) return;
-      setBar(99, '불러오는 중');
+      setBar(99, '불러오는 중'); state.jobId = id;
       return fetch('/conti/package.pdf?team=' + encodeURIComponent(teamOf()) + '&job=' + id, { credentials: 'same-origin' }).then(function (r) {
         if (!r.ok) throw new Error('http'); state.name = nameFromHeaders(r); return r.blob();
       }).then(function (blob) {
         if (my !== state.token) return;
-        state.blob = blob;
+        state.blob = blob; state.mode = 'fresh'; svShow();
         $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false;
         msg('미리보는 중…');
         return Promise.all([loadPdfjs(), blob.arrayBuffer()]).then(function (v) { return v[0].getDocument({ data: new Uint8Array(v[1]) }).promise; })
@@ -219,6 +284,6 @@
     $('[data-pkp="crop"]').checked = true;
     $('.pkp-ttl').textContent = b.getAttribute('data-title') || '인쇄용 PDF 패키지';
     root.classList.add('on'); document.body.classList.add('pkp-open');
-    run();
+    openFlow();
   });
 })();

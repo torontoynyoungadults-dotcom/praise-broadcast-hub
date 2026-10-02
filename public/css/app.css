@@ -1301,3 +1301,12 @@ body.pkp-open{overflow:hidden}
 .pkp-edbox .h-b{left:50%;bottom:2px;margin-left:-22px}
 .pkp-edbox .h-l{left:-13px;top:50%;margin-top:-9px;transform:rotate(90deg)}
 .pkp-edbox .h-r{right:-13px;top:50%;margin-top:-9px;transform:rotate(90deg)}
+
+/* 확정 안내 줄 */
+.pkp-sv{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:9px 14px;font-size:13px;line-height:1.45;border-bottom:1px solid rgba(255,255,255,.1);background:rgba(255,138,61,.1);color:rgba(255,255,255,.88)}
+.pkp-sv[hidden]{display:none}
+.pkp-sv b{color:#ffb36b}
+.pkp-sv .warn{color:#ffd7a8;font-weight:600}
+.pkp-sv.stale{background:rgba(255,120,60,.2)}
+.pkp-sv.ask span{flex:1 1 220px}
+.pkp-bar [hidden]{display:none!important}
