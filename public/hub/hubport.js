@@ -613,7 +613,7 @@ function statItems() {
 
 function bump(o, k, i) {
   var x = o[k] = o[k] || { name: k, n: 0, keys: {}, songs: {}, last: '' };
-  x.n++; x.keys[i.key] = 1; x.songs[i.c] = (x.songs[i.c] || 0) + 1;
+  x.n++; x.keys[i.key] = 1; if (i.c) x.songs[i.c] = (x.songs[i.c] || 0) + 1;
   if (i.date > x.last) x.last = i.date;
 }
 
@@ -627,7 +627,7 @@ function statsTab() {
     return '<div class="panel"><i class="skel line" style="width:50%;"></i><i class="skel line" style="width:80%;"></i>' +
       '<i class="skel line" style="width:65%;"></i></div>';
   }
-  if (!SS.items.length) {
+  if (!SS.items.length && !Object.keys(SS.data.svcDates || {}).length) {
     return '<div class="panel"><span class="chip">콘티 통계</span><p class="empty">아직 입력된 콘티가 없습니다.</p></div>';
   }
   var list = statItems();
@@ -662,7 +662,7 @@ function statsTab() {
   }).join('') + '</div>';
 
   return '<div class="panel"><span class="chip">콘티 통계</span>' +
-      '<p class="hint">입력된 콘티 전체 기준입니다 (앞으로 부를 곡 포함). 띄어쓰기 · 대소문자 · 한 글자 오타는 같은 곡으로 묶었습니다.</p>' +
+      '<p class="hint">입력된 콘티 전체 기준입니다 (앞으로 부를 곡 포함). 사람 · 인도자는 편성이 입력된 모든 예배 기준이에요. 띄어쓰기 · 대소문자 · 한 글자 오타는 같은 곡으로 묶었습니다.</p>' +
       filters + tiles +
       '<div class="docbar">' + docBtn('통계 PDF 미리보기 · 다운로드 (지금 고른 조건만)', 'hubDoc(\'hubStatsDoc\',[TOKEN,SS.range===\'all\'?\'\':SS.range,SS.kind,SS.lead,SS.q],\'ssDocMsg\')') + '<p class="msg docmsg" id="ssDocMsg"></p></div></div>' +
     vtabs + '<div class="panel" id="ssBody">' + statView(list) + '</div>';
@@ -701,6 +701,21 @@ function topSongs(o, k) {
     .map(function (c) { return esc(SS.names[c]); }).join(', ');
 }
 
+/* 사람 · 인도자 통계 — 곡·검색 조건이 없으면 "편성이 입력된 모든 예배"가 기준 (곡명을 아직 안 넣은 예배도 포함). 조건이 있으면 걸러진 곡의 예배 기준 */
+function statServices(list) {
+  if (SS.kind !== 'all' || SS.q) return list;
+  var from = cutoff(), dates = SS.data.svcDates || {}, bySvc = {};
+  list.forEach(function (i) { (bySvc[i.key] = bySvc[i.key] || []).push(i); });
+  var out = [];
+  Object.keys(dates).forEach(function (k) {
+    var d = dates[k];
+    if (from && d < from) return;
+    if (SS.lead && lineup(k).lead.indexOf(SS.lead) === -1) return;
+    if (bySvc[k]) out = out.concat(bySvc[k]); else out.push({ key: k, date: d, c: '', kind: '콘티' });
+  });
+  return out;
+}
+
 function statView(list) {
   var g = {};
   if (SS.view === 'song') {
@@ -714,7 +729,7 @@ function statView(list) {
       function (r) { return Object.keys(r.songs).length + '곡 · ' + topSongs(r.songs, 2); }, '회');
   }
   if (SS.view === 'lead') {
-    list.forEach(function (i) { lineup(i.key).lead.forEach(function (n) { bump(g, n, i); }); });
+    statServices(list).forEach(function (i) { lineup(i.key).lead.forEach(function (n) { bump(g, n, i); }); });
     var rows = sortN(g).map(function (r) { r.n = Object.keys(r.keys).length; return r; })
       .sort(function (a, b) { return b.n - a.n; });
     return rows.length ? bars(rows, function (r) { return dispName(r.name); },
@@ -722,7 +737,7 @@ function statView(list) {
       : '<p class="empty">편성에 인도자가 적힌 예배가 없습니다.</p>';
   }
   if (SS.view === 'people') {
-    list.forEach(function (i) { lineup(i.key).people.forEach(function (n) { bump(g, n, i); }); });
+    statServices(list).forEach(function (i) { lineup(i.key).people.forEach(function (n) { bump(g, n, i); }); });
     var pr = sortN(g).map(function (r) { r.n = Object.keys(r.keys).length; return r; })
       .sort(function (a, b) { return b.n - a.n; });
     return pr.length ? bars(pr, function (r) { return r.name; },
