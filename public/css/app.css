@@ -1170,41 +1170,54 @@ a { color: var(--accent-ink); text-decoration: none; }
 .ph-admintabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px; }
 .ph-admintabs .ph-btn { flex: 1 1 140px; width: auto; text-align: center; }
 
-/* ---------- 녹음 플레이어 (예배콘티 · 녹음 카드) ---------- */
-.rp { border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin: 4px 0 16px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
-.rp-now { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; min-height: 40px; }
-.rp-title { font-size: 17px; font-weight: 800; word-break: break-all; }
-.rp-by { font-size: 13px; color: var(--sub); }
-.rp-seek { display: flex; align-items: center; gap: 10px; }
-.rp-cur, .rp-dur { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--sub); min-width: 38px; }
-.rp-dur { text-align: right; }
-.rp-bar { flex: 1; -webkit-appearance: none; appearance: none; height: 10px; border-radius: 999px; outline-offset: 4px; cursor: pointer; background: linear-gradient(90deg, var(--accent) 0%, rgba(255,255,255,.18) 0%); }
-.rp-bar::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.45); }
-.rp-bar::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
-.rp-ctl { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 12px 0 8px; }
-.rp button { font: inherit; color: var(--text); cursor: pointer; border: 1px solid var(--line); background: rgba(255,255,255,.07); border-radius: 12px; min-height: 40px; min-width: 44px; padding: 0 12px; font-weight: 800; }
-.rp button:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
-.rp .rp-go { width: 64px; height: 52px; border-radius: 26px; font-size: 20px; background: linear-gradient(135deg, var(--accent), var(--accent-2, var(--accent))); color: #1a0f08; border: 0; }
-.rp-opts { display: grid; gap: 10px; margin-top: 8px; }
+/* ---------- 녹음 플레이어 (화면 아래에 뜨는 플로팅 · public/js/recplayer.js) ---------- */
+.rpf { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 9000; width: min(560px, calc(100vw - 20px)); display: none;
+  border: 1px solid var(--line); border-radius: 22px; padding: 10px 12px 12px; color: var(--text);
+  background: color-mix(in srgb, var(--bg, #0e1a18) 78%, rgba(255,255,255,.08)); backdrop-filter: blur(22px) saturate(1.3); -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow: 0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 var(--inset-hi); }
+.rpf.on { display: block; }
+.rpf.moved { transform: none; }
+body.rpf-on { padding-bottom: 96px; }
+.rpf-main { display: flex; align-items: center; gap: 10px; }
+.rpf-grip { flex: none; width: 22px; height: 40px; display: inline-flex; align-items: center; justify-content: center; color: var(--sub); cursor: grab; touch-action: none; }
+.rpf-grip:active { cursor: grabbing; }
+.rpf-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rp-title { font-size: 15px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-by { font-size: 12px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpf-time { flex: none; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--sub); }
+.rp-seek { margin-top: 8px; }
+.rp-bar { width: 100%; display: block; -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; outline-offset: 4px; cursor: pointer; background: linear-gradient(90deg, var(--accent) 0%, rgba(255,255,255,.18) 0%); }
+.rp-bar::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+.rp-bar::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+.rpf button { font: inherit; color: var(--text); cursor: pointer; border: 1px solid var(--line); background: rgba(255,255,255,.07); border-radius: 12px; min-height: 40px; min-width: 42px; padding: 0 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.rpf button:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.rpf .rp-go { flex: none; width: 46px; height: 46px; min-width: 46px; padding: 0; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2, var(--accent))); color: #1a0f08; border: 0; }
+.rpf .rpf-expand, .rpf .rpf-x { flex: none; min-width: 36px; width: 36px; height: 36px; min-height: 36px; padding: 0; border-radius: 50%; }
+.rpf .rpf-expand svg { transition: transform .2s; }
+.rpf.open .rpf-expand svg { transform: rotate(180deg); }
+.rpf-more { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); max-height: min(60vh, 420px); overflow-y: auto; }
+.rpf.open .rpf-more { display: block; }
+.rp-ctl { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px; }
+.rp-opts { display: grid; gap: 10px; }
 .rp-grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rp-lb { font-size: 13px; font-weight: 800; color: var(--sub); min-width: 62px; }
 .rp-rate { min-width: 58px; text-align: center; font-variant-numeric: tabular-nums; font-size: 16px; }
 .rp-presets { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.rp-presets button { min-height: 34px; padding: 0 10px; font-size: 13px; }
-.rp button.on { background: var(--accent); color: #1a0f08; border-color: transparent; }
+.rpf .rp-presets button { min-height: 34px; padding: 0 10px; font-size: 13px; }
+.rpf button.on { background: var(--accent); color: #1a0f08; border-color: transparent; }
 .rp-ab { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--accent-ink); font-weight: 800; }
 .rp-vol { width: 120px; accent-color: var(--accent); }
 .rp-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
-.rp-msg { min-height: 20px; margin: 8px 0 0; font-size: 13.5px; color: var(--sub); }
+.rp-msg { display: none; margin: 8px 0 0; font-size: 13px; color: var(--sub); }
+.rpf.has-msg .rp-msg { display: block; }
 .rp-msg.bad { color: #ff8a80; }
-.rp.empty .rp-ctl, .rp.empty .rp-opts, .rp.empty .rp-seek { opacity: .4; pointer-events: none; }
 .rp-item { display: flex; align-items: center; gap: 10px; }
 .rp-item .ph-li-main { flex: 1; min-width: 0; }
 .rp-playbtn { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: rgba(255,255,255,.07); color: var(--accent-ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .rp-name { background: none; border: 0; padding: 0; font: inherit; font-weight: 800; color: var(--text); text-align: left; cursor: pointer; }
 .rp-item.rp-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .rp-item.rp-on .rp-playbtn { background: var(--accent); color: #1a0f08; }
-@media (max-width: 560px) { .rp-vol { width: 90px; } .rp-lb { min-width: 100%; } }
+@media (max-width: 560px) { .rp-vol { width: 90px; } .rp-lb { min-width: 100%; } .rpf-time { display: none; } }
 
 /* 달력 띠의 특별예배 칸(부흥회 등) — 날짜는 똑같이, 아래에 예배 이름 */
 .ph-wstrip-ev { width: 78px; border-style: dashed; border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 9%, var(--glass)); color: var(--text); }

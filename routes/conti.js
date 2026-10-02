@@ -540,7 +540,7 @@ function recSrc(r) {
 function recItem(r, editable) {
   const src = recSrc(r), title = String(r['제목'] || '녹음');
   return `<div class="ph-list-item rp-item"${src ? ` data-rp-src="${esc(src)}" data-rp-title="${esc(title)}" data-rp-by="${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}"` : ''}>
-    ${src ? `<button type="button" class="rp-playbtn" data-rp-pick title="재생" aria-label="${esc(title)} 재생">${ui.icon('headphones')}</button>` : ''}
+    ${src ? `<button type="button" class="rp-playbtn" data-rp-pick title="재생" aria-label="${esc(title)} 재생"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>` : ''}
     <div class="ph-li-main">${src ? `<button type="button" class="rp-name" data-rp-pick>${esc(title)}</button>` : `<a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(title)}</a>`}
       <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>` : ' · 유튜브 등 링크는 새 창에서 열려요'}</div></div>
     ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('이 녹음을 지울까요?')">
@@ -550,30 +550,6 @@ function recItem(r, editable) {
     </form>` : ''}
   </div>`;
 }
-
-/** 자체 재생 플레이어 (public/js/recplayer.js 가 붙임) — 빠르기 · 구간 반복 · ±10초 · 이어 재생 */
-function playerHtml() {
-  return `<div class="rp" data-rp>
-    <audio preload="metadata" playsinline></audio>
-    <div class="rp-now"><b class="rp-title">아래 녹음을 눌러 재생해요</b><span class="rp-by"></span></div>
-    <div class="rp-seek"><span class="rp-cur">0:00</span><input class="rp-bar" type="range" min="0" max="1000" value="0" step="1" aria-label="재생 위치"><span class="rp-dur">0:00</span></div>
-    <div class="rp-ctl">
-      <button type="button" data-rp-a="prev" title="이전 녹음" aria-label="이전 녹음"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-      <button type="button" data-rp-a="back" title="10초 뒤로" aria-label="10초 뒤로">−10</button>
-      <button type="button" class="rp-go" data-rp-a="toggle" title="재생 / 멈춤" aria-label="재생 / 멈춤"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>
-      <button type="button" data-rp-a="fwd" title="10초 앞으로" aria-label="10초 앞으로">+10</button>
-      <button type="button" data-rp-a="next" title="다음 녹음" aria-label="다음 녹음"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
-    </div>
-    <div class="rp-opts">
-      <div class="rp-grp"><span class="rp-lb">빠르기</span><button type="button" data-rp-a="slower" aria-label="느리게">−</button><b class="rp-rate">1.00×</b><button type="button" data-rp-a="faster" aria-label="빠르게">+</button>
-        <span class="rp-presets">${[0.5, 0.75, 1, 1.25, 1.5].map((n) => `<button type="button" data-rp-rate="${n}">${n}×</button>`).join('')}</span></div>
-      <div class="rp-grp"><span class="rp-lb">구간 반복</span><button type="button" data-rp-a="setA">A 시작</button><button type="button" data-rp-a="setB">B 끝</button><button type="button" data-rp-a="clearAB">해제</button><span class="rp-ab"></span></div>
-      <div class="rp-grp"><span class="rp-lb">소리</span><input class="rp-vol" type="range" min="0" max="100" value="100" aria-label="소리 크기"><label class="rp-chk"><input type="checkbox" class="rp-auto" checked> 이어서 재생</label><label class="rp-chk"><input type="checkbox" class="rp-loop"> 한 곡 반복</label></div>
-    </div>
-    <p class="rp-msg" role="status"></p>
-  </div>`;
-}
-
 
 /* ================= 연습일 — 이 예배(주일 · 행사)를 언제 연습하는지 (스케줄표에서 정함 · lib/practice.js) ================= */
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -706,7 +682,6 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
-    ${playerHtml()}
     <h3 class="ph-h3">연습 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
