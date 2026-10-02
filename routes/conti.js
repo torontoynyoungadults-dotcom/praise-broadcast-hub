@@ -455,7 +455,8 @@ function songForm(kind, team, scope, roster, byPos, hist) {
       ${atTagsHtml(roster, byPos)}
       <div class="ph-field cn-newsheet"><label>악보 (PDF · 사진, 여러 개 가능 · 선택)</label>
         <input type="file" name="파일" accept=".pdf,image/*" multiple>
-        <input type="text" name="링크" placeholder="또는 악보 링크 (파일 대신)"></div>
+        <input type="text" name="링크" placeholder="또는 악보 링크 (파일 대신)">
+        <button type="button" class="ph-btn" data-sheet-search data-pick="1">${ui.icon('search')} 웹에서 악보 찾기</button><span class="ss-picked" hidden></span></div>
       <button class="ph-btn pri" type="submit">추가</button>
     </form>
   </details>
@@ -753,7 +754,11 @@ router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.a
     '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': new Date().toISOString(),
   });
   // 곡을 만들 때 악보(PDF · 사진 · 링크)도 함께 — 만든 곡에 바로 묶임. 악보 제목은 파일 이름
-  try { await saveSheetsFrom(req, team, scope, sid, { 'Key': b['Key'] || '', 'BPM': b['BPM'] || '' }, true); } catch (e) { console.error('[곡 악보 저장 실패]', e.message); }
+  try {
+    const wf = await webSheetFile(b.url, title);          // 웹에서 찾아 고른 악보 이미지 → PDF 한 개
+    if (wf) req.files = (req.files || []).concat([wf]);
+    await saveSheetsFrom(req, team, scope, sid, { 'Key': b['Key'] || '', 'BPM': b['BPM'] || '' }, true);
+  } catch (e) { console.error('[곡 악보 저장 실패]', e.message); }
   liveNotify(team, scope, 'saveWorshipSong');
   backTo(req, res, team, scope);
 });
@@ -826,6 +831,15 @@ function titleFromFile(name) {
 function titleFromLink(link) {
   try { const u = new URL(link); const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() || ''); return titleFromFile(last) || u.hostname.replace(/^www\./, ''); } catch (e) { return '악보'; }
 }
+/** 웹에서 고른 이미지 주소들 → PDF 한 개 파일 객체({originalname,mimetype,buffer}). 주소가 없으면 null */
+async function webSheetFile(urlsIn, title) {
+  const urls = [].concat(urlsIn || []).map((u) => String(u || '').trim()).filter((u) => /^https?:\/\//i.test(u)).slice(0, sheetSearch.MAX_IMAGES);
+  if (!urls.length) return null;
+  const bufs = [];
+  for (const u of urls) bufs.push(await sheetSearch.fetchImage(u));
+  const name = String(title || '').trim().slice(0, 80) || '악보';
+  return { originalname: name.replace(/[\\/:*?"<>|]/g, ' ') + '.pdf', mimetype: 'application/pdf', buffer: await sheetSearch.imagesToPdf(bufs) };
+}
 /** 올라온 악보 파일(들) · 링크를 악보저장소에 한 줄씩 저장 — 곡ID 가 있으면 그 곡 전용 악보. 저장한 개수를 돌려줌 */
 async function saveSheetsFrom(req, team, scope, songId, extra, ignoreTyped) {
   const b = req.body || {};
@@ -872,17 +886,10 @@ router.post('/conti/sheets/fromweb', requireTeam, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
-  const urls = [].concat(b.url || []).map((u) => String(u || '').trim()).filter((u) => /^https?:\/\//i.test(u)).slice(0, sheetSearch.MAX_IMAGES);
-  if (urls.length) {
-    try {
-      const bufs = [];
-      for (const u of urls) bufs.push(await sheetSearch.fetchImage(u));
-      const pdf = await sheetSearch.imagesToPdf(bufs);
-      const title = String(b['제목'] || '').trim().slice(0, 80) || '악보';
-      req.files = [{ originalname: title.replace(/[\\/:*?"<>|]/g, ' ') + '.pdf', mimetype: 'application/pdf', buffer: pdf }];
-      await saveSheetsFrom(req, team, scope, b['곡ID'], null, false);
-    } catch (e) { console.error('[웹 악보 저장 실패]', e.message); }
-  }
+  try {
+    const f = await webSheetFile(b.url, b['제목']);
+    if (f) { req.files = [f]; await saveSheetsFrom(req, team, scope, b['곡ID'], null, false); }
+  } catch (e) { console.error('[웹 악보 저장 실패]', e.message); }
   backTo(req, res, team, scope);
 });
 

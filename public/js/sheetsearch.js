@@ -33,11 +33,17 @@
 
   function open(btn) {
     if (!root) build();
+    var pf = btn.hasAttribute('data-pick') ? btn.closest('form') : null;       // 새 곡 추가 폼 안 — 곡이 아직 없으니 고른 주소만 폼에 담아 둠
+    if (pf) { ctx = { form: pf, btn: btn }; var ti = pf.querySelector('input[name="제목"]'); var q0 = ti ? ti.value.trim() : ''; init(q0, q0); return; }
     ctx = { team: btn.getAttribute('data-team'), song: btn.getAttribute('data-song') || '', date: btn.getAttribute('data-date') || '', event: btn.getAttribute('data-event') || '' };
     var q = btn.getAttribute('data-q') || '';
+    init(q, q);
+  }
+  function init(q, titleVal) {
     picked = []; start = 1;
     $('.ss-q').value = q ? q + ' 코드 악보' : '';
-    $('.ss-title').value = q;
+    $('.ss-title').value = titleVal;
+    $('.ss-title').hidden = !!ctx.form;
     $('.ss-grid').innerHTML = ''; $('.ss-more').hidden = true; msg(''); sync();
     root.classList.add('on'); document.body.classList.add('ss-open');
     if (q) run(false); else $('.ss-q').focus();
@@ -87,6 +93,12 @@
 
   function save() {
     if (!picked.length) return;
+    if (ctx.form) {                                      // 새 곡 폼: 곡을 추가할 때 함께 저장됨
+      Array.prototype.forEach.call(ctx.form.querySelectorAll('input[data-ss-url]'), function (n) { n.remove(); });
+      picked.forEach(function (u) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'url'; i.value = u; i.setAttribute('data-ss-url', '1'); ctx.form.appendChild(i); });
+      var tag = ctx.btn.parentNode.querySelector('.ss-picked'); if (tag) { tag.hidden = false; tag.textContent = '웹 악보 ' + picked.length + '장 선택됨 — 추가를 누르면 저장돼요'; }
+      return close();
+    }
     var f = document.createElement('form'); f.method = 'post'; f.action = '/conti/sheets/fromweb'; f.style.display = 'none';
     function add(n, v) { var i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); }
     add('team', ctx.team); add('곡ID', ctx.song); add('date', ctx.date); if (ctx.event) add('event', ctx.event);

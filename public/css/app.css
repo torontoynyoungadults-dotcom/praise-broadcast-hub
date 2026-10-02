@@ -1252,3 +1252,4 @@ body.ss-open{overflow:hidden}
 .ss-box .ss-q,.ss-box .ss-title{flex:1 1 0;width:auto;min-width:0}
 .ss-box .ss-bar .ph-btn,.ss-box .ss-foot .ph-btn,.ss-box .ss-more .ph-btn{flex:none;width:auto;white-space:nowrap}
 .ss-box .ss-more .ph-btn{padding:8px 22px}
+.ss-picked{display:inline-block;margin-left:8px;font-size:.85rem;color:var(--accent,#ff8a2b)}
