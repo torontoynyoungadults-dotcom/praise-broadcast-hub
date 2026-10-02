@@ -184,7 +184,7 @@
     el.innerHTML =
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
-        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
+        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn pv-splitbtn" style="display:none" title="이 악보의 쪽 ↔ 곡 연결을 곡별 악보로 저장 — 다음에 그 곡을 쓸 때 그대로 따라옵니다" aria-label="곡별 악보로 저장">💾 곡별 저장</button><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)" aria-label="다음 쪽">' + I('next') + '</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + ' 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">' + I('spread') + ' 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
@@ -815,6 +815,7 @@
         (canTeam() && opts.callServer && S.room ? '<option value="__split">▸ 곡별 악보로 저장…</option>' : '');
       sel.innerHTML = html; sel.value = man != null ? String(man) : 'auto'; sel.style.display = '';
       sel.classList.toggle('manual', man != null);
+      var sb = $('.pv-splitbtn'); if (sb && !sb.getAttribute('data-p')) { sb.setAttribute('data-p', '1'); splitBtnPaint(f.map && Object.keys(f.map).length ? 'saved' : 'dirty'); } else if (sb) sb.style.display = (canTeam() && opts.callServer && S.room && songs.length) ? '' : 'none';
     }
     function syncSongForPage() {
       if (S.applying || !S.doc || S.dead) return;
@@ -848,26 +849,37 @@
     /** 배지가 쪽 맨 위를 가리지 않게, 글자가 시작하는 곳을 배지 아래로 (컴퓨터 화면은 배지가 오른쪽 위 빈 곳에 뜨므로 그대로) */
     function badgePad() { return 0; }                                  // v6 — 송폼은 악보 위가 아니라 떠 있는 "송폼" 창에 (쪽 맨 위를 가리지 않음)
     /** 지금 악보의 쪽 ↔ 곡 연결(자동 + 직접 고른 것)을 곡별 악보(곡 + 쪽 범위)로 저장 — 다음에 그 곡을 콘티에 가져오면 쪽 범위도 같이 따라옵니다 */
-    function saveSplit() {
+    function splitBtnPaint(state) {            // state: 'dirty' | 'saving' | 'saved'
+      var b = $('.pv-splitbtn'); if (!b) return;
+      var show = canTeam() && opts.callServer && S.room && songs.length; b.style.display = show ? '' : 'none';
+      b.textContent = state === 'saving' ? '저장 중…' : state === 'saved' ? '✓ 곡별 저장됨' : '💾 곡별 저장'; b.classList.toggle('on', state === 'saved'); b.disabled = state === 'saving';
+    }
+    var splitT = 0;
+    /** auto=true: 직접 고른 쪽 ↔ 곡이 바뀐 뒤 잠깐 있다가 조용히 저장 (확인창 · 오류 알림 없음) · false: [💾 곡별 저장] 단추 */
+    function saveSplit(auto) {
+      clearTimeout(splitT);
       var f = sheets[S.sheetIdx], total = S.pages || 0;
-      if (!f || !S.doc || !total) { toast('악보가 열린 뒤에 저장할 수 있습니다.', true); return; }
+      if (!f || !S.doc || !total) { if (!auto) toast('악보가 열린 뒤에 저장할 수 있습니다.', true); return; }
       var by = {}, i, pg;
       for (pg = 1; pg <= total; pg++) { i = resolveSong(f, pg); if (i != null && i >= 0 && songs[i]) (by[i] = by[i] || []).push(pg); }
       var keys = Object.keys(by);
-      if (!keys.length) { toast('곡에 연결된 쪽이 없습니다. "이 쪽부터 곡 선택" 으로 먼저 연결해주세요.', true); return; }
+      if (!keys.length) { if (!auto) toast('곡에 연결된 쪽이 없습니다. "이 쪽부터 곡 선택" 으로 먼저 연결해주세요.', true); return; }
       function spec(a) { var o = [], j = 0; while (j < a.length) { var k = j; while (k + 1 < a.length && a[k + 1] === a[k] + 1) k++; o.push(k > j ? a[j] + '–' + a[k] : String(a[j])); j = k + 1; } return o.join(', '); }
-      var lines = keys.map(function (k) { return (+k + 1) + '. ' + songs[k].title + ' — ' + spec(by[k]) + '쪽'; });
-      if (!root.confirm('이 악보를 곡별로 나눠 저장할까요?\n\n' + lines.join('\n') + '\n\n저장하면 각 곡의 악보로 남아, 다음에 그 곡을 콘티에 가져올 때 쪽 범위도 함께 따라옵니다.')) return;
+      splitBtnPaint('saving');
       opts.callServer('worshipSheetSplit', [opts.token, S.room, f.id, by], function (r) {
-        toast('곡별 악보로 저장했습니다 (' + ((r && r.songs && r.songs.length) || keys.length) + '곡).', false, 2600);
-      }, function (e) { toast((e && e.message) || '저장하지 못했습니다.', true); });
+        splitBtnPaint('saved');
+        var n = (r && r.songs && r.songs.length) || keys.length;
+        toast((auto ? '쪽 ↔ 곡 연결을 곡별 악보로 저장했어요' : '곡별 악보로 저장했습니다') + ' (' + n + '곡) — 다음에 이 곡을 쓰면 그대로 따라옵니다.', false, 2800);
+      }, function (e) { splitBtnPaint('dirty'); if (!auto) toast((e && e.message) || '저장하지 못했습니다.', true); });
     }
+    function splitLater() { if (!(canTeam() && opts.callServer && S.room)) return; splitBtnPaint('dirty'); clearTimeout(splitT); splitT = setTimeout(function () { saveSplit(true); }, 2500); }
+    (function () { var b = $('.pv-splitbtn'); if (b) b.onclick = function () { saveSplit(false); }; })();
     $('.pv-songsel').onchange = function () {
-      if (this.value === '__split') { renderSongSel(); saveSplit(); return; }
+      if (this.value === '__split') { renderSongSel(); saveSplit(false); return; }
       var f = sheets[S.sheetIdx], m = mapOf(f), v = this.value;
       if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
       saveManual(f); var idx = resolveSong(f, S.page);
-      if (idx >= 0) setSong(idx, true); renderSongSel(); sendNav();
+      if (idx >= 0) setSong(idx, true); renderSongSel(); sendNav(); splitLater();
       toast(v === 'auto' ? '이 쪽을 자동 연결로 되돌렸습니다.' : '이 쪽부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
     };
 

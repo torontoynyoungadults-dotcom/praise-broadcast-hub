@@ -664,7 +664,7 @@ function statsTab() {
   return '<div class="panel"><span class="chip">콘티 통계</span>' +
       '<p class="hint">입력된 콘티 전체 기준입니다 (앞으로 부를 곡 포함). 띄어쓰기 · 대소문자 · 한 글자 오타는 같은 곡으로 묶었습니다.</p>' +
       filters + tiles +
-      '<div class="docbar">' + docBtn('통계 PDF 미리보기 · 다운로드', 'hubDoc(\'hubStatsDoc\',[TOKEN,SS.range===\'all\'?\'\':SS.range],\'ssDocMsg\')') + '<p class="msg docmsg" id="ssDocMsg"></p></div></div>' +
+      '<div class="docbar">' + docBtn('통계 PDF 미리보기 · 다운로드 (지금 고른 조건만)', 'hubDoc(\'hubStatsDoc\',[TOKEN,SS.range===\'all\'?\'\':SS.range,SS.kind,SS.lead,SS.q],\'ssDocMsg\')') + '<p class="msg docmsg" id="ssDocMsg"></p></div></div>' +
     vtabs + '<div class="panel" id="ssBody">' + statView(list) + '</div>';
 }
 

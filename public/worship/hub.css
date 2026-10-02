@@ -1730,3 +1730,10 @@ html[data-theme="light"] body .pvgo:not(.pvstartbtn) { background: linear-gradie
 .pv-rt-sec b .yi, .pv-sec h4 .yi { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
 .pv-dh b .yi { width: 18px; height: 18px; vertical-align: -4px; margin-right: 6px; }
 .pv-chip .yi { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+
+/* v18 — [💾 곡별 저장] : 쪽 ↔ 곡 연결을 곡별 악보로 저장 (유튜브 단추와 같은 알약, 색만 청록) */
+.pv-splitbtn { background: rgba(60, 186, 160, .20) !important; border-color: rgba(60, 186, 160, .55) !important; color: #CFF5EA !important; white-space: nowrap; }
+.pv-splitbtn:hover { background: rgba(60, 186, 160, .32) !important; }
+.pv-splitbtn.on { background: rgba(60, 186, 160, .12) !important; color: #8FDCC7 !important; }
+.pv-splitbtn:disabled { opacity: .6; }
+.pv.pv-narrow .pv-splitbtn { font-size: 12px; padding: 0 9px; }
