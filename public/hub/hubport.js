@@ -1224,7 +1224,7 @@ function rpDetail(s) {
           '<label class="w2">메모<input type="text" data-f="note" maxlength="200" value="' + esc(x.note) + '"></label></div>' +
           '<div class="sv-btns"><button class="btn mini" onclick="rpSheetSave(this)">저장</button><button class="btn mini" onclick="RP.editSheet=\'\';rpRedraw();">취소</button></div><p class="msg"></p></div>';
       }
-      return '<div class="rp-sh" data-sid="' + esc(x.id) + '"><a target="_blank" rel="noopener" href="' + esc(x.url) + '">📄 ' + esc(x.name || x.title) + '</a>' +
+      return '<div class="rp-sh" data-sid="' + esc(x.id) + '"><a target="_blank" rel="noopener" href="' + esc(x.href || x.url) + '">📄 ' + esc(x.name || x.title) + '</a>' +
         '<small>' + [x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.date && rpDay(x.date), dispList(x.leader), x.range ? x.range + '쪽' : (x.pages && x.pages + '쪽'), x.note].filter(Boolean).map(esc).join(' · ') + '</small>' +
         (D.canEdit ? '<button class="btn mini" onclick="rpEditSheet(this)">정보 고치기</button>' : '') + '</div>';
     }).join('');

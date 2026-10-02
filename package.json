@@ -17,6 +17,7 @@
     "express": "^5.1.0",
     "googleapis": "^182.0.0",
     "multer": "^2.0.1",
+    "pdf-lib": "^1.17.1",
     "socket.io": "^4.8.4"
   },
   "license": "ISC",

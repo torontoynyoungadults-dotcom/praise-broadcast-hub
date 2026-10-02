@@ -21,6 +21,7 @@ const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
 const honorific = require('../lib/honorific');
 const pageSpec = require('../lib/pageSpec');
+const pdfPart = require('../lib/pdfPart');
 const guestAccess = require('../lib/guestAccess');
 const liveAuth = require('../lib/liveAuth');
 const hubApi = require('../lib/hubApi');
@@ -189,26 +190,65 @@ function pipeWeb(res, r, cacheControl) {
   Readable.fromWeb(r.body).on('error', () => res.end()).pipe(res);
 }
 
+/** 악보 한 개의 바이트 — 메모리 캐시 → 드라이브 / 외부 주소. 실패하면 { status, msg } 를 던짐 */
+async function sheetBytes(id, hit) {
+  const cached = BYTES.get(id);
+  if (cached) { BYTES.delete(id); BYTES.set(id, cached); return cached; }
+  const driveId = liveStore.driveIdOf(hit['파일링크']);
+  const r = driveId ? await driveFetch(driveId) : await fetch(hit['파일링크'], { redirect: 'follow' });
+  if (!r.ok || !r.body) throw Object.assign(new Error('원본 악보를 불러오지 못했습니다.'), { status: r.status === 404 ? 404 : 502 });
+  const rec = { buf: Buffer.from(await r.arrayBuffer()), type: r.headers.get('content-type') || 'application/octet-stream' };
+  bytesPut(id, rec);
+  return rec;
+}
+async function sheetRowFor(req, id) {
+  const rows = await sheetsDb.readAll('악보저장소');
+  return rows.find((s) => req.ctx.teams.includes(s['팀ID']) && s['파일링크'] && liveStore.sheetIdOf(s['팀ID'], s['파일링크']) === id) || null;
+}
+
 router.get('/sheet/:id', requireTeam, async (req, res) => {
   const id = String(req.params.id || '');
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   try {
-    const rows = await sheetsDb.readAll('악보저장소');
-    const hit = rows.find((s) => req.ctx.teams.includes(s['팀ID']) && s['파일링크'] && liveStore.sheetIdOf(s['팀ID'], s['파일링크']) === id);
+    const hit = await sheetRowFor(req, id);
     if (!hit) return res.status(404).send('not found');
-    const cached = BYTES.get(id);
-    if (cached) { BYTES.delete(id); BYTES.set(id, cached); res.set({ 'Content-Type': cached.type, 'Content-Length': String(cached.buf.length), 'Cache-Control': 'private, max-age=600' }); return res.send(cached.buf); }
-    const driveId = liveStore.driveIdOf(hit['파일링크']);
-    const r = driveId ? await driveFetch(driveId) : await fetch(hit['파일링크'], { redirect: 'follow' });
-    if (!r.ok || !r.body) return res.status(r.status === 404 ? 404 : 502).send('원본 악보를 불러오지 못했습니다.');
-    const buf = Buffer.from(await r.arrayBuffer());
-    const type = r.headers.get('content-type') || 'application/octet-stream';
-    bytesPut(id, { buf, type });
-    res.set({ 'Content-Type': type, 'Content-Length': String(buf.length), 'Cache-Control': 'private, max-age=600' });
-    res.send(buf);
+    const rec = await sheetBytes(id, hit);
+    res.set({ 'Content-Type': rec.type, 'Content-Length': String(rec.buf.length), 'Cache-Control': 'private, max-age=600' });
+    res.send(rec.buf);
   } catch (e) {
     console.error('[악보 파일]', id, e && e.message);
-    if (!res.headersSent) res.status(502).send('원본 악보를 불러오지 못했습니다.');
+    if (!res.headersSent) res.status(e && e.status || 502).send('원본 악보를 불러오지 못했습니다.');
+  }
+});
+
+/** 패키지 악보에서 한 곡의 쪽만 담은 PDF — /sheet/<악보id>/part?p=3-5,8 (곡별 악보로 저장해 둔 줄을 열 때). PDF 가 아니거나 쪽이 맞지 않으면 원본 그대로 */
+const PARTS = new Map(), PARTS_MAX = 40;
+router.get('/sheet/:id/part', requireTeam, async (req, res) => {
+  const id = String(req.params.id || '');
+  if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
+  const spec = pageSpec.cleanSpec(req.query.p);
+  try {
+    const hit = await sheetRowFor(req, id);
+    if (!hit) return res.status(404).send('not found');
+    const rec = await sheetBytes(id, hit);
+    let out = null;
+    if (spec && pdfPart.isPdf(rec.buf)) {
+      const key = id + '|' + spec + '|' + rec.buf.length;
+      out = PARTS.get(key) || null;
+      if (!out) {
+        out = await pdfPart.extract(rec.buf, spec);
+        if (out) { PARTS.set(key, out); while (PARTS.size > PARTS_MAX) PARTS.delete(PARTS.keys().next().value); }
+      }
+    }
+    const name = String(req.query.n || hit['제목'] || '악보').replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim().slice(0, 80) || '악보';
+    res.set({
+      'Content-Type': out ? 'application/pdf' : rec.type, 'Content-Length': String((out || rec.buf).length), 'Cache-Control': 'private, max-age=600',
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name + (out ? ' (' + spec + '쪽)' : ''))}${out || /pdf/i.test(rec.type) ? '.pdf' : ''}`,
+    });
+    res.send(out || rec.buf);
+  } catch (e) {
+    console.error('[악보 일부]', id, e && e.message);
+    if (!res.headersSent) res.status(e && e.status || 502).send('악보를 불러오지 못했습니다.');
   }
 });
 
