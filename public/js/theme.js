@@ -23,7 +23,8 @@
     fs = best;
   }
   function applyFs(n) {
-    fs = Math.max(-1, Math.min(3, n));
+    n = 0;                                          // 글자 크기 단추를 없앰 — 늘 기본 크기
+    fs = 0;
     put(FS_KEY, String(fs));
     root.style.setProperty('--font-scale', String(SCALES[String(fs)]));
     if (fs > 0) root.setAttribute('data-fs', String(fs)); else root.removeAttribute('data-fs');
