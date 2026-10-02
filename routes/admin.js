@@ -23,6 +23,7 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
+const importMsg = new Map();   // 가져오기 결과 — 다음 /admin 화면에 한 번 보여주고 지움
 function splitList(s) { return String(s || '').split(',').map((x) => x.trim()).filter(Boolean); }
 
 function teamRow(t) {
@@ -86,10 +87,13 @@ router.get('/admin', requireAdmin, async (req, res) => {
     </form>`; }).join('');
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
 
+  const impMsg = importMsg.get(req.session.email) || ''; importMsg.delete(req.session.email);
+  const impBox = impMsg ? `<div class="ph-card top-accent"><h2 class="ph-h2">지난 콘티 가져오기 결과</h2><p class="ph-sub" style="white-space:pre-line;">${esc(impMsg)}</p></div>` : '';
   const content = `
   ${pageShell.hubNav('', '')}
   ${hero}
   ${pageShell.adminTabs('admin', '')}
+  ${impBox}
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">허브 바닥글 태그라인</h2>
@@ -126,11 +130,13 @@ router.get('/admin', requireAdmin, async (req, res) => {
   <div class="ph-card">
     <h2 class="ph-h2">지난 콘티 가져오기 (카톡 기록)</h2>
     <p class="ph-sub">카톡방에 올라왔던 2025년 11월 말 ~ 2026년 9월 말의 콘티(곡명 · Key · 유튜브 링크 · 변경 내용)를 해당 날짜의 콘티로 넣어요. 이미 콘티가 있는 날은 건드리지 않아서 여러 번 눌러도 안전해요. 성탄 · 송구영신 · 특별새벽기도회 · 철야는 <b>주일 외 찬양</b>으로 함께 만들어져요.</p>
-    <form method="post" action="/admin/import-history" class="ph-inlineform" onsubmit="return confirm('이 찬양팀에 지난 콘티를 넣을까요? (이미 콘티가 있는 날은 건너뛰어요)')">
-      <select name="team">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
-      <button class="ph-btn" type="submit" name="mode" value="preview">미리 보기 (넣지 않음)</button>
-      <button class="ph-btn pri" type="submit" name="mode" value="go">가져오기</button>
-    </form>
+    <div class="ph-inlineform">
+      <select id="ih-team">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
+      <form method="post" action="/admin/import-history" onsubmit="this.team.value=document.getElementById('ih-team').value;return true;">
+        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="preview"><button class="ph-btn" type="submit" style="width:100%;">미리 보기 (넣지 않음)</button></form>
+      <form method="post" action="/admin/import-history" onsubmit="this.team.value=document.getElementById('ih-team').value;return confirm('이 찬양팀에 지난 콘티를 넣을까요? (이미 콘티가 있는 날은 건너뛰어요)')">
+        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="go"><button class="ph-btn pri" type="submit" style="width:100%;">가져오기</button></form>
+    </div>
   </div>
 
   <div class="ph-card">
@@ -170,8 +176,8 @@ router.post('/admin/import-history', requireAdmin, async (req, res) => {
       if (r.skipped.length) msg += '\n건너뜀: ' + r.skipped.join(', ');
     } catch (e) { console.error('[지난 콘티 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
   }
-  const content = `${pageShell.hubNav('', '')}${pageShell.adminTabs('admin', '')}<div class="ph-card top-accent"><h2 class="ph-h2">지난 콘티 가져오기</h2><p class="ph-sub" style="white-space:pre-line;">${esc(msg)}</p><a class="ph-btn" href="/admin">← 관리로</a></div>`;
-  spa.send(req, res, content, { title: '지난 콘티 가져오기' });
+  importMsg.set(req.session.email, msg);
+  spa.redirect(req, res, '/admin');
 });
 
 router.post('/admin/tagline', requireAdmin, async (req, res) => {
