@@ -88,9 +88,9 @@ async function teamRoster(team) {
 
 function lineupCell(scope, team, posKey, names, roster, infoMap) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할 }));
-  const isP = (n) => honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사님", 그 밖에는 "윤정환 목사님"
+  const isP = (n) => honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
   const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !isP(n)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
-  const chipName = (n) => (isP(n) ? String(n).charAt(0) + honorific.SUFFIX : shortOf(n));
+  const chipName = (n) => (isP(n) ? String(n) + honorific.SUFFIX : shortOf(n));       // 목회자는 항상 "윤정환 목사"(줄이지 않음)
   const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? n.이름 + honorific.SUFFIX : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
   const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(isP(n.이름) ? n.이름 + honorific.SUFFIX : n.이름)}</span>
@@ -158,7 +158,7 @@ async function specialServiceById(team, id) {
 
 /* ---------- 조회(읽기) 공통 — 로그인 화면과 공개 화면이 함께 씁니다 ---------- */
 async function loadWeek(team, scope) {
-  await honorific.prime(team);                                            // 목사님 호칭(댓글 · 올린 사람)을 위해
+  await honorific.prime(team);                                            // 목사 호칭(댓글 · 올린 사람)을 위해
   const [songs, sheets, recs, comments] = await Promise.all([
     sheetsDb.readAll('찬양콘티'),
     sheetsDb.readAll('악보저장소'),

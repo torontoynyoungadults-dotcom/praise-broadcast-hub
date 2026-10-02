@@ -1060,7 +1060,7 @@ a { color: var(--accent-ink); text-decoration: none; }
 .cn-glrow input { flex: 1; min-width: 0; font-size: .82rem; }
 .cn-glform { margin-top: 8px; }
 
-/* V12 — 곡별로 저장한 악보의 쪽 범위 · 곡 만들 때 올리는 악보 칸 · 목사님 칩 */
+/* V12 — 곡별로 저장한 악보의 쪽 범위 · 곡 만들 때 올리는 악보 칸 · 목사 칩 */
 .ph-songsheet .ph-pr { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 99px; font-size: 10.5px; font-weight: 800; color: var(--accent-2, var(--accent)); background: color-mix(in srgb, var(--accent-2, var(--accent)) 16%, transparent); vertical-align: 1px; }
 .cn-newsheet { display: flex; flex-direction: column; gap: 6px; }
 .cn-newsheet label { font-size: 13px; font-weight: 750; color: var(--sub); }
@@ -1319,3 +1319,35 @@ body.pkp-open{overflow:hidden}
 .pkp-box .ph-btn:not(.pri),.pkp-box .pkp-close{background:rgba(255,255,255,.1);color:#f4f4f2;border:1px solid rgba(255,255,255,.3)}
 .pkp-box .pkp-edrow{color:#f4f4f2}
 .pkp-box .pkp-page small{color:#d9d9d6;opacity:1}
+
+/* 악보 영역 조정 — 확대 · 스크롤 · 큰 손잡이 */
+.pkp-ed{padding-bottom:12px}
+.pkp-edtop{position:sticky;top:0;z-index:3;background:#111b19;padding:6px 0;align-items:center}
+.pkp-zm{display:inline-flex;align-items:center;gap:6px}
+.pkp-zm .ph-btn{width:44px;padding:8px 0;font-size:20px;line-height:1}
+.pkp-zv{min-width:48px;text-align:center;font-size:13px}
+.pkp-edscroll{flex:1;min-height:260px;max-height:calc(100vh - 230px);overflow:auto;border-radius:8px;background:#222;-webkit-overflow-scrolling:touch}
+.pkp-edscroll .pkp-edwrap{align-self:auto;margin:0 auto;max-width:none;touch-action:auto;cursor:default}
+.pkp-edbox{pointer-events:none}
+.pkp-edbox .hd{position:absolute;pointer-events:auto;touch-action:none;background:transparent;width:auto;height:auto;border-radius:0;box-shadow:none}
+.pkp-edbox .hd::after{content:"";position:absolute;background:#ff8a3d;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+.pkp-edbox .hd-t,.pkp-edbox .hd-b{left:20%;right:20%;height:34px;margin:0;cursor:ns-resize}
+.pkp-edbox .hd-t{top:0}.pkp-edbox .hd-b{bottom:0;top:auto}
+.pkp-edbox .hd-t::after,.pkp-edbox .hd-b::after{left:50%;width:56px;height:10px;margin-left:-28px}
+.pkp-edbox .hd-t::after{top:3px}.pkp-edbox .hd-b::after{bottom:3px}
+.pkp-edbox .hd-l,.pkp-edbox .hd-r{top:20%;bottom:20%;width:34px;margin:0;cursor:ew-resize;transform:none}
+.pkp-edbox .hd-l{left:0}.pkp-edbox .hd-r{right:0;left:auto}
+.pkp-edbox .hd-l::after,.pkp-edbox .hd-r::after{top:50%;height:56px;width:10px;margin-top:-28px}
+.pkp-edbox .hd-l::after{left:3px}.pkp-edbox .hd-r::after{right:3px}
+.pkp-edbox .hd-tl,.pkp-edbox .hd-tr,.pkp-edbox .hd-bl,.pkp-edbox .hd-br{width:40px;height:40px;margin:0;cursor:nwse-resize;transform:none}
+.pkp-edbox .hd-tl{left:0;top:0}.pkp-edbox .hd-tr{right:0;top:0;left:auto}.pkp-edbox .hd-bl{left:0;bottom:0;top:auto}.pkp-edbox .hd-br{right:0;bottom:0;left:auto;top:auto}
+.pkp-edbox .hd-tl::after,.pkp-edbox .hd-tr::after,.pkp-edbox .hd-bl::after,.pkp-edbox .hd-br::after{width:20px;height:20px;border-radius:50%}
+.pkp-edbox .hd-tl::after{left:2px;top:2px}.pkp-edbox .hd-tr::after{right:2px;top:2px}.pkp-edbox .hd-bl::after{left:2px;bottom:2px}.pkp-edbox .hd-br::after{right:2px;bottom:2px}
+
+.pkp-box.editing .pkp-bar>:not(.pkp-ttl):not(.pkp-close),.pkp-box.editing .pkp-sv{display:none!important}
+.pkp-ed.edit{overflow:hidden;gap:6px;padding:8px 10px 10px}
+.pkp-ed.edit .pkp-edmsg{font-size:12px;line-height:1.4}
+.pkp-ed.edit .pkp-edtop{position:static;flex-wrap:nowrap;gap:6px;padding:0}
+.pkp-ed.edit .pkp-edtop .ph-btn{width:auto;flex:none;padding:8px 12px;white-space:nowrap}
+.pkp-ed.edit .pkp-zm .ph-btn{width:42px;padding:8px 0}
+.pkp-ed.edit .pkp-edscroll{flex:1;min-height:0;max-height:none}

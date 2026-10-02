@@ -52,9 +52,9 @@
   /* ---- 악보 영역 조정: 자동으로 제목이 안 잘린 악보만, 한 번 지정해 두면 다음부터 자동 ---- */
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function teamOf() { try { return new URL(state.href, location.href).searchParams.get('team') || ''; } catch (e) { return ''; } }
-  function edShow(on) { $('.pkp-ed').hidden = !on; $('.pkp-pages').hidden = on; }
+  function edShow(on) { $('.pkp-ed').hidden = !on; $('.pkp-pages').hidden = on; if (!on) { $('.pkp-box').classList.remove('editing'); $('.pkp-ed').classList.remove('edit'); } }
   function openAreas() {
-    var ed = $('.pkp-ed'); edShow(true); ed.innerHTML = '<p class="pkp-edmsg">악보 목록을 불러오는 중…</p>';
+    var ed = $('.pkp-ed'); edShow(true); $('.pkp-box').classList.remove('editing'); ed.classList.remove('edit'); ed.innerHTML = '<p class="pkp-edmsg">악보 목록을 불러오는 중…</p>';
     fetch(state.href.replace('/conti/package.pdf', '/conti/package/areas'), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
       var list = (j && j.sheets) || [];
       if (!list.length) { ed.innerHTML = '<p class="pkp-edmsg">이 콘티에 연결된 악보가 없어요.</p><button type="button" class="ph-btn" data-ed="back">돌아가기</button>'; bindEd(); return; }
@@ -75,43 +75,60 @@
   }
   function editOne(x) {
     var ed = $('.pkp-ed'), c = x.crop ? { l: x.crop.l, t: x.crop.t, r: x.crop.r, b: x.crop.b } : { l: 0.03, t: 0.12, r: 0.97, b: 0.97 };
-    ed.innerHTML = '<p class="pkp-edmsg"><b>' + esc(x.title || x.name) + '</b> — 오렌지 테두리의 <b>네 변을 끌어서</b> 악보만 감싸 주세요. 테두리 밖은 인쇄에서 빠지고, 안쪽이 용지에 꽉 차게 들어가요.</p>' +
-      '<div class="pkp-edwrap"><canvas class="pkp-edcv"></canvas><div class="pkp-edbox"><i class="h-t"></i><i class="h-b"></i><i class="h-l"></i><i class="h-r"></i></div></div>' +
-      '<div class="pkp-edbtns"><button type="button" class="ph-btn pri" data-ed="save">저장하고 다시 만들기</button><button type="button" class="ph-btn" data-ed="auto">자동으로 되돌리기</button><button type="button" class="ph-btn" data-ed="list">취소</button></div>';
-    var wrap = ed.querySelector('.pkp-edwrap'), cv = ed.querySelector('.pkp-edcv'), box = ed.querySelector('.pkp-edbox');
+    $('.pkp-box').classList.add('editing'); ed.classList.add('edit');
+    var ZOOMS = [1, 1.5, 2, 3, 4], zi = (window.innerWidth < 700 ? 2 : 1), pdfPage = null;
+    ed.innerHTML = '<p class="pkp-edmsg"><b>' + esc(x.title || x.name) + '</b> — 오렌지 <b>손잡이</b>를 끌어 악보만 감싸 주세요. 바깥은 인쇄에서 빠져요. <b>＋</b>로 확대해 정확히 맞추고, 손잡이 아닌 곳을 밀면 화면이 움직여요.</p>' +
+      '<div class="pkp-edbtns pkp-edtop"><span class="pkp-zm"><button type="button" class="ph-btn" data-ed="zout" aria-label="축소">−</button><b class="pkp-zv"></b><button type="button" class="ph-btn" data-ed="zin" aria-label="확대">＋</button></span>' +
+      '<button type="button" class="ph-btn pri" data-ed="save">저장</button><button type="button" class="ph-btn" data-ed="auto">자동으로</button><button type="button" class="ph-btn" data-ed="list">취소</button></div>' +
+      '<div class="pkp-edscroll"><div class="pkp-edwrap"><canvas class="pkp-edcv"></canvas><div class="pkp-edbox">' +
+      ['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br'].map(function (h) { return '<i class="hd hd-' + h + '" data-h="' + h + '"></i>'; }).join('') + '</div></div></div>';
+    var scroller = ed.querySelector('.pkp-edscroll'), wrap = ed.querySelector('.pkp-edwrap'), cv = ed.querySelector('.pkp-edcv'), box = ed.querySelector('.pkp-edbox'), zv = ed.querySelector('.pkp-zv');
     function paint() {
       box.style.left = (c.l * 100) + '%'; box.style.top = (c.t * 100) + '%'; box.style.width = ((c.r - c.l) * 100) + '%'; box.style.height = ((c.b - c.t) * 100) + '%';
     }
-    paint();
+    function renderPage() {
+      if (!pdfPage) return;
+      zv.textContent = Math.round(ZOOMS[zi] * 100) + '%';
+      var vp0 = pdfPage.getViewport({ scale: 1 }), baseW = Math.max(240, scroller.clientWidth - 2), cssW = baseW * ZOOMS[zi], dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var vp = pdfPage.getViewport({ scale: cssW / vp0.width * dpr });
+      cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+      cv.style.width = Math.floor(vp.width / dpr) + 'px'; cv.style.height = Math.floor(vp.height / dpr) + 'px';
+      wrap.style.width = cv.style.width; wrap.style.height = cv.style.height;
+      return pdfPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    }
+    paint(); zv.textContent = Math.round(ZOOMS[zi] * 100) + '%';
     var pageNo = (function () { var m = /\d+/.exec(x.spec || ''); return m ? +m[0] : 1; })();
     loadPdfjs().then(function (lib) { return lib.getDocument({ url: '/conti/sheets/raw?team=' + encodeURIComponent(teamOf()) + '&row=' + x.row }).promise; })
       .then(function (doc) { return doc.getPage(Math.min(pageNo, doc.numPages)); })
-      .then(function (page) {
-        var vp0 = page.getViewport({ scale: 1 }), cw = Math.min(wrap.clientWidth || 560, 720), dpr = Math.min(window.devicePixelRatio || 1, 2), vp = page.getViewport({ scale: cw / vp0.width * dpr });
-        cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height); cv.style.width = Math.floor(vp.width / dpr) + 'px'; cv.style.height = Math.floor(vp.height / dpr) + 'px';
-        return page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-      }).catch(function () { wrap.insertAdjacentHTML('beforebegin', '<p class="pkp-edmsg bad">악보를 불러오지 못했어요.</p>'); });
-    // 누른 곳에서 가장 가까운 변(또는 모서리 = 두 변)을 끌어요
-    var drag = null, MIN = 0.08;
-    function frac(e) { var r = wrap.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, r: r }; }
-    wrap.addEventListener('pointerdown', function (e) {
-      var f = frac(e), tol = 26, d = { l: Math.abs(f.x - c.l) * f.r.width, r: Math.abs(f.x - c.r) * f.r.width, t: Math.abs(f.y - c.t) * f.r.height, b: Math.abs(f.y - c.b) * f.r.height };
-      var hx = d.l <= d.r ? 'l' : 'r', hy = d.t <= d.b ? 't' : 'b', sides = [];
-      if (d[hx] <= tol) sides.push(hx); if (d[hy] <= tol) sides.push(hy);
-      if (!sides.length) { var best = Object.keys(d).sort(function (a, b) { return d[a] - d[b]; })[0]; sides.push(best); }   // 멀리 눌러도 가장 가까운 변
-      drag = sides; try { wrap.setPointerCapture(e.pointerId); } catch (er) {} move(e); e.preventDefault();
+      .then(function (page) { pdfPage = page; return renderPage(); })
+      .then(function () { scroller.scrollTop = Math.max(0, c.t * wrap.clientHeight - 40); })
+      .catch(function () { scroller.insertAdjacentHTML('beforebegin', '<p class="pkp-edmsg bad">악보를 불러오지 못했어요.</p>'); });
+    function zoomTo(n) {
+      n = Math.max(0, Math.min(ZOOMS.length - 1, n)); if (n === zi) return;
+      var cx = (scroller.scrollLeft + scroller.clientWidth / 2) / wrap.clientWidth, cy = (scroller.scrollTop + scroller.clientHeight / 2) / wrap.clientHeight;
+      zi = n;
+      Promise.resolve(renderPage()).then(function () { scroller.scrollLeft = cx * wrap.clientWidth - scroller.clientWidth / 2; scroller.scrollTop = cy * wrap.clientHeight - scroller.clientHeight / 2; });
+    }
+    // 손잡이(변 · 모서리)만 끌림 — 나머지 곳은 그대로 스크롤(밀어서 이동)
+    var MIN = 0.06, drag = null;
+    box.addEventListener('pointerdown', function (e) {
+      var h = e.target.getAttribute && e.target.getAttribute('data-h'); if (!h) return;
+      drag = { sides: h.split(''), el: e.target }; try { e.target.setPointerCapture(e.pointerId); } catch (er) {} e.preventDefault();
     });
-    function move(e) {
-      if (!drag) return; var f = frac(e), x = Math.max(0, Math.min(1, f.x)), y = Math.max(0, Math.min(1, f.y));
-      drag.forEach(function (k) {
-        if (k === 'l') c.l = Math.min(x, c.r - MIN); else if (k === 'r') c.r = Math.max(x, c.l + MIN);
-        else if (k === 't') c.t = Math.min(y, c.b - MIN); else c.b = Math.max(y, c.t + MIN);
+    box.addEventListener('pointermove', function (e) {
+      if (!drag) return; var r = wrap.getBoundingClientRect(), fx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), fy = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      drag.sides.forEach(function (k) {
+        if (k === 'l') c.l = Math.min(fx, c.r - MIN); else if (k === 'r') c.r = Math.max(fx, c.l + MIN);
+        else if (k === 't') c.t = Math.min(fy, c.b - MIN); else c.b = Math.max(fy, c.t + MIN);
       });
       paint();
-    }
-    wrap.addEventListener('pointermove', move);
-    wrap.addEventListener('pointerup', function () { drag = null; });
-    wrap.addEventListener('pointercancel', function () { drag = null; });
+      // 화면 가장자리에 닿으면 같이 스크롤
+      var sr = scroller.getBoundingClientRect(), pad = 36;
+      if (e.clientY > sr.bottom - pad) scroller.scrollTop += 14; else if (e.clientY < sr.top + pad) scroller.scrollTop -= 14;
+      if (e.clientX > sr.right - pad) scroller.scrollLeft += 14; else if (e.clientX < sr.left + pad) scroller.scrollLeft -= 14;
+    });
+    function end() { drag = null; }
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
     function save(v) {
       var body = new URLSearchParams({ team: teamOf(), __row: x.row, crop: v ? [c.l, c.t, c.r, c.b].map(function (n) { return n.toFixed(4); }).join(',') : '' });
       fetch('/conti/sheets/crop', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
@@ -120,7 +137,7 @@
     }
     ed.onclick = function (e) {
       var t = e.target.closest('[data-ed]'); if (!t) return; var a = t.getAttribute('data-ed');
-      if (a === 'save') save(true); else if (a === 'auto') save(false); else if (a === 'list') openAreas();
+      if (a === 'save') save(true); else if (a === 'auto') save(false); else if (a === 'list') openAreas(); else if (a === 'zin') zoomTo(zi + 1); else if (a === 'zout') zoomTo(zi - 1);
     };
   }
 

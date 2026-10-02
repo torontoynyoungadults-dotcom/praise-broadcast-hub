@@ -40,7 +40,7 @@ function memberRow(m, teams) {
   const myRoles = splitList(m['역할']);
   const isAdmin = String(m['관리자여부']).toUpperCase() === 'TRUE';
   return `<details class="ph-add" style="border-top:1px solid var(--line);padding-top:10px;">
-    <summary>${esc(m['이름'])}${honorific.isPastorRoles(m['역할']) ? ' 목사님' : ''} <span class="ph-li-sub" style="display:inline;">· ${esc(m['이메일'])}${isAdmin ? ' · 관리자' : ''}</span></summary>
+    <summary>${esc(m['이름'])}${honorific.isPastorRoles(m['역할']) ? ' 목사' : ''} <span class="ph-li-sub" style="display:inline;">· ${esc(m['이메일'])}${isAdmin ? ' · 관리자' : ''}</span></summary>
     <form method="post" action="/admin/members/update" class="ph-inlineform">
       <input type="hidden" name="__row" value="${m.__row}">
       <label>소속 찬양팀 (여러 개 가능)</label>

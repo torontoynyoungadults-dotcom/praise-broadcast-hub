@@ -168,7 +168,7 @@ async function renderLive(req, res, o) {
 <div class="lv-fallback" id="lvFallback"><p>라이브 악보를 여는 중…</p><p><a href="${esc(back)}">← 예배콘티로 돌아가기</a></p></div>
 <script>window.__LIVE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};</script>
 <script>(function(){var P={};((window.__LIVE__||{}).pastors||[]).forEach(function(n){P[n]=1});
-window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사님':n},say:function(n){n=String(n||'');return P[n.trim()]?n+' 목사님이':n+' 님이'}};})();</script>
+window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n},say:function(n){n=String(n||'');return P[n.trim()]?n+' 목사가':n+' 님이'}};})();</script>
 <script defer src="/socket.io/socket.io.js"></script>
 <script defer src="/worship/icons.js${v}"></script>
 <script defer src="/worship/icons-plus.js${v}"></script>

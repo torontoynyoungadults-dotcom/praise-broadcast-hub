@@ -65,7 +65,7 @@ async function guestCard(team, infoMap) {
 function personRow(name, info, isAdmin) {
   const myRoles = String(info.역할 || '').split(',').map((s) => s.trim()).filter(Boolean);
   const isPastor = myRoles.includes('목회자');
-  const nameHtml = `${esc(name)}${isPastor ? '<small>목사님</small>' : ''}`;
+  const nameHtml = `${esc(name)}${isPastor ? '<small>목사</small>' : ''}`;
   const status = info.가입
     ? `<span class="ph-rr-st ok" title="가입완료">${ui.icon('check')}<i>가입</i></span>`
     : '<span class="ph-rr-st wait" title="가입 대기중"><i>대기</i></span>';

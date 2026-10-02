@@ -7,7 +7,7 @@
  *   · 연습일 — church-app 은 "주일 전날(토)" 을 그냥 보여주지만, 이 앱의 3부 팀은 주일 바로 전 금요일이 기본이고 자주 바뀌므로
  *     예배(주일 · 행사)마다 눌러서 바꿀 수 있고, 한 번에 여러 예배를 같이 연습하는 날도 정할 수 있습니다
  *     (stPracHtml · stPractice · stPracBox — 서버 worshipPracticeSet)
- *   · 스케줄표 제목 옆 "내가 안 되는 날" 단추 (stOffBtn · stMinePanel) · 목회자 호칭 "윤정환 목사님" (dispName · shortName)
+ *   · 스케줄표 제목 옆 "내가 안 되는 날" 단추 (stOffBtn · stMinePanel) · 목회자 호칭 "윤정환 목사" (dispName · shortName)
  *   · 날짜를 눌러 "이 날 예배 준비 열기" → 이 앱의 예배콘티 화면으로
  *   · 떠 있는 창(아래에서 올라오는 시트 · 녹음 플레이어 · 통계 팝업)은 .yn 안(ynPortal)에 띄워 church-app 모양 그대로
  */
@@ -129,13 +129,13 @@ function renderWeeks() {}
 /** church-app 의 "주일 전날(토)" — 이 앱은 연습일을 따로 씀 (stPracHtml) */
 function satOf(d) { var x = dt(d); x.setDate(x.getDate() - 1); return (x.getMonth() + 1) + '/' + x.getDate(); }
 
-/* ---------------------------------------------------------------- 이름 — 목회자는 "윤정환 목사님" (이 앱) */
+/* ---------------------------------------------------------------- 이름 — 목회자는 "윤정환 목사" (이 앱) */
 function isPastor(n) {
   n = String(n || '').trim();
   return (D.members || []).some(function (m) { return m.name === n && m.pastor; });
 }
-/** 이름 그대로 + 목회자면 " 목사님" (인도는 대개 목회자라 "정환"이 아니라 "윤정환 목사님"으로) */
-function dispName(n) { n = String(n || '').trim(); return isPastor(n) ? n + ' 목사님' : n; }
+/** 이름 그대로 + 목회자면 " 목사" (인도는 대개 목회자라 "정환"이 아니라 "윤정환 목사"으로) */
+function dispName(n) { n = String(n || '').trim(); return isPastor(n) ? n + ' 목사' : n; }
 /** "A, B" 처럼 쉼표로 이어진 이름들 각각에 호칭 */
 function dispList(str) { return String(str || '').split(/\s*,\s*/).filter(Boolean).map(dispName).join(', '); }
 /** church-app 은 세 글자 이름의 성을 떼어 "정환"으로 줄여 씁니다 — 목회자만 성 · 호칭을 다 씁니다.
@@ -165,7 +165,7 @@ function shortMapOf() {
 }
 function shortName(n) {
   n = String(n || '').trim();
-  if (isPastor(n)) return n + ' 목사님';
+  if (isPastor(n)) return n + ' 목사';
   var m = shortMapOf();
   return Object.prototype.hasOwnProperty.call(m, n) ? m[n] : (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
 }
