@@ -555,7 +555,7 @@ function lev1(a, b) {
 function statPrep() {
   var d = SS.data;
   var items = d.songs.map(function (x) {
-    return { key: x[0], date: x[1], kind: x[2], title: x[3], team: x[4], mkey: x[5], n: songNorm(x[3]) };
+    return { key: x[0], date: x[1], kind: x[2], title: x[3], team: x[4], mkey: x[5], id: x[6] || '', n: songNorm(x[3]) };
   });
   var cnt = {};
   items.forEach(function (i) { cnt[i.n] = (cnt[i.n] || 0) + 1; });
@@ -788,6 +788,42 @@ function rangeLabel() {
     (SS.kind !== 'all' ? ' · ' + SS.kind : '') + (SS.lead ? ' · 인도 ' + SS.lead : '');
 }
 
+/* 통계 · 곡 정보 고치기 — 곡명 · 원곡 팀(이 곡의 모든 기록에 적용) + 날짜별 Key · 잘못 들어간 기록 지우기 */
+function songFix(c) {
+  var all = SS.items.filter(function (i) { return i.c === c && i.id; }).sort(function (a, b) { return b.date.localeCompare(a.date); });
+  var evs = SS.data.events || {};
+  var rows = all.map(function (i) {
+    return '<div class="sf-row" data-id="' + esc(i.id) + '"><span class="sf-d">' + esc(i.date.replace(/-/g, '.')) + '<small>' + esc(evs[i.key] || '주일') + (i.kind === '결단' ? ' · 결단' : '') + '</small></span>' +
+      '<input type="text" class="sf-k" maxlength="8" placeholder="Key" value="' + esc(i.mkey) + '" aria-label="Key">' +
+      '<label class="sf-del"><input type="checkbox" class="sf-x"> 지우기</label></div>';
+  }).join('');
+  var html = '<header class="yg-head"><h3 id="yg-title">곡 정보 고치기</h3><p class="yg-sub">잘못 들어간 곡명 · 원곡 팀 · Key를 바로잡아요. 곡명과 원곡 팀은 이 곡의 모든 기록에 적용돼요.</p></header>' +
+    '<div class="sf-form"><label class="sf-l">곡명<input type="text" id="sfTitle" maxlength="80" value="' + esc(SS.names[c]) + '"></label>' +
+    '<label class="sf-l">원곡 팀<input type="text" id="sfTeam" maxlength="60" placeholder="예: 마커스, 피아워십, 어노인팅" value="' + esc(SS.teams[c] || '') + '"></label>' +
+    '<p class="yg-sub" style="margin:10px 0 4px;">날짜별 기록 (' + all.length + ') · 지우기를 체크하면 그 날 콘티에서 이 곡이 빠져요</p><div class="sf-rows">' + rows + '</div>' +
+    '<p class="msg" id="sfMsg"></p><div class="sv-btns"><button type="button" class="btn accent" id="sfSave" onclick="songFixSave()">저장</button></div></div>' +
+    '<style>.sf-form{display:flex;flex-direction:column;gap:10px}.sf-l{display:flex;flex-direction:column;gap:4px;font-size:13px;opacity:.9}.sf-l input,.sf-k{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);border-radius:10px;color:inherit;padding:9px 11px;font:inherit}' +
+    '.sf-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid rgba(255,255,255,.12)}.sf-d{flex:1;font-weight:700;font-size:14px}.sf-d small{display:block;font-weight:400;opacity:.7}.sf-k{width:64px;text-align:center}' +
+    '.sf-del{font-size:12.5px;display:flex;gap:5px;align-items:center;opacity:.9}.yg-edit{margin-top:10px;background:rgba(255,140,40,.18);border:1px solid rgba(255,140,40,.6);color:inherit;border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}</style>';
+  YNStats.html(html, {});
+}
+
+function songFixSave() {
+  var root = document.querySelector('.yg-body') || document, rows = [];
+  Array.prototype.forEach.call(root.querySelectorAll('.sf-row'), function (r) {
+    rows.push({ id: r.getAttribute('data-id'), key: r.querySelector('.sf-k').value, del: r.querySelector('.sf-x').checked });
+  });
+  var title = root.querySelector('#sfTitle').value, team = root.querySelector('#sfTeam').value;
+  var gone = rows.filter(function (r) { return r.del; }).length;
+  if (gone && !confirm(gone + '개 날짜의 이 곡 기록을 지울까요? (그 날의 콘티에서 이 곡이 빠져요)')) return;
+  var b = root.querySelector('#sfSave'), m = root.querySelector('#sfMsg');
+  b.disabled = true; m.className = 'msg'; m.textContent = '저장하는 중…';
+  callServer('worshipSongFix', [TOKEN, { rows: rows, title: title, team: team }], function () {
+    SS.data = null; try { YNStats.close(true); } catch (e) {}
+    loadStats();
+  }, function (e) { b.disabled = false; m.className = 'msg err'; m.textContent = (e && e.message) || '저장하지 못했습니다.'; });
+}
+
 function songSheet(c) {
   var mine = statItems().filter(function (i) { return i.c === c; });
   var all = SS.items.filter(function (i) { return i.c === c; });
@@ -819,6 +855,7 @@ function songSheet(c) {
     }
     all.forEach(function (i) { var k1 = i.date.slice(0, 7); if (idx[k1] != null && i.date <= SS.data.today) values[idx[k1]]++; });
     YNStats.song({
+      onEdit: D && D.canEdit ? function () { songFix(c); } : null,
       title: SS.names[c], sub: (SS.teams[c] ? SS.teams[c] + ' · ' : '') + '처음 ' + fmtDate(SS.first[c]),
       tiles: [[mine.length, rangeLabel()], [all.length, '전체 기간']], spark: { labels: labels, values: values },
       groups: (spells.length > 1 ? [{ label: '함께 묶은 표기', chips: spells.map(function (x) { return [x, SS.spell[c][x]]; }) }] : []).concat([

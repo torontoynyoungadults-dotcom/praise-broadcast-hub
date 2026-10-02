@@ -43,7 +43,8 @@
     }).join('') + '</div></section>';
   }
   function songHtml(o) {
-    return '<header class="yg-head"><h3 id="yg-title">' + h(o.title) + '</h3>' + (o.sub ? '<p class="yg-sub">' + h(o.sub) + '</p>' : '') + '</header>' +
+    return '<header class="yg-head"><h3 id="yg-title">' + h(o.title) + '</h3>' + (o.sub ? '<p class="yg-sub">' + h(o.sub) + '</p>' : '') +
+      (o.onEdit ? '<button type="button" class="yg-edit" data-act="edit">곡 정보 고치기</button>' : '') + '</header>' +
       (o.tiles && o.tiles.length ? '<div class="yg-tiles">' + o.tiles.map(function (t) { return '<div class="yg-tile"><b>' + h(t[0]) + '</b><span>' + h(t[1]) + '</span></div>'; }).join('') + '</div>' : '') +
       sparkHtml(o.spark) +
       (o.groups || []).map(function (g) { return '<section class="yg-sec"><h4>' + h(g.label) + '</h4>' + chipsHtml(g.chips) + '</section>'; }).join('') +
@@ -75,6 +76,8 @@
     ov.querySelector('.yg-x').onclick = function () { close(); };
     ov.querySelector('.yg-back').onclick = function () { back(); };
     ov.addEventListener('click', function (e) {
+      var ac = e.target.closest ? e.target.closest('[data-act="edit"]') : null;
+      if (ac && stack.length) { try { stack[stack.length - 1].opts.onEdit && stack[stack.length - 1].opts.onEdit(); } catch (x) { if (root.console) root.console.error(x); } return; }
       var r = e.target.closest ? e.target.closest('[data-row]') : null; if (!r || !stack.length) return;
       var top = stack[stack.length - 1]; try { top.opts.onRow && top.opts.onRow(+r.getAttribute('data-row')); } catch (x) { if (root.console) root.console.error(x); }
     });
@@ -109,6 +112,7 @@
   root.YNStats = {
     list: function (o) { show(listHtml(o || {}), o || {}, !ov); },              // 목록은 새로 시작
     song: function (o) { show(songHtml(o || {}), o || {}, false); },            // 곡 자세히는 위에 쌓음 (열려 있지 않으면 새로)
+    html: function (htmlStr, o) { show(htmlStr, o || {}, false); },            // 임의 화면(고치기 폼 등)을 위에 쌓음 — 뒤로 가기로 돌아옴
     close: close, back: back, isOpen: function () { return !!ov; }, listHtml: listHtml, songHtml: songHtml, h: h
   };
 }(typeof self !== 'undefined' ? self : this));
