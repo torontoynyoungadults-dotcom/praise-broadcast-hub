@@ -1280,10 +1280,24 @@ body.pkp-open{overflow:hidden}
 .pkp-edrow b{min-width:22px;color:#ff8a3d}
 .pkp-edrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pkp-edrow em{font-style:normal;font-size:11px;color:rgba(255,255,255,.55)}
-.pkp-edwrap{position:relative;align-self:center;max-width:100%;touch-action:none;cursor:ns-resize;line-height:0;border-radius:6px;overflow:hidden;background:#fff}
+.pkp-edwrap{position:relative;align-self:center;max-width:100%;touch-action:none;cursor:crosshair;line-height:0;border-radius:6px;overflow:hidden;background:#fff}
 .pkp-edcv{display:block}
 .pkp-edcut{position:absolute;left:0;right:0;top:0;background:rgba(0,0,0,.55);pointer-events:none}
 .pkp-edline{position:absolute;left:0;right:0;height:0;border-top:3px solid #ff8a3d;pointer-events:none}
 .pkp-edline i{position:absolute;left:50%;top:-12px;width:46px;height:22px;margin-left:-23px;border-radius:11px;background:#ff8a3d;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .pkp-edbtns{display:flex;flex-wrap:wrap;gap:8px}
 .pkp-pages[hidden]{display:none!important}
+
+/* 진행률 · 영역 편집 상자 */
+.pkp-prog{display:flex;flex-direction:column;gap:8px;padding:6px 2px}
+.pkp-progbar{height:10px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
+.pkp-progbar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#ff8a3d,#ffb36b);transition:width .35s ease}
+.pkp-proginfo{display:flex;align-items:baseline;gap:10px;font-size:13px}
+.pkp-proginfo b{font-size:20px;color:#ff8a3d;min-width:48px}
+.pkp-proginfo span{color:rgba(255,255,255,.78)}
+.pkp-edbox{position:absolute;border:2.5px solid #ff8a3d;box-shadow:0 0 0 9999px rgba(0,0,0,.55);pointer-events:none}
+.pkp-edbox i{position:absolute;width:44px;height:18px;border-radius:9px;background:#ff8a3d;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.pkp-edbox .h-t{left:50%;top:2px;margin-left:-22px}
+.pkp-edbox .h-b{left:50%;bottom:2px;margin-left:-22px}
+.pkp-edbox .h-l{left:-13px;top:50%;margin-top:-9px;transform:rotate(90deg)}
+.pkp-edbox .h-r{right:-13px;top:50%;margin-top:-9px;transform:rotate(90deg)}

@@ -722,8 +722,8 @@ router.get('/conti', requireTeam, async (req, res) => {
 /* 라이브 악보(/conti/practice)는 routes/live.js 로 옮겼습니다 — church-app 의 라이브 악보를 그대로 씁니다. */
 
 /** 인쇄용 PDF 패키지 — 표지(연습 일시 · 멤버 · 콘티 · 유튜브 QR) + 곡마다 머리말/악보/꼬리말, US Letter 흑백.  ?crop=0 이면 악보 위 제목 자르기를 끔 */
-router.get('/conti/package.pdf', requireTeam, async (req, res) => {
-  try {
+async function makePackage(req, onProgress) {
+  {
     const t0 = Date.now();
     const team = req.ctx.current;
     const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
@@ -737,13 +737,16 @@ router.get('/conti/package.pdf', requireTeam, async (req, res) => {
     const used = new Set();
     const cache = new Map();
     const bytesOf = (link) => { if (!cache.has(link)) cache.set(link, fileBytes.get(link)); return cache.get(link); };   // 한 번만, 동시에 받음
-    w.sheets.forEach((f) => { if (f['파일링크']) bytesOf(f['파일링크']); });
+    const links = new Set(); w.sheets.forEach((f) => { if (f['파일링크']) links.add(f['파일링크']); });
+    let fetchedN = 0;
+    links.forEach((l) => { bytesOf(l).then(() => { fetchedN++; onProgress(0.02 + 0.28 * (fetchedN / links.size), '악보 받는 중 (' + fetchedN + '/' + links.size + ')'); }); });
+    onProgress(0.02, '악보 받는 중');
     const all = [].concat(w.conti.map((s, i) => ({ s, kind: '콘티', no: i + 1 })), w.final.map((s) => ({ s, kind: '결단', no: 1 })));
     const songs = [];
     for (const x of all) {
       const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
       const sheets = [];
-      for (const f of mine) { used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), cropTop: parseFloat(f['자르기']) || 0 }); }
+      for (const f of mine) { used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || '') }); }
       songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
         form: kakaoLib.formText(x.s['송폼']), note: String(x.s['비고'] || '').trim(), sheets });
     }
@@ -759,13 +762,45 @@ router.get('/conti/package.pdf', requireTeam, async (req, res) => {
     const pdf = await pkgPdf.build({
       church: process.env.CHURCH_NAME || '토론토영락교회', team, date, eventName: eventRow ? String(eventRow['이름'] || '') : '',
       title: eventRow ? String(eventRow['이름'] || '') + ' 찬양 콘티' : '주일예배 찬양 콘티',
-      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0',
+      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0', onProgress,
     }, sheetSearch.imagesToPdf);
     console.log(`[PDF 패키지] ${team} ${date} — 악보 받기 ${tFetched - t0}ms · 만들기 ${Date.now() - tFetched}ms · ${(pdf.length / 1024) | 0}KB`);
     const name = `${team} 콘티 ${date}${eventRow ? ' ' + eventRow['이름'] : ''}`.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim();
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Length': String(pdf.length), 'Cache-Control': 'private, no-store',
-      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}.pdf` });
-    res.send(pdf);
+    return { pdf, name };
+  }
+}
+
+const pkgJobs = new Map();                      // 만드는 중인 PDF — 진행률을 화면에 보여 주려고 (10분 뒤 정리)
+function sendPdf(res, r) {
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Length': String(r.pdf.length), 'Cache-Control': 'private, no-store',
+    'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(r.name)}.pdf` });
+  res.send(r.pdf);
+}
+router.get('/conti/package/start', requireTeam, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  for (const [k, j] of pkgJobs) if (Date.now() - j.at > 600000) pkgJobs.delete(k);
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const job = { at: Date.now(), team: req.ctx.current, pct: 0, label: '준비 중', done: false, err: false, result: null };
+  pkgJobs.set(id, job);
+  makePackage(req, (p, label) => { if (p > job.pct) job.pct = Math.min(0.99, p); if (label) job.label = label; })
+    .then((r) => { job.result = r; job.pct = 1; job.done = true; job.label = '완료'; })
+    .catch((e) => { console.error('[PDF 패키지 실패]', e && e.stack || e); job.err = true; job.done = true; });
+  res.json({ id });
+});
+router.get('/conti/package/status', requireTeam, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const j = pkgJobs.get(String(req.query.id || ''));
+  if (!j || j.team !== req.ctx.current) return res.status(404).json({ gone: true });
+  res.json({ pct: Math.round(j.pct * 100), label: j.label, done: j.done, err: j.err });
+});
+router.get('/conti/package.pdf', requireTeam, async (req, res) => {
+  try {
+    if (req.query.job) {
+      const j = pkgJobs.get(String(req.query.job));
+      if (!j || j.team !== req.ctx.current || !j.result) return res.status(404).type('text').send('만든 PDF를 찾지 못했어요. 다시 만들어 주세요.');
+      return sendPdf(res, j.result);
+    }
+    sendPdf(res, await makePackage(req, () => {}));
   } catch (e) {
     console.error('[PDF 패키지 실패]', e && e.stack || e);
     if (!res.headersSent) res.status(500).type('text').send('PDF 패키지를 만들지 못했어요. 잠시 뒤 다시 해 주세요.');
@@ -784,7 +819,7 @@ router.get('/conti/package/areas', requireTeam, async (req, res) => {
     const out = [];
     all.forEach((x) => {
       w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])))
-        .forEach((f) => out.push({ row: f.__row, no: x.no, title: String(x.s['제목'] || ''), name: String(f['제목'] || ''), spec: String(f['쪽'] || ''), top: parseFloat(f['자르기']) || 0 }));
+        .forEach((f) => out.push({ row: f.__row, no: x.no, title: String(x.s['제목'] || ''), name: String(f['제목'] || ''), spec: String(f['쪽'] || ''), crop: pkgPdf.parseCrop(f['자르기']) }));
     });
     res.json({ sheets: out });
   } catch (e) { res.status(500).json({ sheets: [] }); }
@@ -803,16 +838,16 @@ router.get('/conti/sheets/raw', requireTeam, async (req, res) => {
   } catch (e) { res.status(500).type('text').send('오류'); }
 });
 
-/** 악보 영역 저장 — top: 악보가 시작되는 위치(쪽 위에서부터 0~0.9 비율), 0 이면 자동으로 되돌림 */
+/** 악보 영역 저장 — crop: "왼쪽,위,오른쪽,아래" 를 0~1 비율로(쪽 전체 = 0,0,1,1). 비우거나 전체면 자동으로 되돌림 */
 router.post('/conti/sheets/crop', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
-  let top = parseFloat(b.top); if (!(top > 0 && top < 0.9)) top = 0;
+  const c = pkgPdf.parseCrop(b.crop);
   try {
     const f = (await sheetsDb.readAll('악보저장소', { fresh: true })).find((r) => r.__row === row && r['팀ID'] === req.ctx.current);
     if (!f) return res.status(404).json({ ok: false });
-    await sheetsDb.updateRow('악보저장소', row, Object.assign({}, f, { '자르기': top ? top.toFixed(4) : '' }));
-    res.json({ ok: true, top });
+    await sheetsDb.updateRow('악보저장소', row, Object.assign({}, f, { '자르기': c ? [c.l, c.t, c.r, c.b].map((x) => x.toFixed(4)).join(',') : '' }));
+    res.json({ ok: true, crop: c });
   } catch (e) { console.error('[악보 영역 저장 실패]', e.message); res.status(500).json({ ok: false }); }
 });
 

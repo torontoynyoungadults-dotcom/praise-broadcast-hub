@@ -53,7 +53,7 @@
       var list = (j && j.sheets) || [];
       if (!list.length) { ed.innerHTML = '<p class="pkp-edmsg">이 콘티에 연결된 악보가 없어요.</p><button type="button" class="ph-btn" data-ed="back">돌아가기</button>'; bindEd(); return; }
       ed.innerHTML = '<p class="pkp-edmsg">PDF에서 악보 위의 제목이 지워지지 않은 곡만 골라 주세요. 한 번 지정하면 다음부터는 자동으로 적용돼요.</p>' +
-        list.map(function (x, i) { return '<button type="button" class="pkp-edrow" data-ed="pick" data-i="' + i + '"><b>' + esc(x.no) + '</b><span>' + esc(x.title || x.name) + (x.spec ? ' · ' + esc(x.spec) + '페이지' : '') + '</span><em>' + (x.top ? '지정됨' : '자동') + '</em></button>'; }).join('') +
+        list.map(function (x, i) { return '<button type="button" class="pkp-edrow" data-ed="pick" data-i="' + i + '"><b>' + esc(x.no) + '</b><span>' + esc(x.title || x.name) + (x.spec ? ' · ' + esc(x.spec) + '페이지' : '') + '</span><em>' + (x.crop ? '지정됨' : '자동') + '</em></button>'; }).join('') +
         '<button type="button" class="ph-btn" data-ed="back">돌아가기</button>';
       ed._list = list; bindEd();
     }).catch(function () { ed.innerHTML = '<p class="pkp-edmsg">목록을 불러오지 못했어요.</p><button type="button" class="ph-btn" data-ed="back">돌아가기</button>'; bindEd(); });
@@ -68,13 +68,15 @@
     };
   }
   function editOne(x) {
-    var ed = $('.pkp-ed'), top = x.top || 0;
-    ed.innerHTML = '<p class="pkp-edmsg"><b>' + esc(x.title || x.name) + '</b> — 오렌지 선을 끌어서 <b>악보가 시작되는 곳</b>에 맞춰 주세요. 선 위쪽은 인쇄에서 빠져요.</p>' +
-      '<div class="pkp-edwrap"><canvas class="pkp-edcv"></canvas><div class="pkp-edcut"></div><div class="pkp-edline" role="slider" aria-label="악보 시작 위치"><i></i></div></div>' +
+    var ed = $('.pkp-ed'), c = x.crop ? { l: x.crop.l, t: x.crop.t, r: x.crop.r, b: x.crop.b } : { l: 0.03, t: 0.12, r: 0.97, b: 0.97 };
+    ed.innerHTML = '<p class="pkp-edmsg"><b>' + esc(x.title || x.name) + '</b> — 오렌지 테두리의 <b>네 변을 끌어서</b> 악보만 감싸 주세요. 테두리 밖은 인쇄에서 빠지고, 안쪽이 용지에 꽉 차게 들어가요.</p>' +
+      '<div class="pkp-edwrap"><canvas class="pkp-edcv"></canvas><div class="pkp-edbox"><i class="h-t"></i><i class="h-b"></i><i class="h-l"></i><i class="h-r"></i></div></div>' +
       '<div class="pkp-edbtns"><button type="button" class="ph-btn pri" data-ed="save">저장하고 다시 만들기</button><button type="button" class="ph-btn" data-ed="auto">자동으로 되돌리기</button><button type="button" class="ph-btn" data-ed="list">취소</button></div>';
-    var wrap = ed.querySelector('.pkp-edwrap'), cv = ed.querySelector('.pkp-edcv'), line = ed.querySelector('.pkp-edline'), cut = ed.querySelector('.pkp-edcut');
-    function setTop(v) { top = Math.max(0, Math.min(0.85, v)); line.style.top = (top * 100) + '%'; cut.style.height = (top * 100) + '%'; line.classList.toggle('on', top > 0); }
-    setTop(top || 0.12);
+    var wrap = ed.querySelector('.pkp-edwrap'), cv = ed.querySelector('.pkp-edcv'), box = ed.querySelector('.pkp-edbox');
+    function paint() {
+      box.style.left = (c.l * 100) + '%'; box.style.top = (c.t * 100) + '%'; box.style.width = ((c.r - c.l) * 100) + '%'; box.style.height = ((c.b - c.t) * 100) + '%';
+    }
+    paint();
     var pageNo = (function () { var m = /\d+/.exec(x.spec || ''); return m ? +m[0] : 1; })();
     loadPdfjs().then(function (lib) { return lib.getDocument({ url: '/conti/sheets/raw?team=' + encodeURIComponent(teamOf()) + '&row=' + x.row }).promise; })
       .then(function (doc) { return doc.getPage(Math.min(pageNo, doc.numPages)); })
@@ -83,21 +85,36 @@
         cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height); cv.style.width = Math.floor(vp.width / dpr) + 'px'; cv.style.height = Math.floor(vp.height / dpr) + 'px';
         return page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
       }).catch(function () { wrap.insertAdjacentHTML('beforebegin', '<p class="pkp-edmsg bad">악보를 불러오지 못했어요.</p>'); });
-    var drag = false;
-    function at(e) { var r = wrap.getBoundingClientRect(); setTop((e.clientY - r.top) / r.height); }
-    wrap.addEventListener('pointerdown', function (e) { drag = true; try { wrap.setPointerCapture(e.pointerId); } catch (er) {} at(e); e.preventDefault(); });
-    wrap.addEventListener('pointermove', function (e) { if (drag) at(e); });
-    wrap.addEventListener('pointerup', function () { drag = false; });
-    wrap.addEventListener('pointercancel', function () { drag = false; });
+    // 누른 곳에서 가장 가까운 변(또는 모서리 = 두 변)을 끌어요
+    var drag = null, MIN = 0.08;
+    function frac(e) { var r = wrap.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, r: r }; }
+    wrap.addEventListener('pointerdown', function (e) {
+      var f = frac(e), tol = 26, d = { l: Math.abs(f.x - c.l) * f.r.width, r: Math.abs(f.x - c.r) * f.r.width, t: Math.abs(f.y - c.t) * f.r.height, b: Math.abs(f.y - c.b) * f.r.height };
+      var hx = d.l <= d.r ? 'l' : 'r', hy = d.t <= d.b ? 't' : 'b', sides = [];
+      if (d[hx] <= tol) sides.push(hx); if (d[hy] <= tol) sides.push(hy);
+      if (!sides.length) { var best = Object.keys(d).sort(function (a, b) { return d[a] - d[b]; })[0]; sides.push(best); }   // 멀리 눌러도 가장 가까운 변
+      drag = sides; try { wrap.setPointerCapture(e.pointerId); } catch (er) {} move(e); e.preventDefault();
+    });
+    function move(e) {
+      if (!drag) return; var f = frac(e), x = Math.max(0, Math.min(1, f.x)), y = Math.max(0, Math.min(1, f.y));
+      drag.forEach(function (k) {
+        if (k === 'l') c.l = Math.min(x, c.r - MIN); else if (k === 'r') c.r = Math.max(x, c.l + MIN);
+        else if (k === 't') c.t = Math.min(y, c.b - MIN); else c.b = Math.max(y, c.t + MIN);
+      });
+      paint();
+    }
+    wrap.addEventListener('pointermove', move);
+    wrap.addEventListener('pointerup', function () { drag = null; });
+    wrap.addEventListener('pointercancel', function () { drag = null; });
     function save(v) {
-      var body = new URLSearchParams({ team: teamOf(), __row: x.row, top: v ? v.toFixed(4) : '0' });
+      var body = new URLSearchParams({ team: teamOf(), __row: x.row, crop: v ? [c.l, c.t, c.r, c.b].map(function (n) { return n.toFixed(4); }).join(',') : '' });
       fetch('/conti/sheets/crop', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
         .then(function (r) { if (!r.ok) throw new Error('x'); edShow(false); run(); })
         .catch(function () { ed.insertAdjacentHTML('afterbegin', '<p class="pkp-edmsg bad">저장하지 못했어요. 다시 해 주세요.</p>'); });
     }
     ed.onclick = function (e) {
       var t = e.target.closest('[data-ed]'); if (!t) return; var a = t.getAttribute('data-ed');
-      if (a === 'save') save(top); else if (a === 'auto') save(0); else if (a === 'list') openAreas();
+      if (a === 'save') save(true); else if (a === 'auto') save(false); else if (a === 'list') openAreas();
     };
   }
 
@@ -106,25 +123,55 @@
     try { return m ? decodeURIComponent(m[1]) : state.name; } catch (e) { return state.name; }
   }
 
+  function setBar(pct, label) {
+    var m = $('.pkp-msg'); m.hidden = false; m.classList.remove('bad');
+    m.innerHTML = '<div class="pkp-prog"><div class="pkp-progbar"><i style="width:' + Math.max(3, pct) + '%"></i></div><div class="pkp-proginfo"><b>' + Math.round(pct) + '%</b><span>' + esc(label || '') + '</span></div></div>';
+  }
+  function fail() { msg('PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요. (계속 안 되면 "악보 위 제목 자르기"를 끄고 해 보세요)', true); }
+
   function run() {
     var my = ++state.token;
     $('[data-pkp="dl"]').disabled = true; $('[data-pkp="print"]').disabled = true;
     $('.pkp-pages').innerHTML = ''; state.blob = null;
-    msg('PDF를 만드는 중이에요… (곡이 많으면 10~30초 걸려요)');
-    var url = state.href + (state.crop ? '' : '&crop=0');
-    var ctl = window.AbortController ? new AbortController() : null, tm = setTimeout(function () { if (ctl) ctl.abort(); }, 120000);
-    var t0 = Date.now(), tick = setInterval(function () { if (my !== state.token) return clearInterval(tick); if ($('.pkp-msg').textContent.indexOf('만드는 중') === 0) msg('PDF를 만드는 중이에요… ' + Math.round((Date.now() - t0) / 1000) + '초 (곡이 많거나 악보가 크면 조금 걸려요)'); }, 1000);
-    fetch(url, { credentials: 'same-origin', signal: ctl ? ctl.signal : undefined })
-      .then(function (r) { clearTimeout(tm); clearInterval(tick); if (!r.ok) throw new Error('http'); state.name = nameFromHeaders(r); return r.blob(); })
-      .then(function (blob) {
+    setBar(2, '시작하는 중');
+    var qs = state.href.replace(/^[^?]*\?/, '') + (state.crop ? '' : '&crop=0');
+    var t0 = Date.now(), shown = 2;
+    // 서버가 진행률을 알려 줘요. 화면의 숫자는 서버 값과 시간 경과 중 큰 쪽(작업 구간 사이에도 멈춘 것처럼 보이지 않게 조금씩 올라감)
+    fetch('/conti/package/start?' + qs, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('start'); return r.json(); }).then(function (j) {
+      var id = j.id, label = '준비 중', server = 0;
+      return new Promise(function (ok, no) {
+        var anim = setInterval(function () {
+          if (my !== state.token) { clearInterval(anim); return; }
+          var floor = Math.min(server + 6, 95), want = Math.max(server, Math.min(floor, shown + 0.6));
+          if (want > shown) { shown = want; setBar(shown, label + ' · ' + Math.round((Date.now() - t0) / 1000) + '초'); }
+        }, 400);
+        (function poll() {
+          if (my !== state.token) { clearInterval(anim); return ok(null); }
+          if (Date.now() - t0 > 180000) { clearInterval(anim); return no(new Error('timeout')); }
+          fetch('/conti/package/status?id=' + id, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('gone'); return r.json(); }).then(function (st) {
+            if (st.err) { clearInterval(anim); return no(new Error('fail')); }
+            server = Math.max(server, st.pct); label = st.label || label;
+            if (server > shown) shown = server;
+            setBar(shown, label + ' · ' + Math.round((Date.now() - t0) / 1000) + '초');
+            if (st.done) { clearInterval(anim); return ok(id); }
+            setTimeout(poll, 500);
+          }).catch(function (e) { clearInterval(anim); no(e); });
+        })();
+      });
+    }).then(function (id) {
+      if (!id || my !== state.token) return;
+      setBar(99, '불러오는 중');
+      return fetch('/conti/package.pdf?team=' + encodeURIComponent(teamOf()) + '&job=' + id, { credentials: 'same-origin' }).then(function (r) {
+        if (!r.ok) throw new Error('http'); state.name = nameFromHeaders(r); return r.blob();
+      }).then(function (blob) {
         if (my !== state.token) return;
         state.blob = blob;
         $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false;
         msg('미리보는 중…');
         return Promise.all([loadPdfjs(), blob.arrayBuffer()]).then(function (v) { return v[0].getDocument({ data: new Uint8Array(v[1]) }).promise; })
           .then(function (doc) { return render(doc, my); });
-      })
-      .catch(function () { clearTimeout(tm); clearInterval(tick); if (my === state.token) msg('PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요. (계속 안 되면 "악보 위 제목 자르기"를 끄고 해 보세요)', true); });
+      });
+    }).catch(function () { if (my === state.token) fail(); });
   }
 
   function render(doc, my) {
