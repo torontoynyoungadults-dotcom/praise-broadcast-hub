@@ -59,6 +59,9 @@ router.get('/auth/google/callback', async (req, res) => {
   }
 });
 
+/** 구글 계정 이름은 대개 영어라 미리 채우면 지우고 다시 써야 함 — 한글 3글자일 때만 미리 채움 */
+function koName(n) { n = String(n || ''); try { n = n.normalize('NFC'); } catch (e) {} n = n.replace(/\s+/g, ''); return /^[가-힣]{3}$/.test(n) ? n : ''; }
+
 router.get('/signup', async (req, res) => {
   const email = session.getPendingEmail(req);
   if (!email) return res.redirect('/');
@@ -80,7 +83,7 @@ router.get('/signup', async (req, res) => {
     <form method="post" action="/signup" enctype="multipart/form-data">
       <div class="ph-field">
         <label>이름 (한글 3글자로 적어주세요 — 예: 홍길동)</label>
-        <input type="text" name="이름" id="ph-name" required pattern="[가-힣]{3}" autocomplete="name" autocapitalize="off" autocorrect="off" spellcheck="false" lang="ko" title="한글 3글자로 입력해주세요" value="${pageShell.esc(hint.name || '')}">
+        <input type="text" name="이름" id="ph-name" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="ko" title="한글 3글자로 입력해주세요" value="${pageShell.esc(koName(hint.name))}">
         <p class="ph-msg" id="ph-name-hint" style="margin-top:6px;">소속 찬양팀의 팀원 명단에 있는 이름과 똑같이 적어주세요.</p>
       </div>
       <div class="ph-field">
@@ -132,15 +135,19 @@ router.get('/signup', async (req, res) => {
       var el = document.getElementById('ph-name');
       var hint = document.getElementById('ph-name-hint');
       if (!el || !hint) return;
-      // 한글은 자모를 조합하며 입력되므로(ㅎ → 하 → 한) 조합 중에는 건드리지 않고, 조합이 끝났을 때만 다듬습니다.
-      // (조합 중에 한글 음절이 아닌 글자를 지우면 한글 입력이 아예 안 되는 것처럼 보임)
-      var composing = false;
-      function clean() { var v = el.value.replace(/[^가-힣]/g, '').slice(0, 3); if (v !== el.value) el.value = v; }
-      el.addEventListener('compositionstart', function () { composing = true; });
-      el.addEventListener('compositionend', function () { composing = false; clean(); });
-      el.addEventListener('input', function (e) { if (!composing && !(e && e.isComposing)) clean(); });
-      el.addEventListener('blur', clean);
-      el.form && el.form.addEventListener('submit', clean);
+      // 입력하는 동안에는 글자를 절대 건드리지 않습니다 — 한글은 자모를 조합하며 들어오고(ㅎ → 하 → 한),
+      // 아이폰 한글 자판은 "조합 중" 신호 없이 자모를 그대로 보내므로, 입력 중에 고치면 한글이 아예 안 써집니다.
+      // 확인은 칸을 벗어날 때(안내만)와 가입 버튼을 누를 때만 합니다.
+      var base = hint.textContent;
+      function norm(v) { v = String(v || ''); try { v = v.normalize('NFC'); } catch (e) {} return v.replace(/\s+/g, ''); }
+      function ok(v) { return /^[가-힣]{3}$/.test(v); }
+      function show(bad) { hint.textContent = bad ? '이름은 한글 3글자로 적어주세요 (예: 홍길동).' : base; hint.classList.toggle('err', !!bad); }
+      el.addEventListener('blur', function () { var v = norm(el.value); if (v && v !== el.value) el.value = v; show(v && !ok(v)); });
+      el.addEventListener('input', function () { if (hint.classList.contains('err') && ok(norm(el.value))) show(false); });
+      if (el.form) el.form.addEventListener('submit', function (e) {
+        var v = norm(el.value); el.value = v;
+        if (!ok(v)) { e.preventDefault(); show(true); el.focus(); }
+      });
     })();
   </script>`;
   res.type('html').send(await pageShell.render(content, { title: '회원가입' }));
@@ -150,7 +157,9 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   const email = session.getPendingEmail(req);
   if (!email) return res.redirect('/');
   const body = req.body || {};
-  const name = String(body['이름'] || '').trim();
+  let name = String(body['이름'] || '');
+  try { name = name.normalize('NFC'); } catch (e) { /* 그대로 */ }
+  name = name.replace(/\s+/g, '');                              // 아이폰 등에서 자모가 풀려 오거나 띄어쓰기가 섞여도
   const gender = String(body['성별'] || '').trim();
   const phone = String(body['전화번호'] || '').trim();
   const team = String(body['소속팀'] || '').trim();
