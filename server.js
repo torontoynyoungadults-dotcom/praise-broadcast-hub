@@ -118,4 +118,4 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`찬양방송팀 허브 — http://localhost:${PORT}`));
+server.listen(PORT, () => { console.log(`찬양방송팀 허브 — http://localhost:${PORT}`); if (process.env.NODE_ENV !== 'test') require('./lib/weeklyDefaults').start(); });
