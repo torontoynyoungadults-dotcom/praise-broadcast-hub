@@ -323,6 +323,29 @@
       if (remoteBlocked && P.followMetro() && rt.metro && rt.metro.playing) { remoteBlocked = false; remoteMetro(Object.assign({}, rt.metro, { seq: null })); }
     }
     doc.addEventListener('pointerdown', prime, true);
+    /* 메트로놈 소리 장치를 처음 누르는 순간 미리 깨워 둡니다 (온라인 여부와 상관없이) — 시작 단추를 누를 때 기다림이 없도록.
+       아이폰은 손을 뗄 때(pointerup · click)에야 허락하는 경우가 있어 그때도 다시 시도하고, 깨어나면 더는 하지 않습니다. */
+    function wakeAudio() {
+      var m = metro(); if (!m || !m.prime) return;
+      try { m.prime(); if (m.ready && m.ready()) { doc.removeEventListener('pointerdown', wakeAudio, true); doc.removeEventListener('pointerup', wakeAudio, true); doc.removeEventListener('click', wakeAudio, true); } } catch (e) { /* 무시 */ }
+    }
+    doc.addEventListener('pointerdown', wakeAudio, true); doc.addEventListener('pointerup', wakeAudio, true); doc.addEventListener('click', wakeAudio, true);
+    /* 시작/멈춤 단추는 "뗄 때(click)"가 아니라 "누르는 순간(pointerdown)"에 반응합니다 — click 은 손가락을 뗀 뒤(보통 50~150ms, 터치 기기는 더)에야 오기 때문.
+       소리 장치가 이미 깨어 있을 때만 (아니면 예전처럼 click 에서 처리). 뒤따라오는 click 은 한 번 삼켜 두 번 눌리지 않게 합니다. */
+    var FAST = '.pv-lv-go, .pv-mq-go, .pv-big[data-a="toggle"], button[data-m="toggle"]', swallow = null;
+    function fastDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      var b = e.target && e.target.closest ? e.target.closest(FAST) : null; if (!b || b.disabled) return;
+      var m = metro(); if (!m || !m.ready || !m.ready()) return;
+      swallow = b; setTimeout(function () { if (swallow === b) swallow = null; }, 900);
+      b.click();
+    }
+    function fastClick(e) {
+      if (!swallow || !e.isTrusted) return;
+      var b = e.target && e.target.closest ? e.target.closest(FAST) : null;
+      if (b && b === swallow) { swallow = null; e.stopImmediatePropagation(); e.preventDefault(); }
+    }
+    doc.addEventListener('pointerdown', fastDown, true); doc.addEventListener('click', fastClick, true);
     /* v6.9 — 무음(진동) 스위치가 켜져 있어도 콜아웃 음성이 들리게: 화면을 처음 누르는(뗄) 때 소리 없는 재생을 켜 두고 라이브 악보를 닫을 때까지 유지합니다.
        아이폰은 pointerdown 이 아니라 손을 뗄 때(click · pointerup)에야 재생을 허락하므로 그때 시도하고, 성공하면 더는 하지 않습니다. */
     function holdVoice() {
@@ -377,7 +400,7 @@
       var mode = ctl(); if (mode === 'locked') return;                     // 클릭 컨트롤의 BPM 을 따르는 중
       M.setBpm(b); if (mode === 'send') sendSoon({}); if (mUi) mUi.sync();
     });
-    P.on('close', function () { quick.unmount(); live.destroy(); clearTimeout(sendT); doc.removeEventListener('pointerdown', prime, true); doc.removeEventListener('pointerup', holdVoice, true); doc.removeEventListener('click', holdVoice, true); try { var mh = metro(); mh && mh.hold && mh.hold(false); } catch (e) {} try { M && M.destroy(); } catch (e) {} M = null; if (flashEl && flashEl.parentNode) flashEl.parentNode.removeChild(flashEl); flashEl = null; });
+    P.on('close', function () { quick.unmount(); live.destroy(); clearTimeout(sendT); doc.removeEventListener('pointerdown', prime, true); doc.removeEventListener('pointerdown', wakeAudio, true); doc.removeEventListener('pointerup', wakeAudio, true); doc.removeEventListener('click', wakeAudio, true); doc.removeEventListener('pointerdown', fastDown, true); doc.removeEventListener('click', fastClick, true); doc.removeEventListener('pointerup', holdVoice, true); doc.removeEventListener('click', holdVoice, true); try { var mh = metro(); mh && mh.hold && mh.hold(false); } catch (e) {} try { M && M.destroy(); } catch (e) {} M = null; if (flashEl && flashEl.parentNode) flashEl.parentNode.removeChild(flashEl); flashEl = null; });
     ['clicker', 'conn', 'leader', 'followm', 'manual', 'song'].forEach(function (n) { P.on(n, function () { if (mUi) mUi.sync(); minis.forEach(function (x) { x.sync(); }); }); });
     /* 단축키용 — 메트로놈 탭을 한 번도 안 열었어도 ↑↓ (BPM) · Space (시작/멈춤) 이 동작합니다. 쓸 수 없으면 null */
     P.metroKey = function (act2, d) {

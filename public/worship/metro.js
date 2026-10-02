@@ -574,21 +574,29 @@
     }
     function emitState() { notify('state', state()); }
 
+    /**
+     * 시작 — 지연을 최소로:
+     *   · 오디오가 이미 깨어 있으면(미리 준비됨) 기다림 없이 그 자리에서 첫 박을 예약합니다 (첫 박 = 지금 + 5ms, 예전엔 80ms 뒤).
+     *   · 처음 한 번만 resume 이 끝나길 기다립니다 (화면을 처음 누를 때 prime 이 미리 깨워 두므로 보통 해당 없음).
+     */
     function start(countInBars) {
       var c;
       try { c = ensureCtx(); } catch (e) { notify('error', { message: e.message }); return { ok: false, error: e.message }; }
-      var go = function () {
+      var go = function (delay) {
         if (destroyed) return;
         if (c.state !== 'running') { notify('error', { message: HELP.blocked }); return; }
-        warmup();
-        sched.start(countInBars || 0, 0.08);
+        sched.start(countInBars || 0, delay);
         pump(); startTimer();
         if (!raf) raf = requestAnimationFrame(frame);
         emitState();
+        warmup();                                                       // 음성 합성 예열은 첫 박을 예약한 뒤에 (박을 늦추지 않게)
       };
       Media.start();
-      var r = c.resume ? c.resume() : null;
-      if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
+      if (c.state === 'running') go(0.005);
+      else {
+        var r = c.resume ? c.resume() : null;
+        if (r && r.then) r.then(function () { go(0.02); }, function () { notify('error', { message: HELP.blocked }); }); else go(0.02);
+      }
       if (!speechOk) notify('info', { message: HELP.noSpeech });
       return { ok: true };
     }
@@ -709,7 +717,9 @@
       startIn: startIn,
       /** 사용자가 화면을 누른 순간에 소리 장치를 미리 깨워 둡니다 (아이폰 · 크롬은 눌러야 소리가 나옵니다) — 원격 시작에 필요 */
       hold: function (on) { try { return Media.setHold(on); } catch (e) { return false; } },
-      prime: function () { try { var c = ensureCtx(); if (c.resume) c.resume(); return true; } catch (e) { return false; } }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 1)); applyVoiceGain(); },
+      prime: function () { try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); return true; } catch (e) { return false; } },
+      /** 오디오가 깨어 있어 누르는 즉시 시작할 수 있는지 */
+      ready: function () { return !!(ctx && ctx.state === 'running'); }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 1)); applyVoiceGain(); },
       setMode: function (m) { set('mode', ['downbeat', 'lead', 'now'].indexOf(m) === -1 ? 'lead' : m); },
       setLead: function (n) { set('lead', Math.round(clamp(n, 1, 8))); }, setLang: function (l) { set('lang', l === 'ko' ? 'ko' : 'en'); },
       clipsReady: function () { return clipState === 'ready'; },
