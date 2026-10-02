@@ -75,7 +75,7 @@
       .then(function (r) { return r.json(); })
       .then(function (d) {
         busy = false;
-        if (d.configured === false) { msg(''); $('.ss-grid').innerHTML = '<div class="ss-setup"><b>검색 키 설정이 아직 안 돼 있어요.</b><br>관리자가 Render 환경변수에 <code>GOOGLE_CSE_KEY</code> 와 <code>GOOGLE_CSE_ID</code> 를 넣으면 이 기능이 켜져요. 그동안은 파일이나 링크로 올려 주세요.</div>'; $('.ss-more').hidden = true; return; }
+        if (d.configured === false) { msg(''); $('.ss-grid').innerHTML = '<div class="ss-setup"><b>검색 키 설정이 아직 안 돼 있어요.</b><br>관리자가 Render 환경변수에 <code>BRAVE_SEARCH_KEY</code> (또는 <code>GOOGLE_CSE_KEY</code> 와 <code>GOOGLE_CSE_ID</code>) 를 넣으면 이 기능이 켜져요. 그동안은 파일이나 링크로 올려 주세요.</div>'; $('.ss-more').hidden = true; return; }
         if (d.error) { msg(d.error, true); return; }
         var items = d.items || [];
         if (!items.length && !more) { msg('찾은 이미지가 없어요. 검색어를 바꿔 보세요 (예: 곡 제목 + 악보).'); $('.ss-more').hidden = true; return; }
