@@ -17,6 +17,7 @@ const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const honorific = require('../lib/honorific');
+const shortNames = require('../lib/shortName');
 const guestGate = require('../lib/guestGate');
 const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
 const { positionIconSvg } = require('../lib/positionIcons');
@@ -82,7 +83,8 @@ async function teamRoster(team) {
 function lineupCell(scope, team, posKey, names, roster, infoMap) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할 }));
   const isP = (n) => honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사님", 그 밖에는 "윤정환 목사님"
-  const chipName = (n) => (isP(n) ? String(n).charAt(0) + honorific.SUFFIX : avatar.givenName(n));
+  const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !isP(n)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
+  const chipName = (n) => (isP(n) ? String(n).charAt(0) + honorific.SUFFIX : shortOf(n));
   const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? n.이름 + honorific.SUFFIX : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
   const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(isP(n.이름) ? n.이름 + honorific.SUFFIX : n.이름)}</span>

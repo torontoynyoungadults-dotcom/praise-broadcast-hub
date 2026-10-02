@@ -138,11 +138,36 @@ function isPastor(n) {
 function dispName(n) { n = String(n || '').trim(); return isPastor(n) ? n + ' 목사님' : n; }
 /** "A, B" 처럼 쉼표로 이어진 이름들 각각에 호칭 */
 function dispList(str) { return String(str || '').split(/\s*,\s*/).filter(Boolean).map(dispName).join(', '); }
-/** church-app 은 세 글자 이름의 성을 떼어 "정환"으로 줄여 씁니다 — 목회자만 성 · 호칭을 다 씁니다 */
+/** church-app 은 세 글자 이름의 성을 떼어 "정환"으로 줄여 씁니다 — 목회자만 성 · 호칭을 다 씁니다.
+ *  줄였더니 다른 사람과 같아지면(조희영 · 김희영 → 희영) 성 + 이름 첫 글자로 (조희 · 김희), 그래도 같으면 이름 전체.
+ *  같은 규칙의 서버쪽: lib/shortName.js (주일 편성 칩) */
+var _shortC = { m: null, r: null, map: null };
+function shortMapOf() {
+  var rows = (typeof ST !== 'undefined' && ST && ST.rows) || null, mem = D.members || [];
+  if (_shortC.map && _shortC.m === mem && _shortC.r === rows) return _shortC.map;
+  var seen = {}, names = [];
+  var add = function (n) { n = String(n || '').trim(); if (n && !seen[n] && !isPastor(n)) { seen[n] = 1; names.push(n); } };
+  mem.forEach(function (m) { add(m.name); });
+  (rows || []).forEach(function (r) {
+    Object.keys(r.slots || {}).forEach(function (k) { (r.slots[k] || []).forEach(add); });
+    (r.off || []).forEach(function (x) { add(x.name); });
+  });
+  var ko3 = function (n) { return /^[가-힣]{3}$/.test(n); };
+  var cnt = function (list) { var c = {}; list.forEach(function (x) { c[x] = (c[x] || 0) + 1; }); return c; };
+  var first = {}, out = {};
+  names.forEach(function (n) { first[n] = ko3(n) ? n.slice(1) : n; });
+  var c1 = cnt(names.map(function (n) { return first[n]; }));
+  names.forEach(function (n) { out[n] = ko3(n) && c1[first[n]] > 1 ? n.slice(0, 2) : first[n]; });
+  var c2 = cnt(names.map(function (n) { return out[n]; }));
+  names.forEach(function (n) { if (ko3(n) && c2[out[n]] > 1) out[n] = n; });
+  _shortC = { m: mem, r: rows, map: out };
+  return out;
+}
 function shortName(n) {
   n = String(n || '').trim();
   if (isPastor(n)) return n + ' 목사님';
-  return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n;
+  var m = shortMapOf();
+  return Object.prototype.hasOwnProperty.call(m, n) ? m[n] : (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
 }
 
 /* ---------------------------------------------------------------- 연습일 (이 앱) — 예배(주일 · 행사)마다 따로, 한 번에 여러 예배도 */

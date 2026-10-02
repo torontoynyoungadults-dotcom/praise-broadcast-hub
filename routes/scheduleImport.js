@@ -3,6 +3,7 @@
  *   GET  /schedule/import          올리기 화면
  *   POST /schedule/import/preview  엑셀을 읽어 "무엇이 들어가는지" 미리보기 (이름 맞추기 점검표 포함)
  *   POST /schedule/import/apply    확인 후 시트에 반영 (편성 + 불참)
+ *   GET  /schedule/import/template  엑셀 템플릿 내려받기 (빈 것 · 지금 편성을 채운 것) — 만드는 법: lib/scheduleTemplate.js
  * 읽는 규칙은 lib/scheduleImport.js. 이미 있는 편성은 기본으로 건드리지 않고(채우기), "엑셀대로 덮어쓰기"를 고르면 그 날 · 포지션만 엑셀대로 바꿉니다.
  */
 const crypto = require('crypto');
@@ -16,6 +17,8 @@ const avatar = require('../lib/avatar');
 const week = require('../lib/weekUtil');
 const hubApi = require('../lib/hubApi');
 const imp = require('../lib/scheduleImport');
+const tpl = require('../lib/scheduleTemplate');
+const honorific = require('../lib/honorific');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -52,24 +55,61 @@ function page(req, res, body, title) {
 
 function uploadForm(team, msg) {
   const year = week.todayStr().slice(0, 4);
+  const T = encodeURIComponent(team);
+  const next = week.normalizeDate(null);
   return `
   ${msg ? `<div class="ph-card"><p class="ph-sub" style="color:var(--bad);">${esc(msg)}</p></div>` : ''}
-  <form class="ph-card si-card" method="post" action="/schedule/import/preview?team=${encodeURIComponent(team)}" enctype="multipart/form-data">
-    <h2 class="ph-h2">1. 엑셀 파일 고르기</h2>
-    <p class="ph-sub">첫 줄이 <b>날짜 · 포지션 · 이름</b> 인 시트를 읽어요. 포지션이 <b>비고(불참/기타)</b> 인 줄의 이름 칸은 메모로 보고
+  <form class="ph-card si-card top-accent" method="get" action="/schedule/import/template">
+    <h2 class="ph-h2">1. 엑셀 템플릿 받기</h2>
+    <p class="ph-sub">주일마다 한 줄이고, 포지션이 칸으로 나뉜 표예요. 칸에 이름을 적고(목록에서 골라도 돼요), 못 오는 사람은 <b>불참</b> 칸에 적어요.
+      같은 이름이 있으면 스케줄표에는 <b>조희 · 김희</b> 처럼 성을 붙여 보여요.</p>
+    <input type="hidden" name="team" value="${esc(team)}">
+    <label class="si-row"><span>이 날짜부터</span><input type="date" name="from" value="${esc(next)}"></label>
+    <label class="si-row"><span>몇 주</span><select name="weeks"><option value="8">8주</option><option value="13" selected>13주 (3개월)</option><option value="26">26주 (6개월)</option><option value="52">52주 (1년)</option></select></label>
+    <fieldset class="si-modes">
+      <label><input type="radio" name="fill" value="" checked> <b>빈 템플릿</b> <small>날짜만 들어 있어요</small></label>
+      <label><input type="radio" name="fill" value="1"> <b>지금 스케줄 채워서 받기</b> <small>이미 적힌 편성 · 불참이 들어 있어서, 고쳐서 다시 올릴 수 있어요</small></label>
+    </fieldset>
+    <div class="si-actions"><button class="ph-btn" type="submit">엑셀 템플릿 다운로드</button></div>
+  </form>
+  <form class="ph-card si-card" method="post" action="/schedule/import/preview?team=${T}" enctype="multipart/form-data">
+    <h2 class="ph-h2">2. 채운 엑셀 올리기</h2>
+    <p class="ph-sub">위 템플릿(날짜 · 포지션 칸 표)을 그대로 올리면 돼요. 예전처럼 첫 줄이 <b>날짜 · 포지션 · 이름</b> 인 세로 표도 읽어요 — 이때 포지션이 <b>비고(불참/기타)</b> 인 줄의 이름 칸은 메모로 보고
       <b>"조희 연습X, 다현x"</b> 처럼 <b>이름 + X</b> 를 불참으로 읽어요 (이름 앞뒤에 "연습"이 붙으면 금요일 연습만 불참, 사유는 없어도 돼요).
       이름은 두 글자여도 팀원 명단에서 찾아 맞춰요 (조희 → 조희영).</p>
     <label class="si-row"><span>엑셀 파일 (.xlsx)</span><input type="file" name="file" accept=".xlsx" required></label>
     <label class="si-row"><span>이 날짜부터</span><input type="date" name="from" value="${year}-01-01"></label>
     <fieldset class="si-modes">
       <label><input type="radio" name="mode" value="fill" checked> <b>빈 곳만 채우기</b> <small>이미 적힌 편성은 그대로 두고, 없는 것만 더해요</small></label>
-      <label><input type="radio" name="mode" value="replace"> <b>엑셀대로 덮어쓰기</b> <small>엑셀에 나온 날 · 포지션은 엑셀대로 바꿔요</small></label>
+      <label><input type="radio" name="mode" value="replace"> <b>엑셀대로 덮어쓰기</b> <small>엑셀에 나온 날 · 포지션은 엑셀대로 바꿔요 (표에서는 이름이 적힌 줄의 빈 칸은 비워요)</small></label>
     </fieldset>
     <label class="si-row si-col"><span>빠진 불참 직접 적기 <small>(선택 · 한 줄에 하나: <code>2026-02-08 지혜</code> · 금요일만이면 끝에 <code>연습</code>)</small></span>
       <textarea name="manual" rows="3" placeholder="2026-02-08 지혜&#10;2026-02-06 지혜 연습"></textarea></label>
-    <div class="si-actions"><button class="ph-btn" type="submit">미리보기</button><a class="ph-btn ghost" href="/schedule?team=${encodeURIComponent(team)}">취소</a></div>
+    <div class="si-actions"><button class="ph-btn" type="submit">미리보기</button><a class="ph-btn ghost" href="/schedule?team=${T}">취소</a></div>
   </form>`;
 }
+
+/** 템플릿 내려받기 (/schedule 아래는 SPA 이동 대상이 아니라 폼이 그대로 파일 다운로드로 나감) */
+router.get('/schedule/import/template', requireAdmin, async (req, res) => {
+  const team = req.ctx.current;
+  const q = req.query || {};
+  const from = week.isValidDateStr(q.from) ? q.from : week.normalizeDate(null);
+  const weeks = Math.min(Math.max(parseInt(q.weeks, 10) || 13, 1), 104);
+  const dates = tpl.sundays(from, weeks);
+  const [info, allAssign, allOff] = await Promise.all([avatar.teamInfoMap(team), q.fill ? sheetsDb.readAll('찬양편성', { fresh: true }) : [], q.fill ? sheetsDb.readAll('불가일정', { fresh: true }) : []]);
+  const inRange = new Set(dates);
+  const members = Object.keys(info).map((name) => ({ name, role: String(info[name].역할 || '').split(',').map((s) => s.trim()).filter(Boolean).join(' · '), pastor: honorific.isPastorRoles(info[name].역할) }));
+  const assign = q.fill ? allAssign.filter((r) => r['팀ID'] === team && !r['행사ID'] && inRange.has(String(r['날짜']))).map((r) => ({ date: String(r['날짜']), pos: String(r['포지션'] || '').trim(), name: String(r['이름'] || '').trim() })).filter((a) => a.name) : [];
+  const off = q.fill ? allOff.filter((r) => r['팀ID'] === team && inRange.has(String(r['날짜']))).map((r) => ({ date: String(r['날짜']), name: String(r['이름'] || '').trim(), part: tpl.partOf(r['구분']), reason: String(r['사유'] || '') })).filter((x) => x.name) : [];
+  const buf = tpl.build({ team, dates, members, assign, off });
+  const fname = `${team} 스케줄${q.fill ? '' : ' 템플릿'} ${dates[0]}~.xlsx`;
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': `attachment; filename="schedule-template.xlsx"; filename*=UTF-8''${encodeURIComponent(fname)}`,
+    'Cache-Control': 'no-store',
+  });
+  res.send(buf);
+});
 
 router.get('/schedule/import', requireAdmin, async (req, res) => { await page(req, res, uploadForm(req.ctx.current)); });
 
