@@ -586,7 +586,7 @@
           '<label class="pv-chk">음성 <select data-o="gender"><option value="mix">미국 영어 · 남녀 여러 명 (기본)</option><option value="male">남성 목소리</option><option value="female">여성 목소리</option><option value="any">기기 기본</option></select></label>' +
           '<div class="pv-help" data-role="voiceinfo"></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
-          '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
+          '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
         '<div class="pv-sec"><h4>팀과 함께</h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 페이지 컨트롤일 때 큐를 팀 전체에 보내기</label>' +

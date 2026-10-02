@@ -28,10 +28,11 @@
     { id: 'voice', en: 'Voice', ko: '보이스', g: 'dyn' }, { id: 'break', en: 'Break', ko: '브레이크', g: 'dyn' }, { id: 'die', en: 'Die down', ko: '작게', g: 'dyn' },
     { id: 'ferm', en: 'Fermata', ko: '늘임표', g: 'dyn' }, { id: 'solo', en: 'Solo', ko: '솔로', g: 'dyn' },
     { id: 'repc', en: 'Repeat Chorus', ko: '코러스 반복', g: 'rep' }, { id: 'halfc', en: 'Half Chorus', ko: '코러스 반', g: 'rep' },
-    { id: 'tag', en: 'Tag the last line', ko: '끝 소절 반복', g: 'rep' }, { id: 'lastl', en: 'Last line again', ko: '마지막 줄 한 번 더', g: 'rep' },
+    { id: 'tag', en: 'Tag', ko: '끝 소절 반복', g: 'rep' }, { id: 'lastl', en: 'Last line again', ko: '마지막 줄 한 번 더', g: 'rep' },
     { id: 'once', en: 'One more time', ko: '한 번 더', g: 'rep' }, { id: 'onebar', en: 'One more bar', ko: '한마디 더', g: 'rep' },
     { id: 'sess', en: 'Session in', ko: '세션 인', g: 'in' }, { id: 'alto', en: 'Alto in', ko: '알토 인', g: 'in' }, { id: 'tenor', en: 'Tenor in', ko: '테너 인', g: 'in' },
-    { id: 'keyup', en: 'Key Up', ko: '키 업', g: 'rep' }, { id: 'prayer', en: 'Prayer', ko: '기도', g: 'rep' }      // Step 2.11 — 배열 끝에 추가 (기존 큐의 소리 번호는 그대로)
+    { id: 'keyup', en: 'Key Up', ko: '키 업', g: 'rep' }, { id: 'prayer', en: 'Prayer', ko: '기도', g: 'rep' },
+    { id: 'vonly', en: 'Voice only', ko: '보이스만', g: 'dyn' }, { id: 'drums', en: 'Drums only', ko: '드럼만', g: 'dyn' }, { id: 'build', en: 'Build up', ko: '빌드 업', g: 'dyn' }      // v8.34 — Step 2.11 — 배열 끝에 추가 (기존 큐의 소리 번호는 그대로)
   ];
   var CUE_BY = {};
   CUES.forEach(function (c) { CUE_BY[c.id] = c; });
@@ -338,7 +339,7 @@
       click: S.click == null ? 0.4 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
       lang: S.lang || 'en', gender: S.gender === 'female' || S.gender === 'any' || S.gender === 'male' ? S.gender : 'mix', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
       speak: S.speak !== false,                                  // 음성 콜아웃(TTS) 켬(기본)/끔 — 끄면 큐 이름을 소리로 말하지 않습니다 (Step 2.15)
-      first: S.first !== false,                                  // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
+      first: S.first === true,                                   // 첫 박 강세 (기본 끔 — 4박이 모두 같은 소리) — 켜면 첫 박만 더 높고 크게
       pitch: S.pitch == null ? 0 : clamp(S.pitch, LIMITS.minPitch, LIMITS.maxPitch),   // 딸깍 음높이 (반음 단위, -12 ~ +12)
       flash: S.flash === true,                                   // 화면 전체 깜빡임 (켬/끔)
       flashAll: S.flashall !== false                             // 켬(기본)이면 모든 박마다, 끄면 첫 박에만 (Step 2.11)
@@ -401,7 +402,40 @@
 
     /* ---------- 소리 ---------- */
     var SOUNDS = { wood: [1500, 1150, 880, 'square'], beep: [1320, 990, 780, 'sine'], click: [2200, 1700, 1300, 'triangle'] };
+    /** 딸깍 말고 다른 소리들 — 모두 오디오 시계에 예약하는 짧은 합성음 (파일 없음) */
+    var noiseBuf = null;
+    function noise() {
+      if (noiseBuf) return noiseBuf;
+      var n = Math.round(ctx.sampleRate * 0.12), b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0);
+      for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      return (noiseBuf = b);
+    }
+    function tone(time, type, f0, f1, peak, dur, extra) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f0, time); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, time + dur * 0.8);
+      g.gain.setValueAtTime(0.0001, time); g.gain.linearRampToValueAtTime(peak, time + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+      o.connect(g); g.connect(master || ctx.destination);
+      o.onended = function () { o.onended = null; try { o.disconnect(); g.disconnect(); } catch (e) { /* 이미 끊김 */ } };
+      o.start(time); o.stop(time + dur + 0.02);
+    }
+    function special(time, accent, countIn, kind) {
+      var up = countIn ? 1.4 : accent === 2 ? 1.25 : accent === 1 ? 1.12 : 1, pk = (accent === 2 ? 0.9 : accent === 1 ? 0.75 : 0.6), pm = pitchMul();
+      if (kind === 'cowbell') { tone(time, 'square', 540 * up * pm, 0, pk * 0.5, 0.16); tone(time, 'square', 810 * up * pm, 0, pk * 0.5, 0.16); return; }
+      if (kind === 'drum') { tone(time, 'sine', 190 * up * pm, 55 * pm, Math.min(1, pk * 1.4), 0.13); return; }
+      if (kind === 'soft') { tone(time, 'sine', 880 * up * pm, 0, pk * 0.9, 0.1); return; }
+      if (kind === 'stick') { tone(time, 'square', 3000 * up * pm, 0, pk * 0.45, 0.025); tone(time, 'triangle', 1800 * up * pm, 0, pk * 0.6, 0.04); return; }
+      if (kind === 'hihat') {
+        var src = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+        src.buffer = noise(); hp.type = 'highpass'; hp.frequency.value = 6500 * pm;
+        g.gain.setValueAtTime(0.0001, time); g.gain.linearRampToValueAtTime(pk * 0.9, time + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, time + (accent === 2 ? 0.07 : 0.04));
+        src.connect(hp); hp.connect(g); g.connect(master || ctx.destination);
+        src.onended = function () { src.onended = null; try { src.disconnect(); hp.disconnect(); g.disconnect(); } catch (e) { /* 이미 끊김 */ } };
+        src.start(time); src.stop(time + 0.1);
+      }
+    }
+    var EXTRA = { cowbell: 1, drum: 1, soft: 1, stick: 1, hihat: 1 };
     function click(time, accent, countIn) {
+      if (EXTRA[cfg.sound]) return special(time, accent, countIn, cfg.sound);
       var s = SOUNDS[cfg.sound] || SOUNDS.wood;
       var o = ctx.createOscillator(), g = ctx.createGain();
       o.type = s[3]; o.frequency.setValueAtTime((countIn ? 1000 : (accent === 2 ? s[0] : accent === 1 ? s[1] : s[2])) * pitchMul(), time);
@@ -474,7 +508,7 @@
       fetch(base + 'manifest.json').then(function (r) { if (!r.ok) throw new Error('manifest'); return r.json(); }).then(function (man) {
         var ids = Object.keys((man && man.clips) || {});
         return Promise.all(ids.map(function (id) {
-          return fetch(base + id + '.mp3').then(function (r) { if (!r.ok) throw new Error(id); return r.arrayBuffer(); }).then(decodeBuf)
+          return fetch(base + id + (man.sfx || '') + '.mp3').then(function (r) { if (!r.ok) throw new Error(id); return r.arrayBuffer(); }).then(decodeBuf)
             .then(function (b) { clips[id] = b; }).catch(function () { /* 이 큐만 음성 합성으로 */ });
         }));
       }).then(function () { clipState = Object.keys(clips).length ? 'ready' : 'fail'; if (!destroyed) emitState(); }).catch(function () { clipState = 'fail'; });
