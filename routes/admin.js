@@ -9,6 +9,7 @@ const { ROLE_OPTIONS } = require('../lib/schema');
 const spa = require('../lib/spa');
 const honorific = require('../lib/honorific');
 const timeSettings = require('../lib/timeSettings');
+const historyImport = require('../lib/historyImport');
 const guestLink = require('../lib/guestLink');
 
 const router = express.Router();
@@ -123,6 +124,16 @@ router.get('/admin', requireAdmin, async (req, res) => {
   </div>
 
   <div class="ph-card">
+    <h2 class="ph-h2">지난 콘티 가져오기 (카톡 기록)</h2>
+    <p class="ph-sub">카톡방에 올라왔던 2025년 11월 말 ~ 2026년 9월 말의 콘티(곡명 · Key · 유튜브 링크 · 변경 내용)를 해당 날짜의 콘티로 넣어요. 이미 콘티가 있는 날은 건드리지 않아서 여러 번 눌러도 안전해요. 성탄 · 송구영신 · 특별새벽기도회 · 철야는 <b>주일 외 찬양</b>으로 함께 만들어져요.</p>
+    <form method="post" action="/admin/import-history" class="ph-inlineform" onsubmit="return confirm('이 찬양팀에 지난 콘티를 넣을까요? (이미 콘티가 있는 날은 건너뛰어요)')">
+      <select name="team">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
+      <button class="ph-btn" type="submit" name="mode" value="preview">미리 보기 (넣지 않음)</button>
+      <button class="ph-btn pri" type="submit" name="mode" value="go">가져오기</button>
+    </form>
+  </div>
+
+  <div class="ph-card">
     <h2 class="ph-h2">멤버 (${members.length}명)</h2>
     <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
   </div>
@@ -143,6 +154,24 @@ router.post('/admin/times', requireAdmin, async (req, res) => {
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
   if (t) { try { await timeSettings.save(team, { worship: b.worship, rehearsal: b.rehearsal, practice: b.practice, place: b.place }); } catch (e) { console.error('[시간 설정 저장 실패]', e.message); } }
   spa.redirect(req, res, '/admin');
+});
+
+router.post('/admin/import-history', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
+  let msg;
+  if (!t) msg = '찬양팀을 찾지 못했어요.';
+  else {
+    try {
+      const dry = b.mode !== 'go';
+      const r = await historyImport.run(team, { dryRun: dry });
+      msg = (dry ? '[미리 보기 — 아직 넣지 않았어요] ' : '[가져왔어요] ') + `${team}: 예배 ${r.services}곳 · 곡 ${r.songs}개` + (r.events ? ` · 주일 외 찬양 ${r.events}개 새로 만듦` : '') + ` (기록 전체 ${r.total}곳)`;
+      if (r.skipped.length) msg += '\n건너뜀: ' + r.skipped.join(', ');
+    } catch (e) { console.error('[지난 콘티 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
+  }
+  const content = `${pageShell.hubNav('', '')}${pageShell.adminTabs('admin', '')}<div class="ph-card top-accent"><h2 class="ph-h2">지난 콘티 가져오기</h2><p class="ph-sub" style="white-space:pre-line;">${esc(msg)}</p><a class="ph-btn" href="/admin">← 관리로</a></div>`;
+  spa.send(req, res, content, { title: '지난 콘티 가져오기' });
 });
 
 router.post('/admin/tagline', requireAdmin, async (req, res) => {
