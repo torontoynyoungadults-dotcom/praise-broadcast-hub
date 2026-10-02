@@ -11,6 +11,7 @@ const honorific = require('../lib/honorific');
 const timeSettings = require('../lib/timeSettings');
 const historyImport = require('../lib/historyImport');
 const scheduleHistory = require('../lib/scheduleHistory');
+const teamFill = require('../lib/teamFill');
 const guestLink = require('../lib/guestLink');
 
 const router = express.Router();
@@ -153,6 +154,18 @@ router.get('/admin', requireAdmin, async (req, res) => {
   </div>
 
   <div class="ph-card">
+    <h2 class="ph-h2">원곡 팀 자동 채우기</h2>
+    <p class="ph-sub">콘티의 유튜브 링크에서 채널 · 제목을 읽어, <b>팀 칸이 비어 있는 곡</b>에 마커스 · 피아워십 · 어노인팅 · Welove 등 원곡 팀을 채워요. 이미 적힌 팀은 건드리지 않아요. 알아보지 못한 채널은 비워 두고 결과에 이름을 보여 드려요.</p>
+    <div class="ph-inlineform">
+      <select id="ih-team3">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
+      <form method="post" action="/admin/fill-song-teams" onsubmit="this.team.value=document.getElementById('ih-team3').value;return true;">
+        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="preview"><button class="ph-btn" type="submit" style="width:100%;">미리 보기 (넣지 않음)</button></form>
+      <form method="post" action="/admin/fill-song-teams" onsubmit="this.team.value=document.getElementById('ih-team3').value;return true;">
+        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="go"><button class="ph-btn pri" type="submit" style="width:100%;">팀 채우기</button></form>
+    </div>
+  </div>
+
+  <div class="ph-card">
     <h2 class="ph-h2">멤버 (${members.length}명)</h2>
     <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
   </div>
@@ -207,6 +220,27 @@ router.post('/admin/import-schedule-history', requireAdmin, async (req, res) => 
       if (r.unknown.length) msg += '\n팀원 명단에 없는 이름(그대로 적었어요): ' + r.unknown.join(', ');
       if (r.conflicts.length) msg += '\n이미 다른 사람이 있어 건너뜀 ' + r.conflicts.length + '곳: ' + r.conflicts.slice(0, 8).join(' / ') + (r.conflicts.length > 8 ? ' …' : '');
     } catch (e) { console.error('[지난 스케줄 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
+  }
+  importMsg.set(req.session.email, msg);
+  spa.redirect(req, res, '/admin');
+});
+
+router.post('/admin/fill-song-teams', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
+  let msg;
+  if (!t) msg = '찬양팀을 찾지 못했어요.';
+  else {
+    try {
+      const dry = b.mode !== 'go';
+      const r = await teamFill.run(team, { dryRun: dry });
+      msg = (dry ? '[원곡 팀 미리 보기 — 아직 넣지 않았어요] ' : '[원곡 팀을 채웠어요] ') + `${team}: 팀이 빈 곡 ${r.total}곡 중 ${r.matched}곡` + (r.failed ? ` · 영상 정보를 못 읽은 ${r.failed}곡` : '');
+      const bt = Object.keys(r.byTeam).map((k) => k + ' ' + r.byTeam[k]).join(' · ');
+      if (bt) msg += '\n' + bt;
+      if (r.unknown.length) msg += '\n알아보지 못한 채널(비워 둠): ' + r.unknown.slice(0, 15).map((u) => `${u.channel || '?'} (${u.n}곡, 예: ${u.sample})`).join(' / ');
+      if (r.more) msg += '\n영상이 많아 이번에는 ' + r.checked + '개만 확인했어요. 한 번 더 누르면 이어서 해요.';
+    } catch (e) { console.error('[원곡 팀 채우기 실패]', e.message); msg = '실패했어요: ' + e.message; }
   }
   importMsg.set(req.session.email, msg);
   spa.redirect(req, res, '/admin');
