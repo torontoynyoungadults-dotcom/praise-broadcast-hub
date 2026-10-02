@@ -8,6 +8,7 @@ const pageShell = require('../lib/pageShell');
 const { ROLE_OPTIONS } = require('../lib/schema');
 const spa = require('../lib/spa');
 const honorific = require('../lib/honorific');
+const timeSettings = require('../lib/timeSettings');
 const guestLink = require('../lib/guestLink');
 
 const router = express.Router();
@@ -71,6 +72,17 @@ router.get('/admin', requireAdmin, async (req, res) => {
         <input type="hidden" name="team" value="${esc(t['팀명'])}"><button class="ph-btn${token ? '' : ' pri'}" type="submit">${token ? '새 링크로 바꾸기' : '링크 만들기'}</button></form>
     </div>`;
   }).join('');
+  const tsAll = await Promise.all(activeTeams.map((t) => timeSettings.get(t['팀명'])));
+  const timeCards = activeTeams.map((t, i) => { const v = tsAll[i];
+    return `<form method="post" action="/admin/times" class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div class="ph-li-title">${esc(t['팀명'])}</div>
+      <input type="hidden" name="team" value="${esc(t['팀명'])}">
+      <label class="ph-sub" style="margin:0;">예배 시간 <input type="time" name="worship" value="${esc(v.worship)}" required></label>
+      <label class="ph-sub" style="margin:0;">주일 당일 리허설 모임 <input type="time" name="rehearsal" value="${esc(v.rehearsal)}" required></label>
+      <label class="ph-sub" style="margin:0;">기본 연습 시간 <input type="time" name="practice" value="${esc(v.practice)}" required></label>
+      <label class="ph-sub" style="margin:0;">연습 장소 <input type="text" name="place" value="${esc(v.place)}" maxlength="30" placeholder="예: 본당"></label>
+      <button class="ph-btn pri" type="submit">저장</button>
+    </form>`; }).join('');
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
 
   const content = `
@@ -99,6 +111,12 @@ router.get('/admin', requireAdmin, async (req, res) => {
   </div>
 
   <div class="ph-card">
+    <h2 class="ph-h2">예배 · 연습 시간</h2>
+    <p class="ph-sub">거의 매주 같은 시간이라 기본값으로 두었어요. PDF 커버와 스케줄표에 자동으로 들어가요. 연습 시간은 스케줄표에서 그 주만 따로 바꿀 수 있고, <b>주일 외 찬양</b>은 행사마다 시간을 따로 적어요.</p>
+    <div class="ph-list">${timeCards}</div>
+  </div>
+
+  <div class="ph-card">
     <h2 class="ph-h2">방송팀 보기 링크</h2>
     <p class="ph-sub">로그인 없이 <b>예배 콘티 · 라이브 악보 · 스케줄표</b>를 볼 수 있는 링크예요 (고칠 수 없고 댓글만 가능). 방송팀에 전달해 주세요.</p>
     <div class="ph-list">${glRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
@@ -116,6 +134,14 @@ router.post('/admin/guest-link', requireAdmin, async (req, res) => {
   const team = String((req.body || {}).team || '').trim();
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
   if (t) { try { await guestLink.regenerate(team); } catch (e) { console.error('[방송팀 링크 저장 실패]', e.message); } }
+  spa.redirect(req, res, '/admin');
+});
+
+router.post('/admin/times', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
+  if (t) { try { await timeSettings.save(team, { worship: b.worship, rehearsal: b.rehearsal, practice: b.practice, place: b.place }); } catch (e) { console.error('[시간 설정 저장 실패]', e.message); } }
   spa.redirect(req, res, '/admin');
 });
 

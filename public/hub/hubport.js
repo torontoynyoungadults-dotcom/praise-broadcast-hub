@@ -1,7 +1,7 @@
 /* 자동 생성 — tools/port-church-hub.js. church-app 원본 함수 그대로 (바꾼 곳은 그 도구의 PATCHES). 직접 고치지 마세요.
  * 이 앱 쪽 연결은 public/hub/hubshim.js 에 있습니다. */
 /* ===== views/Worship.html ===== */
-var WD = ['일', '월', '화', '수', '목', '금', '토'];
+var WD = ['주일', '월', '화', '수', '목', '금', '토'];
 
 function el(id) { return document.getElementById(id); }
 

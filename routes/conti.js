@@ -36,6 +36,7 @@ const fileBytes = require('../lib/fileBytes');
 const pageSpec = require('../lib/pageSpec');
 const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
+const timeSettings = require('../lib/timeSettings');
 const router = express.Router();
 
 /** 곡이 바뀌면 열려 있는 라이브 악보에 알림 (church-app 의 songs:changed) — server.js 가 routes/live.js 의 함수를 넣어 줌 */
@@ -368,7 +369,7 @@ const ytLinkOf = (link) => { link = String(link || '').trim(); return /^[A-Za-z0
 const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
 
 /* ---------- 이전 콘티에서 가져오기 (곡 입력 위쪽) ---------- */
-const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+const DOW_KO = ['주일', '월', '화', '수', '목', '금', '토'];
 const fmtDay = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}월 ${x.getDate()}일(${DOW_KO[x.getDay()]})`; };
 const songNorm = (t) => String(t || '').toLowerCase().replace(/[\s\-_.·,!?'"()\[\]]/g, '');
 /** 지난 콘티들(예배별) + 곡 검색용 전체 곡 목록 — 이 예배(scope) 자신은 뺌 */
@@ -557,12 +558,13 @@ function recItem(r, editable) {
 }
 
 /* ================= 연습일 — 이 예배(주일 · 행사)를 언제 연습하는지 (스케줄표에서 정함 · lib/practice.js) ================= */
-const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+const DOW = ['주일', '월', '화', '수', '목', '금', '토'];
 const mdDow = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}월 ${x.getDate()}일(${DOW[x.getDay()]})`; };
 async function practiceInfo(team, scope, date) {
   const rows = (await sheetsDb.readAll('연습일정')).filter((r) => r['팀ID'] === team);
   const key = scope.event ? 'ev-' + scope.event : date;
-  const p = prac.practiceFor(key, date, rows);
+  const ts = await timeSettings.get(team);
+  const p = prac.practiceFor(key, date, rows, timeSettings.practiceNote(ts));
   const together = [];
   if (p.date && !p.none) {
     const evs = await specialServices(team);
@@ -722,6 +724,12 @@ router.get('/conti', requireTeam, async (req, res) => {
 /* 라이브 악보(/conti/practice)는 routes/live.js 로 옮겼습니다 — church-app 의 라이브 악보를 그대로 씁니다. */
 
 /** 인쇄용 PDF 패키지 — 표지(연습 일시 · 멤버 · 콘티 · 유튜브 QR) + 곡마다 머리말/악보/꼬리말, US Letter 흑백.  ?crop=0 이면 악보 위 제목 자르기를 끔 */
+/** 커버에 찍는 시간 — 주일은 관리의 기본값, 주일 외 찬양은 그 행사에 적은 값 */
+async function timesFor(team, eventRow) {
+  if (eventRow) return { worship: timeSettings.fmt(eventRow['예배시간']), rehearsal: timeSettings.fmt(eventRow['리허설시간']) };
+  const ts = await timeSettings.get(team);
+  return { worship: timeSettings.fmt(ts.worship), rehearsal: timeSettings.fmt(ts.rehearsal) };
+}
 async function makePackage(req, onProgress) {
   {
     const t0 = Date.now();
@@ -759,26 +767,27 @@ async function makePackage(req, onProgress) {
     const qrUrl = ids.length === 1 ? 'https://youtu.be/' + ids[0] : ids.length ? 'https://www.youtube.com/watch_videos?video_ids=' + ids.slice(0, 50).join(',') : '';
     const tFetched = Date.now();
     const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
+    const times = await timesFor(team, eventRow);
     const pdf = await pkgPdf.build({
       church: process.env.CHURCH_NAME || '토론토영락교회', team, date, eventName: eventRow ? String(eventRow['이름'] || '') : '',
       title: eventRow ? String(eventRow['이름'] || '') + ' 찬양 콘티' : '주일예배 찬양 콘티',
-      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0', onProgress,
+      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, times, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0', onProgress,
     }, sheetSearch.imagesToPdf);
     console.log(`[PDF 패키지] ${team} ${date} — 악보 받기 ${tFetched - t0}ms · 만들기 ${Date.now() - tFetched}ms · ${(pdf.length / 1024) | 0}KB`);
     const name = `${team} 콘티 ${date}${eventRow ? ' ' + eventRow['이름'] : ''}`.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim();
-    const sig = pkgSig({ w, members, pr, title: eventRow ? String(eventRow['이름'] || '') : '', date });
+    const sig = pkgSig({ w, members, pr, times, title: eventRow ? String(eventRow['이름'] || '') : '', date });
     return { pdf, name, sig, date, event: scope.event };
   }
 }
 
 /** 지금 콘티 · 악보 · 편성 · 연습 상태의 지문 — 확정한 PDF 를 만들 때와 같은지 비교해서 "확정 이후 바뀜"을 알려 줌 */
-function pkgSig({ w, members, pr, title, date }) {
+function pkgSig({ w, members, pr, times, title, date }) {
   const meta = (f) => [f['파일링크'], f['쪽'] || '', f['자르기'] || ''].join('|');
   const all = [].concat(w.conti, w.final);
   const songs = all.map((s) => [s['ID'], s['제목'], s['팀'], s['Key'], s['BPM'], kakaoLib.formText(s['송폼']), s['비고'], s['유튜브'],
     w.sheets.filter((f) => f['곡ID'] === s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각']))).map(meta)]);
   const extra = w.sheets.filter((r) => !r['곡ID'] && r['파일링크']).map(meta);
-  return require('crypto').createHash('sha1').update(JSON.stringify([pkgPdf.LAYOUT_V, title, date, pr && [pr.date, pr.note, pr.none], members, songs, extra])).digest('hex');
+  return require('crypto').createHash('sha1').update(JSON.stringify([pkgPdf.LAYOUT_V, title, date, pr && [pr.date, pr.note, pr.none], times || null, members, songs, extra])).digest('hex');
 }
 async function pkgContext(req) {
   const team = req.ctx.current;
@@ -827,7 +836,8 @@ router.get('/conti/package/saved', requireTeam, async (req, res) => {
     const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
     const pinfo = await practiceInfo(team, scope, date);
     const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
-    const sig = pkgSig({ w, members, pr: pr && { date: pr.date, note: pr.note, none: pr.none }, title: eventRow ? String(eventRow['이름'] || '') : '', date });
+    const times = await timesFor(team, eventRow);
+    const sig = pkgSig({ w, members, pr: pr && { date: pr.date, note: pr.note, none: pr.none }, times, title: eventRow ? String(eventRow['이름'] || '') : '', date });
     res.json({ saved: true, by: row['확정자'], at: row['확정시각'], stale: sig !== row['시그니처'] });
   } catch (e) { console.error('[확정 PDF 확인 실패]', e.message); res.json({ saved: false }); }
 });

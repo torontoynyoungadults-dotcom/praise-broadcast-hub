@@ -24,7 +24,7 @@ const router = express.Router();
 const esc = pageShell.esc;
 const S = () => conti.shared;
 
-const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+const DOW = ['주일', '월', '화', '수', '목', '금', '토'];
 const md = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}/${x.getDate()}`; };
 const mdDow = (d) => `${md(d)}(${DOW[new Date(d + 'T12:00:00').getDay()]})`;
 
