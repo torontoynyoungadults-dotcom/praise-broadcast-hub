@@ -528,15 +528,48 @@ function commentItem(c) {
   </div></div>`;
 }
 
+/** 녹음의 재생 주소 — 드라이브에 올린 파일은 이 앱 주소(/audio/<id>, 되감기 · 빠르기 조절 가능), 그 밖의 링크는 그대로. 유튜브 링크는 오디오 파일이 아니라서 '' */
+function recSrc(r) {
+  const link = String(r['링크'] || '');
+  const id = liveStore.driveIdOf(link);
+  if (id) return '/audio/' + id;
+  if (!/^https?:\/\//i.test(link) || youtube.idOf(link) || /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(link)) return '';
+  return link;
+}
 function recItem(r, editable) {
-  return `<div class="ph-list-item">
-    <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(r['제목'] || '녹음')}</a>
-      <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}</div></div>
+  const src = recSrc(r), title = String(r['제목'] || '녹음');
+  return `<div class="ph-list-item rp-item"${src ? ` data-rp-src="${esc(src)}" data-rp-title="${esc(title)}" data-rp-by="${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}"` : ''}>
+    ${src ? `<button type="button" class="rp-playbtn" data-rp-pick title="재생" aria-label="${esc(title)} 재생">${ui.icon('headphones')}</button>` : ''}
+    <div class="ph-li-main">${src ? `<button type="button" class="rp-name" data-rp-pick>${esc(title)}</button>` : `<a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(title)}</a>`}
+      <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>` : ' · 유튜브 등 링크는 새 창에서 열려요'}</div></div>
     ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('이 녹음을 지울까요?')">
       <input type="hidden" name="__row" value="${r.__row}">
       <input type="hidden" name="team" value="${esc(r['팀ID'])}">${rowHidden(r)}
       <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
     </form>` : ''}
+  </div>`;
+}
+
+/** 자체 재생 플레이어 (public/js/recplayer.js 가 붙임) — 빠르기 · 구간 반복 · ±10초 · 이어 재생 */
+function playerHtml() {
+  return `<div class="rp" data-rp>
+    <audio preload="metadata" playsinline></audio>
+    <div class="rp-now"><b class="rp-title">아래 녹음을 눌러 재생해요</b><span class="rp-by"></span></div>
+    <div class="rp-seek"><span class="rp-cur">0:00</span><input class="rp-bar" type="range" min="0" max="1000" value="0" step="1" aria-label="재생 위치"><span class="rp-dur">0:00</span></div>
+    <div class="rp-ctl">
+      <button type="button" data-rp-a="prev" title="이전 녹음" aria-label="이전 녹음">⏮</button>
+      <button type="button" data-rp-a="back" title="10초 뒤로" aria-label="10초 뒤로">−10</button>
+      <button type="button" class="rp-go" data-rp-a="toggle" title="재생 / 멈춤" aria-label="재생 / 멈춤">▶</button>
+      <button type="button" data-rp-a="fwd" title="10초 앞으로" aria-label="10초 앞으로">+10</button>
+      <button type="button" data-rp-a="next" title="다음 녹음" aria-label="다음 녹음">⏭</button>
+    </div>
+    <div class="rp-opts">
+      <div class="rp-grp"><span class="rp-lb">빠르기</span><button type="button" data-rp-a="slower" aria-label="느리게">−</button><b class="rp-rate">1.00×</b><button type="button" data-rp-a="faster" aria-label="빠르게">+</button>
+        <span class="rp-presets">${[0.5, 0.75, 1, 1.25, 1.5].map((n) => `<button type="button" data-rp-rate="${n}">${n}×</button>`).join('')}</span></div>
+      <div class="rp-grp"><span class="rp-lb">구간 반복</span><button type="button" data-rp-a="setA">A 시작</button><button type="button" data-rp-a="setB">B 끝</button><button type="button" data-rp-a="clearAB">해제</button><span class="rp-ab"></span></div>
+      <div class="rp-grp"><span class="rp-lb">소리</span><input class="rp-vol" type="range" min="0" max="100" value="100" aria-label="소리 크기"><label class="rp-chk"><input type="checkbox" class="rp-auto" checked> 이어서 재생</label><label class="rp-chk"><input type="checkbox" class="rp-loop"> 한 곡 반복</label></div>
+    </div>
+    <p class="rp-msg" role="status"></p>
   </div>`;
 }
 
@@ -681,18 +714,19 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
+    ${playerHtml()}
     <h3 class="ph-h3">연습 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
-      <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform">
+      <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
         <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
-        <input type="text" name="제목" placeholder="녹음 제목" required>
+        <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
         <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option></select>
-        <input type="file" name="파일" accept="audio/*">
-        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신)">
+        <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
+        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
         <button class="ph-btn pri" type="submit">올리기</button>
       </form>
     </details>
@@ -975,15 +1009,26 @@ router.post('/conti/sheets/delete', requireTeam, async (req, res) => {
   backTo(req, res, b.team, scopeFrom(b));
 });
 
+/** 제목을 안 적었을 때 — 올린 파일 이름(확장자 빼고) → 유튜브 영상 제목 → 링크 끝 이름 → "녹음" */
+async function autoRecTitle(file, link) {
+  const clean = (t) => String(t || '').replace(/\.[A-Za-z0-9]{2,5}$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (file && file.originalname) { const t = clean(file.originalname); if (t) return t; }
+  if (link) {
+    try { const i = await youtube.info(link); if (i && i.title) return String(i.title).slice(0, 80); } catch (e) { /* 아래로 */ }
+    try { const seg = decodeURIComponent(new URL(link).pathname.split('/').filter(Boolean).pop() || ''); const t = clean(seg); if (t && !/^[A-Za-z0-9_-]{20,}$/.test(t)) return t; } catch (e) { /* 아래로 */ }
+  }
+  return '녹음';
+}
+
 router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
-  const title = String(b['제목'] || '').trim();
-  if (!title) return backTo(req, res, team, scope);
+  let title = String(b['제목'] || '').trim();
   let link = String(b['링크'] || '').trim();
   try { if (req.file) link = await driveStore.uploadPublic('음원', req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); }
   if (!link) return backTo(req, res, team, scope);
+  if (!title) title = await autoRecTitle(req.file, String(b['링크'] || '').trim());
   await sheetsDb.appendRow('녹음', {
     'ID': 'R' + Date.now().toString(36), '팀ID': team, ...scopeFields(scope),
     '구분': b['구분'] === '예배' ? '예배' : '연습', '제목': title,
