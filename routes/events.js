@@ -23,7 +23,7 @@ async function requireTeam(req, res, next) {
   if (!ctx.teams.length) {
     return spa.send(req, res,
       `${pageShell.hubNav('events', '')}<div class="ph-card"><p class="ph-sub">아직 소속된 찬양팀이 없어요. 관리자에게 문의해주세요.</p><a class="ph-btn" href="/">← 허브로</a></div>`,
-      { title: '행사' },
+      { title: '특별예배' },
     );
   }
   req.ctx = ctx;
@@ -55,7 +55,7 @@ function eventItem(s, team, isAdmin) {
       </form>
       <form method="post" action="/events/delete" onsubmit="return confirm('${esc(s['이름'])}(${esc(s['날짜'])}) 표시를 지울까요? (콘티 내용 자체는 안 지워져요)')">
         <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}">
-        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">${ui.icon('close')} 이 행사 삭제</button>
+        <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">${ui.icon('close')} 이 특별예배 삭제</button>
       </form>
     </details>` : ''}
   </div>`;
@@ -81,24 +81,24 @@ router.get('/events', requireTeam, async (req, res) => {
       </form>
     </details>` : '';
 
-  const hero = pageShell.hero({ eyebrow: `${team} · 행사`, title: '행사', sub: '주일이 아닌 예배입니다. 주일과 똑같이 편성·콘티·악보를 준비합니다.' });
+  const hero = pageShell.hero({ eyebrow: `${team} · 특별예배`, title: '특별예배', sub: '주일이 아닌 예배입니다. 주일과 똑같이 편성·콘티·악보를 준비합니다.' });
 
   const content = `
   ${pageShell.hubNav('events', team)}
   ${hero}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, { keep: {} })}
-    <h2 class="ph-h2">다가오는 행사</h2>
+    <h2 class="ph-h2">다가오는 특별예배</h2>
     <div class="ph-list">${upcoming.length ? upcoming.map((s) => eventItem(s, team, ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 날이 없어요. 성탄절·송구영신예배·특별새벽기도·부흥회·철야기도회 등을 추가해두면 그 날짜의 예배콘티로 바로 갈 수 있어요.</p>'}</div>
     ${addForm}
   </div>
 
   ${past.length ? `<div class="ph-card">
-    <h2 class="ph-h2">지난 행사</h2>
+    <h2 class="ph-h2">지난 특별예배</h2>
     <div class="ph-list">${past.map((s) => eventItem(s, team, ctx.isAdmin)).join('')}</div>
   </div>` : ''}
   `;
-  spa.send(req, res, content, { title: `${team} 행사` });
+  spa.send(req, res, content, { title: `${team} 특별예배` });
 });
 
 router.post('/events/add', requireTeam, async (req, res) => {

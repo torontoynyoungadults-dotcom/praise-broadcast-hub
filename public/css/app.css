@@ -1205,3 +1205,9 @@ a { color: var(--accent-ink); text-decoration: none; }
 .rp-item.rp-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .rp-item.rp-on .rp-playbtn { background: var(--accent); color: #1a0f08; }
 @media (max-width: 560px) { .rp-vol { width: 90px; } .rp-lb { min-width: 100%; } }
+
+/* 달력 띠의 특별예배 칸(부흥회 등) — 날짜는 똑같이, 아래에 예배 이름 */
+.ph-wstrip-ev { width: 78px; border-style: dashed; border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 9%, var(--glass)); color: var(--text); }
+.ph-wstrip-ev.on { border-style: solid; }
+.ph-wstrip-evname { font-size: 12px; font-weight: 800; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-ink); }
+.ph-wstrip-ev.on .ph-wstrip-evname { color: var(--on-accent); }
