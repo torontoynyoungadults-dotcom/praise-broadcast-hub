@@ -111,7 +111,8 @@ function sheetNet(req, url, c) {
   return p.then(function (res) { return res.clone(); });
 }
 function sheetFetch(event) {
-  var req = event.request, url = new URL(req.url).pathname;
+  var req = event.request, u = new URL(req.url), url = u.pathname;
+  if (/\/part$/.test(url)) url += u.search;                                                                   // 곡별 악보(/sheet/<id>/part?p=2-3)는 쪽 범위(?p=)가 곧 내용 — 빼면 전체 악보가 나옴
   return caches.open(SHEETS).then(function (c) {
     return c.match(url).then(function (hit) {
       if (hit) return req.headers.get('range') ? rangeFrom(hit, req.headers.get('range')) : hit;                 // 보관본이 있으면 바로

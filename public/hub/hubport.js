@@ -920,14 +920,14 @@ function arExport() {
     else if (rest.length) { var at = rows.length - songs.length; links[at] = (links[at] || []).concat(rest); }
   });
   if (!rows.length) { say('arMsg', '내보낼 콘티가 없습니다.', 'err'); return; }
-  rows.forEach(function (r, i) { r[6] = (links[i] || []).map(function (f) { return f.url; }).join('\n'); });
+  rows.forEach(function (r, i) { r[6] = (links[i] || []).map(function (f) { return absUrl(f.href || f.url); }).join('\n'); });
   say('arMsg', '엑셀 파일을 만드는 중…');
   needScript('/vendor/xlsx.mini.min.js', function () { return !!window.XLSX; }, function () {
     try {
       var ws = XLSX.utils.aoa_to_sheet([head].concat(rows));
       rows.forEach(function (r, i) {
         var f = (links[i] || [])[0];
-        if (f) { var c = ws[XLSX.utils.encode_cell({ r: i + 1, c: 6 })]; if (c) c.l = { Target: f.url }; }
+        if (f) { var c = ws[XLSX.utils.encode_cell({ r: i + 1, c: 6 })]; if (c) c.l = { Target: absUrl(f.href || f.url) }; }
       });
       ws['!cols'] = [{ wch: 11 }, { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 6 }, { wch: 48 }];
       var wb = XLSX.utils.book_new();
@@ -959,10 +959,11 @@ function arTitle(d) {
                  : esc(d.date.replace(/-/g, '.')) + ' 주일';
 }
 
+function absUrl(u) { try { return new URL(u, location.href).href; } catch (e) { return u; } }
 function fileChip(f) {
   var pdf = f.pdf != null ? !!f.pdf : /\.pdf$/i.test(f.name);
-  return '<a class="afile" href="' + esc(f.url) + '" target="_blank" rel="noopener">' +
-    '<span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span><span class="fn">' + esc(f.name) + '</span></a>';
+  return '<a class="afile" href="' + esc(f.href || f.url) + '" target="_blank" rel="noopener">' +
+    '<span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span><span class="fn">' + esc(f.name) + (f.range ? ' <small>' + esc(f.range) + '쪽</small>' : '') + '</span></a>';
 }
 
 function arBody() {
@@ -1085,7 +1086,7 @@ function arFiles(days) {
     rows.slice(0, AR.more * 3).map(function (r) {
       var pdf = r.f.pdf != null ? !!r.f.pdf : /\.pdf$/i.test(r.f.name);
       return '<div class="fileitem card"><span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span>' +
-        '<a href="' + esc(r.f.url) + '" target="_blank" rel="noopener">' + esc(r.f.name) + '</a>' +
+        '<a href="' + esc(r.f.href || r.f.url) + '" target="_blank" rel="noopener">' + esc(r.f.name) + (r.f.range ? ' <small>' + esc(r.f.range) + '쪽</small>' : '') + '</a>' +
         '<button class="by linkish" onclick="goWeek(\'' + esc(jsq(r.d.key)) + '\')">' +
           (r.d.event ? esc(r.d.event.name) : md(r.d.date)) + (r.f.kind === '결단' ? ' · 결단' : '') + '</button></div>';
     }).join('') +

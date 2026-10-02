@@ -558,11 +558,11 @@ function playerHtml() {
     <div class="rp-now"><b class="rp-title">아래 녹음을 눌러 재생해요</b><span class="rp-by"></span></div>
     <div class="rp-seek"><span class="rp-cur">0:00</span><input class="rp-bar" type="range" min="0" max="1000" value="0" step="1" aria-label="재생 위치"><span class="rp-dur">0:00</span></div>
     <div class="rp-ctl">
-      <button type="button" data-rp-a="prev" title="이전 녹음" aria-label="이전 녹음">⏮</button>
+      <button type="button" data-rp-a="prev" title="이전 녹음" aria-label="이전 녹음"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
       <button type="button" data-rp-a="back" title="10초 뒤로" aria-label="10초 뒤로">−10</button>
-      <button type="button" class="rp-go" data-rp-a="toggle" title="재생 / 멈춤" aria-label="재생 / 멈춤">▶</button>
+      <button type="button" class="rp-go" data-rp-a="toggle" title="재생 / 멈춤" aria-label="재생 / 멈춤"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>
       <button type="button" data-rp-a="fwd" title="10초 앞으로" aria-label="10초 앞으로">+10</button>
-      <button type="button" data-rp-a="next" title="다음 녹음" aria-label="다음 녹음">⏭</button>
+      <button type="button" data-rp-a="next" title="다음 녹음" aria-label="다음 녹음"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
     </div>
     <div class="rp-opts">
       <div class="rp-grp"><span class="rp-lb">빠르기</span><button type="button" data-rp-a="slower" aria-label="느리게">−</button><b class="rp-rate">1.00×</b><button type="button" data-rp-a="faster" aria-label="빠르게">+</button>

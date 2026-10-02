@@ -8,6 +8,8 @@
  */
 (function () {
   var KEY = 'ph_rp_v1';
+  var I_PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  var I_PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; } }
   function save(o) { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* 저장 못 해도 재생엔 영향 없음 */ } }
   function fmt(t) { if (!isFinite(t) || t < 0) t = 0; t = Math.floor(t); var m = Math.floor(t / 60), s = t % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
@@ -52,7 +54,7 @@
       var it = list[i]; idx = i; A = B = null; paintAB(); say('');
       ttl.textContent = it.getAttribute('data-rp-title') || '녹음'; by.textContent = it.getAttribute('data-rp-by') || '';
       au.src = it.getAttribute('data-rp-src'); applyRate(); au.load(); mark();
-      if (play) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생을 시작하지 못했어요. ▶ 를 한 번 더 눌러 주세요.', true); });
+      if (play) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생을 시작하지 못했어요. 재생 버튼을 한 번 더 눌러 주세요.', true); });
     }
     function toggle() {
       if (idx < 0) { select(0, true); return; }
@@ -97,18 +99,18 @@
     });
     au.addEventListener('loadedmetadata', function () { applyRate(); paintBar(); });
     au.addEventListener('durationchange', paintBar);
-    au.addEventListener('play', function () { go.textContent = '❚❚'; root.classList.add('playing'); });
-    au.addEventListener('pause', function () { go.textContent = '▶'; root.classList.remove('playing'); });
+    au.addEventListener('play', function () { go.innerHTML = I_PAUSE; root.classList.add('playing'); });
+    au.addEventListener('pause', function () { go.innerHTML = I_PLAY; root.classList.remove('playing'); });
     au.addEventListener('waiting', function () { say('불러오는 중…'); });
     au.addEventListener('playing', function () { say(A != null && B != null ? '구간 반복 중' : ''); });
     au.addEventListener('ended', function () {
       if (loop.checked) { au.currentTime = 0; au.play().catch(function () {}); return; }
-      if (auto.checked && idx < items().length - 1) next(1); else { go.textContent = '▶'; }
+      if (auto.checked && idx < items().length - 1) next(1); else { go.innerHTML = I_PLAY; }
     });
     au.addEventListener('error', function () {
       if (!au.getAttribute('src')) return;
       say('이 녹음을 재생할 수 없어요 (파일 형식이나 링크를 확인해 주세요). 목록의 "새 창"으로 열어 볼 수 있어요.', true);
-      go.textContent = '▶';
+      go.innerHTML = I_PLAY;
     });
     if ('mediaSession' in navigator) {
       try {
