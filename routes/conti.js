@@ -660,7 +660,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
     const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
     const pkgHref = `/conti/package.pdf?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}`;
-    const pkgBtn = w.conti.length || w.final.length ? `<a class="cn-mini cn-pkgbtn" href="${pkgHref}" target="_blank" rel="noopener" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF">${ui.icon('download')} 인쇄용 PDF 패키지</a>` : '';
+    const pkgBtn = w.conti.length || w.final.length ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-href="${esc(pkgHref)}" data-title="${esc(scope.event ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>` : '';
     const extras = liveBtn + `<div class="cn-toolrow">${pkgBtn}${kakaoBtn}${offBtn}</div>
     ${guestPanel(req, team, scope, guestToken, ctx.isAdmin, req.query.gl === '1')}
     <div class="cn-offpanel" data-cn-offpanel hidden></div>
