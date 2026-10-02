@@ -724,6 +724,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 /** 인쇄용 PDF 패키지 — 표지(연습 일시 · 멤버 · 콘티 · 유튜브 QR) + 곡마다 머리말/악보/꼬리말, US Letter 흑백.  ?crop=0 이면 악보 위 제목 자르기를 끔 */
 router.get('/conti/package.pdf', requireTeam, async (req, res) => {
   try {
+    const t0 = Date.now();
     const team = req.ctx.current;
     const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
     const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
@@ -735,7 +736,8 @@ router.get('/conti/package.pdf', requireTeam, async (req, res) => {
     const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
     const used = new Set();
     const cache = new Map();
-    const bytesOf = async (link) => { if (!cache.has(link)) cache.set(link, await fileBytes.get(link)); return cache.get(link); };
+    const bytesOf = (link) => { if (!cache.has(link)) cache.set(link, fileBytes.get(link)); return cache.get(link); };   // 한 번만, 동시에 받음
+    w.sheets.forEach((f) => { if (f['파일링크']) bytesOf(f['파일링크']); });
     const all = [].concat(w.conti.map((s, i) => ({ s, kind: '콘티', no: i + 1 })), w.final.map((s) => ({ s, kind: '결단', no: 1 })));
     const songs = [];
     for (const x of all) {
@@ -752,12 +754,14 @@ router.get('/conti/package.pdf', requireTeam, async (req, res) => {
     }
     const ids = []; all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && ids.indexOf(id) === -1) ids.push(id); });
     const qrUrl = ids.length === 1 ? 'https://youtu.be/' + ids[0] : ids.length ? 'https://www.youtube.com/watch_videos?video_ids=' + ids.slice(0, 50).join(',') : '';
+    const tFetched = Date.now();
     const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
     const pdf = await pkgPdf.build({
       church: process.env.CHURCH_NAME || '토론토영락교회', team, date, eventName: eventRow ? String(eventRow['이름'] || '') : '',
       title: eventRow ? String(eventRow['이름'] || '') + ' 찬양 콘티' : '주일예배 찬양 콘티',
       practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0',
     }, sheetSearch.imagesToPdf);
+    console.log(`[PDF 패키지] ${team} ${date} — 악보 받기 ${tFetched - t0}ms · 만들기 ${Date.now() - tFetched}ms · ${(pdf.length / 1024) | 0}KB`);
     const name = `${team} 콘티 ${date}${eventRow ? ' ' + eventRow['이름'] : ''}`.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim();
     res.set({ 'Content-Type': 'application/pdf', 'Content-Length': String(pdf.length), 'Cache-Control': 'private, no-store',
       'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}.pdf` });

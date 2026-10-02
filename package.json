@@ -6,21 +6,20 @@
   "private": true,
   "type": "commonjs",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=20"
   },
   "scripts": {
     "start": "node server.js",
     "auth": "node scripts/get-refresh-token.js"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^1.0.10",
+    "@hyzyla/pdfium": "^2.1.13",
     "@pdf-lib/fontkit": "^1.1.1",
     "compression": "^1.8.2",
     "express": "^5.1.0",
     "googleapis": "^182.0.0",
     "multer": "^2.0.1",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.3.289",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.4"
   },

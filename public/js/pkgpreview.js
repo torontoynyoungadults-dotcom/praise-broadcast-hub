@@ -52,8 +52,10 @@
     $('.pkp-pages').innerHTML = ''; state.blob = null;
     msg('PDF를 만드는 중이에요… (곡이 많으면 10~30초 걸려요)');
     var url = state.href + (state.crop ? '' : '&crop=0');
-    fetch(url, { credentials: 'same-origin' })
-      .then(function (r) { if (!r.ok) throw new Error('http'); state.name = nameFromHeaders(r); return r.blob(); })
+    var ctl = window.AbortController ? new AbortController() : null, tm = setTimeout(function () { if (ctl) ctl.abort(); }, 120000);
+    var t0 = Date.now(), tick = setInterval(function () { if (my !== state.token) return clearInterval(tick); if ($('.pkp-msg').textContent.indexOf('만드는 중') === 0) msg('PDF를 만드는 중이에요… ' + Math.round((Date.now() - t0) / 1000) + '초 (곡이 많거나 악보가 크면 조금 걸려요)'); }, 1000);
+    fetch(url, { credentials: 'same-origin', signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { clearTimeout(tm); clearInterval(tick); if (!r.ok) throw new Error('http'); state.name = nameFromHeaders(r); return r.blob(); })
       .then(function (blob) {
         if (my !== state.token) return;
         state.blob = blob;
@@ -62,7 +64,7 @@
         return Promise.all([loadPdfjs(), blob.arrayBuffer()]).then(function (v) { return v[0].getDocument({ data: new Uint8Array(v[1]) }).promise; })
           .then(function (doc) { return render(doc, my); });
       })
-      .catch(function () { if (my === state.token) msg('PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요.', true); });
+      .catch(function () { clearTimeout(tm); clearInterval(tick); if (my === state.token) msg('PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요. (계속 안 되면 "악보 위 제목 자르기"를 끄고 해 보세요)', true); });
   }
 
   function render(doc, my) {
