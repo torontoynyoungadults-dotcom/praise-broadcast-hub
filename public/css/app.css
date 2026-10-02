@@ -1360,3 +1360,18 @@ body.pkp-open{overflow:hidden}
 .ss-steps{margin:0;padding-left:1.3em;font-size:.84rem;line-height:1.55;opacity:.85}
 @media (max-width:520px){.ss-find{flex-wrap:wrap}.ss-q2{flex-basis:100%}}
 .ss-card.bad{opacity:.55;border-color:#ff8a7a;cursor:default}
+
+/* 악보 올리기 — 헤더 자동 추가 · 자르기 조정 */
+.ph-hdrchk{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text,#fff);cursor:pointer}
+.ph-hdrchk small{display:block;opacity:.65;font-size:11.5px;margin-top:2px}
+.ph-hdrchk input{margin-top:3px;accent-color:#ff8a1f}
+.hdr-box{width:min(720px,100%)}
+.hdr-top{display:flex;flex-direction:column;gap:2px;font-size:12px;opacity:.85}
+.hdr-top b{font-size:14px}
+.hdr-stage{overflow:auto;max-height:68vh;border-radius:10px;background:rgba(0,0,0,.35);padding:6px}
+.hdr-wrap{position:relative;width:100%;touch-action:none;user-select:none}
+.hdr-box-area{position:absolute;border:2px solid #ff8a1f;box-shadow:0 0 0 9999px rgba(0,0,0,.55);box-sizing:border-box;pointer-events:none}
+.hdr-h{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;background:#ff8a1f;border-radius:50%;border:2px solid #fff;pointer-events:auto;touch-action:none;box-sizing:border-box}
+.hdr-t{left:50%;top:0}.hdr-b{left:50%;top:100%}.hdr-l{left:0;top:50%}.hdr-r{left:100%;top:50%}
+.hdr-tl{left:0;top:0}.hdr-tr{left:100%;top:0}.hdr-bl{left:0;top:100%}.hdr-br{left:100%;top:100%}
+.hdr-act{display:flex;gap:8px;align-items:center}

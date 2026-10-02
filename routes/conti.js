@@ -279,6 +279,8 @@ function songSheetsHtml(s, sheets, editable, extra) {
       <input type="file" name="파일" accept=".pdf,image/*" multiple>
       <input type="text" name="제목" placeholder="제목 (비워 두면 파일 이름이 제목이 돼요)">
       <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신)">
+      <label class="ph-hdrchk"><input type="checkbox" name="header" value="1" data-sheet-hdr> 헤더 자동 추가 <small>(제목 · 원곡팀 · KEY · BPM · 송폼 머리말을 달고, 악보의 제목 · 여백은 자동으로 잘라요. 끄면 올린 그대로)</small></label>
+      <button type="button" class="ph-btn" data-sheet-hdr-crop hidden>${ui.icon('page')} 자르기 조정</button><input type="hidden" name="crop" value="">
       <button class="ph-btn pri" type="submit">올리기</button>
     </form>
     <button type="button" class="ph-btn" data-sheet-search data-team="${esc(s['팀ID'])}" data-song="${esc(s['ID'])}" data-date="${esc(s['날짜'])}" data-event="${esc(s['행사ID'] || '')}" data-q="${esc(s['제목'] || '')}">${ui.icon('search')} 웹에서 악보 찾기</button>
@@ -1070,8 +1072,40 @@ router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
+  if (b.header === '1') { try { await headerizeFiles(req, team, scope, b['곡ID']); } catch (e) { console.error('[악보 헤더 추가 실패 — 원본 그대로 올림]', e.message); } }
   await saveSheetsFrom(req, team, scope, b['곡ID']);
   backTo(req, res, team, scope);
+});
+
+/** "헤더 자동 추가" — 올린 악보 파일마다 곡 정보(제목 · 원곡팀 · KEY · BPM · 송폼) 머리말을 단 PDF 로 바꿔 req.files 에 되돌려 놓음.
+ *  곡 정보는 클라이언트 값이 아니라 저장된 곡 줄에서 읽음. 파일 하나가 실패하면 그 파일만 원본 그대로. crop 은 파일 순서대로 "l,t,r,b" 를 | 로 이음 */
+async function headerizeFiles(req, team, scope, songId) {
+  const files = (req.files || []).filter((f) => f && f.buffer && f.buffer.length);
+  if (!files.length) return;
+  const rows = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && inScope(r, scope));
+  const row = rows.find((r) => r['ID'] === String(songId || '').trim());
+  if (!row) return;
+  const same = rows.filter((r) => r['구분'] === row['구분']).sort((a, b) => Number(a['순서'] || 0) - Number(b['순서'] || 0));
+  const s = { kind: row['구분'], no: Math.max(1, same.findIndex((r) => r['ID'] === row['ID']) + 1), title: row['제목'], team: row['팀'], key: row['Key'], bpm: row['BPM'], form: row['송폼'], note: '' };
+  const crops = String((req.body || {}).crop || '').split('|');
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const pdf = await pkgPdf.buildSongSheet(s, { buf: files[i].buffer, crop: crops[i] || '' }, sheetSearch.imagesToPdf);
+      if (pdf) { files[i].buffer = pdf; files[i].mimetype = 'application/pdf'; files[i].originalname = String(files[i].originalname || '악보').replace(/\.[^.]*$/, '') + '.pdf'; files[i].size = pdf.length; }
+    } catch (e) { console.error('[악보 헤더 추가 실패]', files[i].originalname, e.message); }
+  }
+}
+
+/** 헤더 자동 추가 미리보기 — 올릴 파일의 첫 쪽에서 자동으로 찾은 악보 영역(0~1)을 알려 줌 (화면의 자르기 조정이 이 값에서 시작) */
+router.post('/conti/sheets/detect', requireTeam, upload.single('파일'), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    let buf = req.file && req.file.buffer;
+    if (!buf) return res.json({ box: null });
+    if (buf.slice(0, 5).toString('latin1') !== '%PDF-') buf = await sheetSearch.imagesToPdf([buf]);
+    const d = (await require('../lib/sheetCrop').detect(buf, [1], 8000))[0];
+    res.json({ box: d && d.box ? { l: d.box.left, t: d.box.top, r: d.box.right, b: d.box.bottom } : null });
+  } catch (e) { res.json({ box: null }); }
 });
 
 /** 웹에서 악보 이미지 찾기 — 검색 결과(JSON). 키가 없으면 configured:false 로 알려 줘서 화면이 설정 안내를 보여 줌 */
