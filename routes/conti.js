@@ -743,7 +743,7 @@ router.get('/conti/package.pdf', requireTeam, async (req, res) => {
     for (const x of all) {
       const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
       const sheets = [];
-      for (const f of mine) { used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || '') }); }
+      for (const f of mine) { used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), cropTop: parseFloat(f['자르기']) || 0 }); }
       songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
         form: kakaoLib.formText(x.s['송폼']), note: String(x.s['비고'] || '').trim(), sheets });
     }
@@ -770,6 +770,50 @@ router.get('/conti/package.pdf', requireTeam, async (req, res) => {
     console.error('[PDF 패키지 실패]', e && e.stack || e);
     if (!res.headersSent) res.status(500).type('text').send('PDF 패키지를 만들지 못했어요. 잠시 뒤 다시 해 주세요.');
   }
+});
+
+/** 악보 영역 조정용 — 이 콘티의 곡별 악보 목록(JSON) */
+router.get('/conti/package/areas', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const team = req.ctx.current;
+    const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
+    const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+    const w = await loadWeek(team, { event: eventRow ? eventRow['ID'] : '', date });
+    const all = [].concat(w.conti.map((s, i) => ({ s, no: i + 1 })), w.final.map((s) => ({ s, no: '+' })));
+    const out = [];
+    all.forEach((x) => {
+      w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])))
+        .forEach((f) => out.push({ row: f.__row, no: x.no, title: String(x.s['제목'] || ''), name: String(f['제목'] || ''), spec: String(f['쪽'] || ''), top: parseFloat(f['자르기']) || 0 }));
+    });
+    res.json({ sheets: out });
+  } catch (e) { res.status(500).json({ sheets: [] }); }
+});
+
+/** 악보 영역 조정용 — 악보 원본 파일(PDF · 사진 → PDF) */
+router.get('/conti/sheets/raw', requireTeam, async (req, res) => {
+  try {
+    const row = Number(req.query.row);
+    const f = (await sheetsDb.readAll('악보저장소')).find((r) => r.__row === row && r['팀ID'] === req.ctx.current);
+    const buf = f && f['파일링크'] ? await fileBytes.get(f['파일링크']) : null;
+    if (!buf) return res.status(404).type('text').send('악보를 불러오지 못했어요.');
+    let out = buf;
+    if (buf.slice(0, 5).toString('latin1') !== '%PDF-') { try { out = await sheetSearch.imagesToPdf([buf]); } catch (e) { return res.status(415).type('text').send('지원하지 않는 파일이에요.'); } }
+    res.set({ 'Content-Type': 'application/pdf', 'Cache-Control': 'private, max-age=300' }).send(out);
+  } catch (e) { res.status(500).type('text').send('오류'); }
+});
+
+/** 악보 영역 저장 — top: 악보가 시작되는 위치(쪽 위에서부터 0~0.9 비율), 0 이면 자동으로 되돌림 */
+router.post('/conti/sheets/crop', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const row = Number(b.__row);
+  let top = parseFloat(b.top); if (!(top > 0 && top < 0.9)) top = 0;
+  try {
+    const f = (await sheetsDb.readAll('악보저장소', { fresh: true })).find((r) => r.__row === row && r['팀ID'] === req.ctx.current);
+    if (!f) return res.status(404).json({ ok: false });
+    await sheetsDb.updateRow('악보저장소', row, Object.assign({}, f, { '자르기': top ? top.toFixed(4) : '' }));
+    res.json({ ok: true, top });
+  } catch (e) { console.error('[악보 영역 저장 실패]', e.message); res.status(500).json({ ok: false }); }
 });
 
 router.post('/conti/lineup/assign', requireTeam, async (req, res) => {

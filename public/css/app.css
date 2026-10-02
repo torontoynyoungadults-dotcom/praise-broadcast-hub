@@ -1270,3 +1270,20 @@ body.pkp-open{overflow:hidden}
 .pkp-page{display:flex;flex-direction:column;align-items:center;gap:4px}
 .pkp-page canvas{background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:100%}
 .pkp-page small{opacity:.6;font-size:.72rem}
+
+/* 악보 영역 조정 */
+.pkp-ed{flex:1;overflow:auto;padding:14px 12px 24px;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.pkp-ed[hidden]{display:none}
+.pkp-edmsg{margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,.82)}
+.pkp-edmsg.bad{color:#ffb4a8}
+.pkp-edrow{display:flex;align-items:center;gap:10px;text-align:left;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:inherit;font:inherit;cursor:pointer;min-height:44px}
+.pkp-edrow b{min-width:22px;color:#ff8a3d}
+.pkp-edrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkp-edrow em{font-style:normal;font-size:11px;color:rgba(255,255,255,.55)}
+.pkp-edwrap{position:relative;align-self:center;max-width:100%;touch-action:none;cursor:ns-resize;line-height:0;border-radius:6px;overflow:hidden;background:#fff}
+.pkp-edcv{display:block}
+.pkp-edcut{position:absolute;left:0;right:0;top:0;background:rgba(0,0,0,.55);pointer-events:none}
+.pkp-edline{position:absolute;left:0;right:0;height:0;border-top:3px solid #ff8a3d;pointer-events:none}
+.pkp-edline i{position:absolute;left:50%;top:-12px;width:46px;height:22px;margin-left:-23px;border-radius:11px;background:#ff8a3d;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.pkp-edbtns{display:flex;flex-wrap:wrap;gap:8px}
+.pkp-pages[hidden]{display:none!important}
