@@ -1081,7 +1081,9 @@ router.get('/conti/sheetsearch', requireTeam, async (req, res) => {
   try { res.json({ configured: true, items: await sheetSearch.search(req.query.q, req.query.start) }); }
   catch (e) {
     console.error('[악보 검색 실패]', e.message);
-    res.json({ configured: true, items: [], error: e.code === 'QUOTA' ? '오늘 검색 가능 횟수를 다 썼어요. 내일 다시 해 주세요.' : '검색하지 못했어요. 잠시 뒤 다시 해 주세요.' });
+    // 구글이 돌려준 이유를 그대로 보여 줌 — 키 · 검색엔진 설정 문제는 잠시 뒤 다시 해도 안 되므로 원인을 알려야 고칠 수 있음
+    const why = e.status ? ' (구글 응답 ' + e.status + ': ' + String(e.message || '').slice(0, 160) + ')' : (e.name === 'TimeoutError' ? ' (구글 응답 지연)' : '');
+    res.json({ configured: true, items: [], error: e.code === 'QUOTA' ? '오늘 검색 가능 횟수를 다 썼어요. 내일 다시 해 주세요.' : '검색하지 못했어요.' + (e.status === 400 || e.status === 403 || e.status === 404 ? ' 검색 키·검색엔진 설정을 확인해야 해요.' : ' 잠시 뒤 다시 해 주세요.') + why });
   }
 });
 
