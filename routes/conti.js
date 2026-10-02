@@ -30,6 +30,7 @@ const ui = require('../lib/uiIcons');
 const prac = require('../lib/practice');
 const kakaoLib = require('../lib/kakao');
 const youtube = require('../lib/youtube');
+const sheetSearch = require('../lib/sheetSearch');
 const pageSpec = require('../lib/pageSpec');
 const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
@@ -277,6 +278,7 @@ function songSheetsHtml(s, sheets, editable, extra) {
       <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신)">
       <button class="ph-btn pri" type="submit">올리기</button>
     </form>
+    <button type="button" class="ph-btn" data-sheet-search data-team="${esc(s['팀ID'])}" data-song="${esc(s['ID'])}" data-date="${esc(s['날짜'])}" data-event="${esc(s['행사ID'] || '')}" data-q="${esc(s['제목'] || '')}">${ui.icon('search')} 웹에서 악보 찾기</button>
   </details>` : '';
   if (!list && !addForm && !extra) return '';
   return `<div class="ph-songsheets">${list}${addForm}${extra || ''}</div>`;
@@ -851,6 +853,36 @@ router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
   await saveSheetsFrom(req, team, scope, b['곡ID']);
+  backTo(req, res, team, scope);
+});
+
+/** 웹에서 악보 이미지 찾기 — 검색 결과(JSON). 키가 없으면 configured:false 로 알려 줘서 화면이 설정 안내를 보여 줌 */
+router.get('/conti/sheetsearch', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!sheetSearch.configured()) return res.json({ configured: false, items: [] });
+  try { res.json({ configured: true, items: await sheetSearch.search(req.query.q, req.query.start) }); }
+  catch (e) {
+    console.error('[악보 검색 실패]', e.message);
+    res.json({ configured: true, items: [], error: e.code === 'QUOTA' ? '오늘 검색 가능 횟수를 다 썼어요. 내일 다시 해 주세요.' : '검색하지 못했어요. 잠시 뒤 다시 해 주세요.' });
+  }
+});
+
+/** 고른 이미지(들)를 받아 PDF 한 개로 묶어 악보로 저장 — 곡ID 가 있으면 그 곡 전용 */
+router.post('/conti/sheets/fromweb', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const scope = scopeFrom(b);
+  const urls = [].concat(b.url || []).map((u) => String(u || '').trim()).filter((u) => /^https?:\/\//i.test(u)).slice(0, sheetSearch.MAX_IMAGES);
+  if (urls.length) {
+    try {
+      const bufs = [];
+      for (const u of urls) bufs.push(await sheetSearch.fetchImage(u));
+      const pdf = await sheetSearch.imagesToPdf(bufs);
+      const title = String(b['제목'] || '').trim().slice(0, 80) || '악보';
+      req.files = [{ originalname: title.replace(/[\\/:*?"<>|]/g, ' ') + '.pdf', mimetype: 'application/pdf', buffer: pdf }];
+      await saveSheetsFrom(req, team, scope, b['곡ID'], null, false);
+    } catch (e) { console.error('[웹 악보 저장 실패]', e.message); }
+  }
   backTo(req, res, team, scope);
 });
 
