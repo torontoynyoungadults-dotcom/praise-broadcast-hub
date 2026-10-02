@@ -1167,3 +1167,5 @@ a { color: var(--accent-ink); text-decoration: none; }
   .gd-toc { position: static; }
   .gd-toc ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.ph-admintabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px; }
+.ph-admintabs .ph-btn { flex: 1 1 140px; width: auto; text-align: center; }

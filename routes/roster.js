@@ -125,6 +125,7 @@ function personRow(name, info, isAdmin) {
 
 router.get('/roster', requireTeam, async (req, res) => {
   const ctx = req.ctx;
+  if (!ctx.isAdmin) return res.redirect('/');   // 팀원관리는 관리자만
   const team = ctx.current;
   const infoMap = await avatar.teamInfoMap(team);
   const rosterCount = Object.values(infoMap).filter((i) => i.명단행).length;
@@ -154,6 +155,7 @@ router.get('/roster', requireTeam, async (req, res) => {
   const content = `
   ${pageShell.hubNav('roster', team)}
   ${hero}
+  ${pageShell.adminTabs('roster', team)}
   <div class="ph-card">
     ${teamContext.teamSwitcher(ctx, {})}
     <p class="ph-sub" style="margin:0 0 ${ctx.isAdmin ? '4px' : '0'};">회원가입 때 적은 이름이 이 명단과 같아야 가입이 돼요${rosterCount ? '' : ' (이 팀은 아직 명단이 없어서 지금은 누구나 가입할 수 있어요)'}.</p>

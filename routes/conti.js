@@ -119,7 +119,7 @@ async function weekAssignments(team, scope) {
   return { byPos, roster, infoMap };
 }
 
-async function lineupCard(team, scope, byPos, roster, infoMap, eventName) {
+async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmin) {
   // 스케줄표의 "카드" 보기와 같은 모양 — 머리(날짜) + 3칸 격자 한 장. 칸을 누르면 그 칸이 한 줄 전체로 펼쳐져 배정 · 해제 (스케줄표 카드보다 글씨 · 사진을 조금 크게)
   const keys = ALL_POSITIONS.slice();
   const cells = keys.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap)).join('')
@@ -133,7 +133,7 @@ async function lineupCard(team, scope, byPos, roster, infoMap, eventName) {
       <div class="lu-head">${head}<span class="lu-hint">칸을 누르면 바로 배정해요</span></div>
       <div class="lu-grid">${cells}</div>
     </div>
-    <p class="ph-sub" style="margin-top:10px;"><a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>${scope.event ? '' : ` · <a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`}</p>
+    <p class="ph-sub" style="margin-top:10px;">${isAdmin ? `<a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>` : ''}${scope.event ? '' : `${isAdmin ? ' · ' : ''}<a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`}</p>
   </div>`;
 }
 
@@ -622,7 +622,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     ? { eyebrow: `${team} · 행사 콘티`, title: eventRow['이름'], sub: week.labelKo(date) }
     : { eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
   const { byPos, roster, infoMap } = await weekAssignments(team, scope);
-  const lineup = await lineupCard(team, scope, byPos, roster, infoMap, scope.event ? eventRow['이름'] : '');
+  const lineup = await lineupCard(team, scope, byPos, roster, infoMap, scope.event ? eventRow['이름'] : '', ctx.isAdmin);
   const pinfo = await practiceInfo(team, scope, date);
   const practice = practiceCard(team, pinfo);
   const hist = await historyFor(team, scope);

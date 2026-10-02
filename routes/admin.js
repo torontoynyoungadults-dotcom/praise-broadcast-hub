@@ -75,7 +75,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   const content = `
   ${pageShell.hubNav('', '')}
   ${hero}
-  <div class="ph-card"><a class="ph-btn" href="/">← 허브로</a></div>
+  ${pageShell.adminTabs('admin', '')}
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">허브 바닥글 태그라인</h2>
