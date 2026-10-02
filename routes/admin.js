@@ -10,6 +10,7 @@ const spa = require('../lib/spa');
 const honorific = require('../lib/honorific');
 const timeSettings = require('../lib/timeSettings');
 const historyImport = require('../lib/historyImport');
+const scheduleHistory = require('../lib/scheduleHistory');
 const guestLink = require('../lib/guestLink');
 
 const router = express.Router();
@@ -140,6 +141,18 @@ router.get('/admin', requireAdmin, async (req, res) => {
   </div>
 
   <div class="ph-card">
+    <h2 class="ph-h2">지난 스케줄 가져오기 (엑셀 자료)</h2>
+    <p class="ph-sub">2024년 7월 ~ 2025년 12월 팀원 스케줄표(포지션별 팀원 · 인도자 · 불참 · 연습일)를 날짜별로 넣어요. 인도자는 김상래 목사 → 강산 목사 → 윤정환 목사 순으로 들어가요. 이미 적힌 자리는 건드리지 않고(다른 사람이 있으면 건너뜀) 여러 번 눌러도 안전해요. 부흥회 · 송구영신 · 성탄절 · 특별새벽기도회는 <b>주일 외 찬양</b>으로 함께 만들어져요.</p>
+    <div class="ph-inlineform">
+      <select id="ih-team2">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
+      <form method="post" action="/admin/import-schedule-history" onsubmit="this.team.value=document.getElementById('ih-team2').value;return true;">
+        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="preview"><button class="ph-btn" type="submit" style="width:100%;">미리 보기 (넣지 않음)</button></form>
+      <form method="post" action="/admin/import-schedule-history" onsubmit="this.team.value=document.getElementById('ih-team2').value;return confirm('이 찬양팀에 지난 스케줄을 넣을까요? (이미 적힌 자리는 건너뛰어요)')">
+        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="go"><button class="ph-btn pri" type="submit" style="width:100%;">가져오기</button></form>
+    </div>
+  </div>
+
+  <div class="ph-card">
     <h2 class="ph-h2">멤버 (${members.length}명)</h2>
     <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
   </div>
@@ -175,6 +188,25 @@ router.post('/admin/import-history', requireAdmin, async (req, res) => {
       msg = (dry ? '[미리 보기 — 아직 넣지 않았어요] ' : '[가져왔어요] ') + `${team}: 예배 ${r.services}곳 · 곡 ${r.songs}개` + (r.events ? ` · 주일 외 찬양 ${r.events}개 새로 만듦` : '') + ` (기록 전체 ${r.total}곳)`;
       if (r.skipped.length) msg += '\n건너뜀: ' + r.skipped.join(', ');
     } catch (e) { console.error('[지난 콘티 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
+  }
+  importMsg.set(req.session.email, msg);
+  spa.redirect(req, res, '/admin');
+});
+
+router.post('/admin/import-schedule-history', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
+  let msg;
+  if (!t) msg = '찬양팀을 찾지 못했어요.';
+  else {
+    try {
+      const dry = b.mode !== 'go';
+      const r = await scheduleHistory.run(team, { dryRun: dry });
+      msg = (dry ? '[스케줄 미리 보기 — 아직 넣지 않았어요] ' : '[스케줄을 가져왔어요] ') + `${team}: 편성 ${r.assign}칸 · 불참 ${r.off}건 · 연습일 ${r.practice}건` + (r.events ? ` · 주일 외 찬양 ${r.events}개 새로 만듦` : '');
+      if (r.unknown.length) msg += '\n팀원 명단에 없는 이름(그대로 적었어요): ' + r.unknown.join(', ');
+      if (r.conflicts.length) msg += '\n이미 다른 사람이 있어 건너뜀 ' + r.conflicts.length + '곳: ' + r.conflicts.slice(0, 8).join(' / ') + (r.conflicts.length > 8 ? ' …' : '');
+    } catch (e) { console.error('[지난 스케줄 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
   }
   importMsg.set(req.session.email, msg);
   spa.redirect(req, res, '/admin');
