@@ -72,6 +72,7 @@ app.use(require('./routes/roster'));
 app.use(live);
 app.use(conti);
 app.use(require('./routes/guest'));   // /b/<열쇠> — 방송팀 보기 전용 (로그인 없음 · 예배콘티 + 스케줄표 · 댓글만)
+app.use(require('./routes/guide'));   // /guide — 사용설명서
 app.use(require('./routes/notices'));
 app.use(require('./routes/scheduleImport'));   // /schedule/import (관리자) — /schedule 보다 먼저
 app.use(require('./routes/schedule'));
