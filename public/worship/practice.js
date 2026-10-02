@@ -310,6 +310,7 @@
       S.dockMore = !!on; el.classList.toggle('pv-dockmore', S.dockMore); if (save) ls('dockmore', S.dockMore ? '1' : '0');
       var b = toolsEl.querySelector('[data-a="dockmore"]'); if (b) { b.setAttribute('aria-pressed', S.dockMore ? 'true' : 'false'); b.setAttribute('aria-expanded', S.dockMore ? 'true' : 'false'); }
     }
+    if (opts.readOnly) { el.classList.add('pv-ro'); setTools(false, false); }          // 방송팀 보기 링크 — 보기 전용 (필기 도구 없음)
     if (ls('tools') !== '1') setTools(false, false);                      // 기본은 접힘 (v11) — "도구 열기" 로 펴면 '1' 로 기억
     /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
        ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
@@ -1314,6 +1315,7 @@
       toast(to === 'eraser' ? '지우개로 전환 — 같은 방법으로 다시 톡톡 치면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
     }
     function setTool(t, fromAnno, quiet) {
+      if (opts.readOnly && t !== 'none') return;
       S.tool = t; if (!fromAnno) an.setTool(t);
       if (t === 'pen') an.setWidth(SIZES.pen[S.sizeIdx]); else if (t === 'hl') an.setWidth(SIZES.hl[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
@@ -1859,7 +1861,7 @@
     function applyFormSize() {
       var v = formSize();
       formEl.style.width = v && v.w ? Math.round(v.w) + 'px' : ''; formEl.style.maxWidth = v && v.w ? 'none' : '';
-      formEl.style.setProperty('--pvfs', v && v.s ? String(v.s) : '1');
+      formEl.style.setProperty('--pvfs', v && v.s ? String(v.s) : (opts.readOnly ? '1.5' : '1'));      // 방송팀 보기는 송폼을 처음부터 크게
     }
     (function () {
       var rs = null;
@@ -1935,7 +1937,7 @@
     /* v6.10 — 애플 펜슬로 악보에 그냥 쓰면 바로 펜으로 그려집니다 (도구를 열어 펜을 고르지 않아도).
        "이동"(손바닥) 도구일 때만 — 선택 · 글자 · 코드 등 일부러 고른 도구는 그대로 둡니다. 도구가 접혀 있어도 되고, 첫 획부터 이어서 그려집니다. */
     stage.addEventListener('pointerdown', function (e) {
-      if (S.dead || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
+      if (S.dead || opts.readOnly || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
       if (e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input,a,textarea')) return;
       if (e.pointerType === 'pen' && e.button > 0 && e.button !== 5) return;
       setTool('pen', false, true);

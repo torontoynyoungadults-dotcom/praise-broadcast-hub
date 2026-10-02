@@ -248,6 +248,17 @@ function formChips(form) {
   }).join('<span class="cn-arrow" aria-hidden="true">›</span>')}</div>`;
 }
 
+/** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */
+function formBig(form) {
+  const toks = form ? YNForm.parse(form) : [];
+  if (!toks.length) return form ? `<div class="cn-bigform"><span class="cn-bf cn-bf-etc"><b>${esc(form)}</b></span></div>` : '<div class="cn-bigform"><span class="cn-bf-none">송폼 없음</span></div>';
+  const cls = (k) => (/^V\d?$/.test(k) ? 'v' : /^PC\d?$/.test(k) ? 'pc' : /^C\d?$/.test(k) ? 'c' : /^B\d?$/.test(k) ? 'b' : /^(Intro|Out|Itld|Inst|Coda|End)$/.test(k) ? 'io' : 'etc');
+  return `<ol class="cn-bigform" aria-label="송폼 순서">${toks.map((t, i) => {
+    const ko = t.custom ? '' : YNForm.label(t.k, 'ko');
+    return `<li class="cn-bf cn-bf-${cls(t.k)}"><span class="cn-bf-n">${i + 1}</span><b>${esc(t.k)}</b>${ko && ko !== t.k ? `<i>${esc(ko)}</i>` : ''}${t.rep > 1 ? `<em>×${t.rep}</em>` : ''}${t.bars ? `<small>${t.bars}마디</small>` : ''}</li>`;
+  }).join('')}</ol>`;
+}
+
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable, extra) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
@@ -290,7 +301,7 @@ function ytPlayAllHtml(w) {
 }
 
 /** 곡 카드 — 청년부 앱처럼: ① 순서 · 제목 · Key · BPM ② 원곡팀 · 유튜브 ③ 송폼 ④ 설명 */
-function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind }) {
+function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm }) {
   const isFinal = kind === '결단';
   const yt = s['유튜브'] ? ytLinkOf(s['유튜브']) : '';
   const bpm = String(s['BPM'] || '').trim();
@@ -327,7 +338,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind }) {
       <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
       <span class="cn-badges">${s['Key'] ? `<span class="cn-kb key" title="Key">${esc(s['Key'])}</span>` : ''}${bpm ? `<span class="cn-kb bpm" title="BPM">${esc(bpm)}<small>BPM</small></span>` : ''}${ytBtn}</span>
     </div>
-    ${formChips(s['송폼'] || '')}
+    ${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
     ${songSheetsHtml(s, sheets, editable, edit)}
   </div>`;

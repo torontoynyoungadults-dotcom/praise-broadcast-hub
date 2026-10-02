@@ -72,7 +72,7 @@
     if (!window.YNPractice) { fallback('라이브 악보 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
     var api = window.YNPractice.open({
       token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: B.start,
-      canEdit: true, callServer: callServer, recs: B.recs || [],
+      canEdit: !B.ro, readOnly: !!B.ro, callServer: callServer, recs: B.recs || [],
       onClose: function () { location.href = B.back || '/conti'; }
     });
     try {                                                                              // 오프라인용 다운로드를 해 둔 기기라면, 빠진 것만 조용히 채움 (6시간에 한 번)

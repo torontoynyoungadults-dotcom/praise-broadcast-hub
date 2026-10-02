@@ -24,12 +24,14 @@ const pageSpec = require('../lib/pageSpec');
 const pdfPart = require('../lib/pdfPart');
 const guestAccess = require('../lib/guestAccess');
 const liveAuth = require('../lib/liveAuth');
+const session = require('../lib/session');
+const guestLink = require('../lib/guestLink');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca83-5';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca83-6';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -42,6 +44,23 @@ async function requireTeam(req, res, next) {
   req.ctx = ctx;
   next();
 }
+
+/** 악보 · 녹음 파일 — 로그인한 팀원, 또는 방송팀 보기 링크로 라이브 악보를 연 브라우저(ph_bview 쿠키 · 그 팀 것만) */
+const VIEW_COOKIE = 'ph_bview';
+async function fileAccess(req, res, next) {
+  let ctx = null;
+  if (req.session) ctx = await teamContext.resolve(req).catch(() => null);
+  let viewTeam = null;
+  try {
+    const d = session.verifyState(session.parseCookies(req)[VIEW_COOKIE], liveAuth.MAX_AGE_MS);
+    if (d && d.k === 'bview' && d.t) viewTeam = await guestLink.teamOf(d.t);       // 링크를 새로 바꾸면 바로 막힘
+  } catch (e) { viewTeam = null; }
+  if (!ctx && !viewTeam) return req.session ? res.redirect('/logout') : res.status(401).send('로그인이 필요합니다.');
+  req.ctx = ctx ? Object.assign({}, ctx, { teams: viewTeam && !ctx.teams.includes(viewTeam) ? ctx.teams.concat(viewTeam) : ctx.teams }) : { teams: [viewTeam] };
+  next();
+}
+/** 방송팀 보기 링크로 연 브라우저에 파일 열람 쿠키를 심음 */
+function grantView(res, token) { session.setCookie(res, VIEW_COOKIE, session.signState({ k: 'bview', t: token }), liveAuth.MAX_AGE_MS); }
 
 function sheetName(s, songTitle) {
   const t = String(s['제목'] || '').trim() || '악보';
@@ -95,9 +114,15 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
   if (!team) return res.redirect('/conti');
   const ev = await eventFor(team, String(req.query.event || '').trim());
   const date = ev ? ev['날짜'] : week.normalizeDate(req.query.date);
-  const scope = { event: ev ? ev['ID'] : '', date };
   const back = ev ? `/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(ev['ID'])}` : `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
   if (guestAccess.isGuest(ctx.member)) await guestAccess.prime(ctx.member, team);     // 객원 멤버 — 이 방(서는 날)을 소켓이 알도록
+  return renderLive(req, res, { team, ev, date, back, member: ctx.member, isAdmin: ctx.isAdmin, ro: false });
+});
+
+/** 라이브 악보 화면 — 로그인한 팀원(고칠 수 있음)과 방송팀 보기 링크(읽기 전용, routes/guest.js)가 함께 씀 */
+async function renderLive(req, res, o) {
+  const { team, ev, date, back } = o;
+  const scope = { event: ev ? ev['ID'] : '', date };
   const d = await liveData(team, scope);
 
   if (!d.sheets.length) {
@@ -109,7 +134,7 @@ router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => 
 
   const start = String(req.query.sheet || '').trim();
   const boot = {
-    token: liveAuth.mint(ctx.member, team, ctx.isAdmin), room: d.room, me: String(ctx.member['이름'] || ''),
+    token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
     pastors: Array.from(await honorific.pastorSet(team)),
     sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
   };
@@ -165,7 +190,7 @@ window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사님'
 <script defer src="/js/live-boot.js${v}"></script>
 </body>
 </html>`);
-});
+}
 
 /* ================================================================ 악보 · 녹음 파일 */
 const BYTES = new Map();                         // id → { buf, type, at } — 최근 악보 몇 개는 메모리에 (church-app 의 memory:true)
@@ -206,7 +231,7 @@ async function sheetRowFor(req, id) {
   return rows.find((s) => req.ctx.teams.includes(s['팀ID']) && s['파일링크'] && liveStore.sheetIdOf(s['팀ID'], s['파일링크']) === id) || null;
 }
 
-router.get('/sheet/:id', requireTeam, async (req, res) => {
+router.get('/sheet/:id', fileAccess, async (req, res) => {
   const id = String(req.params.id || '');
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   try {
@@ -223,7 +248,7 @@ router.get('/sheet/:id', requireTeam, async (req, res) => {
 
 /** 패키지 악보에서 한 곡의 쪽만 담은 PDF — /sheet/<악보id>/part?p=3-5,8 (곡별 악보로 저장해 둔 줄을 열 때). PDF 가 아니거나 쪽이 맞지 않으면 원본 그대로 */
 const PARTS = new Map(), PARTS_MAX = 40;
-router.get('/sheet/:id/part', requireTeam, async (req, res) => {
+router.get('/sheet/:id/part', fileAccess, async (req, res) => {
   const id = String(req.params.id || '');
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   const spec = pageSpec.cleanSpec(req.query.p);
@@ -252,7 +277,7 @@ router.get('/sheet/:id/part', requireTeam, async (req, res) => {
   }
 });
 
-router.get('/audio/:id', requireTeam, async (req, res) => {
+router.get('/audio/:id', fileAccess, async (req, res) => {
   const id = String(req.params.id || '');
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   try {
@@ -383,6 +408,11 @@ router.post('/api/:fn', async (req, res) => {
   try {
     const u = liveAuth.verify(args[0]);
     const rest = args.slice(1);
+    if (u.ro) {                                           // 방송팀 보기 링크 — 그 예배의 악보 · 필기 · 곡 정보 읽기만
+      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0 };
+      if (!own(RO_OK, fn)) throw new Error('방송팀 보기 링크는 읽기 전용입니다.');
+      if (RO_OK[fn] >= 0 && String(rest[RO_OK[fn]] || '') !== u.room) throw new Error('이 링크로는 해당 예배의 라이브 악보만 볼 수 있습니다.');
+    }
     if (u.guest) {                                        // 객원 멤버 — 서는 날의 라이브 악보 · 필기 · 설정과 스케줄 보기만
       await guestAccess.ensure(u);
       const ROOM_AT = { worshipAnnoLoad: 1, worshipAnnoSaveMine: 1, worshipCfgLoad: 0, worshipCfgSave: 0, worshipSongsOf: 0, worshipSongPatch: 0, worshipSheetSplit: 0 };
@@ -407,3 +437,6 @@ module.exports = router;
 module.exports.setRealtime = setRealtime;
 module.exports.songsChanged = songsChanged;
 module.exports.FNS = FNS;
+module.exports.renderLive = renderLive;
+module.exports.grantView = grantView;
+module.exports.liveData = liveData;

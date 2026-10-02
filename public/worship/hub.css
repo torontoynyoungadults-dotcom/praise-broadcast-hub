@@ -1737,3 +1737,6 @@ html[data-theme="light"] body .pvgo:not(.pvstartbtn) { background: linear-gradie
 .pv-splitbtn.on { background: rgba(60, 186, 160, .12) !important; color: #8FDCC7 !important; }
 .pv-splitbtn:disabled { opacity: .6; }
 .pv.pv-narrow .pv-splitbtn { font-size: 12px; padding: 0 9px; }
+
+/* 방송팀 보기 링크 — 필기 도구 없음 (보기 전용) */
+html body .pv.pv-ro.pv-ro .pv-toolsbtn, html body .pv.pv-ro.pv-ro .pv-tools, html body .pv.pv-ro.pv-ro .pv-tabbtn[data-tab="anno"], html body .pv.pv-ro.pv-ro .pv-pill[data-a="tools"] { display: none !important; }

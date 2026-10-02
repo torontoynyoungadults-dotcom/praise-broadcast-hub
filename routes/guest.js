@@ -18,6 +18,7 @@ const prac = require('../lib/practice');
 const { ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
 const { positionIconSvg } = require('../lib/positionIcons');
 const conti = require('./conti');
+const live = require('./live');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -42,7 +43,7 @@ async function gate(req, res, next) {
 }
 
 function nav(g, active) {
-  const tabs = [['conti', `${g.base}/conti`, '예배 콘티'], ['schedule', `${g.base}/schedule`, '스케줄표']];
+  const tabs = [['conti', `${g.base}/conti`, '예배 콘티'], ['live', `${g.base}/live`, '라이브 악보'], ['schedule', `${g.base}/schedule`, '스케줄표']];
   return `<nav class="ph-hubnav" id="ph-hubnav" aria-label="메뉴"><div class="ph-hubnav-in">${tabs.map(([k, href, label]) =>
     `<a class="ph-hubtab${active === k ? ' on' : ''}" href="${href}"${active === k ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</div></nav>`;
 }
@@ -53,6 +54,19 @@ async function send(req, res, active, hero, body, title) {
 }
 
 router.get('/b/:token', gate, (req, res) => res.redirect(req.guest.base + '/conti'));
+
+/* ---------------------------------------------------------------- 라이브 악보 (읽기 전용)
+   로그인 없이 그 예배의 라이브 악보 화면을 봅니다 — 악보 · 송폼 · 팀 필기 · 메트로놈 · 인도자가 넘기는 쪽을 따라가기만 하고,
+   필기 · 설정 · 곡 정보 · 타이머 · 클릭 컨트롤은 서버가 막습니다 (lib/liveAuth.js mintView · lib/realtime.js). */
+router.get('/b/:token/live', gate, async (req, res) => {
+  const { team, base, token } = req.guest;
+  const sh = S();
+  const eventRow = await sh.specialServiceById(team, String(req.query.event || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+  const back = `${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}`;
+  live.grantView(res, token);                                     // 악보 · 녹음 파일을 이 브라우저에 열어 줌 (링크를 바꾸면 바로 막힘)
+  return live.renderLive(req, res, { team, ev: eventRow, date, back, ro: true });
+});
 
 /* ---------------------------------------------------------------- 예배 콘티 */
 function lineupReadonly(rows, scope, team) {
@@ -87,7 +101,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
   const practice = `<div class="ph-card ph-practicecard"><div class="ph-pr-row"><span class="ph-pr-ic">${ui.icon('metronome')}</span>
       <div class="ph-pr-main"><span class="ph-pr-label">연습일</span>${p.none ? '<span class="ph-pr-none">이 예배는 연습이 없어요</span>' : (p.unset || !p.date ? '<span class="ph-pr-none">아직 정해지지 않았어요</span>' : `<b>${esc(mdDow(p.date))}</b>${p.note ? `<span class="ph-pr-note">${esc(p.note)}</span>` : ''}`)}</div></div></div>`;
   const tagSet = ALL_POSITIONS;
-  const card = (s, i, kind) => sh.songCard(s, { editable: false, sheets: w.sheets, tagSet, index: i, kind });
+  const card = (s, i, kind) => sh.songCard(s, { editable: false, sheets: w.sheets, tagSet, index: i, kind, bigForm: true });
   const comments = `<div class="ph-card" id="comments">
     <h2 class="ph-h2">댓글</h2>
     <div class="ph-list">${w.comments.length ? w.comments.map(sh.commentItem).join('') : '<p class="ph-sub">아직 댓글이 없어요.</p>'}</div>
@@ -103,6 +117,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
   const body = `
     <div class="ph-card">${weekNav}${evBox}</div>
     ${practice}
+    <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>악보 · 송폼 · 메트로놈을 실시간으로 봅니다 (보기 전용)</small></span></a>
     ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope, team)}
     <div class="ph-card top-accent"><h2 class="ph-h2">콘티</h2>
       <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => card(s, i + 1, '콘티')).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div></div>

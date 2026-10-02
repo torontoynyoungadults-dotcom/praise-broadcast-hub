@@ -7,6 +7,7 @@ const pageShell = require('../lib/pageShell');
 const { ROLE_OPTIONS } = require('../lib/schema');
 const spa = require('../lib/spa');
 const honorific = require('../lib/honorific');
+const guestLink = require('../lib/guestLink');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -57,6 +58,18 @@ router.get('/admin', requireAdmin, async (req, res) => {
     sheetsDb.readAll('회원'),
     sheetsDb.getSetting('태그라인', '소망이 넘치는 교회'),
   ]);
+  const activeTeams = teams.filter((t) => String(t['활성여부']).toUpperCase() !== 'FALSE');
+  const tokens = await Promise.all(activeTeams.map((t) => guestLink.tokenFor(t['팀명']).catch(() => '')));
+  const glRows = activeTeams.map((t, i) => {
+    const token = tokens[i], url = token ? `${req.protocol}://${req.get('host')}/b/${token}` : '';
+    return `<div class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div class="ph-li-title">${esc(t['팀명'])}</div>
+      ${token ? `<div class="cn-glrow" style="display:flex;gap:8px;"><input type="text" readonly value="${esc(url)}" aria-label="${esc(t['팀명'])} 방송팀 보기 링크" onfocus="this.select()" style="flex:1;min-width:0;">
+        <button type="button" class="ph-btn" onclick="var i=this.parentNode.querySelector('input');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(function(){this.textContent='복사됨 ✓'}.bind(this),function(){try{document.execCommand('copy');this.textContent='복사됨 ✓'}catch(e){}}.bind(this))">복사</button></div>` : '<p class="ph-sub" style="margin:0;">아직 만들지 않았어요.</p>'}
+      <form method="post" action="/admin/guest-link"${token ? ` onsubmit="return confirm('새 링크로 바꾸면 예전 링크는 바로 쓸 수 없어요. 바꿀까요?')"` : ''}>
+        <input type="hidden" name="team" value="${esc(t['팀명'])}"><button class="ph-btn${token ? '' : ' pri'}" type="submit">${token ? '새 링크로 바꾸기' : '링크 만들기'}</button></form>
+    </div>`;
+  }).join('');
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
 
   const content = `
@@ -85,11 +98,24 @@ router.get('/admin', requireAdmin, async (req, res) => {
   </div>
 
   <div class="ph-card">
+    <h2 class="ph-h2">방송팀 보기 링크</h2>
+    <p class="ph-sub">로그인 없이 <b>예배 콘티 · 라이브 악보 · 스케줄표</b>를 볼 수 있는 링크예요 (고칠 수 없고 댓글만 가능). 방송팀에 전달해 주세요.</p>
+    <div class="ph-list">${glRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
+  </div>
+
+  <div class="ph-card">
     <h2 class="ph-h2">멤버 (${members.length}명)</h2>
     <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
   </div>
   `;
   spa.send(req, res, content, { title: '관리자' });
+});
+
+router.post('/admin/guest-link', requireAdmin, async (req, res) => {
+  const team = String((req.body || {}).team || '').trim();
+  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
+  if (t) { try { await guestLink.regenerate(team); } catch (e) { console.error('[방송팀 링크 저장 실패]', e.message); } }
+  spa.redirect(req, res, '/admin');
 });
 
 router.post('/admin/tagline', requireAdmin, async (req, res) => {
