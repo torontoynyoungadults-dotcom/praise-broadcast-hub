@@ -54,8 +54,8 @@ function eventItem(s, team, isAdmin) {
         <input type="hidden" name="__row" value="${s.__row}"><input type="hidden" name="team" value="${esc(team)}">
         <input type="date" name="날짜" value="${esc(s['날짜'])}" required>
         <input type="text" name="이름" list="ph-special-suggest" value="${esc(s['이름'])}" maxlength="40" required>
-        <label class="ph-sub">예배 시간 <input type="time" name="예배시간" value="${esc(s['예배시간'] || '')}"></label>
-        <label class="ph-sub">당일 리허설 시간 <input type="time" name="리허설시간" value="${esc(s['리허설시간'] || '')}"></label>
+        <label class="ph-sub">예배 시간 <input type="text" name="예배시간" value="${esc(timeSettings.fmt(s['예배시간']))}" placeholder="예: 오후 5시" maxlength="20" style="width:9em;"></label>
+        <label class="ph-sub">당일 리허설 시간 <input type="text" name="리허설시간" value="${esc(timeSettings.fmt(s['리허설시간']))}" placeholder="예: 오후 4시" maxlength="20" style="width:9em;"></label>
         <button class="ph-btn pri" type="submit">저장</button>
       </form>
       <form method="post" action="/events/delete" onsubmit="return confirm('${esc(s['이름'])}(${esc(s['날짜'])}) 표시를 지울까요? (콘티 내용 자체는 안 지워져요)')">
@@ -81,8 +81,8 @@ router.get('/events', requireTeam, async (req, res) => {
         <input type="hidden" name="team" value="${esc(team)}">
         <input type="date" name="날짜" required>
         <input type="text" name="이름" list="ph-special-suggest" placeholder="예: 성탄절 예배" maxlength="40" required>
-        <label class="ph-sub">예배 시간 <input type="time" name="예배시간"></label>
-        <label class="ph-sub">당일 리허설 시간 <input type="time" name="리허설시간"></label>
+        <label class="ph-sub">예배 시간 <input type="text" name="예배시간" placeholder="예: 오후 5시" maxlength="20" style="width:9em;"></label>
+        <label class="ph-sub">당일 리허설 시간 <input type="text" name="리허설시간" placeholder="예: 오후 4시" maxlength="20" style="width:9em;"></label>
         <datalist id="ph-special-suggest">${SPECIAL_SERVICE_SUGGESTIONS.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
         <button class="ph-btn pri" type="submit">추가</button>
       </form>
@@ -115,7 +115,7 @@ router.post('/events/add', requireTeam, async (req, res) => {
   const date = week.normalizeDate(b['날짜']);
   const name = String(b['이름'] || '').trim();
   const editRow = Number(b.__row) || 0;
-  const tm = (v) => (timeSettings.isTime(v) ? String(v).trim() : '');
+  const tm = (v) => timeSettings.parse(v);
   const wt = tm(b['예배시간']), rt = tm(b['리허설시간']);
   if (date && name) {
     if (editRow) {

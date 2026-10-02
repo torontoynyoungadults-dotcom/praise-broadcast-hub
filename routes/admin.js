@@ -77,9 +77,9 @@ router.get('/admin', requireAdmin, async (req, res) => {
     return `<form method="post" action="/admin/times" class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
       <div class="ph-li-title">${esc(t['팀명'])}</div>
       <input type="hidden" name="team" value="${esc(t['팀명'])}">
-      <label class="ph-sub" style="margin:0;">예배 시간 <input type="time" name="worship" value="${esc(v.worship)}" required></label>
-      <label class="ph-sub" style="margin:0;">주일 당일 리허설 모임 <input type="time" name="rehearsal" value="${esc(v.rehearsal)}" required></label>
-      <label class="ph-sub" style="margin:0;">기본 연습 시간 <input type="time" name="practice" value="${esc(v.practice)}" required></label>
+      <label class="ph-sub" style="margin:0;">예배 시간 <input type="text" name="worship" value="${esc(timeSettings.fmt(v.worship))}" placeholder="예: 오전 11시 15분" maxlength="20" style="width:11em;"></label>
+      <label class="ph-sub" style="margin:0;">주일 당일 리허설 모임 <input type="text" name="rehearsal" value="${esc(timeSettings.fmt(v.rehearsal))}" placeholder="예: 오전 11시 15분" maxlength="20" style="width:11em;"></label>
+      <label class="ph-sub" style="margin:0;">기본 연습 시간 <input type="text" name="practice" value="${esc(timeSettings.fmt(v.practice))}" placeholder="예: 오전 11시 15분" maxlength="20" style="width:11em;"></label>
       <label class="ph-sub" style="margin:0;">연습 장소 <input type="text" name="place" value="${esc(v.place)}" maxlength="30" placeholder="예: 본당"></label>
       <button class="ph-btn pri" type="submit">저장</button>
     </form>`; }).join('');
