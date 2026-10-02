@@ -31,6 +31,8 @@ const prac = require('../lib/practice');
 const kakaoLib = require('../lib/kakao');
 const youtube = require('../lib/youtube');
 const sheetSearch = require('../lib/sheetSearch');
+const pkgPdf = require('../lib/pkgPdf');
+const fileBytes = require('../lib/fileBytes');
 const pageSpec = require('../lib/pageSpec');
 const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
@@ -657,7 +659,9 @@ router.get('/conti', requireTeam, async (req, res) => {
     const liveBtn = `<a class="ph-btn pri ph-livebtn" style="margin-top:12px;" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
     const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
     const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
-    const extras = liveBtn + `<div class="cn-toolrow">${kakaoBtn}${offBtn}</div>
+    const pkgHref = `/conti/package.pdf?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}`;
+    const pkgBtn = w.conti.length || w.final.length ? `<a class="cn-mini cn-pkgbtn" href="${pkgHref}" target="_blank" rel="noopener" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF">${ui.icon('download')} 인쇄용 PDF 패키지</a>` : '';
+    const extras = liveBtn + `<div class="cn-toolrow">${pkgBtn}${kakaoBtn}${offBtn}</div>
     ${guestPanel(req, team, scope, guestToken, ctx.isAdmin, req.query.gl === '1')}
     <div class="cn-offpanel" data-cn-offpanel hidden></div>
     ${w.conti.length ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details><p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>` : '<p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>'}`;
@@ -716,6 +720,53 @@ router.get('/conti', requireTeam, async (req, res) => {
 });
 
 /* 라이브 악보(/conti/practice)는 routes/live.js 로 옮겼습니다 — church-app 의 라이브 악보를 그대로 씁니다. */
+
+/** 인쇄용 PDF 패키지 — 표지(연습 일시 · 멤버 · 콘티 · 유튜브 QR) + 곡마다 머리말/악보/꼬리말, US Letter 흑백.  ?crop=0 이면 악보 위 제목 자르기를 끔 */
+router.get('/conti/package.pdf', requireTeam, async (req, res) => {
+  try {
+    const team = req.ctx.current;
+    const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
+    const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+    const scope = { event: eventRow ? eventRow['ID'] : '', date };
+    const w = await loadWeek(team, scope);
+    const { byPos, infoMap } = await weekAssignments(team, scope);
+    const pinfo = await practiceInfo(team, scope, date);
+    const honor = (n) => (honorific.isPastorRoles((infoMap[n] || {}).역할) ? n + honorific.SUFFIX : n);
+    const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
+    const used = new Set();
+    const cache = new Map();
+    const bytesOf = async (link) => { if (!cache.has(link)) cache.set(link, await fileBytes.get(link)); return cache.get(link); };
+    const all = [].concat(w.conti.map((s, i) => ({ s, kind: '콘티', no: i + 1 })), w.final.map((s) => ({ s, kind: '결단', no: 1 })));
+    const songs = [];
+    for (const x of all) {
+      const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
+      const sheets = [];
+      for (const f of mine) { used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || '') }); }
+      songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
+        form: kakaoLib.formText(x.s['송폼']), note: String(x.s['비고'] || '').trim(), sheets });
+    }
+    const extra = [];
+    for (const f of w.sheets.filter((r) => !r['곡ID'] && r['파일링크'] && !used.has(r['파일링크']))) {
+      used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']);
+      if (buf) extra.push({ title: String(f['제목'] || '악보'), sheets: [{ buf, spec: String(f['쪽'] || '') }] });
+    }
+    const ids = []; all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && ids.indexOf(id) === -1) ids.push(id); });
+    const qrUrl = ids.length === 1 ? 'https://youtu.be/' + ids[0] : ids.length ? 'https://www.youtube.com/watch_videos?video_ids=' + ids.slice(0, 50).join(',') : '';
+    const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
+    const pdf = await pkgPdf.build({
+      church: process.env.CHURCH_NAME || '토론토영락교회', team, date, eventName: eventRow ? String(eventRow['이름'] || '') : '',
+      title: eventRow ? String(eventRow['이름'] || '') + ' 찬양 콘티' : '주일예배 찬양 콘티',
+      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0',
+    }, sheetSearch.imagesToPdf);
+    const name = `${team} 콘티 ${date}${eventRow ? ' ' + eventRow['이름'] : ''}`.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim();
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Length': String(pdf.length), 'Cache-Control': 'private, no-store',
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}.pdf` });
+    res.send(pdf);
+  } catch (e) {
+    console.error('[PDF 패키지 실패]', e && e.stack || e);
+    if (!res.headersSent) res.status(500).type('text').send('PDF 패키지를 만들지 못했어요. 잠시 뒤 다시 해 주세요.');
+  }
+});
 
 router.post('/conti/lineup/assign', requireTeam, async (req, res) => {
   const b = req.body || {};
