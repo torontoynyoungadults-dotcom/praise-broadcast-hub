@@ -1087,6 +1087,13 @@ router.get('/conti/sheetsearch', requireTeam, async (req, res) => {
   }
 });
 
+/** 붙여넣은 이미지 주소 미리 확인 — 서버가 실제로 받아 JPG/PNG 로 쓸 수 있는지 (저장 단계에서 조용히 실패하지 않게) */
+router.get('/conti/sheetsearch/check', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { await sheetSearch.imagesToPdf([await sheetSearch.fetchImage(String(req.query.url || '').trim())]); res.json({ ok: true }); }
+  catch (e) { res.json({ ok: false, error: /JPG|PNG|이미지|주소|이동/.test(String(e.message)) ? e.message : '이 주소에서 이미지를 가져올 수 없어요 (JPG · PNG 만 가능)' }); }
+});
+
 /** 고른 이미지(들)를 받아 PDF 한 개로 묶어 악보로 저장 — 곡ID 가 있으면 그 곡 전용 */
 router.post('/conti/sheets/fromweb', requireTeam, async (req, res) => {
   const b = req.body || {};

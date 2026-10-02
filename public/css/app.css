@@ -1351,3 +1351,12 @@ body.pkp-open{overflow:hidden}
 .pkp-ed.edit .pkp-edtop .ph-btn{width:auto;flex:none;padding:8px 12px;white-space:nowrap}
 .pkp-ed.edit .pkp-zm .ph-btn{width:42px;padding:8px 0}
 .pkp-ed.edit .pkp-edscroll{flex:1;min-height:0;max-height:none}
+/* 웹 악보 찾기 — 이미지 검색 탭 열기 + 이미지 주소 붙여넣기 */
+.ss-bar[hidden]{display:none}
+.ss-find,.ss-paste{display:flex;gap:8px;align-items:stretch}
+.ss-q2,.ss-urls{flex:1 1 0;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:inherit;font:inherit}
+.ss-urls{resize:vertical}
+.ss-box .ss-find .ph-btn,.ss-box .ss-paste .ph-btn{flex:none;width:auto;white-space:nowrap}
+.ss-steps{margin:0;padding-left:1.3em;font-size:.84rem;line-height:1.55;opacity:.85}
+@media (max-width:520px){.ss-find{flex-wrap:wrap}.ss-q2{flex-basis:100%}}
+.ss-card.bad{opacity:.55;border-color:#ff8a7a;cursor:default}
