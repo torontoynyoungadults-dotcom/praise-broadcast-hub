@@ -29,6 +29,8 @@ const ui = require('../lib/uiIcons');
 const prac = require('../lib/practice');
 const kakaoLib = require('../lib/kakao');
 const youtube = require('../lib/youtube');
+const pageSpec = require('../lib/pageSpec');
+const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
 const router = express.Router();
 
@@ -117,16 +119,21 @@ async function weekAssignments(team, scope) {
   return { byPos, roster, infoMap };
 }
 
-async function lineupCard(team, scope, byPos, roster, infoMap) {
-  const groups = POSITION_GROUPS.map(([label, keys]) => `
-    <div class="ph-posgroup">
-      <div class="ph-posgrouplabel"><span>${esc(label)}</span></div>
-      <div class="ph-posrow">${keys.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap)).join('')}</div>
-    </div>`).join('');
-  return `<div class="ph-card">
+async function lineupCard(team, scope, byPos, roster, infoMap, eventName) {
+  // 스케줄표의 "카드" 보기와 같은 모양 — 머리(날짜) + 3칸 격자 한 장. 칸을 누르면 그 칸이 한 줄 전체로 펼쳐져 배정 · 해제 (스케줄표 카드보다 글씨 · 사진을 조금 크게)
+  const keys = ALL_POSITIONS.slice();
+  const cells = keys.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap)).join('')
+    + '<div class="lu-fill" aria-hidden="true"></div>'.repeat((3 - keys.length % 3) % 3);
+  const head = scope.event
+    ? `<b>${esc(week.shortKo(scope.date, true))}</b>${eventName ? `<span class="lu-evn">${esc(eventName)}</span>` : ''}`
+    : `<b>${esc(week.shortKo(scope.date, true))}</b>`;
+  return `<div class="ph-card lu-card">
     <h2 class="ph-h2">주일 편성</h2>
-    ${groups}
-    <p class="ph-sub" style="margin-top:8px;"><a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>${scope.event ? '' : ` · <a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`}</p>
+    <div class="lu${scope.event ? ' ev' : ''}">
+      <div class="lu-head">${head}<span class="lu-hint">칸을 누르면 바로 배정해요</span></div>
+      <div class="lu-grid">${cells}</div>
+    </div>
+    <p class="ph-sub" style="margin-top:10px;"><a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>${scope.event ? '' : ` · <a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`}</p>
   </div>`;
 }
 
@@ -462,13 +469,34 @@ function sheetItem(s, editable) {
   </div>`;
 }
 
-/** 패키지(콘티 전체) 악보 — 특정 곡(곡ID)에 안 묶인 것들만. 콘티 목록 바로 아래 카드로 둠. */
-function packageSheetsCard(team, scope, sheets, editable) {
+/** 패키지 악보 한 개를 곡별로 나누는 칸 — PDF 의 쪽을 곡마다 정해 두면 그 쪽 범위가 곡(곡ID)에 묶여 저장돼, 다른 주 콘티에 그 곡을 넣을 때 악보가 따라와요.
+ *  (쪽을 자동으로 찾는 일은 public/js/conti-tools.js [data-cn-split] 가 PDF 글자에서 곡 제목을 찾아 채워 줌 — 고칠 수 있음) */
+function splitPanel(team, scope, s, songs, allSheets) {
+  if (!songs || !songs.length || !s['파일링크']) return '';
+  const id = liveStore.sheetIdOf(team, s['파일링크']);
+  const saved = {};
+  (songs || []).forEach((g) => { saved[g.id] = ''; });
+  (allSheets || []).forEach((f) => { if (f['파일링크'] === s['파일링크'] && f['곡ID'] && f['쪽'] && Object.prototype.hasOwnProperty.call(saved, f['곡ID'])) saved[f['곡ID']] = f['쪽']; });
+  const has = Object.keys(saved).some((k) => saved[k]);
+  return `<details class="ph-add cn-split" data-cn-split data-src="/sheet/${esc(id)}" data-has="${has ? 1 : 0}">
+    <summary>${ui.icon('page')} 곡별로 나누기${has ? ' · 저장됨' : ''}</summary>
+    <form method="post" action="/conti/sheets/split" class="cn-splitform">
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="파일링크" value="${esc(s['파일링크'])}">
+      <p class="ph-sub cn-splithint" data-cn-splithint>곡마다 이 악보의 몇 쪽인지 적어 주세요 (예: 1-2 · 3 · 4,6). 저장하면 곡에 묶여 다음에도 그 곡을 넣을 때 따라와요.</p>
+      <div class="cn-splitrows">${songs.map((g, i) => `<label class="cn-splitrow"><span class="cn-splitn">${g.kind === '결단' ? '결단' : i + 1}</span><span class="cn-splitt">${esc(g.title)}</span><input type="text" inputmode="text" name="쪽_${esc(g.id)}" data-cn-pages="${esc(g.title)}" value="${esc(saved[g.id])}" placeholder="쪽" maxlength="40" aria-label="${esc(g.title)} 쪽"></label>`).join('')}</div>
+      <div class="cn-splitbtns"><button type="button" class="cn-mini" data-cn-splitauto>제목으로 자동 찾기</button><button class="ph-btn pri" type="submit">곡별로 저장</button></div>
+    </form>
+  </details>`;
+}
+
+/** 패키지(콘티 전체) 악보 — 특정 곡(곡ID)에 안 묶인 것들만. 콘티 목록 바로 아래 카드로 둠. songs 를 주면 "곡별로 나누기"가 붙음 */
+function packageSheetsCard(team, scope, sheets, editable, songs) {
   const pkg = (sheets || []).filter((s) => !s['곡ID']);
+  const canSplit = editable && songs && songs.length;
   return `<div class="ph-card">
     <h2 class="ph-h2">악보</h2>
-    ${editable ? '<p class="ph-sub">이번 주 콘티 전체를 한 패키지로 올려두거나, 곡 목록에서 "+ 이 곡 악보 올리기"로 곡별로 올릴 수 있어요.</p>' : ''}
-    <div class="ph-list">${pkg.length ? pkg.map((s) => sheetItem(s, editable)).join('') : '<p class="ph-sub">아직 올라온 패키지 악보가 없어요.</p>'}</div>
+    ${editable ? '<p class="ph-sub">이번 주 콘티 전체를 한 패키지(PDF 한 개)로 올린 뒤 <b>곡별로 나누기</b>를 누르면, 곡마다 쪽이 정해져 그 곡에 묶여요. 곡 목록의 "+ 이 곡 악보 올리기"로 곡별로 따로 올려도 돼요.</p>' : ''}
+    <div class="ph-list">${pkg.length ? pkg.map((s) => sheetItem(s, editable) + (canSplit ? splitPanel(team, scope, s, songs, sheets) : '')).join('') : '<p class="ph-sub">아직 올라온 패키지 악보가 없어요.</p>'}</div>
     ${editable ? `<details class="ph-add">
       <summary>+ 전체 콘티 악보(패키지) 올리기</summary>
       <form method="post" action="/conti/sheets" enctype="multipart/form-data" class="ph-inlineform">
@@ -583,7 +611,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     ? { eyebrow: `${team} · 행사 콘티`, title: eventRow['이름'], sub: week.labelKo(date) }
     : { eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
   const { byPos, roster, infoMap } = await weekAssignments(team, scope);
-  const lineup = await lineupCard(team, scope, byPos, roster, infoMap);
+  const lineup = await lineupCard(team, scope, byPos, roster, infoMap, scope.event ? eventRow['이름'] : '');
   const pinfo = await practiceInfo(team, scope, date);
   const practice = practiceCard(team, pinfo);
   const hist = await historyFor(team, scope);
@@ -624,9 +652,10 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   ${lineup}
 
+  ${(() => { const y = ytPlayAllHtml(w); return y ? `<div class="ph-card cn-ycard"><h2 class="ph-h2">유튜브 이어 듣기</h2><p class="ph-sub" style="margin:-4px 0 10px;">곡마다 올린 유튜브 링크를 콘티 순서대로 이어서 들어요.</p>${y}</div>` : ''; })()}
+
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
-    ${ytPlayAllHtml(w)}
     <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
     ${songForm('콘티', team, scope, roster, byPos, hist)}
   </div>
@@ -637,7 +666,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     ${w.final.length ? '' : sameAsHtml(team, scope, w.conti) + songForm('결단', team, scope, roster, byPos, null)}
   </div>
 
-  ${packageSheetsCard(team, scope, w.sheets, true)}
+  ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
@@ -813,6 +842,44 @@ router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.
   backTo(req, res, team, scope);
 });
 
+/** 패키지 악보를 곡별로 나누기 — 곡마다 "쪽_<곡ID>" 로 쪽 범위('3-5,8')를 받아, 그 파일 + 곡ID + 쪽 줄로 저장합니다 (라이브 악보 "곡별 악보로 저장" 과 같은 모양 → 라이브러리 · 다른 주 콘티로 곡을 가져올 때 쪽도 따라감).
+ *  다시 저장하면 이 파일의 이전 곡별 저장(그 곡들)은 바뀝니다. 쪽을 비운 곡은 그 곡의 이 파일 연결이 지워집니다. */
+router.post('/conti/sheets/split', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const scope = scopeFrom(b);
+  const link = String(b['파일링크'] || '').trim();
+  if (!team || !req.ctx.teams.includes(team) || !link) return backTo(req, res, team, scope);
+  try {
+    const [songRows, sheetRows] = await Promise.all([sheetsDb.readAll('찬양콘티', { fresh: true }), sheetsDb.readAll('악보저장소', { fresh: true })]);
+    const songs = new Map(songRows.filter((r) => r['팀ID'] === team && inScope(r, scope)).map((r) => [r['ID'], r]));
+    const pkg = sheetRows.find((r) => r['팀ID'] === team && inScope(r, scope) && r['파일링크'] === link && !r['곡ID']);
+    if (pkg) {
+      const plan = [];
+      Object.keys(b).forEach((k) => {
+        if (k.indexOf('쪽_') !== 0) return;
+        const song = songs.get(k.slice(2)); if (!song) return;
+        plan.push({ song, spec: pageSpec.cleanSpec(b[k]) });
+      });
+      const ids = new Set(plan.map((p) => p.song['ID']));
+      const olds = sheetRows.filter((r) => r['팀ID'] === team && inScope(r, scope) && r['파일링크'] === link && r['곡ID'] && ids.has(r['곡ID']) && String(r['쪽'] || '').trim()).map((r) => r.__row);
+      if (olds.length) await sheetsDb.deleteRows('악보저장소', olds);
+      const base = Date.now().toString(36);
+      let n = 0;
+      for (const p of plan) {
+        if (!p.spec) continue;
+        await sheetsDb.appendRow('악보저장소', {
+          'ID': 'F' + base + n++ + Math.random().toString(36).slice(2, 4), '팀ID': team, ...scopeFields(scope), '제목': String(pkg['제목'] || '악보'),
+          '파일링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(), '곡ID': p.song['ID'],
+          'Key': String(p.song['Key'] || ''), 'BPM': String(p.song['BPM'] || ''), '인도자': '', '쪽수': pageSpec.specPages(p.spec).length, '메모': '', '저장소날짜': '', '쪽': p.spec,
+        });
+      }
+      liveNotify(team, scope, 'saveSheetSplit');
+    }
+  } catch (e) { console.error('[악보 곡별 나누기 실패]', e.message); }
+  backTo(req, res, team, scope);
+});
+
 /** 이전 콘티에서 가져오기 · 설교 후 찬양을 "콘티 마지막 곡과 같게" — 곡 ID 들을 이 예배(scope)에 그대로 복사 (Key · BPM · 송폼 · 유튜브 · 원곡팀, 선택하면 설명 · 곡 악보까지) */
 router.post('/conti/songs/import', requireTeam, async (req, res) => {
   const b = req.body || {};
@@ -869,7 +936,6 @@ router.get('/conti/offline-plan', requireTeam, async (req, res) => {
     const scopes = dates.map((d) => ({ event: '', date: d })).concat(evs.map((e) => ({ event: e['ID'], date: e['날짜'] })));
     const qs = (sc) => `team=${encodeURIComponent(team)}&` + (sc.event ? `event=${encodeURIComponent(sc.event)}` : `date=${encodeURIComponent(sc.date)}`);
     const pages = ['/'].concat(...scopes.map((sc) => [`/conti?${qs(sc)}`, `/conti/practice?${qs(sc)}`]));
-    const liveStore = require('../lib/liveStore');
     const sheetRows = (await sheetsDb.readAll('악보저장소')).filter((r) => r['팀ID'] === team && r['파일링크'] && scopes.some((sc) => inScope(r, sc)));
     const sheets = Array.from(new Set(sheetRows.map((r) => liveStore.sheetIdOf(team, r['파일링크']))));
     const fs = require('fs'), path = require('path');

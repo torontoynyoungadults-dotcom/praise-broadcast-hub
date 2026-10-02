@@ -421,6 +421,7 @@
     wireAtTags(root);
     wireAtTagPreview(root);
     mountYtPlay(root);
+    mountSplit(root);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountAll);
@@ -490,6 +491,68 @@
         else if (t.hasAttribute('data-cn-ynext')) next();
         else if (t.hasAttribute('data-cn-yi')) { delete bad[Number(t.getAttribute('data-cn-yi'))]; play(Number(t.getAttribute('data-cn-yi'))); }
       });
+    });
+  }
+
+
+  /* ---------- 5) 패키지 악보 곡별 나누기 — PDF 글자에서 곡 제목이 처음 나오는 쪽을 찾아 곡마다 쪽 범위를 채워 줌 (고칠 수 있음) ---------- */
+  var pdfLoad = null;
+  function loadPdfjs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfLoad) return pdfLoad;
+    pdfLoad = new Promise(function (ok, no) {
+      var s = document.createElement('script'); s.src = '/vendor/pdfjs/pdf.min.js';
+      s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { no(e); } };
+      s.onerror = function () { pdfLoad = null; no(new Error('load')); };
+      document.head.appendChild(s);
+    });
+    return pdfLoad;
+  }
+  function normT(t) { return String(t || '').normalize('NFC').toLowerCase().replace(/[\s\-_.·,!?'"()\[\]~:;/\\]+/g, ''); }
+  /** 곡마다 시작 쪽(1부터) 찾기 — 앞 곡의 시작 다음 쪽부터 그 곡 제목이 처음 나오는 쪽. 못 찾으면 0 */
+  function findStarts(pageTexts, titles) {
+    var starts = [], from = 0;
+    titles.forEach(function (t) {
+      var nt = normT(t), at = 0;
+      if (nt) for (var i = from; i < pageTexts.length; i++) { if (pageTexts[i].indexOf(nt) !== -1) { at = i + 1; break; } }
+      starts.push(at); if (at) from = at;            // 다음 곡은 이 곡 시작 "다음 쪽"부터 찾음
+    });
+    return starts;
+  }
+  function rangesFromStarts(starts, total) {
+    var out = starts.map(function () { return ''; });
+    var found = []; starts.forEach(function (st, i) { if (st) found.push(i); });
+    found.forEach(function (i, k) {
+      var a = starts[i], b = k + 1 < found.length ? starts[found[k + 1]] - 1 : total;
+      if (b < a) b = a; out[i] = a === b ? String(a) : a + '-' + b;
+    });
+    return out;
+  }
+  function mountSplit(root) {
+    root.querySelectorAll('[data-cn-split]:not([data-cn-split-on])').forEach(function (box) {
+      box.setAttribute('data-cn-split-on', '1');
+      var src = box.getAttribute('data-src'), hint = box.querySelector('[data-cn-splithint]'), auto = box.querySelector('[data-cn-splitauto]');
+      var inputs = [].slice.call(box.querySelectorAll('[data-cn-pages]')), base = hint ? hint.textContent : '', pdf = null, busy = false;
+      function say(t) { if (hint) hint.textContent = t; }
+      function run(overwrite) {
+        if (busy) return; busy = true; say('악보를 읽는 중…');
+        loadPdfjs().then(function (lib) { return pdf ? pdf : lib.getDocument({ url: src, withCredentials: true }).promise; }).then(function (doc) {
+          pdf = doc; var n = doc.numPages, jobs = [];
+          for (var p = 1; p <= n; p++) jobs.push(doc.getPage(p).then(function (pg) { return pg.getTextContent(); }).then(function (c) { return normT(c.items.map(function (x) { return x.str; }).join('')); }));
+          return Promise.all(jobs).then(function (texts) { return { texts: texts, n: n }; });
+        }).then(function (r) {
+          busy = false;
+          if (!r.texts.some(function (t) { return t.length > 3; })) { say('총 ' + r.n + '쪽 — 이 악보는 글자를 읽을 수 없어요(스캔 · 사진). 곡마다 쪽을 직접 적어 주세요.'); return; }
+          var titles = inputs.map(function (i) { return i.getAttribute('data-cn-pages'); });
+          var res = rangesFromStarts(findStarts(r.texts, titles), r.n), hit = 0, miss = [];
+          inputs.forEach(function (inp, i) {
+            if (res[i]) { hit++; if (overwrite || !inp.value.trim()) inp.value = res[i]; } else miss.push(titles[i]);
+          });
+          say('총 ' + r.n + '쪽 · ' + hit + '곡의 쪽을 찾았어요' + (miss.length ? ' — 못 찾은 곡(' + miss.join(', ') + ')은 직접 적어 주세요.' : '.') + ' 맞는지 확인하고 저장하세요.');
+        }).catch(function () { busy = false; say('악보를 읽지 못했어요(PDF가 아니거나 불러오지 못함). 곡마다 쪽을 직접 적어 주세요.'); });
+      }
+      box.addEventListener('toggle', function () { if (box.open && !pdf && box.getAttribute('data-has') !== '1') run(false); });
+      if (auto) auto.addEventListener('click', function () { run(true); });
     });
   }
 

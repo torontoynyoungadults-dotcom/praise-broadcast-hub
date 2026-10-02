@@ -115,8 +115,8 @@ html[data-theme="light"] .yn .offchip { background: rgba(255, 255, 255, .7); }
 .yn .tn.off.pr { border-style: dashed; opacity: .85; }
 
 /* ---------- 스케줄표 테이블 — 네모칸이 또렷하게 ---------- */
-.yn { --grid: rgba(190, 235, 220, .22); --grid-hd: rgba(190, 235, 220, .40); --st-head: #1D3A35; --st-date: #17302C; --st-zebra: rgba(190, 235, 220, .045); --st-mrow: #234640; --st-ev: rgba(248, 196, 140, .10); }
-html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .18); --grid-hd: rgba(21, 59, 49, .34); --st-head: #DDEEE5; --st-date: #F8FBF4; --st-zebra: rgba(47, 143, 126, .06); --st-mrow: #F8E8CB; --st-ev: rgba(247, 188, 132, .24); }
+.yn { --grid: rgba(190, 235, 220, .42); --grid-hd: rgba(190, 235, 220, .62); --st-head: #1D3A35; --st-date: #17302C; --st-zebra: rgba(190, 235, 220, .045); --st-mrow: #234640; --st-ev: rgba(248, 196, 140, .10); }
+html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .34); --grid-hd: rgba(21, 59, 49, .55); --st-head: #DDEEE5; --st-date: #F8FBF4; --st-zebra: rgba(47, 143, 126, .06); --st-mrow: #F8E8CB; --st-ev: rgba(247, 188, 132, .24); }
 .yn .stwrap { border: 2px solid var(--grid-hd) !important; border-radius: 16px; }
 .yn table.st { border-collapse: separate; border-spacing: 0; }
 .yn .st th, .yn .st td { border-right: 1px solid var(--grid) !important; border-bottom: 1px solid var(--grid) !important; }
@@ -189,3 +189,7 @@ html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .18); --grid-hd: rgba(21
   .yn .stpanel .sttools select, .yn .stpanel .sttools .hlsel { flex: 0 0 auto; width: auto; max-width: none; min-width: 190px; }
   .yn .stpanel .docbar { display: inline-block; vertical-align: top; }
 }
+
+/* v17 — 스케줄표 카드 보기 칸 구분선도 테이블과 같은 또렷한 격자 */
+.yn .stcc { border-right-color: var(--grid) !important; border-top-color: var(--grid) !important; }
+.yn .stcg { border-bottom-color: var(--grid) !important; }

@@ -3888,3 +3888,10 @@ html[data-theme="light"] :where(.yn):not(html) .pvgo:not(.pvstartbtn) { backgrou
 :where(.yn) .pv-dh b .yi { width: 18px; height: 18px; vertical-align: -4px; margin-right: 6px; }
 :where(.yn) .pv-chip .yi { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 
+/* v17 — .panel 안의 체크박스: 위의 ".panel input" 규칙(!important)이 체크박스 바탕 · 테두리 · 모서리를 입력칸처럼 덮어써서
+   (22px 동그란 칸 + 흐린 바탕) 체크 표시가 칸에서 비뚤어져 보였음 — 체크박스만 원래 모양(둥근 네모 · 주황 채움)을 !important 로 되돌림 */
+:where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input) { border-radius: 7px !important; border: 1.5px solid rgba(255, 255, 255, .38) !important; background: rgba(255, 255, 255, .05) !important; }
+:where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked { background: #f4a272 !important; border-color: #f7c49b !important; }
+html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input) { background: #fff !important; border-color: rgba(15, 23, 42, .35) !important; }
+html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked { background: #A94B1F !important; border-color: #A94B1F !important; }
+html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked::after { border-color: #fff; }

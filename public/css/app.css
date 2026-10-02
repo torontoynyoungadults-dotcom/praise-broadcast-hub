@@ -495,6 +495,36 @@ a { color: var(--accent-ink); text-decoration: none; }
 .ph-tblicon { display: inline-flex; width: 13px; height: 13px; margin-right: 3px; vertical-align: -2px; color: var(--accent-ink); }
 .ph-tblicon svg { width: 100%; height: 100%; }
 
+
+/* ---------- 주일 편성 — 스케줄표 "카드" 보기와 같은 모양 (머리 + 3칸 격자), 조금 더 크게 ---------- */
+.lu { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--glass); }
+.lu.ev { border-color: var(--accent-ink); }
+.lu-head { display: flex; align-items: center; gap: 10px; padding: 13px 16px; background: var(--glass-2); border-bottom: 1px solid var(--line); }
+.lu-head b { font-size: 20px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lu-evn { font-size: 15px; font-weight: 750; color: var(--accent-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lu-hint { margin-left: auto; font-size: 12.5px; color: var(--dim); font-weight: 600; }
+.lu-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lu-grid > .ph-poscell, .lu-fill { background: transparent; border: 0; min-width: 0; box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line); }
+.lu-grid > .ph-poscell[open] { grid-column: 1 / -1; background: var(--glass-2); }
+.lu-grid .ph-possummary { padding: 11px 12px 13px; gap: 8px; }
+.lu-grid .ph-poslabel { font-size: 15px; }
+.lu-grid .ph-posicon { width: 19px; height: 19px; }
+.lu-grid .ph-chipname { font-size: 16.5px; }
+.lu-grid .ph-avatar { width: 30px !important; height: 30px !important; font-size: 13px; }
+.lu-grid .ph-possummary:active { background: var(--glass); }
+@media (min-width: 700px) { .lu-grid .ph-possummary { padding: 14px 16px 16px; } .lu-head b { font-size: 22px; } .lu-grid .ph-chipname { font-size: 17.5px; } }
+@media (max-width: 380px) { .lu-hint { display: none; } }
+
+/* ---------- 패키지 악보 곡별 나누기 ---------- */
+.cn-split { margin: 6px 0 12px; }
+.cn-splitrows { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.cn-splitrow { display: grid; grid-template-columns: 34px 1fr 96px; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--glass); }
+.cn-splitn { font-size: 12.5px; font-weight: 800; color: var(--accent-ink); text-align: center; }
+.cn-splitt { font-size: 15px; font-weight: 700; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-splitrow input { width: 100%; text-align: center; padding: 8px 6px; font-size: 15px; font-weight: 700; }
+.cn-splitbtns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cn-splitbtns .ph-btn { margin-left: auto; }
+
 /* ---------- 아바타(팀원 사진/이니셜 + 성별 아이콘 배지) — 주일 편성 · 팀원관리 공용 ---------- */
 .ph-avatar { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; overflow: visible; background: linear-gradient(135deg, var(--accent-2), var(--accent)); box-shadow: inset 0 0 0 1.5px var(--line-hi); }
 .ph-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
