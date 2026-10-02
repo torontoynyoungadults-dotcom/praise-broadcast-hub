@@ -420,9 +420,78 @@
     mountOffline(root);
     wireAtTags(root);
     wireAtTagPreview(root);
+    mountYtPlay(root);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountAll);
   else mountAll();
+  /* ---------- 4) 유튜브 이어 듣기 — 이 예배의 곡들을 콘티 순서대로 한 플레이어에서 이어 재생 ---------- */
+  var ytApi = null;                                           // YouTube IFrame API 는 한 번만 불러옴
+  function loadYtApi(cb) {
+    if (window.YT && window.YT.Player) return cb();
+    if (ytApi) return ytApi.push(cb);
+    ytApi = [cb];
+    var prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () { try { if (prev) prev(); } catch (e) {} var q = ytApi; ytApi = null; q.forEach(function (f) { try { f(); } catch (e) {} }); };
+    var s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.async = true;
+    s.onerror = function () { var q = ytApi || []; ytApi = null; q.forEach(function (f) { try { f(null); } catch (e) {} }); };
+    document.head.appendChild(s);
+  }
+  function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function mountYtPlay(root) {
+    root.querySelectorAll('[data-cn-yplay]:not([data-cn-yplay-on])').forEach(function (box) {
+      box.setAttribute('data-cn-yplay-on', '1');
+      var items = []; try { items = JSON.parse(box.getAttribute('data-items') || '[]'); } catch (e) {}
+      var panel = box.querySelector('[data-cn-yplayer]'), btn = box.querySelector('[data-cn-yplay-open]');
+      if (!items.length || !panel || !btn) return;
+      var player = null, cur = 0, built = false, bad = {};
+      function label(it) { return (it.k === '설교 후' ? '설교 후 · ' : '') + it.t; }
+      function paint() {
+        var now = panel.querySelector('[data-cn-ynow]'); if (now) now.textContent = label(items[cur]);
+        panel.querySelectorAll('.cn-yq li').forEach(function (li, i) { li.classList.toggle('on', i === cur); li.classList.toggle('bad', !!bad[i]); var x = li.querySelector('.x'); if (x) x.textContent = bad[i] ? '재생 불가' : (i === cur ? '재생 중' : ''); });
+      }
+      function play(i, auto) {
+        if (i < 0 || i >= items.length) return;
+        cur = i; paint();
+        if (player && player.loadVideoById) { if (auto === false) player.cueVideoById(items[i].id); else player.loadVideoById(items[i].id); }
+      }
+      function next(from) { for (var i = (from == null ? cur : from) + 1; i < items.length; i++) if (!bad[i]) return play(i); }
+      function prev() { for (var i = cur - 1; i >= 0; i--) if (!bad[i]) return play(i); }
+      function build() {
+        built = true;
+        panel.innerHTML = '<div class="cn-yframe"><div data-cn-yslot></div></div>' +
+          '<div class="cn-ynow"><b data-cn-ynow></b><button type="button" class="cn-mini" data-cn-yprev>이전 곡</button><button type="button" class="cn-mini" data-cn-ynext>다음 곡</button></div>' +
+          '<ul class="cn-yq">' + items.map(function (it, i) { return '<li><button type="button" data-cn-yi="' + i + '"><span class="n">' + (it.n || '결단') + '</span><span class="t">' + escH(it.t) + '</span><span class="x"></span></button></li>'; }).join('') + '</ul>' +
+          '<p class="ph-sub" data-cn-ymsg hidden></p>';
+        paint();
+        loadYtApi(function (ok) {
+          var msg = panel.querySelector('[data-cn-ymsg]');
+          if (ok === null || !window.YT || !window.YT.Player) { msg.hidden = false; msg.textContent = '유튜브 플레이어를 불러오지 못했어요. "유튜브에서 한 번에 열기"를 눌러 주세요.'; return; }
+          player = new window.YT.Player(panel.querySelector('[data-cn-yslot]'), {
+            videoId: items[cur].id, width: '100%', height: '100%',
+            playerVars: { playsinline: 1, rel: 0, autoplay: 1 },
+            events: {
+              onStateChange: function (e) { if (e.data === 0) next(); },          // 한 곡이 끝나면 다음 곡
+              onError: function () { bad[cur] = true; paint(); msg.hidden = false; msg.textContent = '"' + items[cur].t + '" 은(는) 유튜브에서 이 화면 재생을 막아 두었어요 — 다음 곡으로 넘어가요.'; next(); },
+            },
+          });
+        });
+      }
+      btn.addEventListener('click', function () {
+        var open = panel.hidden;
+        panel.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open && !built) build();
+        if (!open && player && player.pauseVideo) { try { player.pauseVideo(); } catch (e) {} }
+        else if (open && player && player.playVideo) { try { player.playVideo(); } catch (e) {} }
+      });
+      panel.addEventListener('click', function (e) {
+        var t = e.target.closest ? e.target.closest('button') : null; if (!t) return;
+        if (t.hasAttribute('data-cn-yprev')) prev();
+        else if (t.hasAttribute('data-cn-ynext')) next();
+        else if (t.hasAttribute('data-cn-yi')) { delete bad[Number(t.getAttribute('data-cn-yi'))]; play(Number(t.getAttribute('data-cn-yi'))); }
+      });
+    });
+  }
+
   document.addEventListener('ph:content-updated', mountAll);
 })();

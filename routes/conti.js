@@ -263,6 +263,25 @@ function songSheetsHtml(s, sheets, editable, extra) {
   return `<div class="ph-songsheets">${list}${addForm}${extra || ''}</div>`;
 }
 
+/** 이 예배의 유튜브 이어 듣기 — 콘티 순서대로 곡마다 올린 링크를 이어서 재생하고(설교 후 찬양은 맨 뒤), 유튜브가 만들어 주는 임시 재생목록(watch_videos)으로도 열 수 있게
+ *  (public/js/conti-tools.js 의 [data-cn-yplay] 가 플레이어를 붙임) */
+function ytPlayAllHtml(w) {
+  const all = [].concat((w.conti || []).map((s, i) => ({ s, k: '콘티', n: i + 1 })), (w.final || []).map((s) => ({ s, k: '설교 후', n: 0 })));
+  const items = [];
+  all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && !items.some((y) => y.id === id)) items.push({ id, t: String(x.s['제목'] || '').trim() || '제목 없음', k: x.k, n: x.n }); });
+  if (!items.length) return '';
+  const missing = all.filter((x) => !youtube.idOf(x.s['유튜브'])).length;
+  const open = 'https://www.youtube.com/watch_videos?video_ids=' + items.slice(0, 50).map((x) => x.id).join(',');
+  return `<div class="cn-yplay" data-cn-yplay data-items="${esc(JSON.stringify(items))}">
+    <div class="cn-yplay-bar">
+      <button type="button" class="cn-mini" data-cn-yplay-open aria-expanded="false">${ui.icon('play')} 유튜브로 이어 듣기 · ${items.length}곡</button>
+      <a class="cn-mini" href="${esc(open)}" target="_blank" rel="noopener" title="유튜브가 한 번에 재생목록으로 열어줘요 (유튜브 앱 · 화면을 꺼도 계속)">${ui.icon('link')} 유튜브에서 한 번에 열기</a>
+      ${missing ? `<span class="ph-sub">링크 없는 ${missing}곡은 빠져요</span>` : ''}
+    </div>
+    <div class="cn-yplayer" data-cn-yplayer hidden></div>
+  </div>`;
+}
+
 /** 곡 카드 — 청년부 앱처럼: ① 순서 · 제목 · Key · BPM ② 원곡팀 · 유튜브 ③ 송폼 ④ 설명 */
 function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind }) {
   const isFinal = kind === '결단';
@@ -607,6 +626,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">콘티</h2>
+    ${ytPlayAllHtml(w)}
     <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
     ${songForm('콘티', team, scope, roster, byPos, hist)}
   </div>

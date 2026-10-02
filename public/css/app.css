@@ -970,9 +970,8 @@ a { color: var(--accent-ink); text-decoration: none; }
 .cn-prog { height: 12px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
 .cn-prog i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .25s ease; }
 
-/* ---------- 넓은 화면(가로) — 곡 카드를 두 칸으로 ---------- */
+/* ---------- 넓은 화면(가로) — 곡 카드는 한 곡에 한 줄 (두 칸으로 나누지 않음) · 유튜브 검색 결과만 두 칸 ---------- */
 @media (min-width: 900px) and (orientation: landscape) {
-  .cn-songs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
   .cn-ytlist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cn-ichk { grid-template-columns: auto 1fr auto; grid-template-areas: "c t m"; }
   .cn-ichk .d { grid-column: auto; }
@@ -1049,3 +1048,25 @@ a { color: var(--accent-ink); text-decoration: none; }
 .rg-item.susp { opacity: .75; }
 .rg-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .rg-acts .ph-btn { padding: 6px 12px; min-height: 0; font-size: 13px; }
+
+
+/* ================= V15 · 콘티 유튜브 이어 듣기 (예배별) ================= */
+.cn-yplay { margin: 0 0 12px; padding: 10px 12px; border-radius: 16px; background: var(--glass); border: 1px solid var(--line); }
+.cn-yplay-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cn-yplay-bar .ph-sub { margin: 0; font-size: 12.5px; }
+.cn-yplay .cn-mini { font-size: 12.5px; min-height: 34px; padding: 0 12px; line-height: 1.2; }
+.cn-yplay a.cn-mini { text-decoration: none; display: inline-flex; align-items: center; }
+.cn-yplayer { margin-top: 10px; }
+.cn-yframe { position: relative; width: 100%; max-width: 640px; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; }
+.cn-yframe iframe, .cn-yframe > div { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.cn-ynow { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
+.cn-ynow b { flex: 1 1 100%; min-width: 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.cn-ynow button { flex: 0 1 auto; }
+.cn-yq { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cn-yq button { width: 100%; display: flex; align-items: center; gap: 9px; text-align: left; padding: 7px 10px; border-radius: 11px; border: 1px solid transparent; background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer; }
+.cn-yq button:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.cn-yq .n { flex: none; width: 22px; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
+.cn-yq .t { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.cn-yq .x { flex: none; font-size: 11.5px; color: var(--dim); }
+.cn-yq li.on button { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 750; }
+.cn-yq li.bad button { opacity: .5; }
