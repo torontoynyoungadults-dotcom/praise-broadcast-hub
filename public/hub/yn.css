@@ -2518,12 +2518,12 @@ html[data-theme="light"] :where(.yn) .ynwel .st { color: #A94B1F; }
 :where(.yn) input[type=checkbox]:not(.pv-switch input):hover { border-color: rgba(247, 196, 155, .9); background: rgba(244, 162, 114, .10); }
 :where(.yn) input[type=checkbox]:not(.pv-switch input):checked { background: #f4a272; border-color: #f7c49b; box-shadow: 0 0 0 3px rgba(244, 162, 114, .25); }
 :where(.yn) input[type=checkbox]:not(.pv-switch input):checked::after {
-  content: ''; position: absolute; left: 6.5px; top: 2.5px; width: 6px; height: 11px; border: solid #0b1412; border-width: 0 2.6px 2.6px 0; transform: rotate(45deg);
+  content: ''; position: absolute; left: 5.9px; top: 1.4px; width: 6px; height: 11px; border: solid #0b1412; border-width: 0 2.6px 2.6px 0; transform: rotate(45deg);
 }
 :where(.yn) input[type=checkbox]:not(.pv-switch input):focus-visible { outline: 2px solid #f7c49b; outline-offset: 2px; }
 :where(.yn) input[type=checkbox]:not(.pv-switch input):disabled { opacity: .4; cursor: not-allowed; }
 :where(.yn) .pv-tablet input[type=checkbox]:not(.pv-switch input) { width: 28px; height: 28px; border-radius: 9px; }
-:where(.yn) .pv-tablet input[type=checkbox]:not(.pv-switch input):checked::after { left: 9px; top: 3.5px; width: 7px; height: 14px; border-width: 0 3px 3px 0; }
+:where(.yn) .pv-tablet input[type=checkbox]:not(.pv-switch input):checked::after { left: 8.5px; top: 2px; width: 7px; height: 14px; border-width: 0 3px 3px 0; }
 :where(.yn) .pv-chk input[type=checkbox] { width: 22px; height: 22px; }
 /* 켜고 끄는 스위치(리더 화면 따라가기)도 흰 덩어리 대신 어두운 바탕 → 주황 */
 :where(.yn) .pv-switch span { background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(255, 255, 255, .34); }
@@ -3584,9 +3584,12 @@ html[data-theme="light"] :where(.yn) .rp-det, html[data-theme="light"] :where(.y
 :where(.yn) .luse small { display: block; font-size: 11px; opacity: .7; margin-top: 3px; }
 :where(.yn) .lpick { flex: none; position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 :where(.yn) .lpick input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-:where(.yn) .lpick i { width: 22px; height: 22px; border-radius: 7px; border: 2px solid rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .2); display: block; position: relative; }
+/* 위의 "(5) 체크박스" 일반 규칙(:not 이 붙어 더 강함)이 이 숨김 체크박스를 22px 짜리 보이는 칸으로 되돌려 놓아, 그려 둔 네모(i)가 14px 로 눌리고 오른쪽으로 밀렸음 — 같은 강도로 다시 숨김 */
+:where(.yn) .lpick input[type=checkbox]:not(.pv-switch input) { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+:where(.yn) .lpick input[type=checkbox]:not(.pv-switch input):checked::after { content: none; }
+:where(.yn) .lpick i { flex: none; width: 22px; height: 22px; border-radius: 7px; border: 2px solid rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .2); display: block; position: relative; }
 :where(.yn) .lpick input:checked + i { background: #F4A87C; border-color: #F4A87C; }
-:where(.yn) .lpick input:checked + i::after { content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+:where(.yn) .lpick input:checked + i::after { content: ''; position: absolute; left: 5px; top: .4px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
 :where(.yn) .lsong .rp-det { padding: 6px 16px 16px; border-top: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .12); }
 :where(.yn) .lsong .rp-sh { padding: 10px 12px; margin: 6px 0; border-radius: 12px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); }
 :where(.yn) .lsong .rp-sh a { font-weight: 700; }
