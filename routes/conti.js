@@ -787,7 +787,7 @@ async function pkgContext(req) {
   return { team, eventRow, date, scope: { event: eventRow ? eventRow['ID'] : '', date } };
 }
 async function savedRow(team, scope) {
-  return (await sheetsDb.readAll('확정PDF', { fresh: true })).find((r) => r['팀ID'] === team && r['날짜'] === scope.date && String(r['행사ID'] || '') === (scope.event || '')) || null;
+  return (await sheetsDb.readAll('확정PDF')).find((r) => r['팀ID'] === team && r['날짜'] === scope.date && String(r['행사ID'] || '') === (scope.event || '')) || null;
 }
 
 const pkgJobs = new Map();                      // 만드는 중인 PDF — 진행률을 화면에 보여 주려고 (10분 뒤 정리)
