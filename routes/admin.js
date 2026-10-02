@@ -3,6 +3,7 @@
  */
 const express = require('express');
 const sheetsDb = require('../lib/sheetsDb');
+const { prefixOf } = require('../lib/prefix');
 const pageShell = require('../lib/pageShell');
 const { ROLE_OPTIONS } = require('../lib/schema');
 const spa = require('../lib/spa');
@@ -61,7 +62,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   const activeTeams = teams.filter((t) => String(t['활성여부']).toUpperCase() !== 'FALSE');
   const tokens = await Promise.all(activeTeams.map((t) => guestLink.tokenFor(t['팀명']).catch(() => '')));
   const glRows = activeTeams.map((t, i) => {
-    const token = tokens[i], url = token ? `${req.protocol}://${req.get('host')}/b/${token}` : '';
+    const token = tokens[i], url = token ? `${req.protocol}://${req.get('host')}${prefixOf(req)}/b/${token}` : '';
     return `<div class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
       <div class="ph-li-title">${esc(t['팀명'])}</div>
       ${token ? `<div class="cn-glrow" style="display:flex;gap:8px;"><input type="text" readonly value="${esc(url)}" aria-label="${esc(t['팀명'])} 방송팀 보기 링크" onfocus="this.select()" style="flex:1;min-width:0;">

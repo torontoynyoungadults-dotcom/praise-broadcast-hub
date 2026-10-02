@@ -14,7 +14,7 @@
   function isSpaPath(pathname) {
     if (pathname.indexOf('/conti/practice') === 0) return false; // 라이브 악보는 독립된 화면으로 그대로 둠
     if (pathname.indexOf('/schedule') === 0 || pathname.indexOf('/library') === 0) return false; // church-app 화면(스크립트 · 스타일 따로)은 페이지째 엶
-    if (pathname === '/') return true;
+    if (pathname === '/' || pathname === (window.PH_BASE || '') + '/') return true;   // 교회 앱 안(/praise)에서 열려도 홈
     return SPA_PREFIXES.some(function (p) { return pathname.indexOf(p) === 0; });
   }
 

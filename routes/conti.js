@@ -9,6 +9,7 @@
  */
 const express = require('express');
 const upload = require('../lib/upload');
+const { prefixOf } = require('../lib/prefix');
 const sheetsDb = require('../lib/sheetsDb');
 const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
@@ -346,7 +347,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
 /** 방송팀(PPT) 보기 전용 링크 칸 — 링크가 있으면 보여 주고 복사, 관리자는 만들기 · 새로 바꾸기 */
 function guestPanel(req, team, scope, token, isAdmin, open) {
   if (!token && !isAdmin) return '';
-  const url = token ? `${req.protocol}://${req.get('host')}/b/${token}` : '';
+  const url = token ? `${req.protocol}://${req.get('host')}${prefixOf(req)}/b/${token}` : '';
   const form = (label, confirmMsg, cls) => `<form method="post" action="/conti/guest-link" class="cn-glform"${confirmMsg ? ` onsubmit="return confirm('${confirmMsg}')"` : ''}>
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<button class="cn-mini${cls || ''}" type="submit">${label}</button></form>`;
   return `<details class="cn-guestlink"${token && !open ? '' : ' open'}>

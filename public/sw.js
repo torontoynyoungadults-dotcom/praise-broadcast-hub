@@ -14,6 +14,9 @@ var VER = 'v1';
 var SHELL = 'ph-shell-' + VER, PAGES = 'ph-pages-v1', SHEETS = 'ph-sheets-v1', PHOTOS = 'ph-photos-v1';
 var KEEP = [SHELL, PAGES, SHEETS, PHOTOS];
 var PAGES_MAX = 80, PHOTOS_MAX = 150;
+/** 교회 앱 안(/praise/…)에서 돌 때는 범위의 앞머리를 떼고 PAGE_OK 로 봅니다 (따로 돌 때는 빈 값) */
+var BASE = ''; try { BASE = new URL(self.registration.scope).pathname.replace(/\/$/, ''); } catch (e) {}
+function rel(p) { return BASE && p.indexOf(BASE) === 0 ? (p.slice(BASE.length) || '/') : p; }
 
 /** 보관할 수 있는 페이지 — 로그인 · 관리자 · 업로드/저장 같은 것은 제외 */
 var PAGE_OK = /^\/($|conti(\/practice)?$|schedule(\/.*)?$|library(\/.*)?$|notices(\/.*)?$|events(\/.*)?$|roster(\/.*)?$|equipment(\/.*)?$|b\/[A-Za-z0-9_-]+(\/(conti|schedule))?$)/;
@@ -139,7 +142,7 @@ self.addEventListener('fetch', function (event) {
   if (u.searchParams.get('partial') === '1' || req.headers.get('X-PH-Partial')) return;                        // 탭 전환용 조각 요청은 그대로 (끊기면 화면이 알아서 페이지째 엶)
 
   if (req.mode === 'navigate') {
-    if (!PAGE_OK.test(p)) return;
+    if (!PAGE_OK.test(rel(p))) return;
     event.respondWith(netFirst(req, PAGES, 9000, req.url).then(function (res) { return res || offlinePage(); }).catch(function () { return offlinePage(); }));
     return;
   }

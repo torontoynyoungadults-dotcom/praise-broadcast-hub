@@ -221,6 +221,7 @@
     dlRun = fetch('/conti/offline-plan?' + qs, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (p) {
       if (!p || !p.ok) throw new Error((p && p.msg) || '준비하지 못했습니다.');
       plan = p;
+      plan.pages = (plan.pages || []).map(function (u) { return u === '/' ? (window.PH_BASE || '') + '/' : u; });   // 홈 주소도 앞머리(/praise)에 맞춤
       return Promise.all([caches.open(PAGES), caches.open(SHELL), caches.open(SHEETS)]);
     }).then(function (cs) {
       caches3 = cs;
@@ -292,7 +293,8 @@
   function cacheThisPage() {
     try {
       if (!('serviceWorker' in navigator) || !window.caches || navigator.serviceWorker.controller || !window.isSecureContext) return;
-      if (!/^\/(conti(\/practice)?)?$/.test(location.pathname)) return;
+      var lp = location.pathname, PB = window.PH_BASE || ''; if (PB && lp.indexOf(PB) === 0) lp = lp.slice(PB.length) || '/';   // 교회 앱 안(/praise)에서 열려도 같은 규칙
+      if (!/^\/(conti(\/practice)?)?$/.test(lp)) return;
       navigator.serviceWorker.ready.then(function () {
         return fetch(location.href, { credentials: 'same-origin' }).then(function (r) { if (r.ok) return caches.open(PAGES).then(function (c) { return c.put(location.href, r); }); });
       }).catch(function () {});
