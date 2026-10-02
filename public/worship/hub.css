@@ -1141,7 +1141,24 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 /* ===== v6.1 — 송폼 창: 메트로놈 동그라미 · 크기 조절 모서리 ===== */
 .pv .pv-form { position: absolute; --pvfs: 1; align-items: center; }
 .pv .pv-form-b { zoom: var(--pvfs, 1); flex: 1 1 auto; }
-.pv .pv-form .pv-mc, .pv .pv-form .pv-rsz { pointer-events: auto; }
+.pv .pv-form .pv-mc, .pv .pv-form .pv-rsz, .pv .pv-form .pv-mcs { pointer-events: auto; }
+/* BPM −/+ — 송폼 창의 메트로놈 동그라미 양옆 · 메트로놈 창의 BPM 양옆 */
+.pv-mcw { flex: none; display: flex; align-items: center; gap: 3px; margin: 0 8px 0 2px; }
+.pv-mcw .pv-mc { margin: 0; }
+.pv-mcs, .pv-lv-step {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; cursor: pointer;
+  font-weight: 900; font-size: 20px; line-height: 1; font-family: inherit; color: var(--v6-ink, #fff); background: rgba(255, 255, 255, .1); border: 1px solid var(--v6-line2, rgba(255, 255, 255, .22));
+  -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform .08s, background .1s;
+}
+.pv-mcs:hover, .pv-lv-step:hover { background: rgba(255, 255, 255, .2); }
+.pv-mcs:active, .pv-lv-step:active { transform: scale(.9); background: rgba(var(--g-a-rgb, 244, 162, 114), .4); }
+.pv-mcs:disabled, .pv-lv-step:disabled { opacity: .4; cursor: not-allowed; }
+.pv-mcs:focus-visible, .pv-lv-step:focus-visible { outline: 2px solid #f7c49b; outline-offset: 2px; }
+.pv-live .pv-lv-step { width: 36px; padding: 0; }
+.pv .pv-metro .pv-lv-step { height: 40px; width: 40px; background: var(--v6-sf2); border-color: transparent; }
+.pv .pv-metro .pv-lv-step:hover { background: var(--v6-sf3); }
+/* 도구 도크(캡슐) 안에서는 자리가 좁아 −/+ 를 숨기고, 떠 있는 메트로놈 창에서만 보입니다 */
+.pv-tools > .pv-live .pv-lv-step { display: none; }
 .pv-mc {
   flex: none; position: relative; width: 46px; height: 46px; margin: 0 8px 0 2px; padding: 0; border-radius: 50%; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-family: inherit; line-height: 1;

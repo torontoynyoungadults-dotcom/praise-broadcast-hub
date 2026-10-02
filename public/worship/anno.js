@@ -833,6 +833,8 @@
         put(ly, after); record({ op: 'edit', layer: ly, before: it, after: after }); return true;
       },
       /** 손가락으로 그려지는 상태인가 (펜만 그림 모드에서는 손가락이 화면 밀기 · 넘기기 · 확대에 쓰임) */
+      /** 악보 위(캔버스 밖)에서 시작된 펜슬 입력을 지금 막 켠 필기 도구로 이어받아 첫 획부터 그립니다 — 도구 "이동"에서 펜슬로 바로 쓰기 (practice.js) */
+      beginExternal: function (e) { if (!S.dead && e && e.pointerType === 'pen' && drawing()) onDown(e); },
       fingerDraws: function () { return !(S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen)); },
       clearPage: function (ly, all) {
         var ids = [], gone = [];

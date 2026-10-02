@@ -1301,13 +1301,13 @@
       setTool(to);
       toast(to === 'eraser' ? '지우개로 전환 — 같은 방법으로 다시 톡톡 치면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
     }
-    function setTool(t, fromAnno) {
+    function setTool(t, fromAnno, quiet) {
       S.tool = t; if (!fromAnno) an.setTool(t);
       if (t === 'pen') an.setWidth(SIZES.pen[S.sizeIdx]); else if (t === 'hl') an.setWidth(SIZES.hl[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
       var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
-      if (hint) toast(hint, false, 2600);
+      if (hint && !quiet) toast(hint, false, 2600);
     }
     function renderTools() {
       var ae = doc.activeElement;
@@ -1920,6 +1920,16 @@
     P.on('close', function () { root.removeEventListener('resize', flResize); if (flRo) flRo.disconnect(); });
     /* 악보의 빈 곳을 톡 → 도구 접기 (이동 · 선택 모드에서) · 펜슬 전용 모드에서 손가락 톡 → 선택·이동 */
     var tapD = null;
+    /* v6.10 — 애플 펜슬로 악보에 그냥 쓰면 바로 펜으로 그려집니다 (도구를 열어 펜을 고르지 않아도).
+       "이동"(손바닥) 도구일 때만 — 선택 · 글자 · 코드 등 일부러 고른 도구는 그대로 둡니다. 도구가 접혀 있어도 되고, 첫 획부터 이어서 그려집니다. */
+    stage.addEventListener('pointerdown', function (e) {
+      if (S.dead || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
+      if (e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input,a,textarea')) return;
+      if (e.pointerType === 'pen' && e.button > 0 && e.button !== 5) return;
+      setTool('pen', false, true);
+      if (an.beginExternal) an.beginExternal(e);
+      if (!S.penAutoHint) { S.penAutoHint = true; toast('✏️ 펜슬로 바로 쓰면 펜으로 그려져요 — 손가락으로 화면을 옮기려면 도구에서 “이동”을 고르세요', false, 3400); }
+    }, true);
     stage.addEventListener('pointerdown', function (e) {
       tapD = (e.isPrimary && !(e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input'))) ? { x: e.clientX, y: e.clientY, t: Date.now(), sel: !!(an.selected && an.selected()), tool: S.tool, type: e.pointerType, id: e.pointerId } : null;
     }, true);
@@ -1935,7 +1945,12 @@
       if (S.fs || S.compact || closed) return;
       /* v6.9 — 예전에는 펜슬 전용 모드에서 손가락으로 톡 치면 어떤 도구든 "선택·이동"으로 바뀌어, 글자 · 코드를 놓을 수 없고 펜 · 형광펜도 풀렸습니다.
          이제 펜 · 형광펜은 도구를 그대로 유지하고(손가락은 화면 이동에만), 글자 · 코드 · 기호 · 송폼은 톡 치면 그 자리에 만들어집니다 (anno.js). */
-      if (d.type === 'touch' && (d.tool === 'pen' || d.tool === 'hl' || d.tool === 'eraser') && an.fingerDraws && !an.fingerDraws() && !S.penHint) { S.penHint = true; toast('✏️ 펜슬 전용 모드예요 — 손가락으로도 쓰려면 ⚙ 설정 › 펜 입력 › “손가락도 그림”', false, 3200); }
+      /* v6.10 — 펜슬 전용 모드(이 기기에서 펜슬을 쓴 적이 있음)에서는 펜 · 형광펜 · 지우개 도구인 채로 악보 아무 곳이나 손가락으로 톡 쳐도 도구가 접힙니다 ("이동" 도구로 바꾸지 않아도) */
+      if (d.type === 'touch' && (d.tool === 'pen' || d.tool === 'hl' || d.tool === 'eraser') && an.fingerDraws && !an.fingerDraws() && S.tool === d.tool && !penNear()) {
+        if (S.dockMore) { setDockMore(false, true); return; }
+        if (!el.classList.contains('pv-toolshide')) { setTools(false, false); return; }
+        if (!S.penHint) { S.penHint = true; toast('✏️ 펜슬 전용 모드예요 — 손가락으로도 쓰려면 ⚙ 설정 › 펜 입력 › “손가락도 그림”', false, 3200); }
+      }
       if ((d.tool === 'none' || d.tool === 'select') && S.tool === d.tool && !d.sel && !(an.selected && an.selected())) {
         if (S.dockMore) setDockMore(false, true);
         else if (!el.classList.contains('pv-toolshide')) { setTools(false, false); }

@@ -49,6 +49,32 @@
       return M;
     }
 
+    /* ---------- BPM −/+ 누르고 있기 (송폼 창 · 메트로놈 창) ----------
+       한 번 누르면 1, 계속 누르고 있으면 점점 빠르게 반복합니다. 조작은 P.metroKey('bpm') 한 곳을 지나므로
+       클릭 컨트롤 잠금 · 팀 동기화가 그대로 적용되고, 창을 끌거나 악보를 톡 친 것으로 처리되지 않게 이벤트를 여기서 끊습니다. */
+    function bpmStep(btn, dir, after) {
+      var t1 = 0, t2 = 0, n = 0, pid = null;
+      function once() {
+        var r = P.metroKey('bpm', dir);
+        if (r === null) { stop(); P.toast('메트로놈 도구를 불러오지 못했습니다.', true); }
+        else if (r && r.locked) { stop(); P.toast('다른 사람이 클릭 컨트롤 중이라 BPM 을 바꿀 수 없습니다.', true, 1400); }
+        if (after) after();
+      }
+      function loop() { once(); n++; t2 = setTimeout(loop, n > 12 ? 45 : n > 5 ? 80 : 130); }
+      function stop() { clearTimeout(t1); clearTimeout(t2); t1 = t2 = 0; n = 0; pid = null; }
+      btn.addEventListener('pointerdown', function (e) {
+        e.stopPropagation();
+        if (btn.disabled || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        e.preventDefault(); pid = e.pointerId;
+        try { btn.setPointerCapture(e.pointerId); } catch (x) { /* 캡처가 안 돼도 pointerup 으로 멈춤 */ }
+        once(); t1 = setTimeout(loop, 450);
+      });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (k) { btn.addEventListener(k, function (e) { e.stopPropagation(); stop(); }); });
+      btn.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); });
+      btn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); once(); } });
+      return stop;
+    }
+
     /* ---------- 미니 메트로놈 (송폼 탭 맨 위에 고정) ----------
        송폼 · 음성 큐를 다루는 동안에도 메트로놈(시작/멈춤 · BPM · 박)이 같은 화면에 함께 보이도록 합니다.
        조작은 메트로놈 탭과 같은 경로(P.metroKey → act)를 쓰므로 클릭 컨트롤 잠금 · 동기화 · 팀 전달이 그대로 적용됩니다. */
@@ -99,6 +125,11 @@
     function circleMetro() {
       var el = doc.createElement('button'); el.type = 'button'; el.className = 'pv-mc'; el.setAttribute('aria-pressed', 'false');
       el.innerHTML = '<b class="pv-mc-n">—</b><small class="pv-mc-s">▶</small>';
+      var wrap = doc.createElement('div'); wrap.className = 'pv-mcw'; wrap.setAttribute('role', 'group'); wrap.setAttribute('aria-label', '메트로놈 · BPM 조절');
+      var dn = doc.createElement('button'), up = doc.createElement('button');
+      dn.type = up.type = 'button'; dn.className = 'pv-mcs pv-mcs-dn'; up.className = 'pv-mcs pv-mcs-up';
+      dn.textContent = '−'; up.textContent = '+'; dn.setAttribute('aria-label', 'BPM 내리기'); up.setAttribute('aria-label', 'BPM 올리기'); dn.title = 'BPM −1 (누르고 있으면 계속)'; up.title = 'BPM +1 (누르고 있으면 계속)';
+      wrap.appendChild(dn); wrap.appendChild(el); wrap.appendChild(up);
       var nEl = el.querySelector('.pv-mc-n'), sEl = el.querySelector('.pv-mc-s'), pressT = 0, longed = false, bt = 0;
       function sync() {
         var st = M ? M.state() : null, sg = P.song(), b = st ? Math.round(st.bpm) : (sg && +sg.bpm >= 30 && +sg.bpm <= 300 ? Math.round(+sg.bpm) : 0), run = !!(st && st.running), lock = ctl() === 'locked';
@@ -106,6 +137,7 @@
         el.classList.toggle('on', run); el.classList.toggle('locked', lock); el.setAttribute('aria-pressed', run ? 'true' : 'false');
         el.title = (run ? '메트로놈 멈춤' : '메트로놈 시작') + (b ? ' · ' + b + ' BPM' : '') + ' (길게 누르면 메트로놈 설정)';
         el.setAttribute('aria-label', el.title);
+        dn.disabled = up.disabled = lock; wrap.classList.toggle('locked', lock);
       }
       function beat(e) {
         el.classList.remove('b', 'b0'); void el.offsetWidth; el.classList.add('b'); if (e && e.beat === 0) el.classList.add('b0');
@@ -117,7 +149,8 @@
         e.stopPropagation(); if (longed) { longed = false; return; }
         var r = P.metroKey('toggle'); if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true); sync();
       });
-      var api = { el: el, sync: sync, beat: beat, destroy: function () { var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); } };
+      var stops = [bpmStep(dn, -1, sync), bpmStep(up, 1, sync)];
+      var api = { el: wrap, sync: sync, beat: beat, destroy: function () { stops.forEach(function (f) { f(); }); var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); } };
       minis.push(api); sync(); P.on('song', sync); P.on('close', api.destroy);
       return api;
     }
@@ -145,12 +178,16 @@
       function build() {
         el = doc.createElement('div'); el.className = 'pv-live'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', '라이브 컨트롤 — 메트로놈 · 음성 콜아웃');
         el.innerHTML = '<button type="button" class="pv-lv-go" aria-pressed="false" title="메트로놈 시작 / 멈춤 (Space)" aria-label="메트로놈 시작">' + IC.play + '</button>' +
+          '<button type="button" class="pv-lv-step pv-lv-dn" title="BPM −1 (누르고 있으면 계속)" aria-label="BPM 내리기">−</button>' +
           '<button type="button" class="pv-lv-bpm" title="메트로놈 패널 열기" aria-label="BPM — 메트로놈 패널 열기"><b>—</b><small>BPM</small><i class="pv-lv-dot b0"></i></button>' +
+          '<button type="button" class="pv-lv-step pv-lv-up" title="BPM +1 (누르고 있으면 계속)" aria-label="BPM 올리기">+</button>' +
           '<button type="button" class="pv-lv-tts" aria-pressed="true" title="음성 콜아웃 (TTS) 켜기 / 끄기" aria-label="음성 콜아웃 켜짐">' + IC.vol + '<small>콜아웃</small></button>';
         goB = el.querySelector('.pv-lv-go'); bpmB = el.querySelector('.pv-lv-bpm'); ttsB = el.querySelector('.pv-lv-tts'); dot = el.querySelector('.pv-lv-dot');
+        bpmStep(el.querySelector('.pv-lv-dn'), -1, sync); bpmStep(el.querySelector('.pv-lv-up'), 1, sync);
         el.addEventListener('click', function (e) {
           var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
           e.stopPropagation();                                            // 도구 막대의 다른 단추 처리기로 넘어가지 않게
+          if (b.classList.contains('pv-lv-step')) return;                 // BPM −/+ 는 bpmStep 이 처리
           if (b === goB) {
             var r = P.metroKey('toggle');
             if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
@@ -173,6 +210,7 @@
         var on = ok && sp; ttsB.classList.toggle('off', !on); ttsB.disabled = !ok; ttsB.setAttribute('aria-pressed', on ? 'true' : 'false'); ttsB.setAttribute('aria-label', !ok ? '음성 콜아웃 — 이 기기에서는 쓸 수 없음' : on ? '음성 콜아웃 켜짐' : '음성 콜아웃 꺼짐');
         var ck = on ? 'v' : 'm'; if (ttsB.getAttribute('data-ic') !== ck) { ttsB.innerHTML = (on ? IC.vol : IC.mute) + '<small>콜아웃</small>'; ttsB.setAttribute('data-ic', ck); }
         el.classList.toggle('locked', ctl() === 'locked');
+        Array.prototype.forEach.call(el.querySelectorAll('.pv-lv-step'), function (x) { x.disabled = ctl() === 'locked'; });
       }
       function beat(e) {
         if (!dot) return;
