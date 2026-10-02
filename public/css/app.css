@@ -1310,3 +1310,12 @@ body.pkp-open{overflow:hidden}
 .pkp-sv.stale{background:rgba(255,120,60,.2)}
 .pkp-sv.ask span{flex:1 1 220px}
 .pkp-bar [hidden]{display:none!important}
+
+/* PDF 미리보기 창은 라이트/다크 테마와 상관없이 항상 어둡게 + 글씨는 밝고 또렷하게 (라이트 테마에서 흰 글씨가 안 보이던 문제) */
+.pkp-box{background:#111b19;color:#f4f4f2;--bg:#111b19}
+.pkp-box .pkp-msg,.pkp-box .pkp-proginfo span,.pkp-box .pkp-edmsg,.pkp-box .pkp-sv,.pkp-box .pkp-crop{color:#f4f4f2;opacity:1}
+.pkp-box .pkp-msg.bad,.pkp-box .pkp-edmsg.bad{color:#ffb4a8}
+.pkp-box .pkp-sv .warn{color:#ffd2a0}
+.pkp-box .ph-btn:not(.pri),.pkp-box .pkp-close{background:rgba(255,255,255,.1);color:#f4f4f2;border:1px solid rgba(255,255,255,.3)}
+.pkp-box .pkp-edrow{color:#f4f4f2}
+.pkp-box .pkp-page small{color:#d9d9d6;opacity:1}
