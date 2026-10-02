@@ -3895,3 +3895,16 @@ html[data-theme="light"] :where(.yn):not(html) .pvgo:not(.pvstartbtn) { backgrou
 html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input) { background: #fff !important; border-color: rgba(15, 23, 42, .35) !important; }
 html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked { background: #A94B1F !important; border-color: #A94B1F !important; }
 html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked::after { border-color: #fff; }
+
+/* ================= V20 — 체크 표시를 칸 한가운데에 (SVG) =================
+   예전: 테두리 두 줄을 회전해서 그린 체크라 칸 크기 · 테두리 두께 · 브라우저(특히 iPad Safari)에 따라 위 · 왼쪽으로 쏠려 비뚤어져 보였음.
+   지금: 칸 전체(inset 0)에 SVG 체크를 가운데 정렬로 깔기만 함 — 칸 크기가 바뀌어도(22px · 28px 태블릿) 항상 정중앙. 바탕 · 테두리 색 규칙은 그대로. */
+:where(.yn) input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked::after {
+  content: '' !important; position: absolute !important; inset: 0 !important; left: 0 !important; top: 0 !important; width: auto !important; height: auto !important;
+  border: 0 !important; transform: none !important; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b1412' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.6l4.1 4.1L18.2 8'/%3E%3C/svg%3E") center / 90% 90% no-repeat !important;
+}
+html[data-theme="light"] :where(.yn) input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.6l4.1 4.1L18.2 8'/%3E%3C/svg%3E") !important; }
+:where(.yn) .lpick input:checked + i::after {
+  content: '' !important; position: absolute !important; inset: 0 !important; left: 0 !important; top: 0 !important; width: auto !important; height: auto !important;
+  border: 0 !important; transform: none !important; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.6l4.1 4.1L18.2 8'/%3E%3C/svg%3E") center / 92% 92% no-repeat !important;
+}

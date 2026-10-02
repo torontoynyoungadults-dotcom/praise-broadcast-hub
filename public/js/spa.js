@@ -18,7 +18,19 @@
     return SPA_PREFIXES.some(function (p) { return pathname.indexOf(p) === 0; });
   }
 
-  function loadPartial(urlStr, push) {
+  /* V20 — 같은 화면에서 저장만 한 경우(점검 OK · 이상, 메모 저장 …)에는 맨 위로 튀지 않고 보던 자리 그대로.
+     keepY 가 숫자면 그 높이로 되돌리고, 같은 주소는 기록(history)을 쌓지 않고 바꿔치기만 합니다. */
+  function sameScreen(urlStr) {
+    try {
+      var u = new URL(urlStr, location.href);
+      if (u.pathname !== location.pathname) return false;
+      var cur = new URLSearchParams(location.search), nxt = u.searchParams, ok = true;
+      cur.forEach(function (v, k) { if (k !== 'partial' && nxt.get(k) !== v) ok = false; });     // 지금 주소의 조건은 그대로여야 하고
+      nxt.forEach(function (v, k) { if (k !== 'partial' && k !== 'team' && cur.get(k) !== v) ok = false; });   // 서버가 덧붙이는 team 만 새로 있어도 같은 화면
+      return ok;
+    } catch (e) { return false; }
+  }
+  function loadPartial(urlStr, push, keepY) {
     var sep = urlStr.indexOf('?') === -1 ? '?' : '&';
     var tabbody = document.getElementById('ph-tabbody');
     if (tabbody) tabbody.classList.add('ph-loading');
@@ -29,13 +41,15 @@
         return r.json();
       })
       .then(function (d) {
-        if (d && d.redirect) { loadPartial(d.redirect, push); return; }      // 서버가 "다른 화면으로" 라고 알려 줌 (첫 화면 → 예배콘티 등)
+        if (d && d.redirect) { loadPartial(d.redirect, push, keepY); return; }      // 서버가 "다른 화면으로" 라고 알려 줌 (첫 화면 → 예배콘티 등)
         if (!tabbody) { location.href = urlStr; return; }
+        var same = typeof keepY === 'number' && sameScreen(urlStr);
         tabbody.innerHTML = d.html;
         tabbody.classList.remove('ph-loading');
         if (d.title) document.title = d.title;
-        if (push) history.pushState({ ph: true }, '', urlStr);
-        window.scrollTo(0, 0);
+        if (push && !same) history.pushState({ ph: true }, '', urlStr);
+        else if (same) { try { history.replaceState({ ph: true }, '', urlStr); } catch (e) {} }
+        window.scrollTo(0, same ? keepY : 0);
         document.dispatchEvent(new CustomEvent('ph:content-updated'));
       })
       .catch(function () { location.href = urlStr; });
@@ -87,9 +101,10 @@
       opts.body = usp.toString();
       opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
     }
+    var keepY = window.pageYOffset || document.documentElement.scrollTop || 0;
     fetch(url.pathname + url.search, opts)
       .then(function (r) { return r.json(); })
-      .then(function (d) { loadPartial((d && d.redirect) || (url.pathname + url.search), true); })
+      .then(function (d) { loadPartial((d && d.redirect) || (url.pathname + url.search), true, keepY); })
       .catch(function () { form.submit(); });
   });
 

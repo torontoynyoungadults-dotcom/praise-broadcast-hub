@@ -60,15 +60,12 @@ function itemRow(it, record) {
       </form>`).join('')}
     </div>
     ${rec['상태'] ? `<div class="ph-li-sub">${esc(rec['확인자'] || '')} 확인${rec['메모'] ? ` · ${esc(rec['메모'])}` : ''}</div>` : ''}
-    <details class="ph-add" style="margin-top:2px;">
-      <summary>메모 ${rec['메모'] ? '수정' : '남기기'}</summary>
-      <form method="post" action="/equipment/check" class="ph-inlineform">
-        <input type="hidden" name="team" value="${esc(it['팀ID'])}"><input type="hidden" name="itemId" value="${esc(it['ID'])}">
-        <input type="hidden" name="결과" value="${esc(rec['상태'] || 'OK')}">
-        <input type="text" name="메모" value="${esc(rec['메모'] || '')}" placeholder="메모 (선택)">
-        <button class="ph-btn" type="submit">저장</button>
-      </form>
-    </details>
+    <form method="post" action="/equipment/check" class="ph-eqmemo">
+      <input type="hidden" name="team" value="${esc(it['팀ID'])}"><input type="hidden" name="itemId" value="${esc(it['ID'])}">
+      <input type="hidden" name="결과" value="${esc(rec['상태'] || 'OK')}">
+      <input type="text" name="메모" value="${esc(rec['메모'] || '')}" placeholder="메모 (선택)" aria-label="${esc(it['이름'])} 메모">
+      <button class="ph-btn" type="submit">${rec['메모'] ? '수정' : '저장'}</button>
+    </form>
     <form method="post" action="/equipment/items/archive" onsubmit="return confirm('이 항목을 보관할까요? 기록은 남습니다.')" style="margin-top:4px;">
       <input type="hidden" name="team" value="${esc(it['팀ID'])}"><input type="hidden" name="__row" value="${it.__row}"><input type="hidden" name="보관" value="TRUE">
       <button class="ph-row-del" type="submit" title="보관" aria-label="보관">${ui.icon('folder')}</button>
@@ -133,35 +130,31 @@ router.get('/equipment', requireTeam, async (req, res) => {
       <h3 class="ph-h3">${esc(cat)}</h3>
       <div class="ph-list">${byCat[cat].map((it) => itemRow(it, recByItem[it['ID']])).join('')}</div>
     `).join('') : '<p class="ph-sub">아직 점검 항목이 없어요.</p>'}
-    <details class="ph-add">
-      <summary>+ 점검 항목 추가</summary>
-      <form method="post" action="/equipment/items" class="ph-inlineform">
-        <input type="hidden" name="team" value="${esc(team)}">
-        <input type="text" name="분류" placeholder="분류 (예: 음향 · 영상 · 조명)">
-        <input type="text" name="이름" placeholder="항목 이름 (예: 메인 스피커)" required>
-        <input type="text" name="설명" placeholder="설명 (선택)">
-        <button class="ph-btn pri" type="submit">추가</button>
-      </form>
-    </details>
+    <h3 class="ph-h3">점검 항목 추가</h3>
+    <form method="post" action="/equipment/items" class="ph-inlineform ph-eqform">
+      <input type="hidden" name="team" value="${esc(team)}">
+      <input type="text" name="분류" placeholder="분류 (예: 음향 · 영상 · 조명)">
+      <input type="text" name="이름" placeholder="항목 이름 (예: 메인 스피커)" required>
+      <input type="text" name="설명" placeholder="설명 (선택)">
+      <button class="ph-btn pri" type="submit">추가</button>
+    </form>
   </div>
 
   <div class="ph-card">
     <h2 class="ph-h2">수리 요청</h2>
+    <form method="post" action="/equipment/tickets" enctype="multipart/form-data" class="ph-inlineform ph-eqform">
+      <input type="hidden" name="team" value="${esc(team)}">
+      <input type="text" name="제목" placeholder="무엇이 문제인가요?" required>
+      <textarea name="내용" rows="3" placeholder="자세히 적어주세요" style="width:100%;padding:10px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:15px;font-family:inherit;"></textarea>
+      <div class="ph-inline3">
+        <select name="항목"><option value="">장비 선택 (선택)</option>${items.map((it) => `<option value="${esc(it['이름'])}">${esc(it['이름'])}</option>`).join('')}</select>
+        <select name="우선순위"><option value="보통">보통</option><option value="긴급">긴급</option></select>
+        <input type="file" name="사진" accept="image/*" multiple>
+      </div>
+      <button class="ph-btn pri" type="submit">요청하기</button>
+    </form>
+    <h3 class="ph-h3">올라온 요청</h3>
     <div class="ph-list">${tickets.length ? tickets.map(ticketCard).join('') : '<p class="ph-sub">아직 올라온 요청이 없어요.</p>'}</div>
-    <details class="ph-add">
-      <summary>+ 수리 요청 올리기</summary>
-      <form method="post" action="/equipment/tickets" enctype="multipart/form-data" class="ph-inlineform">
-        <input type="hidden" name="team" value="${esc(team)}">
-        <input type="text" name="제목" placeholder="무엇이 문제인가요?" required>
-        <textarea name="내용" rows="3" placeholder="자세히 적어주세요" style="width:100%;padding:10px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:15px;font-family:inherit;"></textarea>
-        <div class="ph-inline3">
-          <select name="항목"><option value="">장비 선택 (선택)</option>${items.map((it) => `<option value="${esc(it['이름'])}">${esc(it['이름'])}</option>`).join('')}</select>
-          <select name="우선순위"><option value="보통">보통</option><option value="긴급">긴급</option></select>
-          <input type="file" name="사진" accept="image/*" multiple>
-        </div>
-        <button class="ph-btn pri" type="submit">요청하기</button>
-      </form>
-    </details>
   </div>
   `;
   spa.send(req, res, content, { title: `${team} 장비 · 수리` });

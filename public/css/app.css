@@ -1120,3 +1120,12 @@ a { color: var(--accent-ink); text-decoration: none; }
 .gs-livebtn { display: flex; align-items: center; gap: 12px; margin: 12px 0; padding: 14px 16px; border-radius: 16px; text-decoration: none; color: var(--ink); background: rgba(var(--c-a-rgb), .18); border: 1px solid rgba(var(--c-a-rgb), .7); }
 .gs-livebtn svg { width: 26px; height: 26px; flex: none; color: var(--c-a2); }
 .gs-livebtn b { display: block; font-size: 1.05rem; } .gs-livebtn small { display: block; opacity: .8; margin-top: 2px; }
+
+/* V20 — 장비 · 수리: 메모 · 항목 추가 · 수리 요청을 접어 두지 않고 바로 보이게 */
+.ph-eqmemo { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.ph-eqmemo input[type=text] { flex: 1 1 0; width: auto; min-width: 0; box-sizing: border-box; min-height: 40px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg-2); color: var(--ink); font: inherit; font-size: 14.5px; }
+.ph-eqmemo input[type=text]:focus { outline: none; border-color: var(--accent); }
+.ph-eqmemo .ph-btn { flex: 0 0 auto; width: auto; min-width: 64px; min-height: 40px; padding: 0 14px; }
+.ph-eqform { margin: 6px 0 14px; }
+.ph-eqitem form[action$="/items/archive"] { display: flex; justify-content: flex-end; }
+@media (max-width: 520px) { .ph-eqform .ph-inline3 { grid-template-columns: 1fr; } }
