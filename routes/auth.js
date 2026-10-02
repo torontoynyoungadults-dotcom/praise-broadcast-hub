@@ -16,6 +16,7 @@ function redirectUri() {
 }
 
 router.get('/auth/google', (req, res) => {
+  if (process.env.HUB_SSO === '1') return res.redirect('/hub-sso/start');   // 교회 앱 안에서 돌 때 — 교회 포털의 구글 로그인을 이용 (lib/hubProxy.js)
   try {
     const client = loginClient(redirectUri());
     const state = session.signState({ n: Math.random().toString(36).slice(2) });
@@ -28,6 +29,28 @@ router.get('/auth/google', (req, res) => {
     res.redirect(url);
   } catch (e) {
     res.status(500).send('구글 로그인 설정이 아직 안 되어 있습니다: ' + e.message);
+  }
+});
+
+/** 교회 앱이 이메일을 확인해 서명한 짧은 표로 로그인 (HUB_SSO=1 일 때만) */
+router.get('/auth/sso', async (req, res) => {
+  if (process.env.HUB_SSO !== '1') return res.redirect('/');
+  try {
+    const email = String(req.query.e || '').trim().toLowerCase(), ts = Number(req.query.ts || 0), sig = String(req.query.sig || '');
+    const want = require('crypto').createHmac('sha256', process.env.SESSION_SECRET || '').update('sso|' + email + '|' + ts).digest('base64url');
+    const okSig = sig.length === want.length && require('crypto').timingSafeEqual(Buffer.from(sig), Buffer.from(want));
+    if (!email || !okSig || Math.abs(Date.now() / 1000 - ts) > 120) return res.redirect('/?err=' + encodeURIComponent('로그인 시간이 지났습니다. 다시 시도해주세요.'));
+    const member = await sheetsDb.findOne('회원', '이메일', email);
+    if (member) {
+      if (String(member['접속중지']).toUpperCase() === 'TRUE') return res.redirect('/?err=' + encodeURIComponent('접속이 일시 중지되었어요. 관리자에게 문의해주세요.'));
+      session.login(res, { email, name: member['이름'] });
+      return res.redirect('/');
+    }
+    session.setPendingEmail(res, email);
+    res.redirect('/signup');
+  } catch (e) {
+    console.error('[허브 SSO 실패]', e.message);
+    res.redirect('/?err=' + encodeURIComponent('로그인에 실패했습니다. 다시 시도해주세요.'));
   }
 });
 
