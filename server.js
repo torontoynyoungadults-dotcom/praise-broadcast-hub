@@ -60,7 +60,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
 app.use(require('./lib/guestGate').middleware);   // 접속 일시 중지 · 객원 멤버(서는 날만)
-app.get('/healthz', (req, res) => res.type('text').send('ok'));
+app.get('/healthz', (req, res) => res.type('text').send('ok' + (process.env.RENDER_GIT_COMMIT ? ' ' + String(process.env.RENDER_GIT_COMMIT).slice(0, 7) : '')));   // 어느 버전이 떠 있는지(Render 가 커밋 번호를 넣어 줌)
 
 const live = require('./routes/live');     // 라이브 악보 (/conti/practice · /sheet · /audio · /api/*) — conti 보다 먼저
 const conti = require('./routes/conti');
