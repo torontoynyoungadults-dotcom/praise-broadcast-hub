@@ -57,7 +57,7 @@ async function requireTeam(req, res, next) {
   next();
 }
 
-/** 날짜 모드(보통 주일)인지, 행사 모드(특별예배 하나에 묶인 완전히 별도 콘티)인지.
+/** 날짜 모드(보통 주일)인지, 행사 모드(주일 외 찬양 하나에 묶인 완전히 별도 콘티)인지.
  * 행사ID가 있으면 행사 모드 — 같은 날짜라도 주일예배와 콘티·편성·악보·녹음·댓글이 전혀 섞이지 않습니다. */
 function scopeFrom(b) {
   return { event: String((b && (b.event || b['행사ID'])) || '').trim(), date: week.normalizeDate(b && b.date) };
@@ -379,7 +379,7 @@ async function historyFor(team, scope) {
   const days = new Map();
   mine.forEach((r) => {
     const k = r['행사ID'] ? 'ev-' + r['행사ID'] : String(r['날짜']);
-    if (!days.has(k)) days.set(k, { key: k, date: String(r['날짜']), name: r['행사ID'] ? (evName.get(r['행사ID']) || '특별예배') : '', songs: [] });
+    if (!days.has(k)) days.set(k, { key: k, date: String(r['날짜']), name: r['행사ID'] ? (evName.get(r['행사ID']) || '주일 외 찬양') : '', songs: [] });
     days.get(k).songs.push(r);
   });
   const list = Array.from(days.values()).map((d) => {
@@ -602,7 +602,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
 
-  // event= 쿼리가 있고 실제로 이 팀의 특별예배면 "행사 모드" — 같은 날짜라도 주일예배와 완전히 분리된
+  // event= 쿼리가 있고 실제로 이 팀의 주일 외 찬양면 "행사 모드" — 같은 날짜라도 주일예배와 완전히 분리된
   // 콘티·편성·악보·녹음·댓글. 없거나 못 찾으면 보통 때처럼 날짜 모드.
   const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
   const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
@@ -612,20 +612,20 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   let dayBanner = '';
   const allAssignRows = (await sheetsDb.readAll('찬양편성')).filter((r) => r['팀ID'] === team);
-  const evs = (await specialServices(team)).map((e) => ({ id: e['ID'], name: String(e['이름'] || '특별예배'), date: e['날짜'] }));
-  // 달력 띠 — 특별예배(부흥회 등)는 같은 날짜라도 날짜 칸 옆에 따로 (눌러서 오감)
+  const evs = (await specialServices(team)).map((e) => ({ id: e['ID'], name: String(e['이름'] || '주일 외 찬양'), date: e['날짜'] }));
+  // 달력 띠 — 주일 외 찬양(부흥회 등)는 같은 날짜라도 날짜 칸 옆에 따로 (눌러서 오감)
   const strip = pageShell.weekStrip({ basePath: '/conti', team, date, assignRows: allAssignRows, events: evs, activeEvent: scope.event ? scope.event : '' });
   if (scope.event) {
     dayBanner = `<div class="ph-card ph-eventsbanner">
       <p class="ph-sub">${esc(eventRow['이름'])} 콘티예요 — 주일예배와는 별도 기록입니다. <a href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p>
-      <p class="ph-sub"><a href="/events?team=${encodeURIComponent(team)}">← 특별예배 목록으로</a></p>
+      <p class="ph-sub"><a href="/events?team=${encodeURIComponent(team)}">← 주일 외 찬양 목록으로</a></p>
     </div>`;
   }
 
   const guestToken = await guestLink.tokenFor(team).catch(() => '');
 
   const hero = pageShell.hero(scope.event
-    ? { eyebrow: `${team} · 특별예배 콘티`, title: eventRow['이름'], sub: week.labelKo(date) }
+    ? { eyebrow: `${team} · 주일 외 찬양 콘티`, title: eventRow['이름'], sub: week.labelKo(date) }
     : { eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
   const { byPos, roster, infoMap } = await weekAssignments(team, scope);
   const lineup = await lineupCard(team, scope, byPos, roster, infoMap, scope.event ? eventRow['이름'] : '', ctx.isAdmin);
