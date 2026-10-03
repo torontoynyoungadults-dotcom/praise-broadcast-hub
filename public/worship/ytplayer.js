@@ -21,6 +21,9 @@
   var KEY_STEPS = [-3, -2, -1, 0, 1, 2, 3];   // 키(반음)
   var MIN_LOOP = 0.5;                       // A-B 구간은 최소 0.5초
   var API_URL = 'https://www.youtube.com/iframe_api';
+  var VOL_KEY = 'yn.yt.vol';                 // 마지막으로 맞춘 음량(0~100) — 다음에 열 때도 그대로
+  function loadVol() { try { var raw = localStorage.getItem(VOL_KEY); if (raw == null) return 100; var v = +raw; return isFinite(v) && v >= 0 && v <= 100 ? v : 100; } catch (e) { return 100; } }
+  function saveVol(v) { try { localStorage.setItem(VOL_KEY, String(v)); } catch (e) { /* 무시 */ } }
 
   function fmtTime(sec) {
     sec = Math.max(0, +sec || 0); var m = Math.floor(sec / 60), s = sec - m * 60;
@@ -64,7 +67,8 @@
     '.yt-kn{flex:1 1 100%;font-size:13px;font-weight:800;color:#ffb066}.yt-kstat{font-size:12px;color:#ffb066;min-height:1.2em}.yt-kstat.bad{color:#ffb9b9}' +
     '.yt-stage{position:relative}.yt-zone{position:absolute;top:14%;bottom:22%;width:32%;z-index:2;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}.yt-zl{left:0}.yt-zr{right:0}' +
     '.yt-zone i{font-style:normal;opacity:0;padding:7px 12px;border-radius:99px;background:rgba(0,0,0,.66);color:#fff;font-size:14px;font-weight:800;pointer-events:none}.yt-zone.flash{background:rgba(255,255,255,.14)}.yt-zone.flash i{animation:ytflash .7s ease-out}@keyframes ytflash{0%{opacity:1;transform:scale(1.08)}70%{opacity:1}100%{opacity:0;transform:scale(1)}}.yt-skiphint{flex:1 1 100%;margin:0}' +
-    '.yt-warn{margin:0;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,176,102,.45);background:rgba(255,138,42,.10);font-size:12px;line-height:1.5;color:var(--g-ink,#f8f5f0)}.yt-warn b{color:#ffb066}';
+    '.yt-warn{margin:0;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,176,102,.45);background:rgba(255,138,42,.10);font-size:12px;line-height:1.5;color:var(--g-ink,#f8f5f0)}.yt-warn b{color:#ffb066}' +
+    '.yt-vol{align-items:center}.yt-vol .yt-b{flex:none;width:38px;padding:7px 0;text-align:center;font-size:15px}.yt-vol input[type=range]{flex:1 1 110px;margin:0 2px}.yt-vol output{flex:none;min-width:34px;text-align:right;font-weight:800;color:var(--g-a2,#ffb066);font-variant-numeric:tabular-nums}.yt-vol.muted input[type=range]{opacity:.4}';
   function injectCss() {
     if (typeof document === 'undefined' || document.getElementById('yn-yt-css')) return;
     var s = document.createElement('style'); s.id = 'yn-yt-css'; s.textContent = CSS; (document.head || document.documentElement).appendChild(s);
@@ -76,12 +80,13 @@
    */
   function open(host, opt) {
     opt = opt || {};
-    var id = opt.id, st = { rate: 1, a: null, b: null, player: null, ready: false, dead: false, timer: null, rates: RATES.slice(), fallback: false }, kb = opt.key || null, kOffs = [];
+    var id = opt.id, st = { rate: 1, a: null, b: null, player: null, ready: false, dead: false, timer: null, rates: RATES.slice(), fallback: false, vol: loadVol(), muted: false }, kb = opt.key || null, kOffs = [];
     injectCss();
     host.innerHTML = '';
     var stage = el('div', 'yt-stage'), holder = el('div', 'yt-holder'); stage.appendChild(holder);
     var ctl = el('div', 'yt-ctl');
     ctl.innerHTML =
+      '<div class="yt-row yt-vol" role="group" aria-label="음량"><span class="yt-lb">음량</span><button type="button" class="yt-b" data-v="mute" aria-pressed="false" aria-label="음소거">' + (st.vol <= 0 ? '🔇' : '🔊') + '</button><input type="range" class="yt-volrange" min="0" max="100" step="1" value="' + st.vol + '" aria-label="음량 조절"><output>' + Math.round(st.vol) + '</output></div>' +
       '<div class="yt-row yt-skip" role="group" aria-label="15초 이동"><span class="yt-lb">이동</span><button type="button" class="yt-b" data-skip="-15" aria-label="15초 뒤로">⟲ 15초</button><button type="button" class="yt-b" data-skip="15" aria-label="15초 앞으로">15초 ⟳</button><span class="yt-note yt-skiphint">영상 왼쪽 · 오른쪽을 두 번 누르거나 더블클릭해도 됩니다</span></div>' +
       '<div class="yt-row yt-rates" role="group" aria-label="재생 속도 (템포)"><span class="yt-lb">속도</span>' + RATES.map(function (r) { var ext = TEMPO_RATES.indexOf(r) < 0; return '<button type="button" class="yt-b' + (ext ? ' xr' : '') + '" data-rate="' + r + '" aria-pressed="' + (r === 1) + '"' + (ext ? ' title="0.5배는 요청 범위(0.75~1.25배) 밖의 보조 속도입니다"' : '') + '>' + r + 'x</button>'; }).join('') + '</div>' +
       '<p class="yt-note yt-ratenote">속도는 YouTube 가 지원하는 0.75 · 1 · 1.25배만 고를 수 있고, 음높이는 YouTube 가 그대로 유지합니다.</p>' +
@@ -98,7 +103,27 @@
     var zl = el('div', 'yt-zone yt-zl', '<i></i>'), zr = el('div', 'yt-zone yt-zr', '<i></i>'); zl.setAttribute('aria-hidden', 'true'); zr.setAttribute('aria-hidden', 'true'); stage.appendChild(zl); stage.appendChild(zr);
     host.appendChild(stage); host.appendChild(ctl);
     var msg = ctl.querySelector('.yt-msg'), abinfo = ctl.querySelector('.yt-abinfo'), knEl = ctl.querySelector('.yt-kn'), kstat = ctl.querySelector('.yt-kstat');
+    var volRow = ctl.querySelector('.yt-vol'), volBtn = ctl.querySelector('[data-v="mute"]'), volRange = ctl.querySelector('.yt-volrange'), volOut = volRow && volRow.querySelector('output');
     function say(t, bad) { msg.textContent = t || ''; msg.className = 'yt-msg' + (bad ? ' bad' : ''); }
+    /* 음량 — 유튜브 공식 플레이어 API(postMessage)로 직접 조절합니다(기본 임베드일 때만 못 씀). 마지막 값은 이 기기에 기억해 다음 영상에도 그대로 씁니다 */
+    function paintVol() {
+      if (volBtn) { volBtn.textContent = st.muted || st.vol <= 0 ? '🔇' : '🔊'; volBtn.setAttribute('aria-pressed', st.muted ? 'true' : 'false'); }
+      if (volRange) volRange.value = st.vol;
+      if (volOut) volOut.textContent = Math.round(st.vol);
+      if (volRow) volRow.classList.toggle('muted', !!st.muted);
+    }
+    function applyVolToPlayer() {
+      if (!st.player || !st.ready) return;
+      try { if (st.muted) st.player.mute(); else { st.player.unMute(); st.player.setVolume(st.vol); } } catch (e) { /* 무시 */ }
+    }
+    function setVolume(v) {
+      v = Math.max(0, Math.min(100, Math.round(+v)));
+      st.vol = v; saveVol(v);
+      if (st.muted && v > 0) st.muted = false;             // 음소거 중 손잡이를 움직이면 바로 소리가 나오게
+      applyVolToPlayer(); paintVol();
+    }
+    function toggleMute() { st.muted = !st.muted; applyVolToPlayer(); paintVol(); }
+    if (volRange) volRange.addEventListener('input', function () { setVolume(volRange.value); });
     /* 키 줄 (opt.key 가 있을 때만) — 값은 연습 화면의 "연습 키 이동" 하나를 함께 씁니다 */
     function keyNow() { var n = 0; try { n = Math.round(+kb.get()) || 0; } catch (e) { /* 무시 */ } return Math.max(-3, Math.min(3, n)); }
     function paintKey() {
@@ -121,6 +146,8 @@
       });
       [].forEach.call(ctl.querySelectorAll('[data-a]'), function (b) { b.disabled = st.fallback || !st.ready; });
       [].forEach.call(ctl.querySelectorAll('[data-skip]'), function (b) { b.disabled = st.fallback || !st.ready; });
+      if (volBtn) volBtn.disabled = st.fallback || !st.ready;
+      if (volRange) volRange.disabled = st.fallback || !st.ready;
       zl.style.display = zr.style.display = st.fallback ? 'none' : '';
     }
     function paintAB() {
@@ -175,7 +202,8 @@
     zone(zl, -15); zone(zr, 15);
     ctl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
-      if (b.hasAttribute('data-skip')) { var sd = +b.getAttribute('data-skip'), r0 = skip(sd); if (r0 === false) say('영상이 준비된 뒤에 이동할 수 있습니다', true); else { say(sd < 0 ? '15초 뒤로' : '15초 앞으로'); flash(sd < 0 ? zl : zr, sd); } }
+      if (b.getAttribute('data-v') === 'mute') toggleMute();
+      else if (b.hasAttribute('data-skip')) { var sd = +b.getAttribute('data-skip'), r0 = skip(sd); if (r0 === false) say('영상이 준비된 뒤에 이동할 수 있습니다', true); else { say(sd < 0 ? '15초 뒤로' : '15초 앞으로'); flash(sd < 0 ? zl : zr, sd); } }
       else if (b.hasAttribute('data-rate')) setRate(b.getAttribute('data-rate'));
       else if (b.hasAttribute('data-key')) { if (kb) { try { kb.set(+b.getAttribute('data-key')); } catch (e) { /* 무시 */ } paintKey(); } }
       else if (b.getAttribute('data-k') === 'shifter') { if (kb && kb.openShifter) kb.openShifter(); }
@@ -187,10 +215,10 @@
       st.fallback = true; holder.innerHTML = '';
       var f = document.createElement('iframe'); f.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?rel=0&playsinline=1&autoplay=1'; f.title = '유튜브 참고 영상';
       f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture'); f.setAttribute('allowfullscreen', ''); f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin'); holder.appendChild(f);
-      paintRates(); say(why || '속도 · 구간 반복 기능을 불러오지 못해 기본 플레이어로 재생합니다 (인터넷 연결을 확인하세요).', true);
+      paintRates(); paintVol(); say(why || '속도 · 음량 조절 · 구간 반복 기능을 불러오지 못해 기본 플레이어로 재생합니다 (인터넷 연결을 확인하세요). 소리는 영상 안의 유튜브 자체 조절 막대를 쓰세요.', true);
     }
 
-    paintRates(); paintAB(); say('플레이어를 불러오는 중…');
+    paintRates(); paintAB(); paintVol(); say('플레이어를 불러오는 중…');
     var api = opt.ytApi ? Promise.resolve(opt.ytApi) : loadApi();
     api.then(function (YT) {
       if (st.dead) return;
@@ -202,7 +230,8 @@
           onReady: function () {
             if (st.dead) return; st.ready = true;
             try { var av = st.player.getAvailablePlaybackRates && st.player.getAvailablePlaybackRates(); if (av && av.length) st.rates = RATES.filter(function (r) { return av.indexOf(r) >= 0; }); } catch (e) {}
-            paintRates(); say('');
+            applyVolToPlayer();                 // 지난번에 맞춘 음량을 이 영상에도 그대로
+            paintRates(); paintVol(); say('');
           },
           onStateChange: function (ev) {
             var S = ev && ev.data;
@@ -217,7 +246,8 @@
 
     return {
       setRate: setRate, markA: markA, markB: markB, clearLoop: clearLoop, skip: skip,
-      state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback, key: kb ? keyNow() : null }; },
+      setVolume: setVolume, toggleMute: toggleMute,
+      state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback, key: kb ? keyNow() : null, vol: st.vol, muted: st.muted }; },
       setKeyStatus: setKeyStatus, repaintKey: paintKey,
       destroy: function () { st.dead = true; stopTimer(); kOffs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); kOffs = []; try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
     };

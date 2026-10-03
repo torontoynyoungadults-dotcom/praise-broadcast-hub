@@ -101,7 +101,7 @@
   }
   /** 점이 maxPts 개를 넘으면 eps 를 키워가며 줄입니다 */
   function limitPoints(p, maxPts) {
-    var eps = 0.0006, out = simplify(p, eps), guard = 0;
+    var eps = 0.0003, out = simplify(p, eps), guard = 0;
     while (out.length / 2 > maxPts && guard++ < 20) { eps *= 1.6; out = simplify(p, eps); }
     return out;
   }
@@ -172,8 +172,8 @@
   }
 
   /* ------------------------------------------------------------ 항목 그리기
-     v8.35 — 필기 선을 캣멀-롬(Catmull-Rom) 곡선으로: 찍힌 점을 모두 정확히 지나면서 그 사이를 매끄럽게 이어
-     (예전 "중간점만 지나는" 방식보다 더 손글씨 · GoodNotes 느낌에 가깝게). 저장되는 점 데이터는 그대로입니다. */
+     V836 — 필기 선을 캣멀-롬(Catmull-Rom) 곡선으로: 찍힌 점을 모두 정확히 지나면서 그 사이를 매끄럽게 이어 손글씨(GoodNotes) 느낌에 가깝게.
+     (예전에는 "중간점만 지나는" 곡선이라 각진 곳이 깎였습니다.) 저장되는 점 데이터는 그대로라서 예전 필기도 그대로 보이고, 서버 · 다른 기기와 호환됩니다. */
   function strokePath(c, p, W, H) {
     var n = p.length / 2; if (!n) return;
     function X(i) { return p[i * 2] * W; } function Y(i) { return p[i * 2 + 1] * H; }
@@ -297,6 +297,7 @@
       ['team', 'mine'].forEach(function (ly) {
         if (!vis[ly]) return;
         var list = pageItems(ly, pg);
+        if (S.byFilter) list = list.filter(function (i) { return (i.by || '') === S.byFilter; });   // V842 — "이 사람 필기만 보기" (화면에서만 · 저장 · 내보내기는 그대로)
         list.filter(function (i) { return i.t === 'hl' && i.id !== skip; }).forEach(function (i) { drawItem(c, i, W, H); });
         var fl = flashOn();
         list.filter(function (i) { return i.t !== 'hl' && i.id !== skip; }).forEach(function (i) { drawItem(c, i, W, H, fl && i.t === 'fbox' && fl.keys[String(i.k || '').toLowerCase()] ? { flash: true } : null); });
@@ -340,16 +341,44 @@
         if (l.pg !== S.page || !l.p || l.p.length < 2) return;
         drawItem(ctx, { t: l.t, c: l.c, w: l.w, p: l.p }, S.W, S.H, { alpha: 0.85 });
         var lx = l.p[l.p.length - 2] * S.W, ly = l.p[l.p.length - 1] * S.H;
-        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var lb = window.YNHon ? YNHon.name(l.by || '') : (l.by || ''); var tw = ctx.measureText(lb).width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(lb, lx + 10, ly - 9); ctx.restore();
+        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var lb = hon(l.by || ''); var tw = ctx.measureText(lb).width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(lb, lx + 10, ly - 9); ctx.restore();
       });
       if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(true); }, 1200);
       if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl')) {
-        var cc = S.cur; drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : cc.p, line: cc.straight }, S.W, S.H);
+        var cc = S.cur; drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : (cc.pred && cc.pred.length ? cc.p.concat(cc.pred) : cc.p), line: cc.straight }, S.W, S.H);
       } else if (S.cur && (S.cur.kind === 'sym' || S.cur.kind === 'fbox')) {
         drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.75 });
       }
+      if (S.showBy) drawAuthorTags(ctx);
       var si = selItem();
       if (si && si.pg === S.page && S.vis[S.sel.layer]) drawSel(ctx, si);
+    }
+    /* V842 — 누가 쓴 필기인지: 이름표 (짧게 · 같은 사람의 가까운 필기는 이름표 하나로) */
+    function hon(n) { try { return typeof window !== 'undefined' && window.YNHon ? window.YNHon.name(n) : n; } catch (e) { return n; } }   // 찬양방송팀 허브 — 목사님 호칭
+    function ago(ts) {
+      var d = Math.max(0, Date.now() - (+ts || 0)) / 1000; if (!ts) return '';
+      if (d < 60) return '방금'; if (d < 3600) return Math.floor(d / 60) + '분 전'; if (d < 86400) return Math.floor(d / 3600) + '시간 전';
+      var t = new Date(+ts); return (t.getMonth() + 1) + '/' + t.getDate();
+    }
+    function byTag(c, x, y, text, strong) {
+      c.save(); c.font = (strong ? '700 12px' : '600 10.5px') + ' sans-serif'; c.textBaseline = 'middle';
+      var tw = c.measureText(text).width, h = strong ? 18 : 15, w = tw + 10;
+      x = clamp(x, 2, Math.max(2, S.W - w - 2)); y = clamp(y, 2, Math.max(2, S.H - h - 2));
+      c.fillStyle = strong ? 'rgba(255,138,42,.95)' : 'rgba(20,20,26,.78)'; c.beginPath();
+      if (c.roundRect) c.roundRect(x, y, w, h, h / 2); else c.rect(x, y, w, h); c.fill();
+      c.fillStyle = strong ? '#1a0d02' : '#fff'; c.fillText(text, x + 5, y + h / 2 + .5); c.restore();
+    }
+    function drawAuthorTags(c) {
+      var seen = {};
+      ['team', 'mine'].forEach(function (ly) {
+        if (!S.vis[ly]) return;
+        pageItems(ly, S.page).forEach(function (it) {
+          if (S.byFilter && (it.by || '') !== S.byFilter) return;
+          var b = itemBox(it, S.W, S.H); if (!b) return;
+          var cell = (it.by || '?') + '|' + Math.floor(b.x / 140) + ':' + Math.floor(b.y / 70); if (seen[cell]) return; seen[cell] = 1;
+          byTag(c, b.x, b.y - 16, (ly === 'mine' ? '🔒 ' : '') + (hon(it.by) || '알 수 없음'), false);
+        });
+      });
     }
     /** 선택한 항목 둘레의 점선 테두리 + 모서리 점 (끌어서 옮길 수 있다는 표시) */
     function selItem() { return S.sel && S.layers[S.sel.layer] ? (S.layers[S.sel.layer].get(S.sel.id) || null) : null; }
@@ -376,6 +405,7 @@
       c.save();
       c.setLineDash([6, 4]); c.lineWidth = 3.4; c.strokeStyle = 'rgba(20,20,26,.5)'; c.strokeRect(g.x, g.y, g.w, g.h);       // 어두운 밑줄 — 흰 악보 · 어두운 악보 어디서나 보임
       c.lineWidth = 1.8; c.strokeStyle = can ? '#ff8a2a' : '#8b8b96'; c.strokeRect(g.x, g.y, g.w, g.h); c.setLineDash([]);
+      byTag(c, g.x + (can ? 0 : 0), g.y - 22, '✎ ' + (hon(it.by) || '알 수 없음') + (it.ts ? ' · ' + ago(it.ts) : '') + (S.sel.layer === 'mine' ? ' · 나만 보기' : ''), true);   // V842 — 누가 · 언제 쓴 필기인지
       if (can) {
         drawHandle(c, g.tr, '#e5484d', 'del'); drawHandle(c, g.br, '#ff8a2a', 'size');
         if (it.t === 'text') drawHandle(c, g.tl, '#ff8a2a', 'edit');
@@ -622,9 +652,12 @@
         for (var i = 0; i < list.length; i++) {
           var q = norm(list[i]), n = c.p.length;
           if (n >= 6000) break;
+          if (!c.straight) q = stabilize(c, q);                                                                   // V836 — 손떨림 · 센서 잡음을 살짝 눌러 선이 부드럽게 (빨리 그을 땐 거의 그대로라 늦지 않음)
           if (Math.abs(q.x - c.p[n - 2]) + Math.abs(q.y - c.p[n - 1]) < 0.0004) continue;
           c.p.push(q.x, q.y);
         }
+        c.pred = [];                                                                                              // 펜이 곧 갈 곳 (브라우저가 알려 줄 때만) — 화면에만 잇고 저장하지 않음 → 펜 끝 쪽 지연이 줄어듦
+        if (!c.straight && e.pointerType === 'pen' && e.getPredictedEvents) { try { (e.getPredictedEvents() || []).slice(0, 3).forEach(function (pe) { var pq = norm(pe); c.pred.push(pq.x, pq.y); }); } catch (x) { /* 지원하지 않음 */ } }
         sendLive(c); invalidate(true);
       } else if (c.kind === 'erase') { list.forEach(function (ev) { var q = norm(ev); eraseAt(q.x * S.W, q.y * S.H); }); }
       else if (c.kind === 'fbox') {                                                            // 누른 채 끌면 글자가 손가락을 따라 다닙니다 (떼는 자리에 놓임)
@@ -632,6 +665,13 @@
         it3.x = r4(clamp(q3.x, 0.005, 0.995)); it3.y = r4(clamp(q3.y, 0.005, 0.995)); c.moved = true; invalidate(true);
       }
       else if (c.kind === 'sym' && c.stretch) { var q2 = norm(e); c.item.w2 = r4(clamp(Math.abs(q2.x - c.x0), 0.02, 0.5)); invalidate(true); }
+    }
+    /** 입력 안정화 — 직전에 그린 점에서 새 점으로 "일부만" 이동 (거리가 짧을수록 더 많이 누름). 화면 픽셀 기준이라 확대 · 쪽 크기와 무관 */
+    function stabilize(c, q) {
+      var n = c.p.length; if (n < 2) return q;
+      var dx = (q.x - c.p[n - 2]) * S.W, dy = (q.y - c.p[n - 1]) * S.H, d = Math.hypot(dx, dy);
+      var k = clamp(0.38 + d / 14, 0.38, 1);                                   // 3px 안쪽 미세한 떨림은 약 45% 만 반영, 14px 넘게 빨리 움직이면 100%
+      return { x: c.p[n - 2] + (q.x - c.p[n - 2]) * k, y: c.p[n - 1] + (q.y - c.p[n - 1]) * k };
     }
     function sendLive(c, final) {
       if (S.layer !== 'team' || !o.onLive) return;
@@ -820,7 +860,7 @@
       /** 그리던 획 · 옮기던 항목을 저장하지 않고 버림 (손가락 두 개로 확대를 시작할 때) */
       cancelCurrent: function () { if (!S.cur) return false; dropCur(); invalidate(); return true; },
       /** 선택한 항목 (없으면 null) — 화면 도구줄이 크기 · 글꼴 칸을 맞추는 데 씁니다 */
-      selected: function () { var it = selItem(); return it ? { layer: S.sel.layer, id: it.id, t: it.t, sz: it.sz, f: it.f, c: it.c, s: it.s, chord: it.chord, canModify: canModify(S.sel.layer, it) } : null; },
+      selected: function () { var it = selItem(); return it ? { layer: S.sel.layer, id: it.id, t: it.t, by: it.by || '', ts: it.ts || 0, sz: it.sz, f: it.f, c: it.c, s: it.s, chord: it.chord, canModify: canModify(S.sel.layer, it) } : null; },
       select: function (layer, id) { if (S.layers[layer] && S.layers[layer].get(id)) { S.sel = { layer: layer, id: id }; invalidate(); changed(); return true; } return false; },
       deselect: function () { if (S.sel) { S.sel = null; S.fresh = null; invalidate(); changed(); } },
       deleteSelected: function () {
@@ -839,9 +879,9 @@
         if (!ch) return false;
         put(ly, after); record({ op: 'edit', layer: ly, before: it, after: after }); return true;
       },
-      /** 손가락으로 그려지는 상태인가 (펜만 그림 모드에서는 손가락이 화면 밀기 · 넘기기 · 확대에 쓰임) */
       /** 악보 위(캔버스 밖)에서 시작된 펜슬 입력을 지금 막 켠 필기 도구로 이어받아 첫 획부터 그립니다 — 도구 "이동"에서 펜슬로 바로 쓰기 (practice.js) */
       beginExternal: function (e) { if (!S.dead && e && e.pointerType === 'pen' && drawing()) onDown(e); },
+      /** 손가락으로 그려지는 상태인가 (펜만 그림 모드에서는 손가락이 화면 밀기 · 넘기기 · 확대에 쓰임) */
       fingerDraws: function () { return !(S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen)); },
       clearPage: function (ly, all) {
         var ids = [], gone = [];
@@ -853,6 +893,17 @@
         return gone.length;
       },
       items: function (ly) { return Array.from(S.layers[ly].values()); },
+      /* V842 — 필기 기록: 쓴 사람별 개수 · 쪽 · 마지막 시각 / 이름표 보이기 / 한 사람 필기만 보기 */
+      authors: function () {
+        var m = {}; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (it) {
+          var k = it.by || ''; var a = m[k] || (m[k] = { name: k, n: 0, pages: {}, last: 0, mine: 0 });
+          a.n++; a.pages[it.pg] = (a.pages[it.pg] || 0) + 1; if ((+it.ts || 0) > a.last) a.last = +it.ts || 0; if (ly === 'mine') a.mine++;
+        }); });
+        return Object.keys(m).map(function (k) { var a = m[k]; a.pages = Object.keys(a.pages).map(Number).sort(function (x, y) { return x - y; }); return a; }).sort(function (x, y) { return y.last - x.last; });
+      },
+      setShowAuthors: function (b) { S.showBy = !!b; S.dirty = true; invalidate(); }, showAuthors: function () { return !!S.showBy; },
+      setAuthorFilter: function (name) { S.byFilter = name ? String(name) : null; S.dirty = true; S.baseOk = false; invalidate(); }, authorFilter: function () { return S.byFilter || null; },
+      ago: ago,
       count: function (pg) { var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (i) { if (pg == null || i.pg === pg) n++; }); }); return n; },
       drawPage: drawPage,
       state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },

@@ -15,7 +15,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {
@@ -29,7 +29,7 @@
     var api = {
       on: function (n, fn) { (S.handlers[n] = S.handlers[n] || []).push(fn); return api; },
       off: function (n, fn) { S.handlers[n] = (S.handlers[n] || []).filter(function (f) { return f !== fn; }); return api; },
-      get state() { return S.state; }, get me() { return S.me; }, get leader() { return S.leader; }, get clicker() { return S.clicker; }, get metro() { return S.metro; }, get peers() { return S.peers; }, get nav() { return S.nav; }, get timer() { return S.timer; },
+      get state() { return S.state; }, get me() { return S.me; }, get leader() { return S.leader; }, get clicker() { return S.clicker; }, get metro() { return S.metro; }, get lead() { return S.lead; }, get peers() { return S.peers; }, get nav() { return S.nav; }, get timer() { return S.timer; },
       get online() { return S.state === 'online'; }, get error() { return S.lastError; },
       /** 서버 시각 (ms) — 큐 · 박자를 여러 기기에서 맞출 때 */
       serverNow: function () { return Date.now() + S.offset; },
@@ -59,6 +59,7 @@
             if (n === 'clicker') { S.clicker = p && p.name || null; }
             if (n === 'metro') { if (p && S.metro && p.seq < S.metro.seq) return; S.metro = p || null; }
             if (n === 'nav') S.nav = p;
+            if (n === 'lead') { if (p && S.lead && p.seq < S.lead.seq && p.by === S.lead.by) return; S.lead = p || null; }
             if (n === 'timer') { if (!p || (S.timer && p.sid === S.timer.sid && p.seq <= S.timer.seq)) return; S.timer = p; }   // 예배 타이머 — 더 새로운 것만
             emitLocal(n, p);
           });
@@ -95,6 +96,8 @@
       /** 메트로놈 상태 보내기 (클릭 컨트롤만) — { playing, bpm, num, den, marks, count, keep } */
       sendMetro: function (st) { return api.call('metro', st || {}); },
       /** 예배 타이머 조작 보내기 (팀장 · 인도자만) — { action:'start'|'pause'|'segNext'|… } */
+      /** V842 — 리드 상태(BPM · 박자 · 송폼 위치) 보내기 — 받는 쪽은 숫자 · 위치만 맞추고 소리는 내지 않음 */
+      sendLead: function (st) { return api.call('lead', st || {}); },
       sendTimer: function (cmd) { return api.call('timer:cmd', cmd || {}); },
       close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; S.clicker = null; S.metro = null; S.timer = null; if (S.state !== 'unavailable') setState('idle'); },
       pending: function () { return S.outbox.length; }
@@ -119,10 +122,11 @@
           else if (r && r.code === 'busy') setTimeout(function () { if (S.socket === sock && sock.connected) join(); }, 5000);
           return;
         }
-        S.joined = true; S.me = r.you; S.leader = r.leader || null; S.clicker = r.clicker || null; S.metro = r.metro || null; S.peers = r.peers || []; S.nav = r.nav || null; S.timer = r.timer || null;
+        S.joined = true; S.me = r.you; S.leader = r.leader || null; S.clicker = r.clicker || null; S.metro = r.metro || null; S.peers = r.peers || []; S.nav = r.nav || null; S.timer = r.timer || null; S.lead = r.lead || null;
         if (r.serverTime) S.offset = r.serverTime + (Date.now() - t0) / 2 - Date.now();
         setState('online');
         emitLocal('joined', r);
+        if (r.lead) emitLocal('lead', r.lead);
         if (r.timer) emitLocal('timer', r.timer);
         flush();
       });

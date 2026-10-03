@@ -37,8 +37,9 @@
     return (coarse && root.innerWidth < 1400) || root.innerWidth < 900 ? 'tablet' : 'computer';
   }
   /** 송폼 칸(V1, C2 …)에서 메트로놈 큐 이름으로 */
-  var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', C: 'c', C2: 'c', C3: 'c', PC: 'pc', PC2: 'pc', B: 'b', B1: 'b', B2: 'b', Intro: 'intro',
-    Itld: 'itld', Inst: 'itld', Out: 'end', End: 'end', Coda: 'end', Vamp: 'vamp', Turn: 'vamp', Solo: 'solo', Break: 'break', Prayer: 'prayer', KeyUp: 'keyup', Tag: 'tag' };
+  var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', C: 'c', C2: 'c2', C3: 'c3', PC: 'pc', PC2: 'pc2', B: 'b', B1: 'b', B2: 'b2', Intro: 'intro',   // V842 — C2 → Chorus 2 · Inst → Instrumental
+    Itld: 'itld', Inst: 'inst', Out: 'end', End: 'end', Coda: 'end', Vamp: 'vamp', Turn: 'vamp', Solo: 'solo', Break: 'break', Prayer: 'prayer', KeyUp: 'keyup', Tag: 'tag',
+    RepC: 'repc', HalfC: 'halfc', LastL: 'lastl', Once: 'once', OneBar: 'onebar', LastC: 'lastc', VOnly: 'vonly', Drums: 'drums', Build: 'build', Down: 'die', Ferm: 'ferm', Slow: 'slow', Hold: 'hold', BigEnd: 'bigend' };   // V838 — 송폼에 넣은 콜아웃 칸 (formb.js)
   function cueIdFor(k) { return CUE_MAP[k] || null; }
   /** v7.3 — 송폼 창에서 칸을 눌렀을 때의 큐: V1 → v1(Verse 1) · V2 → v2 · 그냥 "V" 는 앞에서 몇 번째 V 인지로 (1절 → 2절 → 3절). 대소문자 무시 */
   function cueForToken(tokens, i) {
@@ -190,12 +191,13 @@
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
         '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + I(doc.documentElement.getAttribute('data-theme') === 'light' ? 'moon' : 'sun') + '</button>' +
-        '<button class="pv-b pv-pdfbtn" data-a="pdf" title="필기가 들어간 악보 전체를 PDF 한 파일로 저장" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-tx"> PDF</span></button><button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
+        '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">' + I('sliders') + '</span><span class="nm">메뉴</span></button>' +
         '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-expanded="false" aria-label="보기 메뉴 (확대 · 여백 · 화면 배치)" title="확대 · 여백 · 두 쪽 · 화면 배치">' + I('more') + '</button>' +
       '</header>' +
       '<div class="pv-morepop" role="group" aria-label="보기 메뉴"></div>' +
       '<div class="pv-rtpop" role="dialog" aria-label="실시간 메뉴" hidden></div>' +
+      '<div class="pv-wifipop" role="dialog" aria-label="와이파이" hidden></div>' +
       '<div class="pv-main">' +
         '<div class="pv-tools" role="toolbar" aria-label="필기 도구"></div>' +
         '<div class="pv-stage"><div class="pv-pagebox"><canvas class="pv-pdf"></canvas><canvas class="pv-anno"></canvas></div>' +
@@ -258,6 +260,7 @@
     function setCompact(on) {
       on = !!on; if (on === !!S.compact && holders.length === (on ? 4 : 0)) return;
       S.compact = on; el.classList.toggle('pv-compact', on);
+      try { if (typeof paintShows === 'function' && typeof SHOWS !== 'undefined' && SHOWS) { paintShows(); if (on) requestAnimationFrame(function () { try { flPlace('metro'); } catch (e) {} }); } } catch (e) { /* 아직 떠 있는 창을 만들기 전 */ }
       if (on) {
         var v = drawerEl.querySelector('[data-slot="view"]'), t = drawerEl.querySelector('[data-slot="tools"]');
         [$('.pv-zoom'), $('.pv-layoutseg'), $('.pv-chips')].forEach(function (n) { if (n) hold(n, v); });
@@ -302,37 +305,7 @@
       if (save) ls('tools', show ? '1' : '0');
       renderSoon(60);            // 넓어진(좁아진) 칸에 맞춰 악보를 다시 그림
     }
-    /* v8.35 — 도구가 접혀 알약(▴ 도구 열기)만 보일 때도 끌어서 옮길 수 있게. 탭(누르기)은 그대로 펴기/접기, 끌면 자리만 옮기고
-       (도구 창이 다시 열릴 때 같은 자리에 오도록 FL.tools 위치도 같이 저장) 탭 · 끌기는 포인터 이벤트 하나로 함께 가립니다. */
-    (function () {
-      var drag = null;
-      toolsBtn.addEventListener('pointerdown', function (e) {
-        if (S.compact) return;
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        var r = toolsBtn.getBoundingClientRect();
-        drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false, x0: e.clientX, y0: e.clientY };
-        try { toolsBtn.setPointerCapture(e.pointerId); } catch (x) {}
-      });
-      toolsBtn.addEventListener('pointermove', function (e) {
-        if (!drag || e.pointerId !== drag.id) return;
-        if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
-        drag.moved = true; toolsBtn.classList.add('pv-dragging'); toolsBtn.style.transform = 'none';   // 태블릿의 가운데 정렬(transform)을 풀어야 끈 자리가 그대로 반영됨
-        var A = flArea();
-        var left = clamp(e.clientX - drag.dx, A.x, A.x + Math.max(0, A.w - toolsBtn.offsetWidth));
-        var top = clamp(e.clientY - drag.dy, A.y, A.y + Math.max(0, A.h - toolsBtn.offsetHeight));
-        toolsBtn.style.left = Math.round(left) + 'px'; toolsBtn.style.top = Math.round(top) + 'px';
-        if (FL.tools) { FL.tools.node.style.left = toolsBtn.style.left; FL.tools.node.style.top = toolsBtn.style.top; }
-      });
-      function end(e) {
-        if (!drag || e.pointerId !== drag.id) return;
-        var moved = drag.moved; drag = null; toolsBtn.classList.remove('pv-dragging');
-        try { toolsBtn.releasePointerCapture(e.pointerId); } catch (x) {}
-        if (!moved) { setTools(el.classList.contains('pv-toolshide'), true); return; }
-        var A = flArea(), w = FL.tools ? FL.tools.node.offsetWidth : toolsBtn.offsetWidth, hh = FL.tools ? FL.tools.node.offsetHeight : toolsBtn.offsetHeight;
-        ls('pos.tools', JSON.stringify({ x: Math.round((parseFloat(toolsBtn.style.left) - A.x) / Math.max(1, A.w - w) * 1000) / 1000, y: Math.round((parseFloat(toolsBtn.style.top) - A.y) / Math.max(1, A.h - hh) * 1000) / 1000 }));
-      }
-      toolsBtn.addEventListener('pointerup', end); toolsBtn.addEventListener('pointercancel', end);
-    })();
+    toolsBtn.onclick = function () { if (S.pillMoved && Date.now() - S.pillMoved < 400) return; setTools(el.classList.contains('pv-toolshide'), true); };
     /* 태블릿 위 캡슐 도크 — 기본은 "도구 아이콘 + 되돌리기 + ⋯"만. ⋯ 를 누르면 색 · 굵기 · 글꼴 · 나만 보기가 펼쳐지고, ▴ 를 누르면 도크 전체가 작은 알약(✏️ 도구 열기)으로 접힙니다 */
     S.dockMore = ls('dockmore') === null ? S.layout === 'computer' : ls('dockmore') === '1'; el.classList.toggle('pv-dockmore', S.dockMore);   // v6 — 컴퓨터는 처음부터 펼침 (색 · 굵기 · 나만 보기), 태블릿은 접힘
     S.fbadge = ls('fbadge') !== '0';                                   // 악보 맨 위 송폼 배지 (기본 켬) — Step 2.15
@@ -342,6 +315,7 @@
     }
     if (opts.readOnly) { el.classList.add('pv-ro'); setTools(false, false); }          // 방송팀 보기 링크 — 보기 전용 (필기 도구 없음)
     if (ls('tools') !== '1') setTools(false, false);                      // 기본은 접힘 (v11) — "도구 열기" 로 펴면 '1' 로 기억
+    if (!(root.__YN_KEEP_TOOLS && ls('tools') === '1')) setTools(false, false);   // V838 — 라이브 악보를 열 때마다 도구는 늘 접힌 채로 시작 (열어 쓰는 동안만 펴짐). __YN_KEEP_TOOLS 는 옛 기본값으로 시험하는 시험 전용
     /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
        ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
        악보를 한 번 톡 누르면 위쪽에 얇은 메뉴(나가기 · 쪽 · 맞춤 · 도구 · 패널)가 나타났다 5초 뒤 사라지고, 필기 중에는 위 가운데 작은 손잡이로 부릅니다. */
@@ -865,11 +839,13 @@
       try { if (root.YNForm && root.YNForm.parse) return root.YNForm.parse(f).filter(function (t) { return t && t.k; }); } catch (e) { /* 아래 간단 나누기로 */ }
       return f.split(/\s*[-–>,\/]\s*|\s+/).filter(Boolean).map(function (k) { return { k: k }; });
     }
+    function fbDisp(k) { try { return root.YNForm && root.YNForm.disp ? root.YNForm.disp(k) : k; } catch (e) { return k; } }
+    function fbCall(k) { try { return !!(root.YNForm && root.YNForm.isCall && root.YNForm.isCall(k)); } catch (e) { return false; } }
     function formBadgeHtml(idx) {
       var s = idx >= 0 ? songs[idx] : null, t = formTokens(s); if (!t.length) return '';
-      return '<span class="pv-fb-in" role="img" aria-label="송폼 ' + h(t.map(function (x) { return x.k + (x.rep > 1 ? ' ×' + x.rep : ''); }).join(', ')) + '">' +
+      return '<span class="pv-fb-in" role="img" aria-label="송폼 ' + h(t.map(function (x) { return fbDisp(x.k) + (x.rep > 1 ? ' ×' + x.rep : ''); }).join(', ')) + '">' +
         '<svg class="pv-fb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
-        t.map(function (x, i) { return (i ? '<b class="pv-fb-sep" aria-hidden="true">–</b>' : '') + '<span class="pv-fb-t' + (x.custom ? ' cu' : '') + '" data-s="' + idx + '" data-i="' + i + '" data-k="' + h(x.k) + '">' + h(x.k) + (x.rep > 1 ? '<sub>×' + x.rep + '</sub>' : '') + '</span>'; }).join('') + '</span>';
+        t.map(function (x, i) { return (i ? '<b class="pv-fb-sep" aria-hidden="true">–</b>' : '') + '<span class="pv-fb-t' + (x.custom ? ' cu' : '') + (fbCall(x.k) ? ' call' : '') + '" data-s="' + idx + '" data-i="' + i + '" data-k="' + h(x.k) + '">' + h(fbDisp(x.k)) + (x.rep > 1 ? '<sub>×' + x.rep + '</sub>' : '') + '</span>'; }).join('') + '</span>';
     }
     function badgeIdx(pg) { return S.fbadge !== false && S.doc && pg >= 1 && pg <= (S.pages || 1) ? resolveSong(sheets[S.sheetIdx], pg) : -1; }
     function updateFormBadge() {
@@ -949,7 +925,7 @@
       on: function (n, fn) { (handlers[n] = handlers[n] || []).push(fn); return P; },
       emit: function (n, a, b) { (handlers[n] || []).slice().forEach(function (fn) { try { fn(a, b); } catch (e) { if (root.console) root.console.error('[practice:' + n + ']', e); } }); },
       song: function () { return songs[S.songIdx] || null; }, pageSong: function (pg) { return resolveSong(sheets[S.sheetIdx], pg == null ? S.page : pg); }, songIdx: function () { return S.songIdx; }, setSong: function (i) { setSong(i); },
-      file: function () { return sheets[S.sheetIdx]; }, page: function () { return S.page; },
+      file: function () { return sheets[S.sheetIdx]; }, page: function () { return S.page; }, goPage: function (n) { goPage(n, true); }, setTool: function (t) { setTool(t); },
       pdf: function () { return S.doc && S.doc.pdf || null; }, canvas: function () { return pdfCv; },
       pageBox: function () { return box; }, pages: function () { return S.pages; },
       pageSize: function (pg) { return S.doc ? pageInfo(S.doc, pg).then(function (i) { return { w: i.w, h: i.h }; }) : Promise.reject(new Error('악보가 열려 있지 않습니다.')); },
@@ -982,7 +958,7 @@
       manual: function () { return S.manual; }, setManual: function (b) { setManual(b); },
       claimClick: function (force) { return claimClick(force); }, releaseClick: function () { return releaseClick(); },
       follow: function () { return S.follow; }, setFollow: function (b) { setFollow(b); }, followMetro: function () { return S.followM; }, setFollowMetro: function (b) { setFollowM(b); }, followNow: function () { followNow(); },
-      flashCue: function (id) { return flashCue(id); },
+      flashCue: function (id) { return flashCue(id); }, flashForm: flashForm,
       claim: function (force) { return claim(force); }, release: function () { return release(); },
       exportPng: function () { return exportPng(); }, exportPdf: function (print) { return exportPdf(print); },
       callServer: opts.callServer, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
@@ -1239,7 +1215,7 @@
     }
     function rtOpen(open) {
       open = !!open; rtPop.hidden = !open; $('.pv-conn').setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (!open) return; rtPaint();
+      if (!open) return; var wp = $('.pv-wifipop'); if (wp) wp.hidden = true; rtPaint();
       var cr = $('.pv-conn').getBoundingClientRect(), er = el.getBoundingClientRect(), w = Math.min(320, er.width - 16);
       rtPop.style.width = w + 'px'; rtPop.style.top = Math.round(cr.bottom - er.top + 6) + 'px'; rtPop.style.left = Math.round(Math.max(8, Math.min(er.width - w - 8, cr.left - er.left))) + 'px';
     }
@@ -1255,6 +1231,34 @@
     });
     function rtOutside(e) { if (rtPop.hidden) return; var tg = e.target; if (tg && tg.closest && (tg.closest('.pv-rtpop') || tg.closest('.pv-conn'))) return; rtOpen(false); }
     doc.addEventListener('pointerdown', rtOutside, true);      // (닫을 때 떼기는 아래 doc.removeEventListener 와 함께)
+
+    /* ---- "실시간" 칩을 길게 누르면 — 교회 와이파이 QR (숨은 기능, 방송팀이 현장에서 씀) ---- */
+    (function () {
+      var WIFI_SSID = 'youngnaktech', WIFI_PASS = 'cjdsusqn';
+      var connBtn = $('.pv-conn'), wifiPop = $('.pv-wifipop'), wifiDrawn = false, pressT = 0, longed = false;
+      function wifiPaint() {
+        if (wifiDrawn) return; wifiDrawn = true;
+        var esc = function (s) { return String(s).replace(/([\\;,:"])/g, '\\$1'); };
+        var payload = 'WIFI:T:WPA;S:' + esc(WIFI_SSID) + ';P:' + esc(WIFI_PASS) + ';;';
+        var svg = '';
+        try { var qr = qrcode(0, 'M'); qr.addData(payload); qr.make(); svg = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true }); } catch (e) {}
+        wifiPop.innerHTML = '<div class="pv-rt-sec"><b>교회 와이파이</b><small>카메라로 QR을 찍으면 자동으로 접속됩니다.</small></div>' +
+          '<div class="pv-wifiqr">' + svg + '</div>';
+      }
+      function wifiOpen(open) {
+        open = !!open; wifiPop.hidden = !open;
+        if (!open) return;
+        rtPop.hidden = true; wifiPaint();
+        var cr = connBtn.getBoundingClientRect(), er = el.getBoundingClientRect(), w = Math.min(280, er.width - 16);
+        wifiPop.style.width = w + 'px'; wifiPop.style.top = Math.round(cr.bottom - er.top + 6) + 'px'; wifiPop.style.left = Math.round(Math.max(8, Math.min(er.width - w - 8, cr.left - er.left))) + 'px';
+      }
+      function wifiOutside(e) { if (wifiPop.hidden) return; var tg = e.target; if (tg && tg.closest && (tg.closest('.pv-wifipop') || tg.closest('.pv-conn'))) return; wifiOpen(false); }
+      doc.addEventListener('pointerdown', wifiOutside, true);
+      connBtn.addEventListener('pointerdown', function () { longed = false; clearTimeout(pressT); pressT = setTimeout(function () { longed = true; wifiOpen(wifiPop.hidden); }, 550); });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (k) { connBtn.addEventListener(k, function () { clearTimeout(pressT); }); });
+      connBtn.addEventListener('click', function (e) { if (longed) { longed = false; e.stopPropagation(); e.preventDefault(); } });
+    })();
+
     function renderChips() {
       var conn = $('.pv-conn'), lead = $('.pv-lead'), fol = $('.pv-follow'), clk = $('.pv-click'), folm = $('.pv-followm');
       var st = rt ? rt.state : 'unavailable';
@@ -1318,6 +1322,7 @@
         else if (m && !m.name && m.reason === 'left') toast('클릭 컨트롤이 나갔습니다.');
       });
       rt.on('cue', function (c) { P.emit('cue', c); });
+      rt.on('lead', function (st) { P.emit('lead', st); });                          // V842 — 리드의 BPM · 송폼 위치 (화면만)
       rt.on('cfg', onRemoteCfg);
       rt.on('song', function (m) { if (m && m.cid !== S.cid) applySongPatch(m.kind, m.seq, m.patch, m.by, true); });
       rt.on('songs:changed', function () { refetchSongs(); });
@@ -1497,7 +1502,7 @@
     el.addEventListener('change', function (e) { if (e.target && e.target.type === 'range') paintRanges(); }, true);
     function buildTabs() {
       try { P.tabs = root.YNPanels ? root.YNPanels.build(P) : []; } catch (e) { P.tabs = []; toast('패널을 불러오지 못했습니다: ' + e.message, true); }
-      tabsEl.innerHTML = P.tabs.map(function (t) { return '<button class="pv-tabbtn" role="tab" data-tab="' + t.id + '"><span>' + (I(t.icon) || t.icon) + '</span>' + h(t.label) + '</button>'; }).join('');
+      tabsEl.innerHTML = P.tabs.map(function (t) { return '<button class="pv-tabbtn" role="tab" data-tab="' + t.id + '" title="' + h(t.label) + '" aria-label="' + h(t.label) + '"><span>' + (I(t.icon) || t.icon) + '</span><em>' + h(t.short || t.label) + '</em></button>'; }).join('');   // V842 — 짧은 이름 · 넓으면 한 줄, 좁으면 두 줄 격자
       panesEl.innerHTML = P.tabs.map(function (t) { return '<div class="pv-pane" data-pane="' + t.id + '" style="display:none"></div>'; }).join('');
     }
     tabsEl.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.pv-tabbtn') : null; if (b) showTab(b.dataset.tab); });
@@ -1716,17 +1721,20 @@
       var tag = t.tagName; if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
       return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
     }
-    var CUE_KEYS = { i: 'intro', c: 'c', p: 'pc', b: 'b', t: 'tag', r: 'repc' };
+    var CUE_KEYS = { i: 'intro', c: 'c', p: 'pc', b: 'b', t: 'tag', r: 'repc', k: 'keyup', u: 'build', d: 'die' };   // V843 — K 키 업 · U 빌드 업 · D 다이 다운
     var VERSE_IDS = ['v1', 'v2', 'v3'], verseN = 0, verseSong = -2;
-    /* v8.35 — Enter 를 누르면 이 곡의 송폼(예: Int V1 C V2 C B C) 순서를 따라 한 칸씩 콜아웃 — 끝까지 가면 처음으로 돌아갑니다.
-       곡을 바꾸면 처음(1번째 칸)부터 다시 셉니다. 송폼이 없는 곡이면 아무 일도 하지 않습니다(기본 줄바꿈 동작 그대로). */
+    /* V836 — Enter 를 누르면 이 곡의 송폼(예: Int V1 C V2 C B C) 순서를 따라 한 칸씩 콜아웃합니다. 끝까지 가면 처음으로, 곡을 바꾸면 첫 칸부터 다시.
+       송폼이 없는 곡이면 아무 일도 하지 않습니다 (기본 동작 그대로). 마지막 칸에서 한 번 더 누르면 처음으로 돌아가요. */
     var formPos = -1, formPosSong = -2;
-    function nextFormCue() {
+    function nextFormCue(back) {
       var toks = formTokens(songs[S.songIdx]); if (!toks.length) return null;
-      if (S.songIdx !== formPosSong) { formPosSong = S.songIdx; formPos = -1; }
-      formPos = (formPos + 1) % toks.length;
-      var tok = toks[formPos] || {}, id = cueForToken(toks, formPos);
-      return id ? { id: id } : (tok.custom && tok.k ? { id: tok.k } : null);
+      if (S.songIdx !== formPosSong) { formPosSong = S.songIdx; formPos = back ? 0 : -1; }
+      for (var n = 0; n < toks.length; n++) {                                          // 부를 큐가 없는 칸(예: 직접 쓴 빈 칸)은 건너뜀
+        formPos = back ? (formPos - 1 + toks.length) % toks.length : (formPos + 1) % toks.length;
+        var tok = toks[formPos] || {}, id = cueForToken(toks, formPos) || (tok.custom && tok.k ? tok.k : '');
+        if (id) return { id: id, i: formPos };
+      }
+      return null;
     }
     function cueFromKey(e) {
       var k = e.key; if (!k || e.ctrlKey || e.metaKey || e.altKey) return null;
@@ -1738,8 +1746,32 @@
       return CUE_KEYS[lk] || null;
     }
     /** 콜아웃한 자리(악보의 V · C · B … 송폼 라벨)를 1~2초 깜빡여 알려줍니다 */
-    var CUE_TAGS = { intro: ['Int', 'Intro'], v1: ['V1', 'V'], v2: ['V2', 'V'], v3: ['V3', 'V'], c: ['C', 'C1', 'C2'], pc: ['P', 'PC'], b: ['B'], itld: ['Itld', 'Inst'], vamp: ['Turn', 'Vamp'], end: ['End', 'Out', 'Coda'],
+    var CUE_TAGS = { intro: ['Int', 'Intro'], v1: ['V1', 'V'], v2: ['V2', 'V'], v3: ['V3', 'V'], c: ['C', 'C1'], c2: ['C2'], c3: ['C3'], pc: ['P', 'PC'], pc2: ['PC2', 'P'], b: ['B'], b2: ['B2', 'B'], itld: ['Itld'], inst: ['Inst'], vamp: ['Turn', 'Vamp'], end: ['End', 'Out', 'Coda'],
       solo: ['Solo'], tag: ['Tag'], repc: ['C', 'C1', 'C2'], halfc: ['C', 'C1'], lastl: [], prayer: ['Prayer', 'Pray'] };
+    /** 송폼 칸(i번째)을 지금 위치로 표시 — 송폼 창 · 악보 위 배지에서 밝게 (Enter 로 순서대로 부를 때 어디까지 왔는지 보이게) */
+    function flashForm(i) {
+      var si = S.songIdx, nodes = el.querySelectorAll('.pv-fb-t[data-s="' + si + '"]');
+      Array.prototype.forEach.call(nodes, function (n) { var on = +n.getAttribute('data-i') === i; n.classList.toggle('cur', on); if (on) { n.classList.add('say'); setTimeout(function () { n.classList.remove('say'); }, 1100); } });
+      S.formCur = { s: si, i: i };
+      try { if (P.sendLead) P.sendLead({ song: si, fi: i }); } catch (e) { /* 리드가 아니면 보내지 않음 */ }   // V842 — 리드가 누른 송폼 위치를 팀 화면에
+    }
+    /* V842 — 리드가 지금 어느 송폼 칸인지 (다른 사람 화면의 송폼 창 · 배지에 "리드" 표시) */
+    function paintLeadPos() {
+      var lp = S.leadPos, nodes = el.querySelectorAll('.pv-fb-t[data-i]');
+      Array.prototype.forEach.call(nodes, function (n) { var on = !!(lp && +n.getAttribute('data-s') === lp.s && +n.getAttribute('data-i') === lp.i); n.classList.toggle('lead', on); if (on) n.setAttribute('data-lead', lp.by || ''); else n.removeAttribute('data-lead'); });
+    }
+    P.on('lead', function (st) {
+      if (!st) return; var me = rt && rt.me ? rt.me.name : '';
+      if (st.by === me) return;
+      if (st.fi >= 0 && st.song >= 0) {
+        var changed = !S.leadPos || S.leadPos.s !== st.song || S.leadPos.i !== st.fi;
+        S.leadPos = { s: st.song, i: st.fi, by: st.by };
+        paintLeadPos();
+        if (changed) Array.prototype.forEach.call(el.querySelectorAll('.pv-fb-t.lead'), function (n) { n.classList.remove('say'); void n.offsetWidth; n.classList.add('say'); setTimeout(function () { n.classList.remove('say'); }, 1100); });
+      }
+      S.leadBy = st.by || ''; paintForm();
+    });
+    P.on('bpmview', function () { paintForm(); });
     function flashCue(id) { var t = CUE_TAGS[id]; if (!t || !t.length || !an || !an.flashTags) return 0; return an.flashTags(t, 1800); }
     var spaceEaten = false;
     function onKey(e) {
@@ -1753,12 +1785,13 @@
         if (tm) { e.preventDefault(); setTool(tm); }
         return;
       }
+      if (k === 'Enter' && !e.repeat) {      // Enter = 송폼 순서대로 한 칸씩 콜아웃 (Shift+Enter = 한 칸 뒤로)
+        var nf = nextFormCue(e.shiftKey);
+        if (nf && nf.id && P.cueKey) { e.preventDefault(); var cr2 = P.cueKey(nf.id); try { P.flashForm && P.flashForm(nf.i); } catch (x) {} if (cr2) { toast('송폼 ' + (nf.i + 1) + '번째 — ' + ((root.YNMetro && root.YNMetro.CUE_BY[nf.id] ? (P.lang() === 'ko' ? root.YNMetro.CUE_BY[nf.id].ko : root.YNMetro.CUE_BY[nf.id].en) : nf.id)), false, 900); } return; }
+      }
+      if ((k === 'n' || k === 'N') && !e.shiftKey && !e.repeat && P.metroKey) { var rn = P.metroKey('count'); if (rn) { e.preventDefault(); return; } }   // V842 — N = 숫자로 세기 (누르는 순간이 1박)
       var cue = cueFromKey(e);                                                         // 콜아웃 단축키 (i v c p b r t · Shift+P 기도 · Shift+R 한 번 더 · 1 2 3 = 1·2·3절)
       if (cue) { if (P.cueKey) { var cr = e.repeat ? { ok: true } : P.cueKey(cue); if (cr) { e.preventDefault(); return; } } return; }
-      if (k === 'Enter' && !e.shiftKey && !e.repeat) {                                  // Enter = 이 곡의 송폼 순서대로 한 칸씩 콜아웃
-        var nf = nextFormCue();
-        if (nf && P.cueKey) { e.preventDefault(); P.cueKey(nf.id); return; }
-      }
       if ((k === 'Delete' || k === 'Backspace') && an.selected && an.selected()) { e.preventDefault(); an.deleteSelected(); renderTools(); return; }
       var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc' };
       var m = map[k]; if (!m) return;
@@ -1854,10 +1887,39 @@
       toolsBtn.style.left = Math.round(clamp(x, A.x, A.x + Math.max(0, A.w - (toolsBtn.offsetWidth || 110)))) + 'px';
       toolsBtn.style.top = Math.round(clamp(y, A.y, A.y + Math.max(0, A.h - (toolsBtn.offsetHeight || 44)))) + 'px';
     }
+    /* 접힌 도구 알약도 끌어서 옮길 수 있습니다 — 짧게 톡 치면 도구가 펴지고, 4px 이상 끌면 이동 (자리는 이 기기에 기억) */
+    (function () {
+      var d = null;
+      toolsBtn.style.touchAction = 'none';
+      toolsBtn.addEventListener('pointerdown', function (e) {
+        if (S.compact || (e.pointerType === 'mouse' && e.button !== 0) || !e.isPrimary) return;
+        var r = toolsBtn.getBoundingClientRect(), m = mainEl.getBoundingClientRect();
+        d = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, mx: m.left, my: m.top, x0: e.clientX, y0: e.clientY, moved: false };
+        try { toolsBtn.setPointerCapture(e.pointerId); } catch (x) {}
+      });
+      toolsBtn.addEventListener('pointermove', function (e) {
+        if (!d || e.pointerId !== d.id) return;
+        if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return;
+        d.moved = true; toolsBtn.classList.add('pv-dragging'); e.preventDefault();
+        var A = flArea();
+        toolsBtn.style.left = Math.round(clamp(e.clientX - d.mx - d.dx, A.x, A.x + Math.max(0, A.w - toolsBtn.offsetWidth))) + 'px';
+        toolsBtn.style.top = Math.round(clamp(e.clientY - d.my - d.dy, A.y, A.y + Math.max(0, A.h - toolsBtn.offsetHeight))) + 'px';
+        if (FL.tools) { FL.tools.node.style.left = toolsBtn.style.left; FL.tools.node.style.top = toolsBtn.style.top; }     // 도구가 다시 펴질 때 같은 자리에서
+      });
+      function end(e) {
+        if (!d || e.pointerId !== d.id) return;
+        var x = d; d = null; toolsBtn.classList.remove('pv-dragging'); try { toolsBtn.releasePointerCapture(e.pointerId); } catch (y) {}
+        if (!x.moved) return;
+        S.pillMoved = Date.now();                                                         // 뒤따라오는 click 은 "펴기"로 처리하지 않음
+        var A = flArea(), w = FL.tools && FL.tools.node.offsetWidth ? FL.tools.node.offsetWidth : toolsBtn.offsetWidth, hh = FL.tools && FL.tools.node.offsetHeight ? FL.tools.node.offsetHeight : toolsBtn.offsetHeight;
+        ls('pos.tools', JSON.stringify({ x: Math.round((parseFloat(toolsBtn.style.left) - A.x) / Math.max(1, A.w - w) * 1000) / 1000, y: Math.round((parseFloat(toolsBtn.style.top) - A.y) / Math.max(1, A.h - hh) * 1000) / 1000 }));
+      }
+      toolsBtn.addEventListener('pointerup', end); toolsBtn.addEventListener('pointercancel', end);
+    })();
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
     var SHOWS = [['timer', 'timer', '예배 타이머'], ['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];
     var SHOW_DEF = { timer: false, form: true, metro: false };            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
-    function showOn(k) { var v = ls('show.' + k); return v === null ? SHOW_DEF[k] !== false : v !== '0'; }
+    function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; if (S.compact) return k === 'metro'; return SHOW_DEF[k] !== false; }     // V836 — 폰(좁은 화면)은 처음에 메트로놈 창만 떠 있음
     function paintShows() {
       SHOWS.forEach(function (s) {
         var on = showOn(s[0]); el.classList.toggle('pv-hide-' + s[0], !on);
@@ -1879,6 +1941,7 @@
     formEl.addEventListener('click', function (e) {
       var sp = e.target && e.target.closest ? e.target.closest('.pv-fb-t[data-i]') : null; if (!sp || S.dead) return;
       var si = +sp.getAttribute('data-s'), ti = +sp.getAttribute('data-i'), toks = formTokens(songs[si]), cue = cueForToken(toks, ti);
+      if (si === S.songIdx) { formPosSong = si; formPos = ti; flashForm(ti); }                              // 칸을 직접 눌렀으면 Enter 는 그 다음 칸부터
       if (!cue && toks[ti] && toks[ti].custom && toks[ti].k) cue = toks[ti].k;                              // 직접 입력한 칸은 글자 그대로 음성 안내 (송폼 패널과 같게)
       sp.classList.add('say'); setTimeout(function () { sp.classList.remove('say'); }, 1100);
       if (!cue) { try { an && an.flashTags && an.flashTags([toks[ti] && toks[ti].k], 1800); } catch (x) {} toast('"' + sp.getAttribute('data-k') + '" 은(는) 음성 콜아웃이 없어 악보에서만 깜빡입니다.', false, 1400); return; }
@@ -1888,12 +1951,15 @@
     function paintForm() {
       if (S.dead) return;
       var i = S.songIdx, s = i >= 0 ? songs[i] : null;
-      var meta = s ? [s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ') : '';
+      var cb = P.curBpm ? P.curBpm() : null;                                               // V842 — 지금 BPM (리드가 바꾸면 모두 같은 숫자)
+      var meta = s ? [s.key ? 'Key ' + s.key : '', cb ? cb + ' BPM' : (s.bpm ? s.bpm + ' BPM' : ''), S.leadBy ? '리드 ' + S.leadBy : ''].filter(Boolean).join(' · ') : '';
       var i2 = spreadOn() ? badgeIdx(S.page + 1) : -1;
       var h2 = i2 >= 0 && i2 !== i ? '<div class="pv-form-2"><b>' + h((songs[i2] || {}).title || '') + '</b>' + formBadgeHtml(i2) + '</div>' : '';
       var html = s ? '<div class="pv-form-h"><b>' + h(s.title || '') + '</b>' + (meta ? '<small>' + h(meta) + '</small>' : '') + '</div>' + (formBadgeHtml(i) || '<span class="pv-form-none">송폼 없음</span>') + h2 : '<span class="pv-form-none">곡을 고르면 송폼이 여기에 보입니다</span>';
       if (formEl.getAttribute('data-h') !== html) {
         formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div><span class="pv-rsz" aria-hidden="true" title="끌어서 크기 조절 (두 번 누르면 처음 크기)"></span>'; formEl.setAttribute('data-h', html);
+        if (S.formCur && S.formCur.s === i) { var cn = formEl.querySelector('.pv-fb-t[data-i="' + S.formCur.i + '"]'); if (cn) cn.classList.add('cur'); }
+        paintLeadPos();
         if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 메트로놈 동그라미
         requestAnimationFrame(function () { flPlace('form'); });
       }
@@ -1954,6 +2020,42 @@
       toolsEl.addEventListener('dblclick', function (e) { if (e.target.closest && e.target.closest('.pv-rszw')) { ls('size.tools', ''); applyToolsSize(); flResize(); } });
     })();
     var metroEl = doc.createElement('div'); metroEl.className = 'pv-metro'; metroEl.setAttribute('role', 'group'); metroEl.setAttribute('aria-label', '메트로놈');
+    /* V838 — 메트로놈 창을 콜아웃까지 펼쳤을 때 크기 조절: 오른쪽 아래 손잡이를 끌면 너비(과 버튼 크기) · 콜아웃 칸 높이가 바뀝니다.
+       이 기기에 기억하고, 두 번 누르면 처음 크기로. 접힌 상태(▶ · BPM · − +)의 크기는 그대로입니다. */
+    function metroSize() { try { var v = JSON.parse(ls('size.metro') || 'null'); return v && +v.w > 0 ? v : null; } catch (e) { return null; } }
+    function applyMetroSize() {
+      var v = metroSize(); metroEl.classList.toggle('pv-msized', !!v);
+      if (v) { metroEl.style.setProperty('--mw', Math.round(v.w) + 'px'); metroEl.style.setProperty('--mh', Math.round(v.h || 320) + 'px'); metroEl.style.setProperty('--ms', String(v.s || 1)); }
+      else { metroEl.style.removeProperty('--mw'); metroEl.style.removeProperty('--mh'); metroEl.style.removeProperty('--ms'); }
+    }
+    (function () {
+      var h = doc.createElement('span'); h.className = 'pv-rsz pv-mrsz'; h.setAttribute('aria-hidden', 'true'); h.title = '끌어서 크기 조절 (두 번 누르면 처음 크기)'; metroEl.appendChild(h);
+      var rs = null;
+      var lastDown = 0;
+      metroEl.addEventListener('pointerdown', function (e) {
+        if (!e.target.closest || !e.target.closest('.pv-mrsz')) return;
+        e.preventDefault(); e.stopPropagation();
+        var now = Date.now(); if (now - lastDown < 380) { lastDown = 0; ls('size.metro', ''); applyMetroSize(); flResize(); return; }      // 두 번 톡 = 처음 크기로
+        lastDown = now;
+        var cues = metroEl.querySelector('.pv-lv-cues'), v = metroSize() || {};
+        rs = { id: e.pointerId, x0: e.clientX, y0: e.clientY, w0: metroEl.getBoundingClientRect().width, h0: cues ? cues.getBoundingClientRect().height : 300, w: 0 };
+        try { metroEl.setPointerCapture(e.pointerId); } catch (x) {}
+        metroEl.classList.add('pv-resizing');
+      });
+      metroEl.addEventListener('pointermove', function (e) {
+        if (!rs || e.pointerId !== rs.id) return;
+        var A = flArea(), w = clamp(rs.w0 + (e.clientX - rs.x0), 250, Math.max(260, A.w - 8)), hh = clamp(rs.h0 + (e.clientY - rs.y0), 90, Math.max(120, Math.round(A.h * 0.85))), sc = Math.round(clamp(w / 460, 0.85, 1.5) * 100) / 100;
+        rs.w = w; rs.h = hh; rs.s = sc;
+        metroEl.classList.add('pv-msized'); metroEl.style.setProperty('--mw', Math.round(w) + 'px'); metroEl.style.setProperty('--mh', Math.round(hh) + 'px'); metroEl.style.setProperty('--ms', String(sc));
+      });
+      function end(e) {
+        if (!rs || e.pointerId !== rs.id) return;
+        var x = rs; rs = null; metroEl.classList.remove('pv-resizing'); try { metroEl.releasePointerCapture(e.pointerId); } catch (y) {}
+        if (x.w) { ls('size.metro', JSON.stringify({ w: Math.round(x.w), h: Math.round(x.h), s: x.s })); flResize(); }
+      }
+      metroEl.addEventListener('pointerup', end); metroEl.addEventListener('pointercancel', end);
+      applyMetroSize();
+    })();
     function setupFloats() {
       makeFloat('tools', toolsEl, function () { return { x: 0.5, y: 0.012 }; }, { keep: true });
       makeFloat('metro', metroEl, function () { return { x: 0.02, y: 0.985 }; });
@@ -1969,7 +2071,7 @@
       P.floatPlace = function (k) { requestAnimationFrame(function () { flPlace(k); }); };
       try { if (P.metroCircle) mcApi = P.metroCircle(); } catch (e) { mcApi = null; }
       applyFormSize(); paintShows(); paintForm();
-      P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm);
+      P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm); P.on('songedit', paintForm); P.on('songs', paintForm);   // V838 — 송폼을 고치면 떠 있는 송폼 창도 바로 바뀜
       root.addEventListener('resize', flResize);
       if (root.ResizeObserver) { flRo = new root.ResizeObserver(flResize); flRo.observe(mainEl); }
     }

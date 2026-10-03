@@ -15,7 +15,7 @@
   function hhmm(t) { var d = new Date(t); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
 
   function build(P) {
-    var M = null, mUi = null, lastBeat = -1, onBpmUser = null, flushMetroCfg = null;   // v8.36 — 메트로놈 탭이 저장을 미루고 있을 때, 다른 탭(송폼)의 "저장" 단추로도 바로 흘려보냄
+    var M = null, mUi = null, lastBeat = -1, onBpmUser = null, flushMetroCfg = null;   // V836 — 메트로놈 탭이 미뤄 둔 저장을 다른 탭(송폼)의 "저장"으로도 바로 흘려보냄
     var tabs = [];
 
     /* ------------------------------------------------------------ 메트로놈 (여러 탭이 함께 씁니다) */
@@ -41,7 +41,7 @@
         onBeat: function (e) { flash(e); quick.beat(e); minis.forEach(function (x) { x.beat(e); }); if (mUi) mUi.beat(e); },
         onEvent: function (kind, d) {
           if (kind === 'error' && remoteWait) { remoteBlocked = true; P.toast('팀 메트로놈 소리가 막혀 있습니다. 화면을 한 번 누르면 바로 시작합니다.', true); }
-          if (kind === 'state') { quick.sync(); minis.forEach(function (x) { x.sync(); }); }
+          if (kind === 'state') { quick.sync(); minis.forEach(function (x) { x.sync(); }); try { leadFromState(); } catch (x) { /* 화면만 */ } }
           if (mUi) mUi.event(kind, d); else if (kind === 'error') P.toast(d && d.message || '소리를 낼 수 없습니다.', true);
         }
       });
@@ -97,7 +97,7 @@
         Array.prototype.forEach.call(el.querySelectorAll('button,input'), function (x) { x.disabled = lock; });
         el.classList.toggle('locked', lock);
         var rt = P.rt();
-        note.innerHTML = mode === 'send' ? I('metronome') + '내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? I('metronome') + h(YNHon.say(rt && rt.clicker || '')) + ' 클릭 컨트롤 — 자동으로 따라감' : '';
+        note.innerHTML = mode === 'send' ? I('metronome') + '내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? I('metronome') + h((root.YNHon ? root.YNHon.say(rt && rt.clicker || '') : (rt && rt.clicker || '') + ' 님이')) + ' 클릭 컨트롤 — 자동으로 따라감' : '';
       }
       function beat(e) {
         var ds = dots.children; for (var i = 0; i < ds.length; i++) ds[i].classList.remove('on');
@@ -175,36 +175,62 @@
         if (st && st.cfg) return st.cfg.speak !== false;
         try { return root.localStorage.getItem('yn.metro.speak') !== 'false'; } catch (e) { return true; }
       }
-      /* v8.35 — 자주 쓰는 반복 · 다이내믹 콜아웃을 메트로놈 떠 있는 창에서 패널을 열지 않고도 바로 누르도록 "펼치기" 추가 */
-      var QUICK_CUE_IDS = ['repc', 'halfc', 'tag', 'onebar', 'vonly', 'break'];
-      var expB = null, cuesEl = null;
+      /* V836 — 메트로놈 떠 있는 창의 "펼치기": 반복 · 다이내믹 · 진행 · 들어가기 콜아웃 전부 + 볼륨을 패널을 열지 않고 바로 (폰에서도 이것만 떠 있습니다) */
+      var expB = null, cuesEl = null, EXP_GROUPS = [['rep', '반복'], ['dyn', '다이내믹'], ['sec', '진행'], ['in', '들어가기']];
+      var expState = false;                                                    // V838 — 열 때마다 접힌 채로 시작 (펼친 상태는 이 화면에서만 기억)
+      function expOn() { return expState; }
+      function cuesHtml() {
+        var C = root.YNMetro && root.YNMetro.CUES; if (!C) return '';
+        return EXP_GROUPS.map(function (g) {
+          var list = C.filter(function (c) { return c.g === g[0]; }); if (!list.length) return '';
+          return '<div class="pv-lv-grp"><span>' + g[1] + '</span><div>' + list.map(function (c) { return '<button type="button" class="pv-cue" data-cue="' + c.id + '"></button>'; }).join('') + '</div></div>';
+        }).join('') +
+          '<div class="pv-lv-vols"><label>딸깍 볼륨 <input type="range" min="0" max="1" step="0.02" data-vol="click" aria-label="딸깍 볼륨"></label><label>음성 볼륨 <input type="range" min="0" max="2" step="0.05" data-vol="voice" aria-label="음성 볼륨"></label></div>';
+      }
+      function cueLabels() {
+        if (!cuesEl || !root.YNMetro) return;
+        var lang = P.lang();
+        Array.prototype.forEach.call(cuesEl.querySelectorAll('[data-cue]'), function (b) {
+          var c = root.YNMetro.CUE_BY[b.dataset.cue]; if (!c) return;
+          var t = lang === 'ko' ? c.ko : c.en; if (b.textContent !== t) { b.textContent = t; b.title = c.en + ' / ' + c.ko; }
+        });
+      }
+      function setExp(on) {
+        if (!el) return;
+        on = !!on; el.classList.toggle('expanded', on);
+        if (expB) { expB.setAttribute('aria-pressed', on ? 'true' : 'false'); expB.setAttribute('aria-expanded', on ? 'true' : 'false'); expB.setAttribute('aria-label', on ? '콜아웃 접기' : '콜아웃 펼치기'); expB.textContent = on ? '▴' : '▾'; }
+        var mw = el.closest ? el.closest('.pv-metro') : null; if (mw) mw.classList.toggle('pv-mexp', on);
+        expState = on;
+      }
       function build() {
         el = doc.createElement('div'); el.className = 'pv-live'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', '라이브 컨트롤 — 메트로놈 · 음성 콜아웃');
         el.innerHTML = '<button type="button" class="pv-lv-go" aria-pressed="false" title="메트로놈 시작 / 멈춤 (Space)" aria-label="메트로놈 시작">' + IC.play + '</button>' +
           '<button type="button" class="pv-lv-step pv-lv-dn" title="BPM −1 (누르고 있으면 계속)" aria-label="BPM 내리기">−</button>' +
           '<button type="button" class="pv-lv-bpm" title="메트로놈 패널 열기" aria-label="BPM — 메트로놈 패널 열기"><b>—</b><small>BPM</small><i class="pv-lv-dot b0"></i></button>' +
           '<button type="button" class="pv-lv-step pv-lv-up" title="BPM +1 (누르고 있으면 계속)" aria-label="BPM 올리기">+</button>' +
+          '<button type="button" class="pv-lv-cnt" title="숫자로 세기 (N) — 누르면 바로 다음 박부터 One · Two · Three · Four (목소리만)" aria-label="숫자로 세기">1234</button>' +
           '<button type="button" class="pv-lv-tts" aria-pressed="true" title="음성 콜아웃 (TTS) 켜기 / 끄기" aria-label="음성 콜아웃 켜짐">' + IC.vol + '<small>콜아웃</small></button>' +
-          '<button type="button" class="pv-lv-exp" aria-pressed="false" aria-expanded="false" title="자주 쓰는 콜아웃 펼치기/접기 (반복 · 다이내믹)" aria-label="콜아웃 펼치기">▾</button>' +
-          '<div class="pv-lv-cues" role="group" aria-label="콜아웃 — 반복 · 다이내믹">' + QUICK_CUE_IDS.map(function (id) { return '<button type="button" class="pv-cue" data-cue="' + id + '"></button>'; }).join('') + '</div>';
-        goB = el.querySelector('.pv-lv-go'); bpmB = el.querySelector('.pv-lv-bpm'); ttsB = el.querySelector('.pv-lv-tts'); dot = el.querySelector('.pv-lv-dot');
+          '<button type="button" class="pv-lv-exp" aria-pressed="false" aria-expanded="false" title="콜아웃 펼치기 / 접기 (반복 · 다이내믹 · 진행 · 볼륨)" aria-label="콜아웃 펼치기">▾</button>' +
+          '<div class="pv-lv-cues" role="group" aria-label="콜아웃 — 반복 · 다이내믹 · 진행 · 들어가기">' + cuesHtml() + '</div>';
         expB = el.querySelector('.pv-lv-exp'); cuesEl = el.querySelector('.pv-lv-cues');
+        goB = el.querySelector('.pv-lv-go'); bpmB = el.querySelector('.pv-lv-bpm'); ttsB = el.querySelector('.pv-lv-tts'); dot = el.querySelector('.pv-lv-dot');
         bpmStep(el.querySelector('.pv-lv-dn'), -1, sync); bpmStep(el.querySelector('.pv-lv-up'), 1, sync);
+        el.addEventListener('input', function (e) {
+          var t = e.target; if (!t || !t.dataset || !t.dataset.vol) return; var m = metro(); if (!m) return;
+          if (t.dataset.vol === 'click') m.setClickVolume(+t.value); else m.setVoiceVolume(+t.value);
+        });
         el.addEventListener('click', function (e) {
           var cb = e.target.closest ? e.target.closest('[data-cue]') : null;
-          if (cb) { e.stopPropagation(); var r = doCue(cb.dataset.cue); if (r && r.ok) { cb.classList.add('flash'); setTimeout(function () { cb.classList.remove('flash'); }, 350); } return; }
+          if (cb) { e.stopPropagation(); var cr = doCue(cb.dataset.cue); if (cr && cr.ok) { cb.classList.add('flash'); setTimeout(function () { cb.classList.remove('flash'); }, 350); } return; }
           var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
-          e.stopPropagation();                                            // 도구 막대의 다른 단추 처리기로 넘어가지 않게
           if (b.classList.contains('pv-lv-step')) return;                 // BPM −/+ 는 bpmStep 이 처리
+          e.stopPropagation();                                            // 도구 막대의 다른 단추 처리기로 넘어가지 않게
           if (b === goB) {
-            var r2 = P.metroKey('toggle');
-            if (r2 === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
+            var r = P.metroKey('toggle');
+            if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
           } else if (b === bpmB) P.showTab('metro');
-          else if (b === expB) {
-            var on2 = el.classList.toggle('expanded');
-            expB.setAttribute('aria-pressed', on2 ? 'true' : 'false'); expB.setAttribute('aria-expanded', on2 ? 'true' : 'false'); expB.setAttribute('aria-label', on2 ? '콜아웃 접기' : '콜아웃 펼치기'); expB.textContent = on2 ? '▴' : '▾';
-            var mw = el.closest('.pv-metro'); if (mw) mw.classList.toggle('pv-mexp', on2);
-          }
+          else if (b.classList.contains('pv-lv-cnt')) P.metroKey('count');
+          else if (b === expB) setExp(!el.classList.contains('expanded'));
           else if (b === ttsB) {
             var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
             if (!speechOk()) { P.toast('이 기기는 음성 안내를 지원하지 않습니다.', true); return; }
@@ -212,14 +238,6 @@
             P.toast(on ? '음성 콜아웃 켜짐' : '음성 콜아웃 꺼짐 — 큐 이름을 말하지 않습니다', false, 1200);
           }
           sync();
-        });
-      }
-      function cueLabels() {
-        if (!cuesEl || !root.YNMetro) return;
-        var lang = P.lang();
-        Array.prototype.forEach.call(cuesEl.querySelectorAll('[data-cue]'), function (b) {
-          var c = root.YNMetro.CUE_BY[b.dataset.cue]; if (!c) return;
-          b.textContent = lang === 'ko' ? c.ko : c.en; b.title = c.en + ' / ' + c.ko;
         });
       }
       function sync() {
@@ -230,9 +248,13 @@
         var bb = bpmB.querySelector('b'); if (bb.textContent !== String(b || '—')) bb.textContent = b || '—';
         var on = ok && sp; ttsB.classList.toggle('off', !on); ttsB.disabled = !ok; ttsB.setAttribute('aria-pressed', on ? 'true' : 'false'); ttsB.setAttribute('aria-label', !ok ? '음성 콜아웃 — 이 기기에서는 쓸 수 없음' : on ? '음성 콜아웃 켜짐' : '음성 콜아웃 꺼짐');
         var ck = on ? 'v' : 'm'; if (ttsB.getAttribute('data-ic') !== ck) { ttsB.innerHTML = (on ? IC.vol : IC.mute) + '<small>콜아웃</small>'; ttsB.setAttribute('data-ic', ck); }
-        el.classList.toggle('locked', ctl() === 'locked');
         Array.prototype.forEach.call(el.querySelectorAll('.pv-lv-step'), function (x) { x.disabled = ctl() === 'locked'; });
+        el.classList.toggle('locked', ctl() === 'locked');
         cueLabels();
+        if (st && st.cfg && cuesEl) {
+          var vc = cuesEl.querySelector('[data-vol="click"]'), vv = cuesEl.querySelector('[data-vol="voice"]');
+          if (vc && doc.activeElement !== vc) vc.value = st.cfg.click; if (vv && doc.activeElement !== vv) vv.value = st.cfg.voice;
+        }
       }
       function beat(e) {
         if (!dot) return;
@@ -245,9 +267,10 @@
         var fl = P.el.querySelector('.pv-metro');                         // v6 — 떠 있는 메트로놈 창이 있으면 그 안에 (도구 도크와 따로 옮김)
         if (fl) { if (el.parentNode !== fl) fl.appendChild(el); }
         else if (host.firstChild !== el) host.insertBefore(el, host.firstChild);
+        if (expB && expOn() !== el.classList.contains('expanded')) setExp(expOn()); else if (expB) { var mw = el.closest ? el.closest('.pv-metro') : null; if (mw) mw.classList.toggle('pv-mexp', el.classList.contains('expanded')); }
         sync();
       }
-      function destroy() { if (el && el.parentNode) el.parentNode.removeChild(el); el = goB = bpmB = ttsB = dot = null; }
+      function destroy() { if (el && el.parentNode) el.parentNode.removeChild(el); el = goB = bpmB = ttsB = dot = expB = cuesEl = null; }
       return { attach: attach, sync: sync, beat: beat, destroy: destroy, el: function () { return el; } };
     }());
 
@@ -310,7 +333,7 @@
       if (rt.clicker) return 'locked';
       return 'local';
     }
-    function lockedMsg() { var rt = P.rt(); return YNHon.say(rt && rt.clicker ? rt.clicker : '다른 사람') + ' 클릭 컨트롤입니다. 직접 쓰려면 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요.'; }
+    function lockedMsg() { var rt = P.rt(); return (root.YNHon ? root.YNHon.say(rt && rt.clicker ? rt.clicker : '다른 사람') : (rt && rt.clicker ? rt.clicker : '다른 사람') + ' 님이') + ' 클릭 컨트롤입니다. 직접 쓰려면 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요.'; }
     /** 지금 내 메트로놈 상태를 서버로 (내가 클릭 컨트롤일 때) */
     function sendState(o) {
       var rt = P.rt(), m = metro(); if (!rt || !m || ctl() !== 'send') return;
@@ -320,6 +343,48 @@
     }
     function sendSoon(o) { clearTimeout(sendT); sendT = setTimeout(function () { sendState(o); }, 220); }
     /** 클릭 컨트롤에게서 받은 상태를 내 메트로놈에 적용 — 서버 시각(startAt)을 내 오디오 시계로 바꿔 같은 박에 시작 */
+    var V842_SILENT = true;
+    /* ---------- V842 리드 상태 — 리드가 바꾼 BPM · 박자는 모두의 화면에 (소리는 각자, 절대 원격으로 울리지 않음) ---------- */
+    var leadLast = {}, leadApplying = false, leadT = 0, leadPend = {};
+    function leadOK() {
+      var rt = P.rt(); if (!rt || !rt.online || !rt.me) return false;
+      return !!(rt.isLeader || rt.isClicker || (!rt.leader && !rt.clicker && rt.me.canLead));
+    }
+    P.isLeadNow = leadOK;
+    P.sendLead = function (patch) {
+      if (!leadOK()) return false;
+      for (var k in patch) leadPend[k] = patch[k];
+      clearTimeout(leadT);
+      leadT = setTimeout(function () { var p2 = leadPend, rt = P.rt(); leadPend = {}; if (rt && rt.sendLead) rt.sendLead(p2).catch(function () { /* 다음 변경 때 다시 */ }); }, 120);
+      return true;
+    };
+    P.curBpm = function () { if (M) return Math.round(M.state().bpm); var s = P.song(); return s && +s.bpm >= 30 ? Math.round(+s.bpm) : null; };
+    function leadFromState() {
+      if (leadApplying || !M) return;
+      var st = M.state(), b = Math.round(st.bpm);
+      if (b === leadLast.bpm && st.num === leadLast.num && st.den === leadLast.den) return;
+      leadLast = { bpm: b, num: st.num, den: st.den };
+      P.sendLead({ bpm: b, num: st.num, den: st.den, song: P.songIdx ? P.songIdx() : -1 });
+      P.emit('bpmview', b);
+    }
+    P.on('lead', function (st) {
+      var rt = P.rt(); if (!st || (rt && rt.me && st.by === rt.me.name)) return;
+      P.leadNow = st;
+      if (st.bpm >= 30) {
+        var m = metro();
+        if (m) {
+          leadApplying = true;
+          try {
+            var cur = m.state();
+            if (Math.round(cur.bpm) !== st.bpm) m.setBpm(st.bpm);
+            if (st.num && st.den && (cur.num !== st.num || cur.den !== st.den)) m.setSig(st.num, st.den);
+          } finally { leadApplying = false; }
+          leadLast = { bpm: Math.round(m.state().bpm), num: m.state().num, den: m.state().den };
+          if (mUi) mUi.sync(); minis.forEach(function (x) { x.sync(); }); quick.sync();
+        }
+        P.emit('bpmview', st.bpm);
+      }
+    });
     function remoteMetro(st) {
       var rt = P.rt(); if (!st || !rt || !P.followMetro()) return;
       if (st.seq != null && st.seq < remoteSeq) return;
@@ -329,6 +394,8 @@
       if (Math.round(cur.bpm * 10) !== Math.round(st.bpm * 10)) m.setBpm(st.bpm);
       if (cur.num !== st.num || cur.den !== st.den) m.setSig(st.num, st.den);
       m.setMarks(st.marks);
+      /* V842 — 다른 사람 기기에서는 절대 소리를 내지 않습니다: 팀 메트로놈 상태가 와도 BPM · 박자 · 강세 숫자만 맞추고 시작/멈춤은 각자 */
+      if (V842_SILENT) { lastAnchor = 0; remoteWait = false; if (mUi) mUi.sync(); return; }
       if (!st.playing || !st.startAt) { lastAnchor = 0; remoteWait = false; if (m.state().running) m.stop(); if (mUi) mUi.sync(); return; }
       if (m.state().running && lastAnchor === st.startAt) { if (mUi) mUi.sync(); return; }     // 강세만 바뀜 — 박은 그대로
       lastAnchor = st.startAt; remoteWait = true; remoteBlocked = false;
@@ -406,9 +473,11 @@
     }
     P.cueKey = function (id) { return metro() ? (doCue(id) || { ok: false }) : null; };
     P.on('cue', function (c) {
-      if (!P.recvCue() || P.manual() || !c || !c.label) return;
-      var m = metro(); if (!m) return;
-      var r = m.cue(String(c.label)); if (r && r.ok) try { P.flashCue && P.flashCue(String(c.label)); } catch (e) {} if (r && r.ok) P.toast('컨트롤 큐: ' + (r.text || c.label) + (r.muted ? ' (음성 꺼짐)' : ''), false, 1500);
+      /* V842 — 리드의 콜아웃은 받는 기기에서 절대 소리 내지 않습니다. 화면에만: 알림 · 악보의 송폼 라벨 깜빡임 · 송폼 창 위치 */
+      if (!P.recvCue() || !c || !c.label) return;
+      var cb = root.YNMetro && root.YNMetro.CUE_BY[c.label], name = cb ? (P.lang() === 'ko' ? cb.ko : cb.en) : String(c.label);
+      try { P.flashCue && P.flashCue(String(c.label)); } catch (e) { /* 깜빡임은 덤 */ }
+      P.toast('🔇 ' + (c.by ? c.by + ' — ' : '') + name, false, 1500);
     });
     P.on('metro', function (st) { remoteMetro(st); });
     /* 동기화를 다시 켜면 지금 팀 메트로놈 상태로 바로 맞춥니다 */
@@ -427,6 +496,11 @@
     /* 단축키용 — 메트로놈 탭을 한 번도 안 열었어도 ↑↓ (BPM) · Space (시작/멈춤) 이 동작합니다. 쓸 수 없으면 null */
     P.metroKey = function (act2, d) {
       var m = metro(); if (!m) return null;
+      if (act2 === 'count') {                                            // V842 — 숫자로 세기 (N): 누르는 순간이 1박, 멈춰 있으면 시작하면서 셈
+        if (ctl() === 'locked') { P.toast(lockedMsg(), true); return { ok: false, locked: true }; }
+        var rc = m.countNow(); if (rc && rc.ok === false) { P.toast(rc.error || '소리를 낼 수 없습니다.', true); return rc; }
+        P.toast('One · Two · Three · Four', false, 900); return { ok: true };
+      }
       if (act2 === 'bpm') {
         var v = Math.max(30, Math.min(300, Math.round(m.state().bpm) + (d || 0)));
         var r = act('bpm', v); if (r.locked) return { ok: false, locked: true };
@@ -458,7 +532,7 @@
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
         '<div class="pv-sec"><h4>화면 설정</h4><div class="pv-radio" data-g="layout"><button data-v="tablet">' + I('tablet') + '태블릿</button><button data-v="computer">' + I('laptop') + '컴퓨터</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="lefty"> 왼손잡이 (도구 막대를 왼쪽에)</label>' +
-          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 1 2 3) · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더.</p></div>';
+          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 1 2 3) · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더 · K 키 업 · U 빌드 업 · D 다이 다운 · N 숫자로 세기 · Enter 송폼 순서대로.</p></div>';
       var an = function () { return P.anno(); };
       function paint() {
         [['scope', P.getScope()], ['layout', P.layout()]].forEach(function (x) {
@@ -497,6 +571,45 @@
       return { onShow: paint };
     } });
 
+    /* ------------------------------------------------------------ V842 기록 — 누가 쓴 필기인지 */
+    tabs.push({ id: 'log', icon: 'user', label: '필기 기록', short: '기록', build: function (host) {
+      host.innerHTML =
+        '<div class="pv-sec"><h4>누가 썼나요 <small>여러 명이 동시에 써도 실시간으로 모두에게 보입니다</small></h4>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="showby"> 악보 위에 쓴 사람 이름표 보이기</label>' +
+          '<p class="pv-help">"선택" 도구로 필기를 누르면 쓴 사람과 시각이 주황 이름표로 보입니다. 남의 필기는 볼 수만 있고, 팀장 · 인도자만 고치거나 지울 수 있습니다.</p>' +
+          '<div class="pv-logwho" data-role="who"></div></div>' +
+        '<div class="pv-sec"><h4>최근 필기</h4><div class="pv-logrec" data-role="rec"></div></div>';
+      var whoEl = host.querySelector('[data-role="who"]'), recEl = host.querySelector('[data-role="rec"]'), chk = host.querySelector('[data-o="showby"]');
+      var KIND = { pen: '펜', hl: '형광펜', text: '글자', sym: '기호', fbox: '송폼 라벨' };
+      function an() { var a = P.anno && P.anno(); return a && a.authors ? a : null; }
+      function paint() {
+        var a = an(); if (!a) { whoEl.innerHTML = '<p class="pv-help">필기 도구를 불러오지 못했습니다.</p>'; return; }
+        chk.checked = a.showAuthors(); var f = a.authorFilter(), list = a.authors();
+        whoEl.innerHTML = list.length ? list.map(function (x) {
+          var on = f === x.name;
+          return '<div class="pv-logrow' + (on ? ' on' : '') + '"><b>' + h(x.name || '알 수 없음') + '</b><small>' + x.n + '개 · ' + (x.pages.length > 4 ? x.pages.slice(0, 4).join(', ') + '…' : x.pages.join(', ')) + '쪽 · ' + h(a.ago(x.last)) + (x.mine ? ' · 나만 보기 ' + x.mine : '') + '</small>' +
+            '<span><button type="button" class="pv-btn2" data-only="' + h(x.name) + '">' + (on ? '모두 보기' : '이 사람만') + '</button><button type="button" class="pv-btn2" data-pg="' + (x.pages[0] || 1) + '">쪽으로</button></span></div>';
+        }).join('') + (f ? '<p class="pv-help pv-logf">지금 <b>' + h(f) + '</b> 님 필기만 보이는 중입니다.</p>' : '') : '<p class="pv-help">아직 이 악보에 필기가 없습니다.</p>';
+        var items = []; ['team', 'mine'].forEach(function (ly) { (a.items(ly) || []).forEach(function (it) { items.push({ ly: ly, it: it }); }); });
+        items.sort(function (x, y) { return (+y.it.ts || 0) - (+x.it.ts || 0); });
+        recEl.innerHTML = items.length ? items.slice(0, 25).map(function (x) {
+          var it = x.it, what = KIND[it.t] || it.t; if (it.t === 'text' && it.s) what += ' "' + String(it.s).slice(0, 14) + '"'; if (it.t === 'fbox' && it.k) what += ' ' + it.k;
+          return '<button type="button" class="pv-logit" data-ly="' + x.ly + '" data-id="' + h(it.id) + '" data-pg="' + it.pg + '"><i style="background:' + h(it.c || '#ff8a2a') + '"></i><b>' + h(it.by || '알 수 없음') + '</b><span>' + h(what) + ' · ' + it.pg + '쪽</span><small>' + h(a.ago(it.ts)) + '</small></button>';
+        }).join('') : '<p class="pv-help">없음</p>';
+      }
+      host.addEventListener('click', function (e) {
+        var a = an(); if (!a) return; var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+        if (b.hasAttribute('data-only')) { var n = b.getAttribute('data-only'); a.setAuthorFilter(a.authorFilter() === n ? null : n); paint(); return; }
+        if (b.classList.contains('pv-logit')) { var pg = +b.getAttribute('data-pg'); if (pg && pg !== P.page()) P.goPage(pg); setTimeout(function () { try { P.setTool && P.setTool('select'); a.select(b.getAttribute('data-ly'), b.getAttribute('data-id')); } catch (x) {} }, 250); return; }
+        if (b.hasAttribute('data-pg')) { P.goPage(+b.getAttribute('data-pg')); }
+      });
+      chk.addEventListener('change', function () { var a = an(); if (a) a.setShowAuthors(chk.checked); });
+      var tmr = 0; P.on('annochange', function () { if (host.offsetParent) { clearTimeout(tmr); tmr = setTimeout(paint, 300); } });
+      P.on('sheet', paint); P.on('close', function () { clearTimeout(tmr); });
+      paint();
+      return { onShow: paint };
+    } });
+
     /* ------------------------------------------------------------ 송폼 */
     tabs.push({ id: 'form', icon: 'form', label: '송폼', build: function (host) {
       if (!need('송폼', root.YNForm, host)) return;
@@ -522,28 +635,29 @@
       function fillInfo(force) {
         var s = P.song(); if (!s) { eBpm.value = eForm.value = eLink.value = ''; return; }
         var a = doc.activeElement;
-        if (force || a !== eBpm) eBpm.value = s.bpm || '';
+        if (force || a !== eBpm) { eBpm.value = s.bpm || ''; if (force) bpmDirty = false; }
         if (force || a !== eForm) { eForm.value = s.form || ''; if (fb) fb.set(eForm.value); }
         if (force || a !== eLink) eLink.value = s.link || '';
         infoWhere();
       }
+      var bpmDirty = false; eBpm.addEventListener('input', function () { bpmDirty = true; });                   // 직접 입력한 BPM 은 메트로놈 값으로 덮어쓰지 않음
       eForm.addEventListener('change', function () { if (fb) fb.set(eForm.value); });
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a="saveinfo"]') : null; if (!b) return;
-        if (flushMetroCfg) flushMetroCfg();                                   // v8.36 — 여기서 "저장"을 누르면 메트로놈 탭(박자 · 강세 · 시작 전 마디)에서 미뤄둔 저장도 같이 흘려보냄
+        var metroSaved = false; if (flushMetroCfg) metroSaved = !!flushMetroCfg();                  // 메트로놈(박자 · 강세 · 시작 전 마디 · BPM)에서 미뤄 둔 저장도 같이 바로 보냄
         var i = P.songIdx(), s = P.song(); if (!s) { eMsg.textContent = '먼저 곡을 골라주세요.'; eMsg.className = 'pv-msg2 bad'; return; }
-        /* v8.35 — 연습하다가 메트로놈 BPM 을 (미니 · 동그라미 · 메트로놈 탭에서) 바꿔 둔 뒤 여기서 "저장"만 눌러도 그대로 반영되도록 —
-           BPM 칸에 직접 입력 중이 아니면(포커스가 없으면) 지금 돌고 있는 메트로놈 값을 그 입력칸에 먼저 채웁니다. */
-        var m = metro(), live = m && m.state ? Math.round(m.state().bpm) : 0;
-        if (doc.activeElement !== eBpm && live >= 30 && live <= 300) eBpm.value = live;
+        /* 연습하다가 메트로놈 BPM 을 (미니 · 동그라미 · 메트로놈 탭 · 떠 있는 창에서) 바꿔 둔 뒤 여기서 "저장"만 눌러도 그대로 반영 —
+           BPM 칸을 직접 고치는 중이 아니면 지금 메트로놈 값을 칸에 먼저 채웁니다 */
+        var mm = M, lb = mm && mm.state ? Math.round(mm.state().bpm) : 0;
+        if (doc.activeElement !== eBpm && lb >= 30 && lb <= 300 && !bpmDirty) eBpm.value = lb;
         var patch = {}, bpm = String(eBpm.value || '').replace(/[^0-9]/g, '');
         if (bpm !== String(s.bpm || '')) { if (bpm && (+bpm < 30 || +bpm > 300)) { eMsg.textContent = 'BPM 은 30 ~ 300 사이로 넣어주세요.'; eMsg.className = 'pv-msg2 bad'; return; } patch.bpm = bpm; }
         if (String(eForm.value || '').trim() !== String(s.form || '')) patch.form = String(eForm.value || '').trim();
         var lk = String(eLink.value || '').trim();
         if (lk !== String(s.link || '')) { if (lk && !/^https?:\/\//i.test(lk)) { eMsg.textContent = '링크는 http 로 시작하는 주소여야 합니다.'; eMsg.className = 'pv-msg2 bad'; return; } patch.link = lk; }
-        if (!Object.keys(patch).length) { eMsg.textContent = '바뀐 내용이 없습니다.'; eMsg.className = 'pv-msg2'; return; }
+        if (!Object.keys(patch).length) { eMsg.textContent = metroSaved ? '메트로놈 설정(박자 · 강세)을 저장했습니다.' : '바뀐 내용이 없습니다.'; eMsg.className = 'pv-msg2'; return; }
         b.disabled = true; eMsg.textContent = '저장 중…'; eMsg.className = 'pv-msg2';
-        P.saveSongInfo(i, patch, function (ok) { b.disabled = false; eMsg.textContent = ok ? '저장했습니다.' : '저장하지 못했습니다.'; eMsg.className = 'pv-msg2' + (ok ? '' : ' bad'); if (ok) fillInfo(true); });
+        P.saveSongInfo(i, patch, function (ok) { b.disabled = false; eMsg.textContent = ok ? '저장했습니다.' : '저장하지 못했습니다.'; eMsg.className = 'pv-msg2' + (ok ? '' : ' bad'); if (ok) { bpmDirty = false; fillInfo(true); } });
       });
       /* 메트로놈 + 콜아웃 큐를 송폼과 함께 (메트로놈 탭으로 옮겨 다니지 않아도 됨) */
       var miniM = miniMetro(host);
@@ -589,10 +703,12 @@
       var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['rep', '반복 · 콜아웃'], ['dyn', '다이내믹'], ['in', '들어가기']];
       host.innerHTML =
         '<div class="pv-mstick"><button class="pv-big" data-a="toggle" data-role="toggle">▶ 시작</button></div>' +
-        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
+        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmwrap"><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
+          '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div></div>' +
           '<div class="pv-row"><label class="pv-chk">박자 <select data-o="sig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
-          '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div>' +
+          '<div class="pv-row"><button class="pv-btn2" data-a="reanchor">1박 다시 맞추기</button><button class="pv-btn2" data-a="count4">숫자로 세기</button></div>' +
+          '<p class="pv-help">"1박 다시 맞추기" — 밴드가 실제로 들어간 순간에 누르면, 딸깍 간격은 그대로 두고 그 박을 "1박"으로 다시 정합니다 (강세 · 음성 큐 기준이 그 박으로 옮겨갑니다).<br>"숫자로 세기" — 다음 마디를 딸깍 대신 One · Two · Three · Four 로 세어 줍니다(한 번만, 실제 박자 그대로).</p>' +
           '<p class="pv-help pv-dotshelp">원(박)을 누르면 ">" 강세가 켜지고 꺼집니다 — 강세 박은 더 높고 크게 울립니다.</p>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> ' + I('bulb') + '전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
           '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
@@ -604,15 +720,17 @@
         '<div class="pv-sec"><h4>소리 · 큐 설정</h4>' +
           '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
           '<label class="pv-rng">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
-          '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="voice"></label>' +
-          '<p class="pv-help">볼륨 막대는 기본 크기의 0 ~ 8배입니다 (소리가 찢어지지 않게 자동으로 눌러 줍니다). 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
+          '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="2" step="0.05" data-o="voice"><output data-role="voiceout"></output></label>' +
+          '<p class="pv-help">딸깍 볼륨은 가운데가 기본 크기이고 오른쪽 끝이 약 6배입니다 — 높일수록 소리가 단단하고 길어져 실제로 더 크게 들립니다 (찢어지지 않게 자동으로 눌러 줍니다). 음성 볼륨은 최대 2배입니다. 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
           '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기 <small>(끄면 큐 이름을 소리로 말하지 않습니다 — 화면 위 도크에서도 켜고 끌 수 있어요)</small></label>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="countdown"> 콜아웃 뒤 "Three, Two, One" 세어주기 <small>(예: Verse, Three, Two, One — 누른 뒤 바로 다음 박이 새 1박 — 콜아웃이 그 박에 나오고, 그 마디 끝 3박에서 숫자를 셉니다. 끄면 콜아웃은 박과 상관없이 누르는 즉시 나옵니다. 박자가 빠르면 빨리 말합니다)</small></label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="cdskip"> 반복 · 다이내믹 콜아웃에는 Three, Two, One 하지 않기 <small>(Repeat · Voice only · Break … 는 바로 이어지므로)</small></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
-          '<label class="pv-chk">음성 <select data-o="gender"><option value="mix">미국 영어 · 남녀 여러 명 (기본)</option><option value="male">남성 목소리</option><option value="female">여성 목소리</option><option value="any">기기 기본</option><option value="live">실시간 음성 합성 (저장된 소리 대신)</option></select></label>' +
+          '<label class="pv-chk">음성 <select data-o="gender"></select></label>' +
+          '<div class="pv-row"><button type="button" class="pv-btn2" data-a="voicetest">▶ 들어보기 (Bridge)</button></div>' +
           '<div class="pv-help" data-role="voiceinfo"></div>' +
-          '<p class="pv-help" data-role="livehelp" hidden>다른 낱말이 미리 녹음된 소리로 이상하게 들릴 때 — 저장된 소리 대신 이 기기의 음성 합성을 바로 씁니다. (Bridge · Interlude · Vamp · Break · Prayer 는 끝소리가 잘리는 문제로 이미 항상 실시간 음성을 씁니다.) 기기마다 발음 · 목소리가 다르게 들릴 수 있어요.</p>' +
           '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
@@ -640,8 +758,21 @@
         var ds = dotsEl.children;
         for (var i = 0; i < ds.length; i++) { var on = !!(marks && marks[i]); ds[i].classList.toggle('acc', on); ds[i].setAttribute('aria-pressed', on ? 'true' : 'false'); }
       }
+      /** 음성 목록 — 녹음 목소리(남 · 여) 와 기기 음성. 녹음 목록은 manifest 를 불러온 뒤에 채워집니다 */
+      var vsKey = '';
+      function fillVoices() {
+        var cv = m.clipVoices ? m.clipVoices() : [], key = cv.map(function (v) { return v.id; }).join(',') + '|' + P.lang(); if (key === vsKey) return; vsKey = key;
+        var sel = q('[data-o="gender"]'), cur = sel.value || (m.state().cfg.voiceSel || 'mix'), def = m.clipDefault ? m.clipDefault() : 'am_eric';
+        var rec = '<option value="mix">기본 — 남성 ' + h((cv.filter(function (v) { return v.id === def; })[0] || { label: 'Eric' }).label) + '</option>' +
+          cv.filter(function (v) { return v.id !== def; }).map(function (v) { return '<option value="v:' + h(v.id) + '">' + (v.g === 'f' ? '여성' : '남성') + ' · ' + h(v.label) + '</option>'; }).join('') +
+          '<option value="rot:m">남성 번갈아</option><option value="rot:mf">남녀 번갈아</option>';
+        sel.innerHTML = '<optgroup label="미국 영어 녹음 (지연 없이 박에 정확히)">' + rec + '</optgroup>' +
+          '<optgroup label="이 기기의 음성 (실시간 합성)"><option value="live">기기 음성 · 남성 (미국 영어)</option><option value="female">기기 음성 · 여성</option><option value="any">기기 기본 음성</option></optgroup>';
+        sel.value = cur === 'male' ? 'mix' : cur; if (sel.value !== cur && cur !== 'male') sel.value = 'mix';
+      }
       function sync() {
         var st = m.state(), c = st.cfg;
+        fillVoices();
         if (doc.activeElement !== bpmIn) bpmIn.value = Math.round(st.bpm);
         toggleB.textContent = st.running ? '■ 멈춤' : '▶ 시작'; toggleB.classList.toggle('on', st.running);
         var sigv = st.num + '/' + st.den, ss = q('[data-o="sig"]'); if (ss.value !== sigv) ss.value = sigv;
@@ -654,14 +785,15 @@
         ['[data-a="b-"]', '[data-a="b+"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
         Array.prototype.forEach.call(dotsEl.children, function (d) { d.disabled = lock; });
         if (mode === 'send') note.innerHTML = I('metronome') + '<b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 메트로놈에 전달됩니다.';
-        else if (lock) note.innerHTML = I('metronome') + '<b>' + h(YNHon.say(rt.clicker)) + '</b> 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
+        else if (lock) note.innerHTML = I('metronome') + '<b>' + h((root.YNHon ? root.YNHon.say(rt.clicker) : rt.clicker + ' 님이')) + '</b> 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
-        q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'mix';
+        q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.voiceSel === 'male' ? 'mix' : (c.voiceSel || 'mix'); q('[data-role="voiceout"]').textContent = '×' + (Math.round(c.voice * 10) / 10);
+        q('[data-o="countdown"]').checked = c.countdown === true; q('[data-o="cdskip"]').checked = c.cdSkip !== false;
+        var rAn = q('[data-a="reanchor"]'), rCnt = q('[data-a="count4"]'); if (rAn) rAn.disabled = !st.running; if (rCnt) rCnt.disabled = false;
         var vi = m.voiceInfo ? m.voiceInfo(c.lang) : null;
-        var mixLike = c.gender === 'mix' || c.gender === 'live';
-        q('[data-role="voiceinfo"]').textContent = !st.speech ? '' : mixLike && m.voiceNames ? (m.voiceNames(c.lang).length ? '번갈아 쓰는 음성 ' + m.voiceNames(c.lang).length + '개: ' + m.voiceNames(c.lang).join(', ') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…') : vi ? '사용 음성: ' + vi.name + (c.gender === 'male' ? (vi.male ? ' (남성)' : ' — 이 기기에서 남성 음성을 못 찾아 낮은 음높이로 대신합니다') : '') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…';
-        q('[data-role="livehelp"]').hidden = c.gender !== 'live';
+        var recSel = /^(v:|rot:)/.test(c.voiceSel || '') || c.voiceSel === 'mix' || c.voiceSel === 'male';
+        q('[data-role="voiceinfo"]').textContent = (recSel && c.lang === 'en') ? (m.clipsReady() ? '녹음된 음성이라 박에 정확히 맞고 무음 모드에서도 들립니다.' : '녹음 음성을 불러오는 중입니다… (그동안은 이 기기의 음성으로 말합니다)') : !st.speech ? '' : c.gender === 'mix' && m.voiceNames ? (m.voiceNames(c.lang).length ? '번갈아 쓰는 음성 ' + m.voiceNames(c.lang).length + '개: ' + m.voiceNames(c.lang).join(', ') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…') : vi ? '사용 음성: ' + vi.name + (c.gender === 'male' ? (vi.male ? ' (남성)' : ' — 이 기기에서 남성 음성을 못 찾아 낮은 음높이로 대신합니다') : '') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…';
         q('[data-role="lat"]').textContent = st.speech ? '음성 지연 보정: 약 ' + Math.round(c.lat) + 'ms (말하는 데 걸리는 시간을 기기가 스스로 재서 박자에 맞춥니다)' : '';
         q('[data-o="send"]').checked = P.sendCueOn(); q('[data-o="recv"]').checked = P.recvCue();
         var pend = st.pending && st.pending.length ? '대기 중: ' + st.pending.map(function (p) { return p.label; }).join(', ') : '';
@@ -690,6 +822,9 @@
         if (a === 'toggle') { var r2 = act('toggle'); if (r2 && r2.ok === false && !r2.locked) say(r2.error, true); else say(''); }
         else if (a === 'b-') act('bpm', Math.max(30, Math.round(m.state().bpm) - 1)); else if (a === 'b+') act('bpm', Math.min(300, Math.round(m.state().bpm) + 1));
         else if (a === 'tap') { var t = act('tap'); if (t && t.bpm) say('탭 템포 ≈ ' + Math.round(t.bpm) + ' BPM'); else if (t && !t.locked) say('계속 눌러 박자를 알려주세요.'); }
+        /* v8.39 — 둘 다 이 기기만의 설정(강세 표시 · 세는 소리)이라 클릭 컨트롤 잠금과 무관하게 바로 씁니다 */
+        else if (a === 'reanchor') { var rr = m.markNow(); say(rr != null ? '지금 박을 1박으로 다시 맞췄습니다.' : '먼저 메트로놈을 시작하세요.', rr == null); }
+        else if (a === 'count4') { var rc = m.countNow(); say(rc.ok ? '바로 다음 박부터 숫자로 세어 줍니다.' : (rc.error || ''), !rc.ok); }
         sync();
       });
       bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); act('bpm', v); rememberBpm(); });
@@ -700,22 +835,20 @@
       onBpmUser = rememberBpm;
       host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
       /* 곡별 메트로놈 설정(박자 · 강세 · 시작 전 마디 · BPM)을 팀과 함께 저장 · 실시간 공유 — 저장은 P.cfgSet (나만 보기 · 권한은 거기서 처리) */
-      /* v8.36 — 700ms 뒤로 미뤄둔 저장은 "그 때" 곡(saveKey)을 기억해뒀다가 그 키로 저장합니다 (저장이 아직 안 나갔는데 곡을 바로 넘기면
-         엉뚱한 곡에 저장되거나 사라지던 경합 상태를 고침). flushMetroSave() 로 미뤄둔 저장을 바로 흘려보낼 수 있고,
-         곡 전환 · 패널 닫기 · 송폼 탭의 "저장" 단추에서 이걸 부릅니다. */
+      /* 700ms 뒤로 미뤄 둔 저장은 "그 때" 곡(saveKey)을 기억했다가 그 키로 저장합니다 — 곡을 바로 넘기거나 패널을 닫아도 엉뚱한 곡에 저장되거나 사라지지 않게.
+         flushMetroSave() 는 미뤄 둔 저장을 지금 바로 보냅니다 (곡 전환 · 닫기 · 송폼 탭의 "저장" 단추에서 부름). 보냈으면 true */
       var applyingCfg = false, saveT = 0, pendingCfg = false, saveKey = '';
       function flushMetroSave() {
-        if (!saveT) return;
+        if (!saveT) return false;
         clearTimeout(saveT); saveT = 0;
-        var key = saveKey; saveKey = '';
-        if (!key) return;
+        var key = saveKey; saveKey = ''; if (!key) return false;
         var st = m.state();
         P.cfgSet('metro', key, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: Math.round(st.bpm) });
+        return true;
       }
       function saveMetroSoon() {
         if (applyingCfg || !curSongKey) return;
-        saveKey = curSongKey;
-        clearTimeout(saveT);
+        saveKey = curSongKey; clearTimeout(saveT);
         saveT = setTimeout(flushMetroSave, 700);
       }
       flushMetroCfg = flushMetroSave;
@@ -735,7 +868,7 @@
         return true;
       }
       function applySongBpm(x, fromSync) {
-        flushMetroSave();                                                     // 곡이 바뀌기 전에, 이전 곡에 걸려있던 저장을 먼저 흘려보냄
+        flushMetroSave();                                                     // 곡이 바뀌기 전에, 이전 곡에 걸려 있던 저장을 먼저 보냄
         if (!x) { curSongKey = ''; return; }
         curSongKey = String(x.title || '');
         if (pendingCfg && !m.state().running) pendingCfg = false;
@@ -752,8 +885,7 @@
       /* 팀이 바꾼 설정 · 곡 정보가 오면 (메트로놈이 멈춰 있을 때) 바로 적용 */
       P.on('cfg', function (e) { if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote); });
       P.on('songedit', function (s) { if (s && String(s.title || '') === curSongKey) { bpmOver[curSongKey] = 0; applySongBpm(s, true); } });
-      P.on('song', applySongBpm);
-      P.on('close', flushMetroSave);
+      P.on('song', applySongBpm); P.on('close', flushMetroSave);
       try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
       host.addEventListener('change', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o; if (!o) return;
@@ -763,7 +895,13 @@
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
         else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'gender') m.setGender(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
         else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked); else if (o === 'speak') m.setSpeak(t.checked);
+        else if (o === 'countdown') m.setCountdown(t.checked);
+        else if (o === 'cdskip') m.setCountdownSkip(t.checked);
         sync();
+      });
+      host.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-a="voicetest"]') : null; if (!b) return;
+        var r = m.cue('b', 'now'); if (r && r.ok === false) say(r.error || '소리를 낼 수 없습니다.', true);
       });
       host.addEventListener('input', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o;
@@ -802,7 +940,7 @@
     var pianoBtns = [];
     function paintPianoBtns() { var on = !!(piano && !piano.el.classList.contains('pv-piano-off')); pianoBtns.forEach(function (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.innerHTML = I('piano_small') + (on ? '피아노 닫기' : '피아노 보기 (떠 있는 창)'); }); }
     P.piano = pianoWin;
-    tabs.push({ id: 'harmony', icon: 'harmony', label: '화음 · 시작음', build: function (host) {
+    tabs.push({ id: 'harmony', icon: 'harmony', label: '화음 · 시작음', short: '화음', build: function (host) {
       var sec = doc.createElement('div'); sec.className = 'pv-sec pv-pianosec';
       sec.innerHTML = '<h4>시작음 <small>곡의 Key · 첫 음 확인</small></h4><button type="button" class="pv-btn2 primary pv-pianobtn" aria-pressed="false"></button>' +
         '<p class="pv-help">피아노가 악보 위 작은 창으로 뜹니다 — ⋮⋮ 를 끌어 옮기고, ✕ 로 닫습니다.</p>';
@@ -813,6 +951,104 @@
       if (!need('화음 · 코드 변환', root.YNHarmonyUI && root.YNHarmony && root.YNOmr, sub)) return;
       var ui = root.YNHarmonyUI.mount(sub, P); if (!ui) return;
       return { onShow: function () { ui.onShow(); }, destroy: function () { try { ui.destroy(); } catch (e) {} } };
+    } });
+
+    /* ------------------------------------------------------------ 메인스테이지 컨트롤 (MIDI 로 MainStage 페이더 · 패치 전환)
+       MainStage 는 MIDI 로만 외부 조작을 받으므로, 같은 맥의 Chrome 이 Web MIDI API 로 가상 MIDI 포트(IAC 드라이버)에
+       신호를 보내고 MainStage 가 MIDI Learn 으로 외워둔 자기 컨트롤을 움직이는 구조입니다 (mainstage.js). 서버에는
+       아무것도 보내지 않고, 켜짐 여부 · 출력 · 페이더/패치 목록은 이 브라우저에만 저장됩니다(팀 공유 없음). */
+    tabs.push({ id: 'mainstage', icon: 'sliders', label: '메인스테이지', short: '메인', build: function (host) {
+      if (!need('메인스테이지 컨트롤', root.YNMainStage, host)) return;
+      var ms = root.YNMainStage.create(), cfg = ms.cfg, unsub;
+      function chanOptions() {
+        var s = ''; for (var i = 1; i <= 16; i++) s += '<option value="' + i + '"' + (cfg.channel === i ? ' selected' : '') + '>' + i + '</option>';
+        return s;
+      }
+      function rowsFaders() {
+        return cfg.faders.map(function (f) {
+          return '<div class="pv-msrow" data-fader="' + h(f.id) + '">' +
+            '<input type="text" class="pv-msname" data-f="name" value="' + h(f.name) + '" maxlength="24" placeholder="이름 (예: 드럼)">' +
+            '<label class="pv-mscc">CC <input type="number" inputmode="numeric" pattern="[0-9]*" data-f="cc" min="0" max="127" value="' + f.cc + '"></label>' +
+            '<input type="range" class="pv-msrange" data-f="val" min="0" max="127" step="1" value="' + f.value + '" aria-label="' + h(f.name) + ' 페이더">' +
+            '<output class="pv-msout2">' + f.value + '</output>' +
+            '<button type="button" class="pv-btn2 sq" data-a="delfader" data-id="' + h(f.id) + '" aria-label="페이더 삭제">✕</button></div>';
+        }).join('') || '<p class="pv-help">아직 없습니다 — "+ 페이더 추가"로 만드세요.</p>';
+      }
+      function rowsPatches() {
+        return cfg.patches.map(function (p) {
+          return '<div class="pv-msrow" data-patch="' + h(p.id) + '">' +
+            '<input type="text" class="pv-msname" data-p="name" value="' + h(p.name) + '" maxlength="24" placeholder="이름 (예: 킥 드럼)">' +
+            '<label class="pv-mscc">PC <input type="number" inputmode="numeric" pattern="[0-9]*" data-p="pc" min="0" max="127" value="' + p.pc + '"></label>' +
+            '<button type="button" class="pv-btn2 primary" data-a="firepatch" data-id="' + h(p.id) + '">보내기</button>' +
+            '<button type="button" class="pv-btn2 sq" data-a="delpatch" data-id="' + h(p.id) + '" aria-label="삭제">✕</button></div>';
+        }).join('') || '<p class="pv-help">아직 없습니다 — "+ 버튼 추가"로 만드세요.</p>';
+      }
+      function statusLine() {
+        if (!ms.supported()) return 'Chrome 에서 이 페이지를 열면 아래 스위치를 켤 수 있습니다.';
+        if (!cfg.on) return '';
+        var outs = ms.outputs();
+        if (!outs.length) return '아직 MIDI 출력을 찾지 못했습니다 — 오디오 MIDI 설정에서 IAC 드라이버가 켜져 있는지 확인하세요.';
+        var cur = find2(outs, cfg.outputId);
+        return cur ? ('연결됨 — ' + cur.name) : '연결하는 중…';
+      }
+      function find2(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+      function paintOutputs() {
+        var sel = host.querySelector('[data-role="out"]'); if (!sel) return;
+        var outs = ms.outputs();
+        sel.innerHTML = '<option value="">자동 선택</option>' + outs.map(function (o) { return '<option value="' + h(o.id) + '"' + (o.id === cfg.outputId ? ' selected' : '') + '>' + h(o.name || o.id) + '</option>'; }).join('');
+        var stat = host.querySelector('[data-role="stat"]'); if (stat) stat.textContent = statusLine();
+      }
+      function render() {
+        host.innerHTML =
+          '<div class="pv-sec"><h4>🎛 메인스테이지 컨트롤</h4>' +
+            '<p class="pv-help">같은 맥의 <b>Chrome</b>에서 열었을 때만 동작합니다(Safari 는 지원하지 않습니다). 먼저 "오디오 MIDI 설정"에서 IAC 드라이버를 켜고, MainStage 에서 페이더 · 패치를 MIDI Learn(⌘L)으로 연결해 두세요 — 이 화면의 슬라이더를 움직이거나 "보내기"를 누르면 그대로 Learn 됩니다.</p>' +
+            (ms.supported() ? '' : '<p class="pv-help bad">이 브라우저는 MIDI 전송을 지원하지 않습니다.</p>') +
+            '<label class="pv-switch"><input type="checkbox" data-a="on"' + (cfg.on ? ' checked' : '') + (ms.supported() ? '' : ' disabled') + '><span></span><b>메인스테이지 컨트롤 켜기</b></label>' +
+            '<div data-role="body" style="display:' + (cfg.on ? '' : 'none') + '">' +
+              '<div class="pv-row">' +
+                '<label class="pv-fl2" style="flex:2 1 160px"><span>MIDI 출력</span><select data-role="out"><option value="">자동 선택</option></select></label>' +
+                '<label class="pv-fl2" style="flex:1 1 80px"><span>채널</span><select data-role="chan">' + chanOptions() + '</select></label>' +
+              '</div>' +
+              '<p class="pv-help" data-role="stat"></p>' +
+            '</div></div>' +
+          '<div class="pv-sec" data-role="fadersSec" style="display:' + (cfg.on ? '' : 'none') + '"><h4>페이더</h4><div data-role="faders">' + rowsFaders() + '</div>' +
+            '<div class="pv-row"><button type="button" class="pv-btn2" data-a="addfader">+ 페이더 추가</button></div></div>' +
+          '<div class="pv-sec" data-role="patchesSec" style="display:' + (cfg.on ? '' : 'none') + '"><h4>악기 전환</h4><div data-role="patches">' + rowsPatches() + '</div>' +
+            '<div class="pv-row"><button type="button" class="pv-btn2" data-a="addpatch">+ 버튼 추가</button></div></div>';
+        paintOutputs();
+      }
+      render();
+      if (cfg.on) ms.setOn(true);                                    // 이미 켜져 있었으면 탭을 열 때 다시 연결 시도
+      unsub = ms.on(function (kind, d) {
+        if (kind === 'devices' || kind === 'output') paintOutputs();
+        else if (kind === 'error') P.toast(d, true);
+      });
+      host.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('button[data-a]') : null; if (!b) return;
+        var a = b.dataset.a, id = b.dataset.id;
+        if (a === 'addfader') { ms.addFader(); render(); }
+        else if (a === 'delfader') { ms.removeFader(id); render(); }
+        else if (a === 'addpatch') { ms.addPatch(); render(); }
+        else if (a === 'delpatch') { ms.removePatch(id); render(); }
+        else if (a === 'firepatch') { ms.firePatch(id); b.classList.add('flash'); setTimeout(function () { b.classList.remove('flash'); }, 350); }
+      });
+      host.addEventListener('change', function (e) {
+        var t = e.target, role = t.dataset && t.dataset.role;
+        if (t.dataset.a === 'on') { ms.setOn(t.checked); render(); return; }
+        if (role === 'out') { ms.selectOutput(t.value); paintOutputs(); return; }
+        if (role === 'chan') { ms.setChannel(+t.value); return; }
+        var frow = t.closest ? t.closest('[data-fader]') : null;
+        if (frow) { var fid = frow.dataset.fader; if (t.dataset.f === 'name') ms.renameFader(fid, t.value); else if (t.dataset.f === 'cc') ms.setFaderCc(fid, +t.value); return; }
+        var prow = t.closest ? t.closest('[data-patch]') : null;
+        if (prow) { var pid = prow.dataset.patch; if (t.dataset.p === 'name') ms.renamePatch(pid, t.value); else if (t.dataset.p === 'pc') ms.setPatchPc(pid, +t.value); }
+      });
+      host.addEventListener('input', function (e) {
+        var t = e.target; if (t.dataset.f !== 'val') return;
+        var row = t.closest ? t.closest('[data-fader]') : null; if (!row) return;
+        ms.setFaderValue(row.dataset.fader, +t.value);
+        var out = row.querySelector('.pv-msout2'); if (out) out.textContent = t.value;
+      });
+      return { destroy: function () { if (unsub) unsub(); } };
     } });
 
     /* (가사 추출은 Step 2.8 에서 허브 화면의 "가사 도구"(방송팀 요청 바로 위)로 옮겼습니다 — public/worship/hubtools.js) */

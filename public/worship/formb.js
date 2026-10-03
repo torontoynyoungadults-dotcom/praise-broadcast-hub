@@ -31,14 +31,30 @@
     { k: 'B2', ko: '브릿지 2', cue: 'Bridge 2', cueKo: '브릿지 2', g: 'num' },
     { k: 'Vamp', ko: '뱀프', cue: 'Vamp', cueKo: '뱀프', g: 'etc' },
     { k: 'Solo', ko: '솔로', cue: 'Solo', cueKo: '솔로', g: 'etc' },
-    { k: 'Inst', ko: '연주', cue: 'Instrumental', cueKo: '연주', g: 'etc' },
-    { k: 'Break', ko: '브레이크', cue: 'Break', cueKo: '브레이크', g: 'etc' },
-    { k: 'Tag', ko: '태그', cue: 'Tag', cueKo: '태그', g: 'etc' },
+    { k: 'Inst', ko: '연주', cue: 'Instrumental', cueKo: '연주', g: 'etc', call: 'inst' },
+    { k: 'Break', ko: '브레이크', cue: 'Break', cueKo: '브레이크', g: 'dyn', call: 'break' },
+    { k: 'Tag', ko: '태그', cue: 'Tag', cueKo: '태그', g: 'rep', call: 'tag' },
     { k: 'Turn', ko: '턴어라운드', cue: 'Turnaround', cueKo: '턴어라운드', g: 'etc' },
     { k: 'Coda', ko: '코다', cue: 'Coda', cueKo: '코다', g: 'etc' },
     { k: 'End', ko: '끝', cue: 'End', cueKo: '끝', g: 'etc' },
-    { k: 'Prayer', ko: '기도', cue: 'Prayer', cueKo: '기도', g: 'etc' },
-    { k: 'KeyUp', ko: '키 업', cue: 'Key Up', cueKo: '키 업', g: 'etc' }       // Step 2.12
+    { k: 'Prayer', ko: '기도', cue: 'Prayer', cueKo: '기도', g: 'rep', call: 'prayer' },
+    { k: 'KeyUp', ko: '키 업', cue: 'Key Up', cueKo: '키 업', g: 'rep', call: 'keyup' },       // Step 2.12
+    /* V838 — 콜아웃 칸: 송폼 중간중간에 넣어 두면 Enter 로 순서대로 불립니다. 저장되는 글자는 짧게(RepC …), 화면에는 부르는 말(Repeat Chorus)이 보입니다.
+       call = 메트로놈 큐 id (public/worship/metro.js 의 CUES) */
+    { k: 'RepC', ko: '코러스 반복', cue: 'Repeat Chorus', cueKo: '코러스 반복', g: 'rep', call: 'repc' },
+    { k: 'HalfC', ko: '코러스 반', cue: 'Half Chorus', cueKo: '코러스 반', g: 'rep', call: 'halfc' },
+    { k: 'LastL', ko: '마지막 줄 한 번 더', cue: 'Last line again', cueKo: '마지막 줄 한 번 더', g: 'rep', call: 'lastl' },
+    { k: 'Once', ko: '한 번 더', cue: 'One more time', cueKo: '한 번 더', g: 'rep', call: 'once' },
+    { k: 'OneBar', ko: '한마디 더', cue: 'One more bar', cueKo: '한마디 더', g: 'rep', call: 'onebar' },
+    { k: 'LastC', ko: '마지막 후렴', cue: 'Last Chorus', cueKo: '마지막 후렴', g: 'rep', call: 'lastc' },
+    { k: 'VOnly', ko: '보컬만', cue: 'Voice only', cueKo: '보컬만', g: 'dyn', call: 'vonly' },
+    { k: 'Drums', ko: '드럼만', cue: 'Drums only', cueKo: '드럼만', g: 'dyn', call: 'drums' },
+    { k: 'Build', ko: '빌드 업', cue: 'Build up', cueKo: '빌드 업', g: 'dyn', call: 'build' },
+    { k: 'Down', ko: '점점 작게', cue: 'Die down', cueKo: '점점 작게', g: 'dyn', call: 'die' },
+    { k: 'Ferm', ko: '늘임표', cue: 'Fermata', cueKo: '늘임표', g: 'dyn', call: 'ferm' },
+    { k: 'Slow', ko: '느리게', cue: 'Slow down', cueKo: '느리게', g: 'dyn', call: 'slow' },
+    { k: 'Hold', ko: '홀드', cue: 'Hold', cueKo: '홀드', g: 'dyn', call: 'hold' },
+    { k: 'BigEnd', ko: '크게 끝내기', cue: 'Big ending', cueKo: '크게 끝내기', g: 'dyn', call: 'bigend' }
   ];
   var BY = {};
   TOKENS.forEach(function (t) { BY[t.k.toLowerCase()] = t; });
@@ -96,6 +112,10 @@
     return (list || []).map(function (t) { return t.k + (t.bars ? ':' + t.bars : '') + (t.rep > 1 ? '×' + t.rep : ''); }).join('-');
   }
   function info(k) { return BY[String(k || '').toLowerCase()] || null; }
+  /** 화면에 보이는 이름 — 콜아웃 칸(RepC · VOnly …)은 부르는 말(Repeat Chorus · Voice only), 나머지는 저장된 글자 그대로 */
+  var CALL_ONLY = { repc: 1, halfc: 1, lastl: 1, once: 1, onebar: 1, lastc: 1, vonly: 1, drums: 1, build: 1, down: 1, ferm: 1, slow: 1, hold: 1, bigend: 1 };
+  function disp(k) { var t = info(k); return t && CALL_ONLY[t.k.toLowerCase()] ? t.cue : String(k); }
+  function isCall(k) { var t = info(k); return !!(t && t.call && (t.g === 'rep' || t.g === 'dyn')); }
   function label(k, lang) {
     var t = info(k);
     return t ? (lang === 'ko' ? t.ko : t.k) : String(k);
@@ -113,11 +133,9 @@
     var seen = {};
     return (list || []).map(function (t) {
       var out = { k: t.k, rep: t.rep, bars: t.bars || 0, custom: t.custom, cueKey: t.k };
-      if (t.k === 'V' || t.k === 'C' || t.k === 'B' || t.k === 'PC') {
-        seen[t.k] = (seen[t.k] || 0) + 1;
-        if (t.k === 'V' && seen.V <= 3) out.cueKey = 'V' + seen.V;
-        if (t.k === 'C' && seen.C >= 2 && seen.C <= 3) out.cueKey = 'C' + seen.C;
-        if (t.k === 'B' && seen.B >= 2 && seen.B <= 2) out.cueKey = 'B' + seen.B;
+      if (t.k === 'V') {                                   // V842 — 번호는 절(V)만: 그냥 "C" 는 몇 번째든 "Chorus" (C2 라고 적은 칸만 "Chorus 2")
+        seen.V = (seen.V || 0) + 1;
+        if (seen.V <= 3) out.cueKey = 'V' + seen.V;
       }
       return out;
     });
@@ -128,7 +146,7 @@
      ============================================================ */
   function h(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
-  var GROUPS = [['main', '기본'], ['num', '번호'], ['etc', '기타']];
+  var GROUPS = [['main', '기본'], ['num', '번호'], ['etc', '기타'], ['rep', '반복 콜아웃'], ['dyn', '다이내믹 콜아웃']];
 
   /**
    * 송폼 만들기 — el 안에 그립니다.
@@ -169,12 +187,12 @@
     function drawNow() {
       var seq = list.length ? list.map(function (t, i) {
         var inf = info(t.k);
-        return '<span class="fb-chip' + (i === sel ? ' on' : '') + (t.custom ? ' custom' : '') + '" role="button" tabindex="0" data-i="' + i + '" title="' + h(inf ? inf.ko : t.k) + '">' +
-          '<b>' + h(t.k) + '</b>' + (t.bars ? '<em>' + t.bars + '마디</em>' : '') + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + '</span>';
+        return '<span class="fb-chip' + (i === sel ? ' on' : '') + (t.custom ? ' custom' : '') + (isCall(t.k) ? ' call' : '') + '" role="button" tabindex="0" data-i="' + i + '" title="' + h(inf ? inf.ko : t.k) + '">' +
+          '<b>' + h(disp(t.k)) + '</b>' + (t.bars ? '<em>' + t.bars + '마디</em>' : '') + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + '</span>';
       }).join('<span class="fb-arr" aria-hidden="true">›</span>') : '<span class="fb-empty">아래 버튼을 눌러 순서대로 넣어주세요</span>';
       var pal = GROUPS.map(function (g) {
-        return '<div class="fb-row">' + TOKENS.filter(function (t) { return t.g === g[0]; }).map(function (t) {
-          return '<button type="button" class="fb-btn" data-add="' + t.k + '" title="' + h(t.ko) + '">' + h(t.k) + '</button>';
+        return '<div class="fb-row">' + (g[0] === 'rep' || g[0] === 'dyn' ? '<span class="fb-gl">' + h(g[1]) + '</span>' : '') + TOKENS.filter(function (t) { return t.g === g[0]; }).map(function (t) {
+          return '<button type="button" class="fb-btn' + (t.g === 'rep' || t.g === 'dyn' ? ' call' : '') + '" data-add="' + t.k + '" title="' + h(t.ko) + '">' + h(disp(t.k)) + '</button>';
         }).join('') + '</div>';
       }).join('');
       el.innerHTML =
@@ -192,7 +210,7 @@
             [0, 2, 4, 8, 12, 16].map(function (n) { return '<button type="button" class="fb-t' + ((list[sel].bars || 0) === n ? ' on' : '') + '" data-bars="' + n + '">' + (n ? n : '없음') + '</button>'; }).join('') +
             '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="barsin" placeholder="직접" value="' + ([0, 2, 4, 8, 12, 16].indexOf(list[sel].bars || 0) < 0 ? list[sel].bars : '') + '" aria-label="마디 수 직접 입력"></div>' : '') +
           '<div class="fb-pal">' + pal + '</div>' +
-          '<div class="fb-custom"><span>직접 입력</span><input type="text" class="fb-cin" maxlength="' + CUSTOM_MAX + '" autocomplete="off" data-role="cin" placeholder="예: 키 업 · 기도 · 마지막 줄 한 번 더">' +
+          '<div class="fb-custom"><span>직접 입력</span><input type="text" class="fb-cin" maxlength="' + CUSTOM_MAX + '" autocomplete="off" data-role="cin" placeholder="예: 키 업 · 기도 · 마지막 줄 한 번 더 (한글은 한국어 음성으로 읽어줘요)">' +
             '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="cbars" placeholder="마디" aria-label="마디 수 (선택)">' +
             '<button type="button" class="fb-t primary" data-act="addcustom">＋ 넣기</button></div>' +
           '<p class="fb-hint">칩을 누르면 선택됩니다. 선택한 칩 뒤에 새 칸이 들어가고, 선택이 없으면 맨 끝에 붙습니다. 칩을 선택하면 "마디 수"(예: 4 · 8마디)를 붙일 수 있고, "직접 입력"에는 어떤 글이든 한 칸으로 넣을 수 있습니다.</p>' +
@@ -247,8 +265,8 @@
       if (!list.length) { el.innerHTML = '<p class="fb-empty">이 곡에 송폼이 없습니다. 곡 수정에서 "송폼 만들기"로 넣어주세요.</p>'; return; }
       el.innerHTML = '<div class="fp">' + list.map(function (t, i) {
         var inf = info(t.k);
-        return '<button type="button" class="fp-chip' + (i === cur ? ' on' : (i < cur ? ' done' : '')) + '" data-i="' + i + '" title="' + h(inf ? inf.ko : t.k) + '">' +
-          '<b>' + h(t.k) + '</b>' + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + (t.bars ? '<em>' + t.bars + '마디</em>' : '') + '<small>' + h(label(t.k, lang === 'ko' ? 'ko' : 'ko')) + '</small></button>';
+        return '<button type="button" class="fp-chip' + (isCall(t.k) ? ' call' : '') + (i === cur ? ' on' : (i < cur ? ' done' : '')) + '" data-i="' + i + '" title="' + h(inf ? inf.ko : t.k) + '">' +
+          '<b>' + h(disp(t.k)) + '</b>' + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + (t.bars ? '<em>' + t.bars + '마디</em>' : '') + '<small>' + h(label(t.k, lang === 'ko' ? 'ko' : 'ko')) + '</small></button>';
       }).join('') + '</div>';
     }
     function onClick(ev) {
@@ -271,7 +289,7 @@
   }
 
   /** 보기 좋게 — "V1:8-C×2" → "V1 (8마디) › C ×2" (허브 곡 카드 등 글로 보여줄 때) */
-  function pretty(str) { return parse(str).map(function (t) { return t.k + (t.bars ? ' (' + t.bars + '마디)' : '') + (t.rep > 1 ? ' ×' + t.rep : ''); }).join(' › '); }
+  function pretty(str) { return parse(str).map(function (t) { return disp(t.k) + (t.bars ? ' (' + t.bars + '마디)' : '') + (t.rep > 1 ? ' ×' + t.rep : ''); }).join(' › '); }
 
-  return { pretty: pretty, TOKENS: TOKENS, parse: parse, stringify: stringify, info: info, label: label, cueFor: cueFor, numbered: numbered, mount: mount, mountPlayer: mountPlayer };
+  return { pretty: pretty, disp: disp, isCall: isCall, TOKENS: TOKENS, parse: parse, stringify: stringify, info: info, label: label, cueFor: cueFor, numbered: numbered, mount: mount, mountPlayer: mountPlayer };
 }));

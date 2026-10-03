@@ -53,6 +53,7 @@ app.get('/sw.js', (req, res) => { res.set({ 'Cache-Control': 'no-cache', 'Servic
 app.use((req, res, next) => {
   if (req.method === 'GET') {
     if (req.query && req.query.v && /\.(js|css|svg|png|woff2?)$/i.test(req.path)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    else if (/\/manifest\.json$/.test(req.path)) res.set('Cache-Control', 'no-cache');            // 큐 목록 — 목소리를 다시 녹음하면 바로 새 목록을 받게 (소리 파일 이름은 -k4 처럼 바뀜)
     else if (/^\/(vendor|worship\/cues|icons)\//.test(req.path)) res.set('Cache-Control', 'public, max-age=604800');
   }
   next();
