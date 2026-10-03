@@ -1058,7 +1058,8 @@ a { color: var(--accent-ink); text-decoration: none; }
 .cn-guestlink > summary { cursor: pointer; font-weight: 600; font-size: .9rem; display: flex; align-items: center; gap: 6px; }
 .cn-guestlink .ph-sub { margin: 8px 0; }
 .cn-glrow { display: flex; gap: 8px; align-items: center; }
-.cn-glrow input { flex: 1; min-width: 0; font-size: .82rem; min-height: 40px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg-2); color: var(--ink); }
+.cn-glrow input { flex: 1 1 auto; min-width: 0; font-size: .82rem; min-height: 40px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg-2); color: var(--ink); }
+.cn-glrow .ph-btn { flex: none; width: auto; min-height: 40px; padding: 8px 14px; } /* .ph-btn은 기본 width:100% — 그대로 두면 "복사" 단추가 칸을 다 먹어서 링크 input이 찌그러짐 */
 .cn-glform { margin-top: 8px; }
 
 /* V12 — 곡별로 저장한 악보의 쪽 범위 · 곡 만들 때 올리는 악보 칸 · 목사 칩 */

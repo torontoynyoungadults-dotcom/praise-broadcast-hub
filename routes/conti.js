@@ -192,11 +192,20 @@ async function ensureClosingHymn(team, scope) {
     const rows = await sheetsDb.readAll('찬양콘티', { fresh: true });
     const has = rows.some((r) => r['팀ID'] === team && inScope(r, scope) && r['구분'] === '폐회송');
     if (has) return;
+    const sid = 'C' + Date.now().toString(36);
     await sheetsDb.appendRow('찬양콘티', {
-      'ID': 'C' + Date.now().toString(36), '팀ID': team, ...scopeFields(scope), '구분': '폐회송', '순서': 1,
+      'ID': sid, '팀ID': team, ...scopeFields(scope), '구분': '폐회송', '순서': 1,
       '제목': def['제목'], '팀': def['팀'], 'Key': def['Key'], '유튜브': def['유튜브'], '송폼': def['송폼'], 'BPM': def['BPM'], '비고': def['비고'],
       '만든시각': new Date().toISOString(),
     });
+    // "관리"에서 미리 올려 둔 기본 악보가 있으면 그대로 복사해 이번 주 곡(sid)에 묶어 둡니다.
+    const defSheets = await closingHymn.getSheets(team);
+    for (const f of defSheets) {
+      await sheetsDb.appendRow('악보저장소', {
+        'ID': 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), '팀ID': team, ...scopeFields(scope),
+        '제목': f['제목'], '파일링크': f['링크'], '올린사람': '관리(폐회송 기본 악보)', '올린시각': new Date().toISOString(), '곡ID': sid,
+      });
+    }
   } catch (e) { console.error('[폐회송 자동 추가 실패]', e.message); }
 }
 
@@ -1359,4 +1368,8 @@ router.post('/conti/guest-link', requireTeam, async (req, res) => {
 module.exports = router;
 module.exports.setLiveNotify = setLiveNotify;
 // 방송팀 보기 전용 화면(routes/guest.js)이 같은 조회 · 카드 모양을 쓰도록
-module.exports.shared = { loadWeek, songCard, packageSheetsCard, commentItem, practiceInfo, practiceCard, specialServices, specialServiceById, scopeFields, formChips };
+module.exports.shared = {
+  loadWeek, songCard, packageSheetsCard, commentItem, practiceInfo, practiceCard, specialServices, specialServiceById, scopeFields, formChips,
+  // 악보 올리기(파일 · 링크 · 웹에서 찾은 이미지 → PDF) — 관리자의 "폐회송 악보 올리기"(routes/admin.js)도 똑같이 씀
+  webSheetFile, titleFromFile, titleFromLink,
+};
