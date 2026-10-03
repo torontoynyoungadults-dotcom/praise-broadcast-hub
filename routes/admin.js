@@ -1,18 +1,14 @@
 /**
- * 관리자 대시보드 — 찬양팀 추가/비활성화, 멤버 관리(소속팀·역할·관리자 지정), 바닥글 태그라인 설정.
+ * 관리자 대시보드 — 찬양팀 추가/비활성화, 예배 시간 · 폐회송 기본값, 방송팀 링크, 바닥글 태그라인 설정.
+ * 멤버의 소속팀 · 역할 관리는 "팀원관리"(routes/roster.js)에서 합니다.
  */
 const express = require('express');
 const sheetsDb = require('../lib/sheetsDb');
 const { prefixOf } = require('../lib/prefix');
 const pageShell = require('../lib/pageShell');
-const { ROLE_OPTIONS } = require('../lib/schema');
 const spa = require('../lib/spa');
-const honorific = require('../lib/honorific');
 const timeSettings = require('../lib/timeSettings');
 const closingHymn = require('../lib/closingHymn');
-const historyImport = require('../lib/historyImport');
-const scheduleHistory = require('../lib/scheduleHistory');
-const teamFill = require('../lib/teamFill');
 const guestLink = require('../lib/guestLink');
 
 const router = express.Router();
@@ -26,9 +22,6 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
-const importMsg = new Map();   // 가져오기 결과 — 다음 /admin 화면에 한 번 보여주고 지움
-function splitList(s) { return String(s || '').split(',').map((x) => x.trim()).filter(Boolean); }
-
 function teamRow(t) {
   const active = String(t['활성여부']).toUpperCase() !== 'FALSE';
   return `<div class="ph-list-item">
@@ -41,28 +34,9 @@ function teamRow(t) {
   </div>`;
 }
 
-function memberRow(m, teams) {
-  const myTeams = splitList(m['소속팀']);
-  const myRoles = splitList(m['역할']);
-  const isAdmin = String(m['관리자여부']).toUpperCase() === 'TRUE';
-  return `<details class="ph-add" style="border-top:1px solid var(--line);padding-top:10px;">
-    <summary>${esc(m['이름'])}${honorific.isPastorRoles(m['역할']) ? ' 목사' : ''} <span class="ph-li-sub" style="display:inline;">· ${esc(m['이메일'])}${isAdmin ? ' · 관리자' : ''}</span></summary>
-    <form method="post" action="/admin/members/update" class="ph-inlineform">
-      <input type="hidden" name="__row" value="${m.__row}">
-      <label>소속 찬양팀 (여러 개 가능)</label>
-      <div class="ph-chips">${teams.map((t) => `<label class="ph-chip"><input type="checkbox" name="소속팀" value="${esc(t['팀명'])}"${myTeams.includes(t['팀명']) ? ' checked' : ''}><span>${esc(t['팀명'])}</span></label>`).join('')}</div>
-      <label>역할 (여러 개 가능)</label>
-      <div class="ph-chips">${ROLE_OPTIONS.map((r) => `<label class="ph-chip"><input type="checkbox" name="역할" value="${r}"${myRoles.includes(r) ? ' checked' : ''}><span>${r}</span></label>`).join('')}</div>
-      <label class="ph-chip" style="width:fit-content;"><input type="checkbox" name="관리자여부"${isAdmin ? ' checked' : ''}><span>관리자</span></label>
-      <button class="ph-btn pri" type="submit">저장</button>
-    </form>
-  </details>`;
-}
-
 router.get('/admin', requireAdmin, async (req, res) => {
-  const [teams, members, tagline] = await Promise.all([
+  const [teams, tagline] = await Promise.all([
     sheetsDb.readAll('찬양팀'),
-    sheetsDb.readAll('회원'),
     sheetsDb.getSetting('태그라인', '소망이 넘치는 교회'),
   ]);
   const activeTeams = teams.filter((t) => String(t['활성여부']).toUpperCase() !== 'FALSE');
@@ -104,15 +78,12 @@ router.get('/admin', requireAdmin, async (req, res) => {
       <textarea name="비고" rows="2" placeholder="곡 설명 (선택)" maxlength="300">${esc(v['비고'] || '')}</textarea>
       <button class="ph-btn pri" type="submit">저장</button>
     </form>`; }).join('');
-  const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
+  const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 시간 · 허브 문구를 관리합니다.' });
 
-  const impMsg = importMsg.get(req.session.email) || ''; importMsg.delete(req.session.email);
-  const impBox = impMsg ? `<div class="ph-card top-accent"><h2 class="ph-h2">지난 콘티 가져오기 결과</h2><p class="ph-sub" style="white-space:pre-line;">${esc(impMsg)}</p></div>` : '';
   const content = `
   ${pageShell.hubNav('', '')}
   ${hero}
   ${pageShell.adminTabs('admin', '')}
-  ${impBox}
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">허브 바닥글 태그라인</h2>
@@ -151,47 +122,6 @@ router.get('/admin', requireAdmin, async (req, res) => {
     <p class="ph-sub">로그인 없이 <b>예배 콘티 · 라이브 악보 · 스케줄표</b>를 볼 수 있는 링크예요 (고칠 수 없고 댓글만 가능). 방송팀에 전달해 주세요.</p>
     <div class="ph-list">${glRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
   </div>
-
-  <div class="ph-card">
-    <h2 class="ph-h2">지난 콘티 가져오기 (카톡 기록)</h2>
-    <p class="ph-sub">카톡방에 올라왔던 2025년 11월 말 ~ 2026년 9월 말의 콘티(곡명 · Key · 유튜브 링크 · 변경 내용)를 해당 날짜의 콘티로 넣어요. 이미 콘티가 있는 날은 건드리지 않아서 여러 번 눌러도 안전해요. 성탄 · 송구영신 · 특별새벽기도회 · 철야는 <b>주일 외 찬양</b>으로 함께 만들어져요.</p>
-    <div class="ph-inlineform">
-      <select id="ih-team">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
-      <form method="post" action="/admin/import-history" onsubmit="this.team.value=document.getElementById('ih-team').value;return true;">
-        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="preview"><button class="ph-btn" type="submit" style="width:100%;">미리 보기 (넣지 않음)</button></form>
-      <form method="post" action="/admin/import-history" onsubmit="this.team.value=document.getElementById('ih-team').value;return confirm('이 찬양팀에 지난 콘티를 넣을까요? (이미 콘티가 있는 날은 건너뛰어요)')">
-        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="go"><button class="ph-btn pri" type="submit" style="width:100%;">가져오기</button></form>
-    </div>
-  </div>
-
-  <div class="ph-card">
-    <h2 class="ph-h2">지난 스케줄 가져오기 (엑셀 자료)</h2>
-    <p class="ph-sub">2024년 7월 ~ 2025년 12월 팀원 스케줄표(포지션별 팀원 · 인도자 · 불참 · 연습일)를 날짜별로 넣어요. 인도자는 김상래 목사 → 강산 목사 → 윤정환 목사 순으로 들어가요. 이미 적힌 자리는 건드리지 않고(다른 사람이 있으면 건너뜀) 여러 번 눌러도 안전해요. 부흥회 · 송구영신 · 성탄절 · 특별새벽기도회는 <b>주일 외 찬양</b>으로 함께 만들어져요.</p>
-    <div class="ph-inlineform">
-      <select id="ih-team2">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
-      <form method="post" action="/admin/import-schedule-history" onsubmit="this.team.value=document.getElementById('ih-team2').value;return true;">
-        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="preview"><button class="ph-btn" type="submit" style="width:100%;">미리 보기 (넣지 않음)</button></form>
-      <form method="post" action="/admin/import-schedule-history" onsubmit="this.team.value=document.getElementById('ih-team2').value;return confirm('이 찬양팀에 지난 스케줄을 넣을까요? (이미 적힌 자리는 건너뛰어요)')">
-        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="go"><button class="ph-btn pri" type="submit" style="width:100%;">가져오기</button></form>
-    </div>
-  </div>
-
-  <div class="ph-card">
-    <h2 class="ph-h2">원곡 팀 자동 채우기</h2>
-    <p class="ph-sub">콘티의 유튜브 링크에서 채널 · 제목을 읽어, <b>팀 칸이 비어 있는 곡</b>에 마커스 · 피아워십 · 어노인팅 · Welove 등 원곡 팀을 채워요. 이미 적힌 팀은 건드리지 않아요. 알아보지 못한 채널은 비워 두고 결과에 이름을 보여 드려요.</p>
-    <div class="ph-inlineform">
-      <select id="ih-team3">${activeTeams.map((t) => `<option value="${esc(t['팀명'])}">${esc(t['팀명'])}</option>`).join('')}</select>
-      <form method="post" action="/admin/fill-song-teams" onsubmit="this.team.value=document.getElementById('ih-team3').value;return true;">
-        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="preview"><button class="ph-btn" type="submit" style="width:100%;">미리 보기 (넣지 않음)</button></form>
-      <form method="post" action="/admin/fill-song-teams" onsubmit="this.team.value=document.getElementById('ih-team3').value;return true;">
-        <input type="hidden" name="team" value=""><input type="hidden" name="mode" value="go"><button class="ph-btn pri" type="submit" style="width:100%;">팀 채우기</button></form>
-    </div>
-  </div>
-
-  <div class="ph-card">
-    <h2 class="ph-h2">멤버 (${members.length}명)</h2>
-    <div class="ph-list">${members.length ? members.map((m) => memberRow(m, teams)).join('') : '<p class="ph-sub">아직 가입한 멤버가 없어요.</p>'}</div>
-  </div>
   `;
   spa.send(req, res, content, { title: '관리자' });
 });
@@ -222,64 +152,6 @@ router.post('/admin/closing-hymn', requireAdmin, async (req, res) => {
   spa.redirect(req, res, '/admin');
 });
 
-router.post('/admin/import-history', requireAdmin, async (req, res) => {
-  const b = req.body || {};
-  const team = String(b.team || '').trim();
-  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
-  let msg;
-  if (!t) msg = '찬양팀을 찾지 못했어요.';
-  else {
-    try {
-      const dry = b.mode !== 'go';
-      const r = await historyImport.run(team, { dryRun: dry });
-      msg = (dry ? '[미리 보기 — 아직 넣지 않았어요] ' : '[가져왔어요] ') + `${team}: 예배 ${r.services}곳 · 곡 ${r.songs}개` + (r.events ? ` · 주일 외 찬양 ${r.events}개 새로 만듦` : '') + ` (기록 전체 ${r.total}곳)`;
-      if (r.skipped.length) msg += '\n건너뜀: ' + r.skipped.join(', ');
-    } catch (e) { console.error('[지난 콘티 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
-  }
-  importMsg.set(req.session.email, msg);
-  spa.redirect(req, res, '/admin');
-});
-
-router.post('/admin/import-schedule-history', requireAdmin, async (req, res) => {
-  const b = req.body || {};
-  const team = String(b.team || '').trim();
-  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
-  let msg;
-  if (!t) msg = '찬양팀을 찾지 못했어요.';
-  else {
-    try {
-      const dry = b.mode !== 'go';
-      const r = await scheduleHistory.run(team, { dryRun: dry });
-      msg = (dry ? '[스케줄 미리 보기 — 아직 넣지 않았어요] ' : '[스케줄을 가져왔어요] ') + `${team}: 편성 ${r.assign}칸 · 불참 ${r.off}건 · 연습일 ${r.practice}건` + (r.events ? ` · 주일 외 찬양 ${r.events}개 새로 만듦` : '');
-      if (r.unknown.length) msg += '\n팀원 명단에 없는 이름(그대로 적었어요): ' + r.unknown.join(', ');
-      if (r.conflicts.length) msg += '\n이미 다른 사람이 있어 건너뜀 ' + r.conflicts.length + '곳: ' + r.conflicts.slice(0, 8).join(' / ') + (r.conflicts.length > 8 ? ' …' : '');
-    } catch (e) { console.error('[지난 스케줄 가져오기 실패]', e.message); msg = '가져오지 못했어요: ' + e.message; }
-  }
-  importMsg.set(req.session.email, msg);
-  spa.redirect(req, res, '/admin');
-});
-
-router.post('/admin/fill-song-teams', requireAdmin, async (req, res) => {
-  const b = req.body || {};
-  const team = String(b.team || '').trim();
-  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
-  let msg;
-  if (!t) msg = '찬양팀을 찾지 못했어요.';
-  else {
-    try {
-      const dry = b.mode !== 'go';
-      const r = await teamFill.run(team, { dryRun: dry });
-      msg = (dry ? '[원곡 팀 미리 보기 — 아직 넣지 않았어요] ' : '[원곡 팀을 채웠어요] ') + `${team}: 팀이 빈 곡 ${r.total}곡 중 ${r.matched}곡` + (r.failed ? ` · 영상 정보를 못 읽은 ${r.failed}곡` : '');
-      const bt = Object.keys(r.byTeam).map((k) => k + ' ' + r.byTeam[k]).join(' · ');
-      if (bt) msg += '\n' + bt;
-      if (r.unknown.length) msg += '\n알아보지 못한 채널(비워 둠): ' + r.unknown.slice(0, 15).map((u) => `${u.channel || '?'} (${u.n}곡, 예: ${u.sample})`).join(' / ');
-      if (r.more) msg += '\n영상이 많아 이번에는 ' + r.checked + '개만 확인했어요. 한 번 더 누르면 이어서 해요.';
-    } catch (e) { console.error('[원곡 팀 채우기 실패]', e.message); msg = '실패했어요: ' + e.message; }
-  }
-  importMsg.set(req.session.email, msg);
-  spa.redirect(req, res, '/admin');
-});
-
 router.post('/admin/tagline', requireAdmin, async (req, res) => {
   const value = String((req.body || {})['태그라인'] || '').trim();
   const existing = await sheetsDb.findWhere('설정', (r) => r['키'] === '태그라인');
@@ -305,24 +177,6 @@ router.post('/admin/teams/toggle', requireAdmin, async (req, res) => {
     const rows = await sheetsDb.readAll('찬양팀');
     const found = rows.find((r) => r.__row === row);
     if (found) await sheetsDb.updateRow('찬양팀', row, { ...found, '활성여부': b.to === 'TRUE' ? 'TRUE' : 'FALSE' });
-  }
-  spa.redirect(req, res, '/admin');
-});
-
-router.post('/admin/members/update', requireAdmin, async (req, res) => {
-  const b = req.body || {};
-  const row = Number(b.__row);
-  if (row) {
-    const rows = await sheetsDb.readAll('회원');
-    const found = rows.find((r) => r.__row === row);
-    if (found) {
-      const teams = [].concat(b['소속팀'] || []).filter(Boolean);
-      const roles = [].concat(b['역할'] || []).filter(Boolean);
-      await sheetsDb.updateRow('회원', row, {
-        ...found, '소속팀': teams.join(','), '역할': roles.join(','),
-        '관리자여부': b['관리자여부'] ? 'TRUE' : 'FALSE',
-      });
-    }
   }
   spa.redirect(req, res, '/admin');
 });

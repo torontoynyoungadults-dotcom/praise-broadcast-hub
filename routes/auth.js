@@ -5,7 +5,6 @@ const session = require('../lib/session');
 const sheetsDb = require('../lib/sheetsDb');
 const driveStore = require('../lib/driveStore');
 const pageShell = require('../lib/pageShell');
-const { ROLE_OPTIONS } = require('../lib/schema');
 
 const router = express.Router();
 
@@ -129,12 +128,6 @@ router.get('/signup', async (req, res) => {
         <p class="ph-msg" style="margin-top:6px;">객원 멤버는 팀원 명단에 없어도 가입할 수 있고, <b>스케줄에 서는 날</b>의 콘티 · 라이브 악보 · 필기 · 댓글과 공지를 볼 수 있어요.</p>
       </div>
       <div class="ph-field">
-        <label>역할 (여러 개 선택 가능)</label>
-        <div class="ph-chips">
-          ${ROLE_OPTIONS.map((r, i) => `<label class="ph-chip"><input type="checkbox" name="역할" value="${r}"><span>${r}</span></label>`).join('')}
-        </div>
-      </div>
-      <div class="ph-field">
         <label>프로필 사진 (선택)</label>
         <input type="file" name="프로필사진" accept="image/*">
       </div>
@@ -186,7 +179,6 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
   const gender = String(body['성별'] || '').trim();
   const phone = String(body['전화번호'] || '').trim();
   const team = String(body['소속팀'] || '').trim();
-  const roles = [].concat(body['역할'] || []).filter(Boolean);
   const missing = [];
   if (!name) missing.push('이름');
   if (!gender) missing.push('성별');
@@ -216,9 +208,9 @@ router.post('/signup', upload.single('프로필사진'), async (req, res) => {
       `'${name}'님은 ${team} 팀원 명단에서 찾을 수 없어요. 이름을 다시 확인해 주세요. 계속 안 되면 팀 담당자(관리자)에게 문의해주세요.`,
     ));
   }
-  // 본인이 역할을 따로 안 골랐고, 관리자가 명단에 미리 역할을 정해뒀으면 그 값을 그대로 물려받습니다.
-  let finalRoles = roles;
-  if (!finalRoles.length && rosterMatch && rosterMatch['역할']) {
+  // 역할은 가입할 때 받지 않고, 관리자가 명단(팀원관리)에 미리 정해둔 값을 그대로 물려받습니다.
+  let finalRoles = [];
+  if (rosterMatch && rosterMatch['역할']) {
     finalRoles = String(rosterMatch['역할']).split(',').map((s) => s.trim()).filter(Boolean);
   }
 
