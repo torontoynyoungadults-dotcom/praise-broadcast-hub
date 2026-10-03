@@ -90,7 +90,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
     </form>`; }).join('');
   const chAll = await Promise.all(activeTeams.map((t) => closingHymn.get(t['팀명'])));
   const chCards = activeTeams.map((t, i) => { const v = chAll[i] || {};
-    return `<form method="post" action="/admin/closing-hymn" class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+    return `<form method="post" action="/admin/closing-hymn" class="ph-list-item ph-inlineform" style="flex-direction:column;align-items:stretch;gap:8px;">
       <div class="ph-li-title">${esc(t['팀명'])}</div>
       <input type="hidden" name="team" value="${esc(t['팀명'])}">
       <input type="text" name="제목" value="${esc(v['제목'] || '')}" placeholder="곡 제목" maxlength="80" required>

@@ -400,6 +400,7 @@ a { color: var(--accent-ink); text-decoration: none; }
 .ph-inlineform textarea { width: 100%; box-sizing: border-box; min-height: 84px; padding: 10px 13px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg-2); color: var(--ink); font: inherit; font-size: 15px; line-height: 1.6; resize: vertical; }
 .ph-inlineform textarea:focus, .ph-inlineform input:focus { outline: none; border-color: var(--accent); }
 .ph-inline3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.ph-inline3 input { min-width: 0; } /* 그리드 칸이 input의 기본 가로폭(글자수 20)만큼 넓어지려는 걸 막음 — 안 하면 모바일에서 옆으로 삐져나감 */
 
 /* 라이브 악보 화면 스타일은 public/worship/hub.css (church-app 그대로) — 예전 연습 화면(.pv-*) 규칙은 지웠습니다. */
 /* 예배콘티의 "▶ 라이브 악보" 단추 — 아래 작은 설명 줄 */
@@ -1057,7 +1058,7 @@ a { color: var(--accent-ink); text-decoration: none; }
 .cn-guestlink > summary { cursor: pointer; font-weight: 600; font-size: .9rem; display: flex; align-items: center; gap: 6px; }
 .cn-guestlink .ph-sub { margin: 8px 0; }
 .cn-glrow { display: flex; gap: 8px; align-items: center; }
-.cn-glrow input { flex: 1; min-width: 0; font-size: .82rem; }
+.cn-glrow input { flex: 1; min-width: 0; font-size: .82rem; min-height: 40px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg-2); color: var(--ink); }
 .cn-glform { margin-top: 8px; }
 
 /* V12 — 곡별로 저장한 악보의 쪽 범위 · 곡 만들 때 올리는 악보 칸 · 목사 칩 */
