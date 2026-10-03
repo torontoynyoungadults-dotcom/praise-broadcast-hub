@@ -1363,9 +1363,9 @@ body.pkp-open{overflow:hidden}
 .ss-card.bad{opacity:.55;border-color:#ff8a7a;cursor:default}
 
 /* 악보 올리기 — 헤더 자동 추가 · 자르기 조정 */
-.ph-hdrchk{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text,#fff);cursor:pointer}
-.ph-hdrchk small{display:block;opacity:.65;font-size:11.5px;margin-top:2px}
-.ph-hdrchk input{margin-top:3px;accent-color:#ff8a1f}
+.ph-hdrchk{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:flex-start;font-size:13px;color:var(--text,#fff);cursor:pointer}
+.ph-hdrchk small{display:block;opacity:.65;font-size:11.5px;margin-top:2px;flex:1 1 100%;min-width:0}
+.ph-hdrchk input{margin-top:3px;accent-color:#ff8a1f;flex:none}
 .hdr-box{width:min(720px,100%)}
 .hdr-top{display:flex;flex-direction:column;gap:2px;font-size:12px;opacity:.85}
 .hdr-top b{font-size:14px}
