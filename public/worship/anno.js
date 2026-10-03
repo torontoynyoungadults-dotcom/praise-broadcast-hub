@@ -171,13 +171,20 @@
     return { x: x, y: y, w: w, h: h, px: px, pad: pad };
   }
 
-  /* ------------------------------------------------------------ 항목 그리기 */
+  /* ------------------------------------------------------------ 항목 그리기
+     v8.35 — 필기 선을 캣멀-롬(Catmull-Rom) 곡선으로: 찍힌 점을 모두 정확히 지나면서 그 사이를 매끄럽게 이어
+     (예전 "중간점만 지나는" 방식보다 더 손글씨 · GoodNotes 느낌에 가깝게). 저장되는 점 데이터는 그대로입니다. */
   function strokePath(c, p, W, H) {
     var n = p.length / 2; if (!n) return;
-    c.beginPath(); c.moveTo(p[0] * W, p[1] * H);
-    if (n === 1) { c.lineTo(p[0] * W + 0.01, p[1] * H); return; }
-    for (var i = 1; i < n - 1; i++) { var mx = (p[i * 2] + p[i * 2 + 2]) / 2 * W, my = (p[i * 2 + 1] + p[i * 2 + 3]) / 2 * H; c.quadraticCurveTo(p[i * 2] * W, p[i * 2 + 1] * H, mx, my); }
-    c.lineTo(p[n * 2 - 2] * W, p[n * 2 - 1] * H);
+    function X(i) { return p[i * 2] * W; } function Y(i) { return p[i * 2 + 1] * H; }
+    c.beginPath(); c.moveTo(X(0), Y(0));
+    if (n === 1) { c.lineTo(X(0) + 0.01, Y(0)); return; }
+    if (n === 2) { c.lineTo(X(1), Y(1)); return; }
+    for (var i = 0; i < n - 1; i++) {
+      var i0 = i > 0 ? i - 1 : 0, i3 = i + 2 < n ? i + 2 : n - 1;
+      var p0x = X(i0), p0y = Y(i0), p1x = X(i), p1y = Y(i), p2x = X(i + 1), p2y = Y(i + 1), p3x = X(i3), p3y = Y(i3);
+      c.bezierCurveTo(p1x + (p2x - p0x) / 6, p1y + (p2y - p0y) / 6, p2x - (p3x - p1x) / 6, p2y - (p3y - p1y) / 6, p2x, p2y);
+    }
   }
   /** 항목 하나를 ctx 에 그림. W,H = 그릴 쪽의 픽셀 크기. o.alpha = 전체 투명도 */
   function drawItem(c, it, W, H, o) {

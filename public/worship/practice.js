@@ -302,7 +302,37 @@
       if (save) ls('tools', show ? '1' : '0');
       renderSoon(60);            // 넓어진(좁아진) 칸에 맞춰 악보를 다시 그림
     }
-    toolsBtn.onclick = function () { setTools(el.classList.contains('pv-toolshide'), true); };
+    /* v8.35 — 도구가 접혀 알약(▴ 도구 열기)만 보일 때도 끌어서 옮길 수 있게. 탭(누르기)은 그대로 펴기/접기, 끌면 자리만 옮기고
+       (도구 창이 다시 열릴 때 같은 자리에 오도록 FL.tools 위치도 같이 저장) 탭 · 끌기는 포인터 이벤트 하나로 함께 가립니다. */
+    (function () {
+      var drag = null;
+      toolsBtn.addEventListener('pointerdown', function (e) {
+        if (S.compact) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        var r = toolsBtn.getBoundingClientRect();
+        drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false, x0: e.clientX, y0: e.clientY };
+        try { toolsBtn.setPointerCapture(e.pointerId); } catch (x) {}
+      });
+      toolsBtn.addEventListener('pointermove', function (e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
+        drag.moved = true; toolsBtn.classList.add('pv-dragging'); toolsBtn.style.transform = 'none';   // 태블릿의 가운데 정렬(transform)을 풀어야 끈 자리가 그대로 반영됨
+        var A = flArea();
+        var left = clamp(e.clientX - drag.dx, A.x, A.x + Math.max(0, A.w - toolsBtn.offsetWidth));
+        var top = clamp(e.clientY - drag.dy, A.y, A.y + Math.max(0, A.h - toolsBtn.offsetHeight));
+        toolsBtn.style.left = Math.round(left) + 'px'; toolsBtn.style.top = Math.round(top) + 'px';
+        if (FL.tools) { FL.tools.node.style.left = toolsBtn.style.left; FL.tools.node.style.top = toolsBtn.style.top; }
+      });
+      function end(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        var moved = drag.moved; drag = null; toolsBtn.classList.remove('pv-dragging');
+        try { toolsBtn.releasePointerCapture(e.pointerId); } catch (x) {}
+        if (!moved) { setTools(el.classList.contains('pv-toolshide'), true); return; }
+        var A = flArea(), w = FL.tools ? FL.tools.node.offsetWidth : toolsBtn.offsetWidth, hh = FL.tools ? FL.tools.node.offsetHeight : toolsBtn.offsetHeight;
+        ls('pos.tools', JSON.stringify({ x: Math.round((parseFloat(toolsBtn.style.left) - A.x) / Math.max(1, A.w - w) * 1000) / 1000, y: Math.round((parseFloat(toolsBtn.style.top) - A.y) / Math.max(1, A.h - hh) * 1000) / 1000 }));
+      }
+      toolsBtn.addEventListener('pointerup', end); toolsBtn.addEventListener('pointercancel', end);
+    })();
     /* 태블릿 위 캡슐 도크 — 기본은 "도구 아이콘 + 되돌리기 + ⋯"만. ⋯ 를 누르면 색 · 굵기 · 글꼴 · 나만 보기가 펼쳐지고, ▴ 를 누르면 도크 전체가 작은 알약(✏️ 도구 열기)으로 접힙니다 */
     S.dockMore = ls('dockmore') === null ? S.layout === 'computer' : ls('dockmore') === '1'; el.classList.toggle('pv-dockmore', S.dockMore);   // v6 — 컴퓨터는 처음부터 펼침 (색 · 굵기 · 나만 보기), 태블릿은 접힘
     S.fbadge = ls('fbadge') !== '0';                                   // 악보 맨 위 송폼 배지 (기본 켬) — Step 2.15
@@ -1688,6 +1718,16 @@
     }
     var CUE_KEYS = { i: 'intro', c: 'c', p: 'pc', b: 'b', t: 'tag', r: 'repc' };
     var VERSE_IDS = ['v1', 'v2', 'v3'], verseN = 0, verseSong = -2;
+    /* v8.35 — Enter 를 누르면 이 곡의 송폼(예: Int V1 C V2 C B C) 순서를 따라 한 칸씩 콜아웃 — 끝까지 가면 처음으로 돌아갑니다.
+       곡을 바꾸면 처음(1번째 칸)부터 다시 셉니다. 송폼이 없는 곡이면 아무 일도 하지 않습니다(기본 줄바꿈 동작 그대로). */
+    var formPos = -1, formPosSong = -2;
+    function nextFormCue() {
+      var toks = formTokens(songs[S.songIdx]); if (!toks.length) return null;
+      if (S.songIdx !== formPosSong) { formPosSong = S.songIdx; formPos = -1; }
+      formPos = (formPos + 1) % toks.length;
+      var tok = toks[formPos] || {}, id = cueForToken(toks, formPos);
+      return id ? { id: id } : (tok.custom && tok.k ? { id: tok.k } : null);
+    }
     function cueFromKey(e) {
       var k = e.key; if (!k || e.ctrlKey || e.metaKey || e.altKey) return null;
       if (S.songIdx !== verseSong) { verseSong = S.songIdx; verseN = 0; }                 // 곡이 바뀌면 절 세기를 처음부터
@@ -1715,6 +1755,10 @@
       }
       var cue = cueFromKey(e);                                                         // 콜아웃 단축키 (i v c p b r t · Shift+P 기도 · Shift+R 한 번 더 · 1 2 3 = 1·2·3절)
       if (cue) { if (P.cueKey) { var cr = e.repeat ? { ok: true } : P.cueKey(cue); if (cr) { e.preventDefault(); return; } } return; }
+      if (k === 'Enter' && !e.shiftKey && !e.repeat) {                                  // Enter = 이 곡의 송폼 순서대로 한 칸씩 콜아웃
+        var nf = nextFormCue();
+        if (nf && P.cueKey) { e.preventDefault(); P.cueKey(nf.id); return; }
+      }
       if ((k === 'Delete' || k === 'Backspace') && an.selected && an.selected()) { e.preventDefault(); an.deleteSelected(); renderTools(); return; }
       var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc' };
       var m = map[k]; if (!m) return;

@@ -165,7 +165,7 @@ button.pv-chip { cursor: pointer; }
 .pv-bpm { flex: 1; min-width: 0; height: 60px; text-align: center; font-size: 34px; font-weight: 800; border-radius: 14px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .pv-bpm::-webkit-inner-spin-button { -webkit-appearance: none; }
 .pv-dots { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 8px; width: 100%; margin: 14px 0 6px; }
-.pv-beat { position: relative; aspect-ratio: 1 / 1; width: 100%; min-height: 44px; padding: 0; border-radius: 50%; border: 2px solid rgba(var(--g-a-rgb), .45); background: rgba(var(--g-a-rgb), .20); color: var(--g-ink); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; font-family: inherit; transition: background .05s, transform .05s, box-shadow .05s; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.pv-beat { position: relative; aspect-ratio: 1 / 1; width: 100%; max-width: 72px; min-height: 44px; margin: 0 auto; padding: 0; border-radius: 50%; border: 2px solid rgba(var(--g-a-rgb), .45); background: rgba(var(--g-a-rgb), .20); color: var(--g-ink); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; font-family: inherit; transition: background .05s, transform .05s, box-shadow .05s; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }   /* v8.35 — 태블릿처럼 칸(그리드 열)이 넓으면 원이 같이 커지던 것을 최대 크기로 막음 */
 .pv-beat b { font-size: clamp(16px, 5.2vw, 30px); line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
 .pv-beat em { font-style: normal; font-size: clamp(12px, 3.6vw, 20px); font-weight: 900; line-height: 1; margin-top: 2px; color: var(--g-a2); opacity: 0; }
 .pv-beat.acc { border-color: var(--g-a); background: rgba(var(--g-a-rgb), .48); } .pv-beat.acc em { opacity: 1; }
@@ -319,6 +319,7 @@ button.pv-chip { cursor: pointer; }
 .pv-toolshide .pv-main { grid-template-rows: 0 minmax(0, 1fr); }
 .pv-toolshide.pv-tablet .pv-stage { padding: 4px 4px 12px; }
 .pv-toolshide .pv-toolsbtn { border-color: rgba(var(--g-a-rgb, 244, 162, 114), .7); }
+.pv-toolsbtn.pv-dragging { opacity: .88; box-shadow: 0 20px 48px rgba(0, 0, 0, .65); transition: none !important; touch-action: none; }   /* v8.35 — 접힌 알약도 끌 수 있음 */
 
 /* (2) 연주 시작 — 이 주의 말씀과 주일 편성 사이 */
 .pvstart { padding: 10px !important; }
@@ -799,9 +800,17 @@ body.ht-lock { overflow: hidden; }
 .pv-lv-tts.off { opacity: .7; color: var(--g-dim); }
 .pv-lv-tts:disabled { opacity: .35; cursor: not-allowed; }
 .pv-live.locked .pv-lv-go { opacity: .6; }
+/* v8.35 — 메트로놈 떠 있는 창의 "펼치기" — 자주 쓰는 반복 · 다이내믹 콜아웃을 패널을 열지 않고도 */
+.pv-lv-exp { width: 30px; padding: 0; font-size: 12px; }
+.pv-lv-exp[aria-pressed="true"] { background: rgba(var(--g-a-rgb), .22); border-color: rgba(var(--g-a-rgb), .65); }
+.pv-lv-cues { display: none; }
+.pv-live.expanded { flex-wrap: wrap; max-width: min(92vw, 420px); }
+.pv-live.expanded .pv-lv-cues { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--g-line); }
+.pv-lv-cues .pv-cue { flex: 1 1 auto; min-height: 36px; min-width: 64px; padding: 0 10px; font-size: 12.5px; border-radius: 10px; }
+.pv .pv-metro.pv-mexp { border-radius: 20px; align-items: flex-start; }
 @media (prefers-reduced-motion: reduce) { .pv-lv-dot { animation: none !important; } }
 /* 도크가 보일 때는 도크 앞 묶음을 쓰고, 도크가 접혔거나(✏️ 도구 열기) 좁은 화면 · 전체 화면에서는 예전의 떠 있는 빠른 버튼을 씁니다 */
-.pv-compact .pv-live, .pv-fs .pv-live { display: none; }
+.pv-fs .pv-live { display: none; }
 .pv:not(.pv-compact):not(.pv-toolshide):not(.pv-fs) .pv-mq { display: none !important; }
 .pv-tablet:not(.pv-compact) .pv-live button { height: 36px; }
 .pv-tablet:not(.pv-compact) .pv-lv-go { width: 40px; }
@@ -1054,8 +1063,9 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv .pv-metro .pv-lv-go.on { background: #D24A40 !important; color: #fff !important; }
 .pv .pv-metro .pv-lv-bpm b { font-size: 18px; }
 .pv .pv-metro .pv-lv-tts[aria-pressed="true"] { background: var(--v6-a-soft); color: #F7CEB8; }
-.pv.pv-compact .pv-metro, .pv.pv-hide-metro .pv-metro { display: none !important; }
-.pv:not(.pv-compact) .pv-mq { display: none !important; }                                  /* 떠 있는 메트로놈 창이 대신 (폰은 빠른 버튼 그대로) */
+.pv.pv-hide-metro .pv-metro { display: none !important; }
+.pv-mq { display: none !important; }                                  /* v8.35 — 폰(컴팩트)도 이제 도구는 숨기고 떠 있는 메트로놈 창(+/- · 콜아웃 펼치기 포함)을 그대로 씀 — 빠른 버튼은 더 쓰지 않음 */
+.pv.pv-compact .pv-live.expanded { max-width: min(92vw, 360px); }
 .pv:not(.pv-compact) .pv-tools > .pv-live { display: none; }
 
 /* 송폼 · 곡 정보 창 */
@@ -1181,8 +1191,8 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 /* 송폼 탭 맨 위 미니 메트로놈 — 아이패드에서 너무 크던 것을 동그라미 한 줄로 */
 .pv-mini { grid-template-columns: auto auto 1fr; gap: 6px 10px; padding: 8px 14px 7px; }
 .pv-mini-go { width: 50px; height: 50px; border-radius: 50%; font-size: 18px; }
-.pv-mini-bpm .pv-btn2 { width: 36px; min-width: 36px; height: 36px; font-size: 17px; border-radius: 50%; }
-.pv-mini-in { width: 54px; height: 36px; font-size: 17px; }
+.pv-mini-bpm .pv-btn2 { width: 38px; min-width: 38px; height: 40px; font-size: 17px; border-radius: 12px; }
+.pv-mini-in { width: 62px; height: 40px; font-size: 18px; line-height: 40px; padding: 0; }
 .pv-mini-dots { grid-column: auto; gap: 5px; align-items: center; justify-content: flex-end; }
 .pv-mini-dots i { flex: none; width: 10px; max-width: none; height: 10px; border-radius: 50%; }
 .pv-mini-note { grid-column: 1 / -1; }
@@ -1296,6 +1306,8 @@ html[data-theme="light"] .yt-ib, html[data-theme="light"] .yt-btn, html[data-the
 html[data-theme="light"] .pv .pv-tools .pv-rszw { filter: invert(1); }
 .pv .pv-pdfbtn { white-space: nowrap; }
 .pv-tablet .pv-pdfbtn .pv-tx, .pv-compact .pv-pdfbtn .pv-tx { display: inline; }
+/* v6.6 — 컴퓨터 화면이 좁아지면(맞춤·화면배치 글씨가 숨는 것과 같은 1320px 기준) "PDF" 글씨도 같이 숨겨 머리말 줄이 밀려 나가지 않게. 태블릿은 그대로 글씨 유지(위 줄). */
+@media (max-width: 1320px) { .pv:not(.pv-compact):not(.pv-tablet) .pv-pdfbtn .pv-tx { display: none; } .pv:not(.pv-compact):not(.pv-tablet) .pv-pdfbtn { padding: 0 9px; } }
 .pv .yt-viewer.pv-float:not(.yt-mini) { width: max-content; max-width: min(98%, 920px); }
 .pv .yt-viewer.pv-float .yt-chips { flex-wrap: nowrap; }
 .pv .pv-tools.pv-float { z-index: 9; }

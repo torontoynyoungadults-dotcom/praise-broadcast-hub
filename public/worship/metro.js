@@ -37,7 +37,7 @@
   var CUE_BY = {};
   CUES.forEach(function (c) { CUE_BY[c.id] = c; });
 
-  var LIMITS = { minBpm: 30, maxBpm: 300, minPitch: -12, maxPitch: 12, maxGain: 5 };
+  var LIMITS = { minBpm: 30, maxBpm: 300, minPitch: -12, maxPitch: 12, maxGain: 8 };    // v8.35 — 더 크게 들을 수 있도록 5배 → 8배 (리미터가 찢어짐은 그대로 막음)
   /** 박마다 ">" 강세 표시 — 기본은 마디 첫 박만 (사용자가 원 모양 박을 눌러 바꿉니다) */
   function defaultMarks(num, first) { var a = []; for (var i = 0; i < num; i++) a.push(i === 0 && first !== false ? 1 : 0); return a; }
   function clamp(v, lo, hi) { v = Number(v); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
@@ -55,7 +55,7 @@
    * gender 'female': 여성 음성 우선. 'any': 성별 상관없음.
    */
   /* 기계음처럼 들리는 옛 음성 · 효과음 음성 — 다른 선택지가 있으면 고르지 않습니다 */
-  var ROBOT_RE = /\b(fred|albert|junior|ralph|kathy|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|organ|superstar|trinoids|whisper|wobble|zarvox|jester|espeak|compact)\b/i;
+  var ROBOT_RE = /\b(fred|albert|junior|ralph|kathy|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|organ|superstar|trinoids|whisper|wobble|zarvox|jester|espeak|compact|eddy|reed|rocko|sandy|shelley|flo|grandma|grandpa|bruce|princess)\b/i;
   /** 자연스러움 점수 — 신경망(Natural · Neural · Online) · 고음질(Premium · Enhanced · Siri) 음성이 높고, 기기 안 음성 · 기본 음성이 조금 유리 */
   function voiceScore(v) {
     var n = String((v && v.name) || ''), sc = 0;
@@ -366,7 +366,7 @@
     function currentVoice(lang) { var v = pickVoice(lang || cfg.lang); return v ? { name: v.name, lang: v.lang, male: isMaleVoice(v), local: !!v.localService } : null; }
     /**
      * 딸깍 소리는 전용 볼륨(master)과 리미터를 거쳐 나갑니다.
-     * 볼륨 막대(0~1)가 기본 크기의 0 ~ 5 배 (LIMITS.maxGain) 이고, 리미터가 소리가 찢어지는 것을 막습니다.
+     * 볼륨 막대(0~1)가 기본 크기의 0 ~ 8 배 (LIMITS.maxGain) 이고, 리미터가 소리가 찢어지는 것을 막습니다.
      */
     var master = null, limiter = null;
     function gainOf() { return clamp(cfg.click, 0, 1) * LIMITS.maxGain; }

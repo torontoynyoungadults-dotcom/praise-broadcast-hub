@@ -175,23 +175,36 @@
         if (st && st.cfg) return st.cfg.speak !== false;
         try { return root.localStorage.getItem('yn.metro.speak') !== 'false'; } catch (e) { return true; }
       }
+      /* v8.35 — 자주 쓰는 반복 · 다이내믹 콜아웃을 메트로놈 떠 있는 창에서 패널을 열지 않고도 바로 누르도록 "펼치기" 추가 */
+      var QUICK_CUE_IDS = ['repc', 'halfc', 'tag', 'onebar', 'vonly', 'break'];
+      var expB = null, cuesEl = null;
       function build() {
         el = doc.createElement('div'); el.className = 'pv-live'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', '라이브 컨트롤 — 메트로놈 · 음성 콜아웃');
         el.innerHTML = '<button type="button" class="pv-lv-go" aria-pressed="false" title="메트로놈 시작 / 멈춤 (Space)" aria-label="메트로놈 시작">' + IC.play + '</button>' +
           '<button type="button" class="pv-lv-step pv-lv-dn" title="BPM −1 (누르고 있으면 계속)" aria-label="BPM 내리기">−</button>' +
           '<button type="button" class="pv-lv-bpm" title="메트로놈 패널 열기" aria-label="BPM — 메트로놈 패널 열기"><b>—</b><small>BPM</small><i class="pv-lv-dot b0"></i></button>' +
           '<button type="button" class="pv-lv-step pv-lv-up" title="BPM +1 (누르고 있으면 계속)" aria-label="BPM 올리기">+</button>' +
-          '<button type="button" class="pv-lv-tts" aria-pressed="true" title="음성 콜아웃 (TTS) 켜기 / 끄기" aria-label="음성 콜아웃 켜짐">' + IC.vol + '<small>콜아웃</small></button>';
+          '<button type="button" class="pv-lv-tts" aria-pressed="true" title="음성 콜아웃 (TTS) 켜기 / 끄기" aria-label="음성 콜아웃 켜짐">' + IC.vol + '<small>콜아웃</small></button>' +
+          '<button type="button" class="pv-lv-exp" aria-pressed="false" aria-expanded="false" title="자주 쓰는 콜아웃 펼치기/접기 (반복 · 다이내믹)" aria-label="콜아웃 펼치기">▾</button>' +
+          '<div class="pv-lv-cues" role="group" aria-label="콜아웃 — 반복 · 다이내믹">' + QUICK_CUE_IDS.map(function (id) { return '<button type="button" class="pv-cue" data-cue="' + id + '"></button>'; }).join('') + '</div>';
         goB = el.querySelector('.pv-lv-go'); bpmB = el.querySelector('.pv-lv-bpm'); ttsB = el.querySelector('.pv-lv-tts'); dot = el.querySelector('.pv-lv-dot');
+        expB = el.querySelector('.pv-lv-exp'); cuesEl = el.querySelector('.pv-lv-cues');
         bpmStep(el.querySelector('.pv-lv-dn'), -1, sync); bpmStep(el.querySelector('.pv-lv-up'), 1, sync);
         el.addEventListener('click', function (e) {
+          var cb = e.target.closest ? e.target.closest('[data-cue]') : null;
+          if (cb) { e.stopPropagation(); var r = doCue(cb.dataset.cue); if (r && r.ok) { cb.classList.add('flash'); setTimeout(function () { cb.classList.remove('flash'); }, 350); } return; }
           var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
           e.stopPropagation();                                            // 도구 막대의 다른 단추 처리기로 넘어가지 않게
           if (b.classList.contains('pv-lv-step')) return;                 // BPM −/+ 는 bpmStep 이 처리
           if (b === goB) {
-            var r = P.metroKey('toggle');
-            if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
+            var r2 = P.metroKey('toggle');
+            if (r2 === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
           } else if (b === bpmB) P.showTab('metro');
+          else if (b === expB) {
+            var on2 = el.classList.toggle('expanded');
+            expB.setAttribute('aria-pressed', on2 ? 'true' : 'false'); expB.setAttribute('aria-expanded', on2 ? 'true' : 'false'); expB.setAttribute('aria-label', on2 ? '콜아웃 접기' : '콜아웃 펼치기'); expB.textContent = on2 ? '▴' : '▾';
+            var mw = el.closest('.pv-metro'); if (mw) mw.classList.toggle('pv-mexp', on2);
+          }
           else if (b === ttsB) {
             var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
             if (!speechOk()) { P.toast('이 기기는 음성 안내를 지원하지 않습니다.', true); return; }
@@ -199,6 +212,14 @@
             P.toast(on ? '음성 콜아웃 켜짐' : '음성 콜아웃 꺼짐 — 큐 이름을 말하지 않습니다', false, 1200);
           }
           sync();
+        });
+      }
+      function cueLabels() {
+        if (!cuesEl || !root.YNMetro) return;
+        var lang = P.lang();
+        Array.prototype.forEach.call(cuesEl.querySelectorAll('[data-cue]'), function (b) {
+          var c = root.YNMetro.CUE_BY[b.dataset.cue]; if (!c) return;
+          b.textContent = lang === 'ko' ? c.ko : c.en; b.title = c.en + ' / ' + c.ko;
         });
       }
       function sync() {
@@ -211,6 +232,7 @@
         var ck = on ? 'v' : 'm'; if (ttsB.getAttribute('data-ic') !== ck) { ttsB.innerHTML = (on ? IC.vol : IC.mute) + '<small>콜아웃</small>'; ttsB.setAttribute('data-ic', ck); }
         el.classList.toggle('locked', ctl() === 'locked');
         Array.prototype.forEach.call(el.querySelectorAll('.pv-lv-step'), function (x) { x.disabled = ctl() === 'locked'; });
+        cueLabels();
       }
       function beat(e) {
         if (!dot) return;
@@ -509,6 +531,10 @@
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a="saveinfo"]') : null; if (!b) return;
         var i = P.songIdx(), s = P.song(); if (!s) { eMsg.textContent = '먼저 곡을 골라주세요.'; eMsg.className = 'pv-msg2 bad'; return; }
+        /* v8.35 — 연습하다가 메트로놈 BPM 을 (미니 · 동그라미 · 메트로놈 탭에서) 바꿔 둔 뒤 여기서 "저장"만 눌러도 그대로 반영되도록 —
+           BPM 칸에 직접 입력 중이 아니면(포커스가 없으면) 지금 돌고 있는 메트로놈 값을 그 입력칸에 먼저 채웁니다. */
+        var m = metro(), live = m && m.state ? Math.round(m.state().bpm) : 0;
+        if (doc.activeElement !== eBpm && live >= 30 && live <= 300) eBpm.value = live;
         var patch = {}, bpm = String(eBpm.value || '').replace(/[^0-9]/g, '');
         if (bpm !== String(s.bpm || '')) { if (bpm && (+bpm < 30 || +bpm > 300)) { eMsg.textContent = 'BPM 은 30 ~ 300 사이로 넣어주세요.'; eMsg.className = 'pv-msg2 bad'; return; } patch.bpm = bpm; }
         if (String(eForm.value || '').trim() !== String(s.form || '')) patch.form = String(eForm.value || '').trim();
@@ -578,7 +604,7 @@
           '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
           '<label class="pv-rng">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
           '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="voice"></label>' +
-          '<p class="pv-help">볼륨 막대는 기본 크기의 0 ~ 5배입니다 (소리가 찢어지지 않게 자동으로 눌러 줍니다). 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
+          '<p class="pv-help">볼륨 막대는 기본 크기의 0 ~ 8배입니다 (소리가 찢어지지 않게 자동으로 눌러 줍니다). 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
           '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기 <small>(끄면 큐 이름을 소리로 말하지 않습니다 — 화면 위 도크에서도 켜고 끌 수 있어요)</small></label>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
