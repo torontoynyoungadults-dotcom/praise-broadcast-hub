@@ -1372,4 +1372,6 @@ module.exports.shared = {
   loadWeek, songCard, packageSheetsCard, commentItem, practiceInfo, practiceCard, specialServices, specialServiceById, scopeFields, formChips,
   // 악보 올리기(파일 · 링크 · 웹에서 찾은 이미지 → PDF) — 관리자의 "폐회송 악보 올리기"(routes/admin.js)도 똑같이 씀
   webSheetFile, titleFromFile, titleFromLink,
+  // 인쇄용 PDF 패키지 만들기 — 방송팀 보기 전용 화면(routes/guest.js)도 읽기 전용으로 똑같이 씀
+  makePackage,
 };

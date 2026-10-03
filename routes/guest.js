@@ -88,13 +88,12 @@ router.get('/b/:token/conti', gate, async (req, res) => {
   const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
   const scope = { event: eventRow ? eventRow['ID'] : '', date };
   const [w, assign, evs, pinfo] = await Promise.all([sh.loadWeek(team, scope), sheetsDb.readAll('찬양편성'), sh.specialServices(team), sh.practiceInfo(team, scope, date)]);
-  const q = (d) => `${base}/conti?date=${encodeURIComponent(d)}`;
-  const weekNav = scope.event
-    ? `<p class="ph-sub"><b>${esc(eventRow['이름'])}</b> · ${esc(week.labelKo(date))} — <a href="${q(date)}">이 날짜의 주일 콘티 보기</a></p>`
-    : `<div class="ph-weeknav"><a class="ph-icon-btn" href="${q(week.shiftWeek(date, -1))}" aria-label="지난 주">‹</a>
-        <div class="ph-weekdate-label">${esc(week.labelKo(date))}</div>
-        <a class="ph-icon-btn" href="${q(week.shiftWeek(date, 1))}" aria-label="다음 주">›</a></div>
-       <p class="ph-sub" style="text-align:center;margin:6px 0 0;"><a href="${base}/conti">이번 주로</a></p>`;
+  // 달력 띠 — 로그인 화면(routes/conti.js)과 똑같은 모양 (±3주 + 주일 외 찬양 칸 + 날짜 직접 고르기)
+  const stripEvents = evs.map((e) => ({ id: e['ID'], name: String(e['이름'] || '주일 외 찬양'), date: e['날짜'] }));
+  const strip = pageShell.weekStrip({ basePath: `${base}/conti`, team, date, assignRows: assign.filter((r) => r['팀ID'] === team), events: stripEvents, activeEvent: scope.event ? scope.event : '' });
+  const dayBanner = scope.event
+    ? `<div class="ph-card ph-eventsbanner"><p class="ph-sub">${esc(eventRow['이름'])} 콘티예요 — 주일예배와는 별도 기록입니다. <a href="${base}/conti?date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p></div>`
+    : '';
   const upcoming = evs.filter((e) => e['날짜'] >= week.todayStr()).slice(0, 6);
   const evBox = upcoming.length ? `<div class="gs-evs">${upcoming.map((e) => `<a class="gs-ev${scope.event === e['ID'] ? ' on' : ''}" href="${base}/conti?event=${encodeURIComponent(e['ID'])}">${esc(e['이름'])} <small>${esc(md(e['날짜']))}</small></a>`).join('')}</div>` : '';
   const p = pinfo.p;
@@ -114,10 +113,17 @@ router.get('/b/:token/conti', gate, async (req, res) => {
     </form>
     ${req.query.c === 'ok' ? '<p class="ph-msg ok" role="status">댓글을 남겼어요.</p>' : ''}${req.query.c === 'wait' ? '<p class="ph-msg bad" role="status">잠시 후 다시 남겨주세요.</p>' : ''}${req.query.c === 'bad' ? '<p class="ph-msg bad" role="status">이름과 내용을 적어주세요.</p>' : ''}
   </div>`;
+  const pkgHref = `${base}/conti/package.pdf?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}`;
+  const pkgBtn = w.conti.length || w.final.length || w.closing.length
+    ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-base="${base}/conti" data-readonly="1" data-href="${esc(pkgHref)}" data-title="${esc(scope.event ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>`
+    : '';
   const body = `
-    <div class="ph-card">${weekNav}${evBox}</div>
+    ${strip}
+    ${dayBanner}
+    ${evBox ? `<div class="ph-card">${evBox}</div>` : ''}
     ${practice}
     <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>악보 · 송폼 · 메트로놈을 실시간으로 봅니다 (보기 전용)</small></span></a>
+    <div class="cn-toolrow">${pkgBtn}</div>
     ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope, team)}
     <div class="ph-card top-accent"><h2 class="ph-h2">콘티</h2>
       <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => card(s, i + 1, '콘티')).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div></div>
@@ -159,6 +165,45 @@ router.post('/b/:token/comments', gate, async (req, res) => {
     });
   } catch (e) { console.error('[방송팀 댓글 저장 실패]', e.message); return back('wait'); }
   back('ok');
+});
+
+/* ---------------------------------------------------------------- 인쇄용 PDF 패키지 (보기 전용)
+   로그인 화면(routes/conti.js)의 makePackage()를 그대로 쓰되, 확정하기 · 악보 영역 조정 같은 "고치는" 기능은 없음 —
+   public/js/pkgpreview.js 가 data-readonly="1" 를 보고 그 버튼들을 숨깁니다. */
+const guestPkgJobs = new Map();                   // 만드는 중인 PDF — 진행률용 (10분 뒤 정리), 로그인 화면과 별도 보관
+function sendGuestPdf(res, r) {
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Length': String(r.pdf.length), 'Cache-Control': 'private, no-store',
+    'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(r.name)}.pdf` });
+  res.send(r.pdf);
+}
+router.get('/b/:token/conti/package/start', gate, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const { team } = req.guest;
+  for (const [k, j] of guestPkgJobs) if (Date.now() - j.at > 600000) guestPkgJobs.delete(k);
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const job = { at: Date.now(), team, pct: 0, label: '준비 중', done: false, err: false, result: null };
+  guestPkgJobs.set(id, job);
+  req.ctx = { current: team };
+  S().makePackage(req, (p, label) => { if (p > job.pct) job.pct = Math.min(0.99, p); if (label) job.label = label; })
+    .then((r) => { job.result = r; job.pct = 1; job.done = true; job.label = '완료'; })
+    .catch((e) => { console.error('[방송팀 PDF 패키지 실패]', e && e.stack || e); job.err = true; job.done = true; });
+  res.json({ id });
+});
+router.get('/b/:token/conti/package/status', gate, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const j = guestPkgJobs.get(String(req.query.id || ''));
+  if (!j || j.team !== req.guest.team) return res.status(404).json({ gone: true });
+  res.json({ pct: Math.round(j.pct * 100), label: j.label, done: j.done, err: j.err });
+});
+router.get('/b/:token/conti/package.pdf', gate, async (req, res) => {
+  try {
+    const j = guestPkgJobs.get(String(req.query.job || ''));
+    if (!j || j.team !== req.guest.team || !j.result) return res.status(404).type('text').send('만든 PDF를 찾지 못했어요. 다시 만들어 주세요.');
+    sendGuestPdf(res, j.result);
+  } catch (e) {
+    console.error('[방송팀 PDF 패키지 실패]', e && e.stack || e);
+    if (!res.headersSent) res.status(500).type('text').send('PDF 패키지를 만들지 못했어요. 잠시 뒤 다시 해 주세요.');
+  }
 });
 
 /* ---------------------------------------------------------------- 스케줄표 */

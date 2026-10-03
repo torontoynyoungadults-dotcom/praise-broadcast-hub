@@ -2,7 +2,7 @@
    (새 탭에 PDF 를 바로 열면 휴대폰 · 앱 브라우저에서 하얀 화면만 나오는 경우가 있어서 pdf.js 로 직접 그립니다.) */
 (function () {
   if (window.__phPkgPreview) return; window.__phPkgPreview = true;
-  var root = null, state = { href: '', crop: true, blob: null, name: 'worship-package.pdf', token: 0 };
+  var root = null, state = { href: '', crop: true, blob: null, name: 'worship-package.pdf', token: 0, base: '/conti', readonly: false };
   var pdfLoad = null;
 
   function loadPdfjs() {
@@ -54,8 +54,9 @@
   function teamOf() { try { return new URL(state.href, location.href).searchParams.get('team') || ''; } catch (e) { return ''; } }
   function edShow(on) { $('.pkp-ed').hidden = !on; $('.pkp-pages').hidden = on; if (!on) { $('.pkp-box').classList.remove('editing'); $('.pkp-ed').classList.remove('edit'); } }
   function openAreas() {
+    if (state.readonly) return;
     var ed = $('.pkp-ed'); edShow(true); $('.pkp-box').classList.remove('editing'); ed.classList.remove('edit'); ed.innerHTML = '<p class="pkp-edmsg">악보 목록을 불러오는 중…</p>';
-    fetch(state.href.replace('/conti/package.pdf', '/conti/package/areas'), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+    fetch(state.href.replace(state.base + '/package.pdf', state.base + '/package/areas'), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
       var list = (j && j.sheets) || [];
       if (!list.length) { ed.innerHTML = '<p class="pkp-edmsg">이 콘티에 연결된 악보가 없어요.</p><button type="button" class="ph-btn" data-ed="back">돌아가기</button>'; bindEd(); return; }
       ed.innerHTML = '<p class="pkp-edmsg">PDF에서 악보 위의 제목이 지워지지 않은 곡만 골라 주세요. 한 번 지정하면 다음부터는 자동으로 적용돼요.</p>' +
@@ -98,7 +99,7 @@
     }
     paint(); zv.textContent = Math.round(ZOOMS[zi] * 100) + '%';
     var pageNo = (function () { var m = /\d+/.exec(x.spec || ''); return m ? +m[0] : 1; })();
-    loadPdfjs().then(function (lib) { return lib.getDocument({ url: '/conti/sheets/raw?team=' + encodeURIComponent(teamOf()) + '&row=' + x.row }).promise; })
+    loadPdfjs().then(function (lib) { return lib.getDocument({ url: state.base + '/sheets/raw?team=' + encodeURIComponent(teamOf()) + '&row=' + x.row }).promise; })
       .then(function (doc) { return doc.getPage(Math.min(pageNo, doc.numPages)); })
       .then(function (page) { pdfPage = page; return renderPage(); })
       .then(function () { scroller.scrollTop = Math.max(0, c.t * wrap.clientHeight - 40); })
@@ -131,7 +132,7 @@
     box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
     function save(v) {
       var body = new URLSearchParams({ team: teamOf(), __row: x.row, crop: v ? [c.l, c.t, c.r, c.b].map(function (n) { return n.toFixed(4); }).join(',') : '' });
-      fetch('/conti/sheets/crop', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+      fetch(state.base + '/sheets/crop', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
         .then(function (r) { if (!r.ok) throw new Error('x'); edShow(false); run(); })
         .catch(function () { ed.insertAdjacentHTML('afterbegin', '<p class="pkp-edmsg bad">저장하지 못했어요. 다시 해 주세요.</p>'); });
     }
@@ -153,6 +154,7 @@
   function svHide() { var e = $('.pkp-sv'); e.hidden = true; e.innerHTML = ''; }
   // 지금 상태에 맞는 안내 줄 · 버튼
   function svShow() {
+    if (state.readonly) { svHide(); return; }
     var e = $('.pkp-sv'); e.hidden = false; e.className = 'pkp-sv';
     $('[data-pkp="edit"]').hidden = state.mode !== 'saved';
     $('[data-pkp="confirm"]').hidden = state.mode !== 'fresh';
@@ -165,17 +167,19 @@
     } else svHide();
   }
   function askConfirm() {
+    if (state.readonly) return;
     var e = $('.pkp-sv'); e.hidden = false; e.className = 'pkp-sv ask';
     e.innerHTML = '<span>이 PDF로 확정할까요? 확정하면 다음부터 바로 다운로드돼요. (콘티가 바뀌면 나중에 수정할 수 있어요)' + (state.savedInfo ? ' 기존 확정본은 이 PDF로 바뀌어요.' : '') + '</span><button type="button" class="ph-btn pri" data-sv="ok">확정</button><button type="button" class="ph-btn" data-sv="no">취소</button>';
   }
   function askEdit() {
+    if (state.readonly) return;
     var e = $('.pkp-sv'); e.hidden = false; e.className = 'pkp-sv ask';
     e.innerHTML = '<span>수정하려면 PDF를 새로 만들어요. 새로 만든 뒤 <b>확정하기</b>를 눌러야 기존 확정본이 바뀌어요. 계속할까요?</span><button type="button" class="ph-btn pri" data-sv="regen">새로 만들기</button><button type="button" class="ph-btn" data-sv="no">취소</button>';
   }
   function doConfirm() {
     var e = $('.pkp-sv'); e.innerHTML = '<span>확정하는 중…</span>';
     var body = baseQs(); body.set('job', state.jobId || '');
-    fetch('/conti/package/confirm', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+    fetch(state.base + '/package/confirm', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j.ok, j: j }; }); })
       .then(function (v) {
         if (!v.ok) { svShow(); e.insertAdjacentHTML('beforeend', '<span class="warn">' + esc((v.j && v.j.msg) || '확정하지 못했어요.') + '</span>'); return; }
@@ -185,8 +189,10 @@
   function openFlow() {
     state.mode = ''; state.savedInfo = null; state.jobId = ''; svHide();
     $('[data-pkp="edit"]').hidden = true; $('[data-pkp="confirm"]').hidden = true;
-    var my = ++state.token; setBar(4, '확정된 PDF가 있는지 확인하는 중'); $('.pkp-pages').innerHTML = '';
-    fetch('/conti/package/saved?' + baseQs().toString(), { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+    var my = ++state.token;
+    if (state.readonly) { run(); return; }
+    setBar(4, '확정된 PDF가 있는지 확인하는 중'); $('.pkp-pages').innerHTML = '';
+    fetch(state.base + '/package/saved?' + baseQs().toString(), { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
       if (my !== state.token) return;
       if (j && j.saved) return loadSaved(j, my);
       run();
@@ -194,7 +200,7 @@
   }
   function loadSaved(info, my) {
     state.mode = 'saved'; state.savedInfo = info; svShow(); setBar(40, '확정된 PDF를 불러오는 중');
-    return fetch('/conti/package.pdf?saved=1&' + baseQs().toString(), { credentials: 'same-origin' }).then(function (r) {
+    return fetch(state.base + '/package.pdf?saved=1&' + baseQs().toString(), { credentials: 'same-origin' }).then(function (r) {
       if (!r.ok) throw new Error('gone'); state.name = nameFromHeaders(r); return r.blob();
     }).then(function (blob) {
       if (my !== state.token) return;
@@ -219,7 +225,7 @@
     var qs = state.href.replace(/^[^?]*\?/, '') + (state.crop ? '' : '&crop=0');
     var t0 = Date.now(), shown = 2;
     // 서버가 진행률을 알려 줘요. 화면의 숫자는 서버 값과 시간 경과 중 큰 쪽(작업 구간 사이에도 멈춘 것처럼 보이지 않게 조금씩 올라감)
-    fetch('/conti/package/start?' + qs, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('start'); return r.json(); }).then(function (j) {
+    fetch(state.base + '/package/start?' + qs, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('start'); return r.json(); }).then(function (j) {
       var id = j.id, label = '준비 중', server = 0;
       return new Promise(function (ok, no) {
         var anim = setInterval(function () {
@@ -230,7 +236,7 @@
         (function poll() {
           if (my !== state.token) { clearInterval(anim); return ok(null); }
           if (Date.now() - t0 > 180000) { clearInterval(anim); return no(new Error('timeout')); }
-          fetch('/conti/package/status?id=' + id, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('gone'); return r.json(); }).then(function (st) {
+          fetch(state.base + '/package/status?id=' + id, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('gone'); return r.json(); }).then(function (st) {
             if (st.err) { clearInterval(anim); return no(new Error('fail')); }
             server = Math.max(server, st.pct); label = st.label || label;
             if (server > shown) shown = server;
@@ -243,7 +249,7 @@
     }).then(function (id) {
       if (!id || my !== state.token) return;
       setBar(99, '불러오는 중'); state.jobId = id;
-      return fetch('/conti/package.pdf?team=' + encodeURIComponent(teamOf()) + '&job=' + id, { credentials: 'same-origin' }).then(function (r) {
+      return fetch(state.base + '/package.pdf?team=' + encodeURIComponent(teamOf()) + '&job=' + id, { credentials: 'same-origin' }).then(function (r) {
         if (!r.ok) throw new Error('http'); state.name = nameFromHeaders(r); return r.blob();
       }).then(function (blob) {
         if (my !== state.token) return;
@@ -298,7 +304,10 @@
     e.preventDefault();
     if (!root) build();
     state.href = b.getAttribute('data-href'); state.crop = true;
+    state.base = b.getAttribute('data-base') || '/conti';
+    state.readonly = b.getAttribute('data-readonly') === '1';
     $('[data-pkp="crop"]').checked = true;
+    $('[data-pkp="areas"]').hidden = state.readonly;
     $('.pkp-ttl').textContent = b.getAttribute('data-title') || '인쇄용 PDF 패키지';
     root.classList.add('on'); document.body.classList.add('pkp-open');
     openFlow();
