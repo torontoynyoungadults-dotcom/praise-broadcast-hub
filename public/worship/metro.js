@@ -22,16 +22,19 @@
   /* 음성 큐 — 영어(기본) · 한국어 */
   var CUES = [
     { id: 'v1', en: 'Verse 1', ko: '1절', g: 'sec' }, { id: 'v2', en: 'Verse 2', ko: '2절', g: 'sec' }, { id: 'v3', en: 'Verse 3', ko: '3절', g: 'sec' },
-    { id: 'c', en: 'Chorus', ko: '후렴', g: 'sec' }, { id: 'pc', en: 'Pre-chorus', ko: '프리코러스', g: 'sec' }, { id: 'b', en: 'Bridge', ko: '브릿지', g: 'sec' },
-    { id: 'intro', en: 'Intro', ko: '인트로', g: 'sec' }, { id: 'itld', en: 'Interlude', ko: '간주', g: 'sec' }, { id: 'vamp', en: 'Vamp', ko: '뱀프', g: 'sec' },
+    { id: 'c', en: 'Chorus', ko: '후렴', g: 'sec' }, { id: 'pc', en: 'Pre-chorus', ko: '프리코러스', g: 'sec' },
+    { id: 'b', en: 'Bridge', ko: '브릿지', g: 'sec', spk: 'Bridge.', rate: 0.82 },                     // v8.36 — 짧게 끝나는 단어가 발음이 씹히거나(장음 처리 안 됨) 잘리는 문제 — 끝에 마침표를 붙여 음성합성기가 끝소리를 끝까지 내도록 하고, 속도도 늦춤
+    { id: 'intro', en: 'Intro', ko: '인트로', g: 'sec' },
+    { id: 'itld', en: 'Interlude', ko: '간주', g: 'sec', spk: 'Interlude.', rate: 0.82 },
+    { id: 'vamp', en: 'Vamp', ko: '뱀프', g: 'sec', spk: 'Vamp.', rate: 0.8 },
     { id: 'end', en: 'Ending', ko: '엔딩', g: 'sec' },
-    { id: 'voice', en: 'Voice', ko: '보이스', g: 'dyn' }, { id: 'break', en: 'Break', ko: '브레이크', g: 'dyn' }, { id: 'die', en: 'Die down', ko: '작게', g: 'dyn' },
+    { id: 'voice', en: 'Voice', ko: '보이스', g: 'dyn' }, { id: 'break', en: 'Break', ko: '브레이크', g: 'dyn', spk: 'Break.', rate: 0.8 }, { id: 'die', en: 'Die down', ko: '작게', g: 'dyn' },
     { id: 'ferm', en: 'Fermata', ko: '늘임표', g: 'dyn' }, { id: 'solo', en: 'Solo', ko: '솔로', g: 'dyn' },
     { id: 'repc', en: 'Repeat Chorus', ko: '코러스 반복', g: 'rep' }, { id: 'halfc', en: 'Half Chorus', ko: '코러스 반', g: 'rep' },
     { id: 'tag', en: 'Tag', ko: '끝 소절 반복', g: 'rep' }, { id: 'lastl', en: 'Last line again', ko: '마지막 줄 한 번 더', g: 'rep' },
     { id: 'once', en: 'One more time', ko: '한 번 더', g: 'rep' }, { id: 'onebar', en: 'One more bar', ko: '한마디 더', g: 'rep' },
     { id: 'sess', en: 'Session in', ko: '세션 인', g: 'in' }, { id: 'alto', en: 'Alto in', ko: '알토 인', g: 'in' }, { id: 'tenor', en: 'Tenor in', ko: '테너 인', g: 'in' },
-    { id: 'keyup', en: 'Key Up', ko: '키 업', g: 'rep' }, { id: 'prayer', en: 'Prayer', ko: '기도', g: 'rep' },
+    { id: 'keyup', en: 'Key Up', ko: '키 업', g: 'rep' }, { id: 'prayer', en: 'Prayer', ko: '기도', g: 'rep', spk: 'Prayer...', rate: 0.78 },
     { id: 'vonly', en: 'Voice only', ko: '보이스만', g: 'dyn' }, { id: 'drums', en: 'Drums only', ko: '드럼만', g: 'dyn' }, { id: 'build', en: 'Build up', ko: '빌드 업', g: 'dyn' }      // v8.34 — Step 2.11 — 배열 끝에 추가 (기존 큐의 소리 번호는 그대로)
   ];
   var CUE_BY = {};
@@ -535,7 +538,7 @@
     if (typeof window !== 'undefined' && typeof setTimeout === 'function') setTimeout(function () { try { loadClips(); } catch (e) { /* 음성 합성으로 */ } }, 0);
 
     var speakKeep = [];
-    function speak(text, lang, calibrate, fromGesture) {
+    function speak(text, lang, calibrate, fromGesture, rate) {
       if (!speechOk) return false;
       try {
         routeAudio(!!fromGesture);                       // 무음 스위치가 켜져 있어도 들리게 — speak() 바로 앞에서, 같은 동작 안에서
@@ -543,7 +546,7 @@
         u.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
         var v = pickVoice(lang, true); if (v) u.voice = v;
         u.pitch = cfg.gender === 'male' && !(v && isMaleVoice(v)) ? MALE_FALLBACK_PITCH : 1;        // 남성 음성이 없으면 낮은 음높이로 대신
-        u.rate = 0.97;                                   // 조금 여유 있게 — 빠른 합성음처럼 들리지 않게
+        u.rate = rate || 0.97;                            // 조금 여유 있게 — 빠른 합성음처럼 들리지 않게 (장음이 필요한 단어는 더 느리게, cue()가 넘겨줌)
         u.volume = calibrate ? 0 : Math.min(1, Math.max(0, cfg.voice));   // 지연 재기(calibrate)는 소리 없이, 평소에는 음성 볼륨 (0~1)
         var t0 = performance.now();
         u.onstart = function () {
@@ -687,6 +690,9 @@
       c = resolveCue(c);
       var text = cfg.lang === 'ko' ? c.ko : c.en;
       if (!text) return { ok: false, error: '큐 이름이 비어 있습니다.' };
+      // 화면에는 그대로 "Bridge" 처럼 짧게 보여주고, 음성 합성기한테는 끝소리가 잘리지 않게 마침표를 붙인 글자와 더 느린 속도를 따로 넘깁니다 (장음 처리 문제 보완)
+      var speakText = (cfg.lang !== 'ko' && c.spk) ? c.spk : text;
+      var speakRate = (cfg.lang !== 'ko' && c.rate) ? c.rate : 0.97;
       if (cfg.speak === false) {                                 // 음성 콜아웃을 꺼 둔 상태 — 소리 없이 이름만 알려줍니다 (화면 안내는 그대로)
         notify('cue', { status: 'spoken', text: text, muted: true });
         return { ok: true, muted: true, text: text };
@@ -698,9 +704,9 @@
         Media.start(); if (!sched.running) setTimeout(function () { if (!sched.running) Media.stop(); }, 4000 + (clip ? Math.round(clip.duration * 1000) : 0));   // 무음 모드에서도 음성이 들리게 잠깐만 미디어 채널로
         if (clip) {
           try { routeAudio(true); ensureCtx(); if (ctx.state !== 'running' && ctx.resume) ctx.resume(); playClip(clip, ctx.currentTime + 0.03); }
-          catch (e) { if (speechOk) speak(text, cfg.lang, false, true); }
+          catch (e) { if (speechOk) speak(speakText, cfg.lang, false, true, speakRate); }
         }
-        else if (useSpeech) speak(text, cfg.lang, false, true);     // 사용자가 누른 바로 그 순간 — 오디오 경로를 열고 곧바로 말합니다
+        else if (useSpeech) speak(speakText, cfg.lang, false, true, speakRate);     // 사용자가 누른 바로 그 순간 — 오디오 경로를 열고 곧바로 말합니다
         else if (ctx || AC) { try { ensureCtx(); ctx.resume(); earcon(ctx.currentTime + 0.02, c.g, 0); } catch (e) { return { ok: false, error: HELP.noAudio }; } }
         notify('cue', { status: 'spoken', text: text, immediate: true });
         return { ok: true, immediate: true, text: text };
@@ -720,7 +726,7 @@
       else if (useSpeech) {
         var wait = Math.max(0, (plan.speakAt - ctx.currentTime) * 1000);
         item.timeout = setTimeout(function () {
-          speak(text, cfg.lang);
+          speak(speakText, cfg.lang, false, false, speakRate);
           pending = pending.filter(function (p) { return p !== item; });
           notify('cue', { status: 'spoken', text: text, plan: plan });
         }, wait);
