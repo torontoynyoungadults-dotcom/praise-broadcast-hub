@@ -9,6 +9,7 @@ const { ROLE_OPTIONS } = require('../lib/schema');
 const spa = require('../lib/spa');
 const honorific = require('../lib/honorific');
 const timeSettings = require('../lib/timeSettings');
+const closingHymn = require('../lib/closingHymn');
 const historyImport = require('../lib/historyImport');
 const scheduleHistory = require('../lib/scheduleHistory');
 const teamFill = require('../lib/teamFill');
@@ -87,6 +88,22 @@ router.get('/admin', requireAdmin, async (req, res) => {
       <label class="ph-sub" style="margin:0;">연습 장소 <input type="text" name="place" value="${esc(v.place)}" maxlength="30" placeholder="예: 본당"></label>
       <button class="ph-btn pri" type="submit">저장</button>
     </form>`; }).join('');
+  const chAll = await Promise.all(activeTeams.map((t) => closingHymn.get(t['팀명'])));
+  const chCards = activeTeams.map((t, i) => { const v = chAll[i] || {};
+    return `<form method="post" action="/admin/closing-hymn" class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div class="ph-li-title">${esc(t['팀명'])}</div>
+      <input type="hidden" name="team" value="${esc(t['팀명'])}">
+      <input type="text" name="제목" value="${esc(v['제목'] || '')}" placeholder="곡 제목" maxlength="80" required>
+      <div class="ph-inline3">
+        <input type="text" name="팀" value="${esc(v['팀'] || '')}" placeholder="원곡팀" maxlength="60">
+        <input type="text" name="Key" value="${esc(v['Key'] || '')}" placeholder="Key" maxlength="8">
+        <input type="text" name="BPM" value="${esc(v['BPM'] || '')}" placeholder="BPM" inputmode="numeric" maxlength="4">
+      </div>
+      <input type="text" name="송폼" value="${esc(v['송폼'] || '')}" placeholder="송폼 (예: V1-C-V2-C)" maxlength="120">
+      <input type="text" name="유튜브" value="${esc(v['유튜브'] || '')}" placeholder="유튜브 링크 (선택)" maxlength="300">
+      <textarea name="비고" rows="2" placeholder="곡 설명 (선택)" maxlength="300">${esc(v['비고'] || '')}</textarea>
+      <button class="ph-btn pri" type="submit">저장</button>
+    </form>`; }).join('');
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 멤버 · 허브 문구를 관리합니다.' });
 
   const impMsg = importMsg.get(req.session.email) || ''; importMsg.delete(req.session.email);
@@ -121,6 +138,12 @@ router.get('/admin', requireAdmin, async (req, res) => {
     <h2 class="ph-h2">예배 · 연습 시간</h2>
     <p class="ph-sub">거의 매주 같은 시간이라 기본값으로 두었어요. PDF 커버와 스케줄표에 자동으로 들어가요. 연습 시간은 스케줄표에서 그 주만 따로 바꿀 수 있고, <b>주일 외 찬양</b>은 행사마다 시간을 따로 적어요.</p>
     <div class="ph-list">${timeCards}</div>
+  </div>
+
+  <div class="ph-card">
+    <h2 class="ph-h2">폐회송</h2>
+    <p class="ph-sub">축도 직전에 부르는 곡이에요. 보통 1년에 한 번 정도만 바뀌어요 — 여기서 정해두면 매주 콘티에 자동으로 들어가고, 인쇄용 PDF 패키지와 라이브 악보에도 함께 나와요. 어느 한 주만 다르면 그 주의 콘티 화면에서 바로 고치면 돼요.</p>
+    <div class="ph-list">${chCards || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
   </div>
 
   <div class="ph-card">
@@ -185,6 +208,17 @@ router.post('/admin/times', requireAdmin, async (req, res) => {
   const team = String(b.team || '').trim();
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
   if (t) { try { await timeSettings.save(team, { worship: b.worship, rehearsal: b.rehearsal, practice: b.practice, place: b.place }); } catch (e) { console.error('[시간 설정 저장 실패]', e.message); } }
+  spa.redirect(req, res, '/admin');
+});
+
+router.post('/admin/closing-hymn', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
+  if (t && String(b['제목'] || '').trim()) {
+    try { await closingHymn.save(team, { 제목: b['제목'], 팀: b['팀'], Key: b['Key'], BPM: b['BPM'], 송폼: b['송폼'], 유튜브: b['유튜브'], 비고: b['비고'] }); }
+    catch (e) { console.error('[폐회송 저장 실패]', e.message); }
+  }
   spa.redirect(req, res, '/admin');
 });
 

@@ -72,8 +72,8 @@ async function liveData(team, scope) {
   const [songRows, sheetRows, recRows] = await Promise.all([sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('악보저장소'), sheetsDb.readAll('녹음')]);
   const room = liveStore.roomOf(scope);
   const songs = await liveStore.songsOf(team, room);
-  const { conti, fin } = liveStore.orderedSongs(songRows, team, scope);      // 콘티 화면과 같은 순서
-  const ordered = conti.concat(fin);
+  const { conti, fin, closing } = liveStore.orderedSongs(songRows, team, scope);      // 콘티 화면과 같은 순서
+  const ordered = conti.concat(fin).concat(closing);
   const titleById = new Map(ordered.map((r) => [r['ID'], String(r['제목'] || '')]));
   const orderById = new Map(ordered.map((r, i) => [r['ID'], i]));
   const sheets = sheetRows.filter((s) => s['팀ID'] === team && liveStore.inScope(s, scope) && s['파일링크'])
@@ -359,8 +359,8 @@ const FNS = {
     if (!fileId || !byIdx || typeof byIdx !== 'object') throw new Error('저장할 내용이 없습니다.');
     return serialSplit(u.team + '\u0001' + room, async () => {
       const [songRows, sheetRows] = await Promise.all([sheetsDb.readAll('찬양콘티', { fresh: true }), sheetsDb.readAll('악보저장소', { fresh: true })]);
-      const { conti, fin } = liveStore.orderedSongs(songRows, u.team, scope);
-      const ordered = conti.concat(fin);
+      const { conti, fin, closing } = liveStore.orderedSongs(songRows, u.team, scope);
+      const ordered = conti.concat(fin).concat(closing);
       const here = sheetRows.filter((r) => r['팀ID'] === u.team && liveStore.inScope(r, scope) && r['파일링크'] && liveStore.sheetIdOf(u.team, r['파일링크']) === fileId);
       const src = here.find((r) => !String(r['쪽'] || '').trim()) || here[0];
       if (!src) throw new Error('이 예배에서 그 악보를 찾지 못했습니다. 화면을 새로 열어주세요.');

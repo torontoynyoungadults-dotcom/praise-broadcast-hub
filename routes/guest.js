@@ -123,6 +123,8 @@ router.get('/b/:token/conti', gate, async (req, res) => {
       <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => card(s, i + 1, '콘티')).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div></div>
     <div class="ph-card"><h2 class="ph-h2">설교 후 찬양</h2>
       <div class="cn-songs">${w.final.length ? w.final.map((s) => card(s, 1, '결단')).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="ph-card"><h2 class="ph-h2">폐회송</h2>
+      <div class="cn-songs">${w.closing.length ? w.closing.map((s) => card(s, 1, '폐회송')).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
     ${w.sheets.some((f) => !f['곡ID']) ? sh.packageSheetsCard(team, scope, w.sheets, false) : ''}
     ${comments}
     <script>(function(){try{var i=document.querySelector('[data-gs-name]');if(!i)return;i.value=localStorage.getItem('gs.name')||'';i.form.addEventListener('submit',function(){try{localStorage.setItem('gs.name',i.value.trim())}catch(e){}});}catch(e){}})();</script>`;

@@ -446,7 +446,7 @@
       var panel = box.querySelector('[data-cn-yplayer]'), btn = box.querySelector('[data-cn-yplay-open]');
       if (!items.length || !panel || !btn) return;
       var player = null, cur = 0, built = false, bad = {};
-      function label(it) { return (it.k === '설교 후' ? '설교 후 · ' : '') + it.t; }
+      function label(it) { return ((it.k === '설교 후' || it.k === '폐회송') ? it.k + ' · ' : '') + it.t; }
       function paint() {
         var now = panel.querySelector('[data-cn-ynow]'); if (now) now.textContent = label(items[cur]);
         panel.querySelectorAll('.cn-yq li').forEach(function (li, i) { li.classList.toggle('on', i === cur); li.classList.toggle('bad', !!bad[i]); var x = li.querySelector('.x'); if (x) x.textContent = bad[i] ? '재생 불가' : (i === cur ? '재생 중' : ''); });
@@ -462,7 +462,7 @@
         built = true;
         panel.innerHTML = '<div class="cn-yframe"><div data-cn-yslot></div></div>' +
           '<div class="cn-ynow"><b data-cn-ynow></b><button type="button" class="cn-mini" data-cn-yprev>이전 곡</button><button type="button" class="cn-mini" data-cn-ynext>다음 곡</button></div>' +
-          '<ul class="cn-yq">' + items.map(function (it, i) { return '<li><button type="button" data-cn-yi="' + i + '"><span class="n">' + (it.n || '결단') + '</span><span class="t">' + escH(it.t) + '</span><span class="x"></span></button></li>'; }).join('') + '</ul>' +
+          '<ul class="cn-yq">' + items.map(function (it, i) { return '<li><button type="button" data-cn-yi="' + i + '"><span class="n">' + (it.n || it.k || '결단') + '</span><span class="t">' + escH(it.t) + '</span><span class="x"></span></button></li>'; }).join('') + '</ul>' +
           '<p class="ph-sub" data-cn-ymsg hidden></p>';
         paint();
         loadYtApi(function (ok) {

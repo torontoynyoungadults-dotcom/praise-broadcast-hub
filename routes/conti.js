@@ -21,6 +21,7 @@ const honorific = require('../lib/honorific');
 const shortNames = require('../lib/shortName');
 const guestGate = require('../lib/guestGate');
 const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
+const { orderOf } = require('../lib/songKind');
 const { positionIconSvg } = require('../lib/positionIcons');
 const rosterPicker = require('../lib/rosterPicker');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
@@ -37,6 +38,7 @@ const pageSpec = require('../lib/pageSpec');
 const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
 const timeSettings = require('../lib/timeSettings');
+const closingHymn = require('../lib/closingHymn');
 const router = express.Router();
 
 /** 곡이 바뀌면 열려 있는 라이브 악보에 알림 (church-app 의 songs:changed) — server.js 가 routes/live.js 의 함수를 넣어 줌 */
@@ -170,12 +172,32 @@ async function loadWeek(team, scope) {
   const list = mine(songs);
   const order = (a, b) => Number(a['순서'] || 0) - Number(b['순서'] || 0);
   return {
-    conti: list.filter((r) => r['구분'] !== '결단').sort(order),
+    conti: list.filter((r) => r['구분'] !== '결단' && r['구분'] !== '폐회송').sort(order),
     final: list.filter((r) => r['구분'] === '결단').sort(order),
+    closing: list.filter((r) => r['구분'] === '폐회송').sort(order),
     sheets: mine(sheets),
     recs: mine(recs),
     comments: mine(comments).sort((a, b) => String(a['작성시각']).localeCompare(String(b['작성시각']))),
   };
+}
+
+/** 폐회송 — "관리"에서 정해 둔 기본값을 이번 주 콘티에 아직 없으면 자동으로 넣어 둡니다.
+ *  한 번 들어간 뒤로는(이미 있으면) 다시 넣지 않아서, 그 주만 따로 고쳐도(또는 1년에 한 번 바뀌어도) 다음 주엔 다시 기본값으로 돌아옵니다.
+ *  주일 외 찬양(행사)은 순서가 달라질 수 있어 자동으로 넣지 않습니다. */
+async function ensureClosingHymn(team, scope) {
+  if (scope.event) return;
+  try {
+    const def = await closingHymn.get(team);
+    if (!def) return;
+    const rows = await sheetsDb.readAll('찬양콘티', { fresh: true });
+    const has = rows.some((r) => r['팀ID'] === team && inScope(r, scope) && r['구분'] === '폐회송');
+    if (has) return;
+    await sheetsDb.appendRow('찬양콘티', {
+      'ID': 'C' + Date.now().toString(36), '팀ID': team, ...scopeFields(scope), '구분': '폐회송', '순서': 1,
+      '제목': def['제목'], '팀': def['팀'], 'Key': def['Key'], '유튜브': def['유튜브'], '송폼': def['송폼'], 'BPM': def['BPM'], '비고': def['비고'],
+      '만든시각': new Date().toISOString(),
+    });
+  } catch (e) { console.error('[폐회송 자동 추가 실패]', e.message); }
 }
 
 /* 솔로 칸은 없앴습니다 (입력 · 표시 모두). 시트의 '솔로' 열은 옛 기록 때문에 그대로 두고 새로 적지 않습니다. */
@@ -292,7 +314,7 @@ function songSheetsHtml(s, sheets, editable, extra) {
 /** 이 예배의 유튜브 이어 듣기 — 콘티 순서대로 곡마다 올린 링크를 이어서 재생하고(설교 후 찬양은 맨 뒤), 유튜브가 만들어 주는 임시 재생목록(watch_videos)으로도 열 수 있게
  *  (public/js/conti-tools.js 의 [data-cn-yplay] 가 플레이어를 붙임) */
 function ytPlayAllHtml(w) {
-  const all = [].concat((w.conti || []).map((s, i) => ({ s, k: '콘티', n: i + 1 })), (w.final || []).map((s) => ({ s, k: '설교 후', n: 0 })));
+  const all = [].concat((w.conti || []).map((s, i) => ({ s, k: '콘티', n: i + 1 })), (w.final || []).map((s) => ({ s, k: '설교 후', n: 0 })), (w.closing || []).map((s) => ({ s, k: '폐회송', n: 0 })));
   const items = [];
   all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && !items.some((y) => y.id === id)) items.push({ id, t: String(x.s['제목'] || '').trim() || '제목 없음', k: x.k, n: x.n }); });
   if (!items.length) return '';
@@ -311,6 +333,7 @@ function ytPlayAllHtml(w) {
 /** 곡 카드 — 청년부 앱처럼: ① 순서 · 제목 · Key · BPM ② 원곡팀 · 유튜브 ③ 송폼 ④ 설명 */
 function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm }) {
   const isFinal = kind === '결단';
+  const isClosing = kind === '폐회송';
   const yt = s['유튜브'] ? ytLinkOf(s['유튜브']) : '';
   const bpm = String(s['BPM'] || '').trim();
   const edit = editable ? `<details class="ph-row-edit cn-edit">
@@ -340,9 +363,9 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
       </form>
     </details>` : '';
   const ytBtn = yt ? `<a class="cn-ytlink" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube">${ui.icon('play')}<span>YouTube</span></a>` : '';
-  return `<div class="cn-song${isFinal ? ' fin' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
+  return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
-      <span class="cn-no">${isFinal ? ui.icon('cross') : esc(index)}</span>
+      <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
       <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
       <span class="cn-badges">${s['Key'] ? `<span class="cn-kb key" title="Key">${esc(s['Key'])}</span>` : ''}${bpm ? `<span class="cn-kb bpm" title="BPM">${esc(bpm)}<small>BPM</small></span>` : ''}${ytBtn}</span>
     </div>
@@ -386,7 +409,7 @@ async function historyFor(team, scope) {
     days.get(k).songs.push(r);
   });
   const list = Array.from(days.values()).map((d) => {
-    d.songs.sort((a, b) => (a['구분'] === b['구분'] ? 0 : (a['구분'] === '결단' ? 1 : -1)) || Number(a['순서'] || 0) - Number(b['순서'] || 0));
+    d.songs.sort((a, b) => (orderOf(a['구분']) - orderOf(b['구분'])) || Number(a['순서'] || 0) - Number(b['순서'] || 0));
     return d;
   }).sort((a, b) => {
     // 이 예배보다 앞선 날짜(지난 콘티)를 최근 순으로 먼저, 미리 짜 둔 뒤 날짜는 그 아래에 가까운 순으로
@@ -404,7 +427,7 @@ function importHtml(team, scope, kind, hist) {
   const days = hist.days.slice(0, 12).map((d) => `<details class="cn-iday">
       <summary><b>${esc(label(d))}</b><span>${d.songs.length}곡</span></summary>
       <div class="cn-ibody"><button type="button" class="cn-mini" data-cn-pickall>이 콘티 전체 선택</button>
-      ${d.songs.map((r) => `<label class="cn-ichk"><input type="checkbox" name="곡" value="${esc(r['ID'])}"><span class="t">${r['구분'] === '결단' ? '<em>결단</em>' : ''}${esc(r['제목'])}</span><span class="m">${esc(meta(r))}</span></label>`).join('')}</div>
+      ${d.songs.map((r) => `<label class="cn-ichk"><input type="checkbox" name="곡" value="${esc(r['ID'])}"><span class="t">${r['구분'] === '결단' ? '<em>결단</em>' : r['구분'] === '폐회송' ? '<em>폐회송</em>' : ''}${esc(r['제목'])}</span><span class="m">${esc(meta(r))}</span></label>`).join('')}</div>
     </details>`).join('');
   return `<details class="ph-add cn-add cn-import" data-cn-import>
     <summary>${ui.icon('folder')} 이전 콘티에서 가져오기</summary>
@@ -439,8 +462,8 @@ function sameAsHtml(team, scope, conti) {
 }
 
 function songForm(kind, team, scope, roster, byPos, hist) {
-  const label = kind === '결단' ? '설교 후 찬양' : '콘티';
-  const uid = `new${kind === '결단' ? 'f' : 'c'}`;
+  const label = kind === '결단' ? '설교 후 찬양' : kind === '폐회송' ? '폐회송' : '콘티';
+  const uid = `new${kind === '결단' ? 'f' : kind === '폐회송' ? 'x' : 'c'}`;
   return `
   ${kind === '콘티' && hist ? importHtml(team, scope, kind, hist) : ''}
   <details class="ph-add">
@@ -503,7 +526,7 @@ function splitPanel(team, scope, s, songs, allSheets) {
     <form method="post" action="/conti/sheets/split" class="cn-splitform">
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="파일링크" value="${esc(s['파일링크'])}">
       <p class="ph-sub cn-splithint" data-cn-splithint>곡마다 이 악보의 몇 쪽인지 적어 주세요 (예: 1-2 · 3 · 4,6). 저장하면 곡에 묶여 다음에도 그 곡을 넣을 때 따라와요.</p>
-      <div class="cn-splitrows">${songs.map((g, i) => `<label class="cn-splitrow"><span class="cn-splitn">${g.kind === '결단' ? '결단' : i + 1}</span><span class="cn-splitt">${esc(g.title)}</span><input type="text" inputmode="text" name="쪽_${esc(g.id)}" data-cn-pages="${esc(g.title)}" value="${esc(saved[g.id])}" placeholder="쪽" maxlength="40" aria-label="${esc(g.title)} 쪽"></label>`).join('')}</div>
+      <div class="cn-splitrows">${songs.map((g, i) => `<label class="cn-splitrow"><span class="cn-splitn">${g.kind === '결단' ? '결단' : g.kind === '폐회송' ? '폐회송' : i + 1}</span><span class="cn-splitt">${esc(g.title)}</span><input type="text" inputmode="text" name="쪽_${esc(g.id)}" data-cn-pages="${esc(g.title)}" value="${esc(saved[g.id])}" placeholder="쪽" maxlength="40" aria-label="${esc(g.title)} 쪽"></label>`).join('')}</div>
       <div class="cn-splitbtns"><button type="button" class="cn-mini" data-cn-splitauto>제목으로 자동 찾기</button><button class="ph-btn pri" type="submit">곡별로 저장</button></div>
     </form>
   </details>`;
@@ -612,6 +635,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
   const scope = { event: eventRow ? eventRow['ID'] : '', date };
 
+  await ensureClosingHymn(team, scope);
   const w = await loadWeek(team, scope);
 
   let dayBanner = '';
@@ -645,6 +669,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     date, event: scope.event ? { name: eventRow['이름'] } : null, practice: pinfo.p && pinfo.p.date && !pinfo.p.none ? pinfo.p : null, slots: slotNames,
     songs: w.conti.map((r) => ({ title: r['제목'], team: r['팀'], key: r['Key'], form: kakaoLib.formText(r['송폼']), note: r['비고'], link: r['유튜브'] })),
     finals: w.final.map((r) => ({ title: r['제목'], key: r['Key'], link: r['유튜브'] })),
+    closings: w.closing.map((r) => ({ title: r['제목'], key: r['Key'], link: r['유튜브'] })),
   });
 
   const content = `
@@ -664,7 +689,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
     const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
     const pkgHref = `/conti/package.pdf?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}`;
-    const pkgBtn = w.conti.length || w.final.length ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-href="${esc(pkgHref)}" data-title="${esc(scope.event ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>` : '';
+    const pkgBtn = w.conti.length || w.final.length || w.closing.length ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-href="${esc(pkgHref)}" data-title="${esc(scope.event ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>` : '';
     const extras = liveBtn + `<div class="cn-toolrow">${pkgBtn}${kakaoBtn}${offBtn}</div>
     ${guestPanel(req, team, scope, guestToken, ctx.isAdmin, req.query.gl === '1')}
     <div class="cn-offpanel" data-cn-offpanel hidden></div>
@@ -689,7 +714,14 @@ router.get('/conti', requireTeam, async (req, res) => {
     ${w.final.length ? '' : sameAsHtml(team, scope, w.conti) + songForm('결단', team, scope, roster, byPos, null)}
   </div>
 
-  ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
+  <div class="ph-card">
+    <h2 class="ph-h2">폐회송</h2>
+    <p class="ph-sub">축도 직전에 부르는 곡이에요. "관리"에서 기본값을 정해두면 매주 자동으로 들어가요 — 이번 주만 다르면 아래에서 고쳐 주세요.</p>
+    <div class="cn-songs">${w.closing.length ? w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))).join('') : '<p class="ph-sub">아직 없어요. "관리"에서 폐회송을 정해주세요. 한 곡만 올릴 수 있어요.</p>'}</div>
+    ${w.closing.length ? '' : songForm('폐회송', team, scope, roster, byPos, null)}
+  </div>
+
+  ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
@@ -739,6 +771,7 @@ async function makePackage(req, onProgress) {
     const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
     const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
     const scope = { event: eventRow ? eventRow['ID'] : '', date };
+    await ensureClosingHymn(team, scope);
     const w = await loadWeek(team, scope);
     const { byPos, infoMap } = await weekAssignments(team, scope);
     const pinfo = await practiceInfo(team, scope, date);
@@ -751,7 +784,7 @@ async function makePackage(req, onProgress) {
     let fetchedN = 0;
     links.forEach((l) => { bytesOf(l).then(() => { fetchedN++; onProgress(0.02 + 0.28 * (fetchedN / links.size), '악보 받는 중 (' + fetchedN + '/' + links.size + ')'); }); });
     onProgress(0.02, '악보 받는 중');
-    const all = [].concat(w.conti.map((s, i) => ({ s, kind: '콘티', no: i + 1 })), w.final.map((s) => ({ s, kind: '결단', no: 1 })));
+    const all = [].concat(w.conti.map((s, i) => ({ s, kind: '콘티', no: i + 1 })), w.final.map((s) => ({ s, kind: '결단', no: 1 })), w.closing.map((s) => ({ s, kind: '폐회송', no: 1 })));
     const songs = [];
     for (const x of all) {
       const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
@@ -785,7 +818,7 @@ async function makePackage(req, onProgress) {
 /** 지금 콘티 · 악보 · 편성 · 연습 상태의 지문 — 확정한 PDF 를 만들 때와 같은지 비교해서 "확정 이후 바뀜"을 알려 줌 */
 function pkgSig({ w, members, pr, times, title, date }) {
   const meta = (f) => [f['파일링크'], f['쪽'] || '', f['자르기'] || ''].join('|');
-  const all = [].concat(w.conti, w.final);
+  const all = [].concat(w.conti, w.final, w.closing);
   const songs = all.map((s) => [s['ID'], s['제목'], s['팀'], s['Key'], s['BPM'], kakaoLib.formText(s['송폼']), s['비고'], s['유튜브'],
     w.sheets.filter((f) => f['곡ID'] === s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각']))).map(meta)]);
   const extra = w.sheets.filter((r) => !r['곡ID'] && r['파일링크']).map(meta);
@@ -887,7 +920,7 @@ router.get('/conti/package/areas', requireTeam, async (req, res) => {
     const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
     const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
     const w = await loadWeek(team, { event: eventRow ? eventRow['ID'] : '', date });
-    const all = [].concat(w.conti.map((s, i) => ({ s, no: i + 1 })), w.final.map((s) => ({ s, no: '+' })));
+    const all = [].concat(w.conti.map((s, i) => ({ s, no: i + 1 })), w.final.map((s) => ({ s, no: '+' })), w.closing.map((s) => ({ s, no: '+' })));
     const out = [];
     all.forEach((x) => {
       w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])))
@@ -947,12 +980,12 @@ router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.a
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
-  const kind = b['구분'] === '결단' ? '결단' : '콘티';
+  const kind = b['구분'] === '결단' ? '결단' : b['구분'] === '폐회송' ? '폐회송' : '콘티';
   const title = String(b['제목'] || '').trim();
   if (!title) return backTo(req, res, team, scope);
   const all = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && inScope(r, scope) && r['구분'] === kind);
-  // 설교 후 찬양(결단)은 곡 하나만 — 이미 있으면 새로 추가하지 않음(기존 곡을 지우고 다시 올려야 함)
-  if (kind === '결단' && all.length >= 1) return backTo(req, res, team, scope);
+  // 설교 후 찬양(결단) · 폐회송은 곡 하나만 — 이미 있으면 새로 추가하지 않음(기존 곡을 지우고 다시 올려야 함)
+  if ((kind === '결단' || kind === '폐회송') && all.length >= 1) return backTo(req, res, team, scope);
   const sid = 'C' + Date.now().toString(36);
   await sheetsDb.appendRow('찬양콘티', {
     'ID': sid, '팀ID': team, ...scopeFields(scope), '구분': kind,
@@ -981,7 +1014,7 @@ router.post('/conti/songs/edit', requireTeam, async (req, res) => {
       // 그 줄의 원래 ID · 옛 솔로 기록은 그대로 둡니다 (ID 가 바뀌면 "이 곡 전용 악보"가 곡에서 떨어져 나감)
       const old = (await sheetsDb.readAll('찬양콘티', { fresh: true })).find((r) => r.__row === row && r['팀ID'] === team) || {};
       await sheetsDb.updateRow('찬양콘티', row, {
-        'ID': b['ID'] || old['ID'] || '', '팀ID': team, ...scopeFields(scope), '구분': b['구분'] === '결단' ? '결단' : '콘티',
+        'ID': b['ID'] || old['ID'] || '', '팀ID': team, ...scopeFields(scope), '구분': b['구분'] === '결단' ? '결단' : b['구분'] === '폐회송' ? '폐회송' : '콘티',
         '순서': b['순서'] || old['순서'] || 0, '제목': title, '팀': b['팀'] || '', 'Key': b['Key'] || '', '유튜브': b['유튜브'] || '',
         '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': b['만든시각'] || old['만든시각'] || new Date().toISOString(),
         '솔로': old['솔로'] || '',
@@ -997,12 +1030,12 @@ router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
-  const kind = b['구분'] === '결단' ? '결단' : '콘티';
+  const kind = b['구분'] === '결단' ? '결단' : b['구분'] === '폐회송' ? '폐회송' : '콘티';
   let lines = String(b['목록'] || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
   if (lines.length) {
     const all = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && inScope(r, scope) && r['구분'] === kind);
-    // 설교 후 찬양(결단)은 곡 하나만 — 이미 있으면 건너뛰고, 없으면 첫 줄 하나만 반영
-    if (kind === '결단') lines = all.length >= 1 ? [] : lines.slice(0, 1);
+    // 설교 후 찬양(결단) · 폐회송은 곡 하나만 — 이미 있으면 건너뛰고, 없으면 첫 줄 하나만 반영
+    if (kind === '결단' || kind === '폐회송') lines = all.length >= 1 ? [] : lines.slice(0, 1);
     let seq = all.length;
     for (const ln of lines) {
       const parts = ln.replace(/^\d+[.)]\s*/, '').split(/\s+[-–|]\s+|\t/);
