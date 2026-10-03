@@ -612,7 +612,7 @@
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
           '<label class="pv-chk">음성 <select data-o="gender"><option value="mix">미국 영어 · 남녀 여러 명 (기본)</option><option value="male">남성 목소리</option><option value="female">여성 목소리</option><option value="any">기기 기본</option><option value="live">실시간 음성 합성 (저장된 소리 대신)</option></select></label>' +
           '<div class="pv-help" data-role="voiceinfo"></div>' +
-          '<p class="pv-help" data-role="livehelp" hidden>"Bridge · Vamp · Build up" 같은 낱말이 미리 녹음된 소리로 이상하게 들릴 때 — 저장된 소리 대신 이 기기의 음성 합성을 바로 씁니다. 기기마다 발음 · 목소리가 다르게 들릴 수 있어요.</p>' +
+          '<p class="pv-help" data-role="livehelp" hidden>다른 낱말이 미리 녹음된 소리로 이상하게 들릴 때 — 저장된 소리 대신 이 기기의 음성 합성을 바로 씁니다. (Bridge · Interlude · Vamp · Break · Prayer 는 끝소리가 잘리는 문제로 이미 항상 실시간 음성을 씁니다.) 기기마다 발음 · 목소리가 다르게 들릴 수 있어요.</p>' +
           '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +

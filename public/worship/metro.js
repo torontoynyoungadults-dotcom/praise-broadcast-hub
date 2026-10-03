@@ -518,6 +518,7 @@
     }
     function clipFor(c) {
       if (cfg.gender === 'live') return null;                                                        // v8.36 — 녹음된 소리 대신 실시간 음성 합성 (발음이 다르게 들릴 때 바꿔 쓰는 옵션)
+      if (c && c.spk) return null;                                                                    // v8.38 — spk/rate 보정이 있는 큐(bridge·interlude·vamp·break·prayer)는 미리 녹음된 소리(끝소리 잘림 문제의 원인)를 쓰지 않고 항상 실시간 합성으로 — 그래야 바로 위 커밋에서 추가한 speakText/speakRate 보정이 실제로 적용됩니다
       if (cfg.lang === 'en' && cfg.gender !== 'female' && c && c.id && c.id !== 'custom') return clips[c.id] || null;
       return null;
     }
