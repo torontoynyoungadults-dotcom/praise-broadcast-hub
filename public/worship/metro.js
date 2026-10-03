@@ -360,7 +360,7 @@
     /** 이름으로 보는 남성 · 여성 음성 (브라우저는 성별 정보를 주지 않아서 이름으로 가려냅니다) */
     var lastMixName = '';
     function pickVoice(lang, rotate) {
-      if (cfg.gender === 'mix') { var mv = pickVoiceMix(voices, lang, rotate ? lastMixName : '', rotate ? undefined : 0); if (mv && rotate) lastMixName = mv.name; return mv; }
+      if (cfg.gender === 'mix' || cfg.gender === 'live') { var mv = pickVoiceMix(voices, lang, rotate ? lastMixName : '', rotate ? undefined : 0); if (mv && rotate) lastMixName = mv.name; return mv; }
       return pickVoiceFrom(voices, lang, cfg.gender);
     }
     function currentVoice(lang) { var v = pickVoice(lang || cfg.lang); return v ? { name: v.name, lang: v.lang, male: isMaleVoice(v), local: !!v.localService } : null; }
@@ -514,6 +514,7 @@
       }).then(function () { clipState = Object.keys(clips).length ? 'ready' : 'fail'; if (!destroyed) emitState(); }).catch(function () { clipState = 'fail'; });
     }
     function clipFor(c) {
+      if (cfg.gender === 'live') return null;                                                        // v8.36 — 녹음된 소리 대신 실시간 음성 합성 (발음이 다르게 들릴 때 바꿔 쓰는 옵션)
       if (cfg.lang === 'en' && cfg.gender !== 'female' && c && c.id && c.id !== 'custom') return clips[c.id] || null;
       return null;
     }
@@ -759,7 +760,7 @@
       clipsReady: function () { return clipState === 'ready'; },
       setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); }, setFirstAccent: function (on) { sched.setMark(0, !!on); set('first', !!on); },
       tap: function () { var b = tapper.tap(Date.now()); if (b) { sched.setBpm(b); emitState(); } return b; },
-      setGender: function (g) { set('gender', g === 'female' || g === 'any' || g === 'male' ? g : 'mix'); }, voiceInfo: currentVoice, voiceNames: function (lang) { return mixPool(voices, lang || cfg.lang).map(function (v) { return v.name; }); }, refreshVoices: loadVoices,
+      setGender: function (g) { set('gender', g === 'female' || g === 'any' || g === 'male' || g === 'live' ? g : 'mix'); }, voiceInfo: currentVoice, voiceNames: function (lang) { return mixPool(voices, lang || cfg.lang).map(function (v) { return v.name; }); }, refreshVoices: loadVoices,
       state: state, sched: sched, ctx: function () { return ctx; }, help: HELP,
       destroy: function () {
         destroyed = true; stop();

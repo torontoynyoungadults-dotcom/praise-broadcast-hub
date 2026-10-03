@@ -15,7 +15,7 @@
   function hhmm(t) { var d = new Date(t); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
 
   function build(P) {
-    var M = null, mUi = null, lastBeat = -1, onBpmUser = null;
+    var M = null, mUi = null, lastBeat = -1, onBpmUser = null, flushMetroCfg = null;   // v8.36 — 메트로놈 탭이 저장을 미루고 있을 때, 다른 탭(송폼)의 "저장" 단추로도 바로 흘려보냄
     var tabs = [];
 
     /* ------------------------------------------------------------ 메트로놈 (여러 탭이 함께 씁니다) */
@@ -530,6 +530,7 @@
       eForm.addEventListener('change', function () { if (fb) fb.set(eForm.value); });
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a="saveinfo"]') : null; if (!b) return;
+        if (flushMetroCfg) flushMetroCfg();                                   // v8.36 — 여기서 "저장"을 누르면 메트로놈 탭(박자 · 강세 · 시작 전 마디)에서 미뤄둔 저장도 같이 흘려보냄
         var i = P.songIdx(), s = P.song(); if (!s) { eMsg.textContent = '먼저 곡을 골라주세요.'; eMsg.className = 'pv-msg2 bad'; return; }
         /* v8.35 — 연습하다가 메트로놈 BPM 을 (미니 · 동그라미 · 메트로놈 탭에서) 바꿔 둔 뒤 여기서 "저장"만 눌러도 그대로 반영되도록 —
            BPM 칸에 직접 입력 중이 아니면(포커스가 없으면) 지금 돌고 있는 메트로놈 값을 그 입력칸에 먼저 채웁니다. */
@@ -609,8 +610,9 @@
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
-          '<label class="pv-chk">음성 <select data-o="gender"><option value="mix">미국 영어 · 남녀 여러 명 (기본)</option><option value="male">남성 목소리</option><option value="female">여성 목소리</option><option value="any">기기 기본</option></select></label>' +
+          '<label class="pv-chk">음성 <select data-o="gender"><option value="mix">미국 영어 · 남녀 여러 명 (기본)</option><option value="male">남성 목소리</option><option value="female">여성 목소리</option><option value="any">기기 기본</option><option value="live">실시간 음성 합성 (저장된 소리 대신)</option></select></label>' +
           '<div class="pv-help" data-role="voiceinfo"></div>' +
+          '<p class="pv-help" data-role="livehelp" hidden>"Bridge · Vamp · Build up" 같은 낱말이 미리 녹음된 소리로 이상하게 들릴 때 — 저장된 소리 대신 이 기기의 음성 합성을 바로 씁니다. 기기마다 발음 · 목소리가 다르게 들릴 수 있어요.</p>' +
           '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
@@ -657,7 +659,9 @@
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'mix';
         var vi = m.voiceInfo ? m.voiceInfo(c.lang) : null;
-        q('[data-role="voiceinfo"]').textContent = !st.speech ? '' : c.gender === 'mix' && m.voiceNames ? (m.voiceNames(c.lang).length ? '번갈아 쓰는 음성 ' + m.voiceNames(c.lang).length + '개: ' + m.voiceNames(c.lang).join(', ') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…') : vi ? '사용 음성: ' + vi.name + (c.gender === 'male' ? (vi.male ? ' (남성)' : ' — 이 기기에서 남성 음성을 못 찾아 낮은 음높이로 대신합니다') : '') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…';
+        var mixLike = c.gender === 'mix' || c.gender === 'live';
+        q('[data-role="voiceinfo"]').textContent = !st.speech ? '' : mixLike && m.voiceNames ? (m.voiceNames(c.lang).length ? '번갈아 쓰는 음성 ' + m.voiceNames(c.lang).length + '개: ' + m.voiceNames(c.lang).join(', ') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…') : vi ? '사용 음성: ' + vi.name + (c.gender === 'male' ? (vi.male ? ' (남성)' : ' — 이 기기에서 남성 음성을 못 찾아 낮은 음높이로 대신합니다') : '') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…';
+        q('[data-role="livehelp"]').hidden = c.gender !== 'live';
         q('[data-role="lat"]').textContent = st.speech ? '음성 지연 보정: 약 ' + Math.round(c.lat) + 'ms (말하는 데 걸리는 시간을 기기가 스스로 재서 박자에 맞춥니다)' : '';
         q('[data-o="send"]').checked = P.sendCueOn(); q('[data-o="recv"]').checked = P.recvCue();
         var pend = st.pending && st.pending.length ? '대기 중: ' + st.pending.map(function (p) { return p.label; }).join(', ') : '';
@@ -696,15 +700,25 @@
       onBpmUser = rememberBpm;
       host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
       /* 곡별 메트로놈 설정(박자 · 강세 · 시작 전 마디 · BPM)을 팀과 함께 저장 · 실시간 공유 — 저장은 P.cfgSet (나만 보기 · 권한은 거기서 처리) */
-      var applyingCfg = false, saveT = 0, pendingCfg = false;
+      /* v8.36 — 700ms 뒤로 미뤄둔 저장은 "그 때" 곡(saveKey)을 기억해뒀다가 그 키로 저장합니다 (저장이 아직 안 나갔는데 곡을 바로 넘기면
+         엉뚱한 곡에 저장되거나 사라지던 경합 상태를 고침). flushMetroSave() 로 미뤄둔 저장을 바로 흘려보낼 수 있고,
+         곡 전환 · 패널 닫기 · 송폼 탭의 "저장" 단추에서 이걸 부릅니다. */
+      var applyingCfg = false, saveT = 0, pendingCfg = false, saveKey = '';
+      function flushMetroSave() {
+        if (!saveT) return;
+        clearTimeout(saveT); saveT = 0;
+        var key = saveKey; saveKey = '';
+        if (!key) return;
+        var st = m.state();
+        P.cfgSet('metro', key, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: Math.round(st.bpm) });
+      }
       function saveMetroSoon() {
         if (applyingCfg || !curSongKey) return;
+        saveKey = curSongKey;
         clearTimeout(saveT);
-        saveT = setTimeout(function () {
-          var st = m.state(); if (!curSongKey) return;
-          P.cfgSet('metro', curSongKey, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: Math.round(st.bpm) });
-        }, 700);
+        saveT = setTimeout(flushMetroSave, 700);
       }
+      flushMetroCfg = flushMetroSave;
       function applyMetroCfg(fromRemote) {
         var mc = curSongKey ? P.cfgGet('metro', curSongKey) : null; if (!mc) return false;
         if (ctl() === 'locked') return false;                                       // 클릭 컨트롤의 박자를 따르는 중
@@ -721,6 +735,7 @@
         return true;
       }
       function applySongBpm(x, fromSync) {
+        flushMetroSave();                                                     // 곡이 바뀌기 전에, 이전 곡에 걸려있던 저장을 먼저 흘려보냄
         if (!x) { curSongKey = ''; return; }
         curSongKey = String(x.title || '');
         if (pendingCfg && !m.state().running) pendingCfg = false;
@@ -738,6 +753,7 @@
       P.on('cfg', function (e) { if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote); });
       P.on('songedit', function (s) { if (s && String(s.title || '') === curSongKey) { bpmOver[curSongKey] = 0; applySongBpm(s, true); } });
       P.on('song', applySongBpm);
+      P.on('close', flushMetroSave);
       try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
       host.addEventListener('change', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o; if (!o) return;
