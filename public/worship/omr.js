@@ -107,15 +107,21 @@
 
   /* ------------------------------------------------------------ 3) 오선 지우기 */
   /** 오선 주변 띠를 잘라 오선을 지운 작은 그림을 돌려줌 { bmp, bw, bh, ox, oy } — 좌표는 (원본 x − ox, 원본 y − oy) */
-  function stripStaff(bin, w, h, st) {
+  function stripStaff(bin, w, h, st, wide) {
     var pad = Math.round(st.sp * 3.6), oy = Math.max(0, Math.round(st.top - pad)), ey = Math.min(h, Math.round(st.bottom + pad) + 1);
     var ox = Math.max(0, st.x0 - 1), ex = Math.min(w, st.x1 + 2), bw = ex - ox, bh = ey - oy, bmp = new Uint8Array(bw * bh), x, y, k;
     for (y = 0; y < bh; y++) for (x = 0; x < bw; x++) bmp[y * bw + x] = bin[(y + oy) * w + x + ox];
     var half = Math.max(1, Math.ceil(st.thick / 2)) + 1, mg = Math.max(2, Math.round(st.thick * 1.5) + 1);
-    for (k = 0; k < 5; k++) {
-      var ly = Math.round(st.lines[k]) - oy, ya = ly - half - mg, yb = ly + half + mg;
+    /* V849 — 줄 위아래를 살펴보는 거리를 음표 머리 반지름보다 작게 (작은 · 흐린 악보에서 "줄 위의 음표" 머리가 둘로 갈라지던 문제) · 덧줄(위 · 아래 3칸)도 같은 방법으로 지움 */
+    var reach = wide ? half + mg : Math.max(half + 1, Math.min(half + mg, Math.round(st.sp * 0.3)));
+    var rows = st.lines.map(function (v) { return v; });
+    for (k = 1; k <= 3; k++) { rows.push(st.lines[0] - k * st.sp); rows.push(st.lines[4] + k * st.sp); }
+    for (k = 0; k < rows.length; k++) {
+      var ly = Math.round(rows[k]) - oy, ya = ly - reach, yb = ly + reach;
+      if (ly < 0 || ly >= bh) continue;
       for (x = 0; x < bw; x++) {
         var above = ya >= 0 && bin[(ya + oy) * w + x + ox], below = yb < bh && bin[(yb + oy) * w + x + ox];
+        if (k >= 5 && !(bmp[ly * bw + x])) continue;
         if (above || below) continue;                                              // 선 위아래로 잉크가 이어지면 음표 · 줄기의 일부 → 남김
         for (y = ly - half; y <= ly + half; y++) if (y >= 0 && y < bh) bmp[y * bw + x] = 0;
       }
@@ -142,6 +148,17 @@
       for (y = 0; y < bh; y++) { var lo = Math.max(0, y - r), hi = Math.min(bh, y + r + 1); dil[y * bw + x] = (cum[hi] - cum[lo]) > 0 ? 1 : 0; }
       c2[0] = 0; for (y = 0; y < bh; y++) c2[y + 1] = c2[y] + dil[y * bw + x];
       for (y = 0; y < bh; y++) { var l2 = y - r, h2 = y + r + 1; out[y * bw + x] = (l2 >= 0 && h2 <= bh && (c2[h2] - c2[l2]) === 2 * r + 1) ? 1 : 0; }
+    }
+    return out;
+  }
+  /** 세로 열기(반지름 r): 위아래로 2r+1 칸보다 얇은 것(붙임줄 · 가는 곡선)을 지움 */
+  function vopen(src, bw, bh, r) {
+    var er = new Uint8Array(src.length), out = new Uint8Array(src.length), x, y, cum = new Int32Array(bh + 1), c2 = new Int32Array(bh + 1);
+    for (x = 0; x < bw; x++) {
+      cum[0] = 0; for (y = 0; y < bh; y++) cum[y + 1] = cum[y] + src[y * bw + x];
+      for (y = 0; y < bh; y++) { var lo = y - r, hi = y + r + 1; er[y * bw + x] = (lo >= 0 && hi <= bh && cum[hi] - cum[lo] === 2 * r + 1) ? 1 : 0; }
+      c2[0] = 0; for (y = 0; y < bh; y++) c2[y + 1] = c2[y] + er[y * bw + x];
+      for (y = 0; y < bh; y++) { var l2 = Math.max(0, y - r), h2 = Math.min(bh, y + r + 1); out[y * bw + x] = (c2[h2] - c2[l2]) > 0 ? 1 : 0; }
     }
     return out;
   }
@@ -183,11 +200,15 @@
     }
     var x0 = Math.round(cx - hw), x1 = Math.round(cx + hw);
     // 줄기: 머리 왼쪽 · 오른쪽 가장자리 열에서 위 또는 아래로 길게 이어진 잉크
-    var need = Math.round(sp * 2.5), stemDir = 0, stemX = 0, best = 0, col, side, edge = Math.round(sp * 0.16), inner = Math.round(sp * 0.32);
+    var need = Math.round(sp * 2.5), stemDir = 0, stemX = 0, best = 0, col, side, edge = Math.round(sp * 0.3), inner = Math.round(sp * 0.36);
     for (side = 0; side < 2; side++) {
       var lo = side === 0 ? x0 - edge : x1 - inner, hi = side === 0 ? x0 + inner : x1 + edge;      // 줄기는 머리 왼쪽(아래 줄기) · 오른쪽(위 줄기) 가장자리 근처 — 그림 크기 · 번짐에 따라 몇 픽셀 어긋나므로 넉넉히 훑음
       for (col = lo; col <= hi; col++) {
-        var up = vrun(s, col, Math.round(cy), -1, Math.round(sp * 5.2)), dn = vrun(s, col, Math.round(cy), 1, Math.round(sp * 5.2));
+        var up = 0, dn = 0, kk, kmax = Math.round(sp * 0.55);                          // V849 — 줄기가 머리 한가운데가 아니라 위 · 아래 모서리에 붙은 경우(흔함)도
+        for (kk = 0; kk <= kmax; kk += 1) {
+          var u1 = vrun(s, col, Math.round(cy) - kk, -1, Math.round(sp * 5.2)); if (u1) up = Math.max(up, u1 + kk);
+          var d1 = vrun(s, col, Math.round(cy) + kk, 1, Math.round(sp * 5.2)); if (d1) dn = Math.max(dn, d1 + kk);
+        }
         if (up >= need && up > best) { best = up; stemDir = -1; stemX = col; }
         if (dn >= need && dn > best) { best = dn; stemDir = 1; stemX = col; }
       }
@@ -217,20 +238,49 @@
   /** 오선 하나에서 음표 머리를 찾음: [{ x, y, step, open, stem, flags, dot, w, h }] (픽셀). step: 아래 첫째 줄 = 0, 한 칸마다 +1 (위로) */
   function detectNotes(bin, w, h, st, opt) {
     opt = opt || {};
-    var s = stripStaff(bin, w, h, st), sp = st.sp, kw = Math.max(3, Math.round(sp * 0.55)), kh = Math.max(1, Math.round(sp * 0.32));
+    var s = stripStaff(bin, w, h, st, !!opt.wide), sp = st.sp, kw = Math.max(3, Math.round(sp * 0.55)), kh = Math.max(1, Math.round(sp * 0.32));
     var op = hopen(s.bmp, s.bw, s.bh, kw), cl = vclose(op, s.bw, s.bh, kh), comps = components(cl, s.bw, s.bh), out = [];
     var skipX = (opt.skipLeft != null ? opt.skipLeft : st.x0 + sp * 3.4) - s.ox;
     var bottomY = st.bottom - s.oy, half = sp / 2, lineRows = st.lines.map(function (y) { return Math.round(y) - s.oy; }), lineHalf = Math.max(1, Math.ceil(st.thick / 2)) + 1;
+    /* V849 — 붙임줄 · 이음줄(가는 곡선)이 머리에 붙어 커진 덩어리는, 가는 것을 지우는 세로 열기를 한 뒤 다시 나눠 봄 */
+    var more = [];
     comps.forEach(function (c) {
+      var cw = c.x1 - c.x0 + 1, ch = c.y1 - c.y0 + 1, fill = c.area / (cw * ch);
+      var bigOne = (cw > 2.0 * sp && fill < 0.6) || (cw > 3.1 * sp && ch <= 2.6 * sp) || (ch > 1.55 * sp && ch <= 2.8 * sp && cw >= 0.9 * sp && cw <= 6 * sp);
+      if (!bigOne) return;
+      var bw2 = cw, bh2 = ch, sub = new Uint8Array(bw2 * bh2), xx, yy;
+      for (yy = 0; yy < bh2; yy++) for (xx = 0; xx < bw2; xx++) sub[yy * bw2 + xx] = cl[(c.y0 + yy) * s.bw + c.x0 + xx];
+      var vo = vopen(sub, bw2, bh2, Math.max(1, Math.round(sp * 0.2)));
+      components(vo, bw2, bh2).forEach(function (q) {
+        // 남은 이음줄 끝을 떼고 머리 부분(가장 넓은 줄의 55% 이상인 줄들)만
+        var rw = [], yy3, xx3, mx = 0; for (yy3 = q.y0; yy3 <= q.y1; yy3++) { var n3 = 0; for (xx3 = q.x0; xx3 <= q.x1; xx3++) n3 += vo[yy3 * bw2 + xx3]; rw.push(n3); if (n3 > mx) mx = n3; }
+        var ya3 = 0, yb3 = rw.length - 1; while (ya3 < yb3 && rw[ya3] < 0.55 * mx) ya3++; while (yb3 > ya3 && rw[yb3] < 0.55 * mx) yb3--;
+        var area3 = 0; for (yy3 = ya3; yy3 <= yb3; yy3++) area3 += rw[yy3];
+        more.push({ x0: q.x0 + c.x0, x1: q.x1 + c.x0, y0: q.y0 + ya3 + c.y0, y1: q.y0 + yb3 + c.y0, area: Math.max(area3, 1), sub: true });
+      });
+    });
+    function ledgerAt(px, ly) {
+      var best = 0;
+      for (var dy = -2; dy <= 2; dy++) { var yy = Math.round(ly + dy), run = 0; if (yy < 0 || yy >= h) continue; for (var xx = Math.round(px - 1.2 * sp); xx <= Math.round(px + 1.2 * sp); xx++) { if (xx >= 0 && xx < w && bin[yy * w + xx]) { run++; if (run > best) best = run; } else run = 0; } }
+      return best >= 1.4 * sp;
+    }
+    function rectish(c) {                                                              // 빔 조각(네모)인가 — 머리(타원)는 위 · 아래 끝줄이 가운데보다 훨씬 좁음
+      var ch = c.y1 - c.y0 + 1, wAt = function (yy) { var n = 0; for (var xx = c.x0; xx <= c.x1; xx++) n += cl[yy * s.bw + xx] ? 1 : 0; return n; };
+      var mid = wAt(Math.round((c.y0 + c.y1) / 2)), a2 = wAt(c.y0 + Math.round(ch * 0.12)), b2 = wAt(c.y1 - Math.round(ch * 0.12));
+      return mid > 0 && a2 >= 0.88 * mid && b2 >= 0.88 * mid;
+    }
+    comps.concat(more).forEach(function (c) {
       var cw = c.x1 - c.x0 + 1, ch = c.y1 - c.y0 + 1, fill = c.area / (cw * ch);
       if (ch < 0.62 * sp || ch > 1.55 * sp || cw < 0.92 * sp || cw > 3.1 * sp || fill < 0.5) return;                // (코드 글자 · 박자 숫자는 머리보다 좁음)
       if (cw > 2.0 * sp && fill < 0.6) return;                                           // 긴 덩어리는 빔 · 이음줄일 가능성이 큼 — 머리 두 개가 붙은 것만 둘로 나눔
+      if (fill >= 0.975 && !c.sub) return;                                                 // V849 — 꽉 찬 네모 = 16분음표 빔 두 줄 조각 (머리는 타원이라 모서리가 빔)
       var n = cw > 2.0 * sp ? 2 : 1, k;
       for (k = 0; k < n; k++) {
         var segW = cw / n, cx = c.x0 + segW * (k + 0.5), cy = (c.y0 + c.y1) / 2;
         if (cx < skipX) continue;
         var step = Math.round((bottomY - cy) / half);
         if (step < -5 || step > 13) continue;                                              // 덧줄 두 개 안쪽만 (그 밖은 코드 글자 · 가사)
+        if ((step >= 10 || step <= -2) && !ledgerAt(cx + s.ox, step >= 10 ? st.top - sp : st.bottom + sp)) continue;   // V849 — 오선 밖 음은 덧줄이 있어야 (빔 조각을 머리로 읽지 않게)
         var f = readNote(s, cx, cy, sp, Math.min(segW, 1.3 * sp) / 2, lineRows, lineHalf);
         if (!f.stem && !f.open) continue;                                                // 온음표가 아니면 줄기가 있어야 음표로 봄 (열쇠 · 임시표 조각 걸러내기)
         if (!f.stem && f.open && (cw > 1.9 * sp || cw < 1.15 * sp)) continue;               // 줄기 없는 빈 머리(온음표)는 폭이 머리 1.15~1.9칸 — 그보다 좁으면 글자 · 숫자
@@ -272,49 +322,70 @@
      첫 기호의 자리도 확인합니다 (♯ 는 맨 윗줄 F5 근처에서, ♭ 은 가운데 줄 B4 근처에서 시작).
      반환 { n: 샵 수(+) · 플랫 수(−) · 0, endX: 조표가 끝나는 x(픽셀), conf: 0~1 } */
   function detectKeySig(bin, w, h, st) {
-    var s = stripStaff(bin, w, h, st), sp = st.sp, half = sp / 2, bottomY = st.bottom - s.oy;
-    var xr = Math.min(s.bw, Math.round(st.x0 - s.ox + 15 * sp)), sub = new Uint8Array(xr * s.bh), x, y;
+    var sp = st.sp, half = sp / 2, th = Math.max(1, Math.ceil(st.thick / 2)) + 1;
+    var top = Math.max(0, Math.round(st.top - 3 * sp)), bot = Math.min(h - 1, Math.round(st.bottom + 3 * sp));
+    var xa = Math.max(0, Math.round(st.x0)), xb = Math.min(w - 1, Math.round(st.x0 + 16 * sp));
+    function isLineRow(y) { for (var k = 0; k < 5; k++) if (Math.abs(y - st.lines[k]) <= th) return true; return false; }
+    /* 1) 세로 획: 열마다 이어진 잉크(1칸 틈은 이어 봄) 1.2칸 이상 → 옆 열과 겹치면 한 획 */
+    var strokes = [], open = [], x, y;
+    for (x = xa; x <= xb; x++) {
+      var runs = [], ys = -1, last = -1;
+      for (y = top; y <= bot + 2; y++) {
+        var on = y <= bot && bin[y * w + x];
+        if (on) { if (ys < 0) ys = y; last = y; }
+        else if (ys >= 0 && y - last > 2) { if (last - ys + 1 >= 1.2 * sp) runs.push([ys, last]); ys = -1; }
+      }
+      var next = [];
+      runs.forEach(function (r) {
+        var hit = null;
+        for (var i = 0; i < open.length; i++) { var o = open[i]; var ov = Math.min(o.y1, r[1]) - Math.max(o.y0, r[0]); if (ov > 0.5 * Math.min(o.y1 - o.y0, r[1] - r[0])) { hit = o; break; } }
+        if (hit) { open.splice(open.indexOf(hit), 1); hit.x1 = x; hit.y0 = Math.min(hit.y0, r[0]); hit.y1 = Math.max(hit.y1, r[1]); hit.len = Math.max(hit.len, r[1] - r[0] + 1); next.push(hit); }
+        else { var ns = { x0: x, x1: x, y0: r[0], y1: r[1], len: r[1] - r[0] + 1 }; strokes.push(ns); next.push(ns); }
+      });
+      open = next;
+    }
+    strokes.forEach(function (k) { k.w = k.x1 - k.x0 + 1; });
+    /* 2) 음자리표: 맨 앞쪽의 아주 긴 획(4.2칸 이상) — 그 덩어리(오선을 지운 그림에서)의 오른쪽 끝까지 */
+    var s = stripStaff(bin, w, h, st), xr = Math.min(s.bw, Math.round(st.x0 - s.ox + 6 * sp)), sub = new Uint8Array(xr * s.bh);
     for (y = 0; y < s.bh; y++) for (x = 0; x < xr; x++) sub[y * xr + x] = s.bmp[y * s.bw + x];
-    var comps = components(sub, xr, s.bh).filter(function (c) { return (c.y1 - c.y0 + 1) >= 1.1 * sp; }).sort(function (a, b) { return a.x0 - b.x0; });
-    // 같은 기호의 조각(오선을 지우며 끊긴 것)을 붙임: x 가 많이 겹치면 하나로
-    var merged = [];
-    comps.forEach(function (c) {
-      var m = merged.length ? merged[merged.length - 1] : null;
-      if (m && c.x0 <= m.x1 - 0.15 * sp && c.x1 <= m.x1 + 0.4 * sp) { m.x0 = Math.min(m.x0, c.x0); m.x1 = Math.max(m.x1, c.x1); m.y0 = Math.min(m.y0, c.y0); m.y1 = Math.max(m.y1, c.y1); m.area += c.area; }
-      else merged.push({ x0: c.x0, x1: c.x1, y0: c.y0, y1: c.y1, area: c.area });
-    });
-    var clefIdx = -1, i;
-    for (i = 0; i < merged.length && i < 4; i++) { var ch = merged[i].y1 - merged[i].y0 + 1; if (ch >= 4.6 * sp) { clefIdx = i; break; } }
-    if (clefIdx < 0) return { n: 0, endX: null, conf: 0 };
-    function col(xx, c) { var best = 0, run = 0; for (var yy = c.y0; yy <= c.y1; yy++) { if (sub[yy * xr + xx]) { run++; if (run > best) best = run; } else run = 0; } return best; }
-    function classify(c) {
-      var hh = c.y1 - c.y0 + 1, ww = c.x1 - c.x0 + 1;
-      if (hh > 3.6 * sp || hh < 1.6 * sp || ww > 1.6 * sp || ww < 0.4 * sp) return null;
-      var strokes = [], inS = false, xx;
-      for (xx = c.x0; xx <= c.x1; xx++) { var r = col(xx, c) >= 1.4 * sp; if (r && !inS) strokes.push({ a: xx, b: xx }); else if (r) strokes[strokes.length - 1].b = xx; inS = r; }
-      if (strokes.length >= 2 && strokes.length <= 3 && (strokes[strokes.length - 1].a - strokes[0].b) >= 0.2 * sp) {
-        return { t: 1, cy: (c.y0 + c.y1) / 2 };
-      }
-      if (strokes.length === 1 && (strokes[0].b - c.x0) <= 0.45 * ww) {
-        var midY = c.y0 + hh * 0.55, top = 0, bot = 0;
-        for (var yy = c.y0; yy <= c.y1; yy++) { var cnt = 0; for (xx = strokes[0].b + 1; xx <= c.x1; xx++) cnt += sub[yy * xr + xx]; if (yy < midY) top += cnt; else bot += cnt; }
-        if (bot > top * 1.6 && bot > 0.4 * sp * sp * 0.3) return { t: -1, cy: c.y1 - 0.45 * sp };
-      }
-      return null;
+    var big = components(sub, xr, s.bh).filter(function (c) { return (c.y1 - c.y0 + 1) >= 4.2 * sp; }).sort(function (a, b) { return a.x0 - b.x0; })[0];
+    var clefEnd;
+    if (big) clefEnd = big.x1 + s.ox;
+    else {
+      var clef = strokes.filter(function (k) { return k.len >= 4.2 * sp && k.x0 < st.x0 + 5 * sp; })[0];
+      if (!clef) return { n: 0, endX: null, conf: 0 };
+      clefEnd = clef.x1 + 1.0 * sp;
     }
-    var list = [], prevEnd = merged[clefIdx].x1;
-    for (i = clefIdx + 1; i < merged.length && list.length < 7; i++) {
-      var c = merged[i];
-      if (c.x0 - prevEnd > 1.5 * sp) break;
-      var k = classify(c); if (!k) break;
-      if (list.length && k.t !== list[0].t) break;
-      list.push({ t: k.t, step: Math.round((bottomY - k.cy) / half), x1: c.x1 }); prevEnd = c.x1;
+    if (big && big.x1 - big.x0 > 3.6 * sp) clefEnd = big.x0 + s.ox + 2.8 * sp;          // 조표가 음자리표에 붙어 버린 경우
+    /* 3) 음자리표 뒤 획들: ♯ = 가까운 두 획 · ♭ = 획 하나 + 오른쪽 아래 둥근 배. 마디줄 · 줄기(3.4칸↑) · 박자표(같은 자리 위아래 두 획) · 먼 틈에서 멈춤 */
+    var cand = strokes.filter(function (k) { return k.x0 > clefEnd && k.x0 <= xb; }).sort(function (a, b) { return a.x0 - b.x0; });
+    function bowl(k) {
+      var ink = 0, tot = 0, xx, yy;
+      for (xx = k.x1 + 1; xx <= k.x1 + Math.round(0.7 * sp); xx++) for (yy = Math.round(k.y1 - 0.9 * sp); yy <= k.y1; yy++) { if (isLineRow(yy)) continue; tot++; if (xx < w && yy >= 0 && yy < h && bin[yy * w + xx]) ink++; }
+      var up = 0, ut = 0;
+      for (xx = k.x1 + 1; xx <= k.x1 + Math.round(0.7 * sp); xx++) for (yy = k.y0; yy <= Math.round(k.y0 + 0.6 * sp); yy++) { if (isLineRow(yy)) continue; ut++; if (xx < w && yy >= 0 && yy < h && bin[yy * w + xx]) up++; }
+      return tot && ink / tot > 0.16 && (ut ? up / ut : 0) < ink / tot * 0.6;
     }
-    if (!list.length) return { n: 0, endX: merged[clefIdx].x1 + s.ox, conf: 0.4 };
+    var list = [], prevEnd = clefEnd, i = 0;
+    while (i < cand.length && list.length < 7) {
+      var k = cand[i];
+      if (k.x0 - prevEnd > 1.8 * sp) break;
+      if (k.len > 3.4 * sp || k.w > 0.5 * sp) break;
+      if (k.len < 1.3 * sp) { i++; continue; }
+      var twin = cand.filter(function (q) { return q !== k && Math.abs(q.x0 - k.x0) <= 0.3 * sp && (q.y0 > k.y1 || q.y1 < k.y0); })[0];
+      if (twin) break;                                                                    // 박자표 (4/4 의 4 두 개)
+      var nb = cand[i + 1];
+      if (nb && nb.x0 - k.x1 <= 0.7 * sp && nb.x0 - k.x1 >= 1 && Math.abs(nb.len - k.len) <= 0.8 * sp && Math.abs((nb.y0 + nb.y1) - (k.y0 + k.y1)) / 2 <= 0.7 * sp && nb.len <= 3.4 * sp) {
+        list.push({ t: 1, step: Math.round((st.bottom - (Math.min(k.y0, nb.y0) + Math.max(k.y1, nb.y1)) / 2) / half), x1: nb.x1 + 0.3 * sp }); prevEnd = nb.x1; i += 2; continue;
+      }
+      if (bowl(k)) { list.push({ t: -1, step: Math.round((st.bottom - (k.y1 - 0.45 * sp)) / half), x1: k.x1 + 0.75 * sp }); prevEnd = k.x1 + 0.6 * sp; i++; continue; }
+      break;
+    }
+    if (list.length) { var t0 = list[0].t; list = list.filter(function (a) { return a.t === t0; }); }
+    if (!list.length) return { n: 0, endX: clefEnd, conf: 0.4 };
     var t = list[0].t, want = t > 0 ? [8, 5, 9, 6, 3, 7, 4] : [4, 7, 3, 6, 2, 5, 1], hitN = 0;
     list.forEach(function (a, j) { if (Math.abs(a.step - want[j]) <= 1) hitN++; });
-    var conf = hitN / list.length;
-    return { n: t * list.length, endX: list[list.length - 1].x1 + s.ox, conf: Math.round(conf * 100) / 100 };
+    return { n: t * list.length, endX: Math.round(list[list.length - 1].x1), conf: Math.round(hitN / list.length * 100) / 100 };
   }
   /** 여러 오선의 조표를 모아 가장 많이 나온 값 (멜로디 오선 우선) */
   function voteKeySig(staves) {
@@ -335,10 +406,19 @@
       var bin2 = binarize(gray, w, h, { adaptive: true }), st2 = groupSystems(detectStaves(bin2, w, h));
       if (st2.length > staves.length) { bin = bin2; staves = st2; }
     }
+    /* V849 — 흐린(작은 그림을 키운) 악보는 오선 한 줄이 연한 회색이라 못 찾는 일이 많아, 오선만은 더 너그러운 기준으로도 찾아 봄 */
+    var thrL = Math.min(236, otsu(gray) + (255 - otsu(gray)) * 0.55), binL = new Uint8Array(gray.length), q;
+    for (q = 0; q < gray.length; q++) binL[q] = gray[q] <= thrL ? 1 : 0;
+    var stL = groupSystems(detectStaves(binL, w, h));
+    if (stL.length > staves.length) staves = stL;
     staves.forEach(function (st) { try { st.keySig = detectKeySig(bin, w, h, st); } catch (e) { st.keySig = null; } });
     staves.forEach(function (st, si) {
       var o2 = opt; if (st.keySig && st.keySig.endX != null && opt.skipLeft == null) { o2 = {}; for (var kk in opt) o2[kk] = opt[kk]; o2.skipLeft = st.keySig.endX + 0.5 * st.sp; }   // V849 — 조표가 끝난 자리부터 음표
       var list = detectNotes(bin, w, h, st, o2);
+      /* V849 — 오선을 지우는 두 방법(가까이 · 넓게 살핌)으로 각각 찾아 합침: 줄 위의 머리 · 칸 안의 빈 머리를 모두 살림 */
+      var o3 = {}; for (var k3 in o2) o3[k3] = o2[k3]; o3.wide = true;
+      detectNotes(bin, w, h, st, o3).forEach(function (n2) { if (!list.some(function (n1) { return Math.abs(n1.x - n2.x) < 0.6 * st.sp && Math.abs(n1.y - n2.y) < 0.6 * st.sp; })) list.push(n2); });
+      list.sort(function (a, b) { return a.x - b.x; });
       estimateBeats(list);
       list.forEach(function (n) { n.staff = si; notes.push(n); });
     });

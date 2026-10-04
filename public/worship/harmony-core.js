@@ -324,6 +324,11 @@
   function classifyToken(text, fix) {
     var t = String(text == null ? '' : text).trim();
     if (!t) return { kind: 'sep', pre: '', post: '' };
+    if (/^[\uE000-\uF8FF\u0000-\u001F\u2000-\u206F\s]+$/.test(t)) return { kind: 'sep', pre: '', post: '' };
+    if (/^\d{1,3}[.,]?$|^\d[.,]\s?\d[.,]?$|^\[\d+\]$|^x\d$/i.test(t)) return { kind: 'sep', pre: '', post: '' };                         // 마디 번호 · 반복 괄호 번호(1. 2,3.)             // V849 — 악보 글꼴의 음표 · 쉼표 기호(사용자 영역 문자)
+    if (/^(V|P|PC|I|O|T|v|p|pc|R)$/.test(t) || /^[\[(]?(V|PC|P|C|B|I)\d*[\])]?$/.test(t) && /\d|\[|\(/.test(t) && !parseChord(t.replace(/[\[\]()]/g, ''))) return { kind: 'label', pre: '', post: '' };   // 리허설 표시 (V · P · C1 …)
+    var whole = fix ? fixOcrChord(t) : t, wc = parseChord(whole);
+    if (wc && /^[A-G]/.test(whole)) return { kind: 'chord', chord: wc, pre: '', post: '', core: whole };                 // V849 — "C7(♭9)" 처럼 괄호로 끝나는 코드는 통째로
     var wm = /^([([{|:]*)(.*?)([)\]}|,.;:]*)$/.exec(t), pre = wm[1], core = wm[2], post = wm[3];
     if (core && fix) core = fixOcrChord(core);
     if (core) { var c = parseChord(core); if (c) return { kind: 'chord', chord: c, pre: pre, post: post, core: core }; }
@@ -344,6 +349,8 @@
   }
   /** V849 — 조각난 코드 글자 붙이기: PDF 는 위첨자(maj7 · sus4) · ♯ 기호 · 슬래시 베이스를 따로 된 글자로 넣는 일이 많습니다.
    *  바로 옆(빈틈이 글자 높이의 35% 이하) · 세로로 겹치는 두 조각을 붙여서 코드가 되면 하나로 합칩니다 ("C"+"#m7" · "D/F"+"#" · "G"+"sus4"). */
+  /** 아직 덜 쓴 코드인가 ("Bbadd" · "C7(" · "C7(b" 처럼 다음 조각이 붙으면 코드가 되는 것) */
+  function partialChord(t) { return ['9', '9)', '7', '2', 'b9)', '/C', '4'].some(function (x) { return !!parseChord(t + x); }); }
   function mergeChordPieces(toks) {
     var list = toks.slice().sort(function (a, b) { return a.x0 - b.x0; }), changed = true, guard = 0;
     while (changed && guard++ < 6) {
@@ -356,8 +363,9 @@
           var hb = b.y1 - b.y0, gap = b.x0 - a.x1, hm = Math.max(1, Math.min(ha, hb));
           if (gap < -0.15 * hm || gap > 0.35 * Math.max(ha, hb) || b.y0 >= a.y1 || b.y1 <= a.y0) continue;
           var at = String(a.text).trim(), bt = String(b.text).trim(), joined = at + bt;
-          if (!/^[A-G]/.test(at) || /^[A-G]/.test(bt) && !/^\//.test(bt) && parseChord(bt)) continue;
-          if (!parseChord(joined) || (parseChord(at) && parseChord(bt) && !/^[#b♯♭(\/]/.test(bt) && !/^(maj|min|m|sus|add|dim|aug|alt|[0-9])/.test(bt))) continue;
+          if (!/^[A-G]/.test(at) || (/^[A-G]/.test(bt) && !/^\//.test(bt) && !/\/$/.test(at) && parseChord(bt))) continue;
+          var slashy = /^\/$/.test(bt) || (/\/$/.test(at) && /^[A-G][#b♯♭]?$/.test(bt));                // "F" + "/" + "A" 처럼 사선이 따로 된 글자
+          if (!slashy && (!(parseChord(joined) || partialChord(joined)) || (parseChord(at) && parseChord(bt) && !/^[#b♯♭(\/]/.test(bt) && !/^(maj|min|m|sus|add|dim|aug|alt|[0-9])/.test(bt)))) continue;
           list[i] = { text: joined, x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1), conf: a.conf, fs: a.fs || b.fs };
           list[j] = null; a = list[i]; ha = a.y1 - a.y0; changed = true;
         }

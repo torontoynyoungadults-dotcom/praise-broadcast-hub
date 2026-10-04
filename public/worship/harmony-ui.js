@@ -120,9 +120,14 @@
       else { delete S.data.tshift; if (pShift() !== 0) { reflect(0); note('목표 조가 ±3 반음 밖이라 연습 키 이동은 0 으로 되돌렸습니다 (녹음 재생은 ±3 반음까지만 바꿀 수 있습니다).'); } }
       commit();
     }
-    function origKey() {
+    function origKey(onlyPg) {
       var d = S.data, k = d.orig && d.orig !== 'auto' ? HC.parseKey(d.orig) : null;
       if (k) { S.guess = null; return k; }
+      if (onlyPg != null && d.pages[onlyPg]) {                                                     // V849 — 여러 곡이 든 PDF(콘티 묶음): 그 페이지의 Key 글자 · 조표 · 코드로 먼저
+        var p1 = d.pages[onlyPg], l1 = []; (p1.chords || []).forEach(function (c) { var pc = HC.parseChord(c.text); if (pc) l1.push(pc); });
+        var f1 = HC.fuseKey({ text: p1.keyText ? HC.parseKey(p1.keyText) : null, sig: p1.sig && p1.sig.conf >= 0.4 ? { n: p1.sig.n } : null, chords: l1, song: null });
+        if (f1.src === 'text' || f1.src === 'sig' || (f1.src === 'chords' && l1.length >= 6)) return { key: f1.key, src: f1.src };
+      }
       /* V849 — 악보의 "Key" 글자 → 조표(♯ · ♭ 개수, 장 · 단은 코드 흐름으로) → 코드 흐름 → 곡 정보의 Key 순서로 */
       var list = [], pgs = Object.keys(d.pages).sort(function (a, b) { return a - b; }), kt = null, sigT = {}, sigBest = null;
       pgs.forEach(function (pg) {
@@ -133,6 +138,7 @@
       Object.keys(sigT).forEach(function (n) { if (sigBest == null || sigT[n] > sigT[sigBest]) sigBest = n; });
       var sk = P.song && P.song() && HC.parseKey(P.song().key);
       var f = HC.fuseKey({ text: kt, sig: sigBest != null ? { n: +sigBest } : null, chords: list, song: sk || null });
+      if (onlyPg != null) return { key: f.key, src: f.src };
       S.guess = f.src === 'none' ? null : f.key; S.keySrc = f.src;
       return f.key;
     }
@@ -143,11 +149,17 @@
     function sigCountOf(key) { var sg = HC.keySignature(key), n = 0, L; for (L in sg) if (sg[L]) n++; return n; }
     function usedStaff(pg, i) { var st = S.data.pages[pg].staves[i], o = S.data.use[pg + ':' + i]; return o === undefined ? !!st.melody : !!o; }
     function computeModel() {
-      var d = S.data; S.okey = origKey(); if (typeof d.tshift === 'number') d.target = KM.targetFor(S.okey, d.tshift); S.tkey = targetKey(S.okey); S.semis = HC.keySemitones(S.okey, S.tkey); S.flats = HC.keyUsesFlats(S.tkey);
+      var d = S.data, fileKey = origKey(), fileSrc = S.keySrc;
+      function keysOf(ok) { var tk = typeof d.tshift === 'number' ? (HC.parseKey(KM.targetFor(ok, d.tshift) + (ok.minor ? 'm' : '')) || ok) : targetKey(ok); return { okey: ok, tkey: tk, semis: HC.keySemitones(ok, tk), flats: HC.keyUsesFlats(tk) }; }
+      S.pageKeys = {};
+      Object.keys(d.pages).forEach(function (pg) { var r = d.orig && d.orig !== 'auto' ? null : origKey(pg); var K = keysOf(r ? r.key : fileKey); K.src = r ? r.src : fileSrc; S.pageKeys[pg] = K; });
+      var cur = S.pageKeys[pgKey()] || keysOf(fileKey);
+      S.okey = cur.okey; S.tkey = cur.tkey; S.semis = cur.semis; S.flats = cur.flats; S.keySrc = cur.src || fileSrc; S.guess = d.orig && d.orig !== 'auto' ? null : S.okey;
+      if (typeof d.tshift === 'number') d.target = KM.targetFor(S.okey, d.tshift);
       S.model = {};
-      var nsig = sigCountOf(S.okey);
       Object.keys(d.pages).forEach(function (pg) {
         var pd = d.pages[pg]; if (!pd || !pd.staves) return;
+        var PK = S.pageKeys[pg], pkey = PK.okey, nsig = sigCountOf(pkey);
         var asp = pd.w / pd.h, chords = (pd.chords || []).filter(function (c) { c.parsed = HC.parseChord(c.text); return !!c.parsed; });
         var geo = chords.map(function (c) { return { x0: c.x, x1: c.x + c.w, y0: c.y, y1: c.y + c.h }; });
         var notes = (pd.notes || []).filter(function (n) {
@@ -156,8 +168,8 @@
           return st.hx != null ? n.x >= st.hx : n.x >= st.x0 + OM.headerSpaces(nsig) * (st.sp / asp);          // V849 — 읽은 조표가 끝난 자리부터
         }).sort(function (a, b) { return a.staff - b.staff || a.x - b.x; });
         var idx = HC.assignChords(geo, pd.staves, notes, asp);
-        var items = notes.map(function (n, i) { return { id: n.id, midi: HC.stepToMidi(n.step, S.okey), chord: idx[i] >= 0 ? chords[idx[i]].parsed : null }; });
-        var hm = items.length ? HC.buildHarmony(items, { key: S.okey }) : [];
+        var items = notes.map(function (n, i) { return { id: n.id, midi: HC.stepToMidi(n.step, pkey), chord: idx[i] >= 0 ? chords[idx[i]].parsed : null }; });
+        var hm = items.length ? HC.buildHarmony(items, { key: pkey }) : [];
         S.model[pg] = { notes: notes.map(function (n, i) {
           var a = hm[i], oa = d.ov.alto[n.id], ot = d.ov.tenor[n.id];
           return { id: n.id, n: n, staff: n.staff, x: n.x, step: n.step, midi: items[i].midi, chord: idx[i] >= 0 ? chords[idx[i]] : null, alto: a.alto, tenor: a.tenor,
@@ -281,6 +293,27 @@
     /* ---------- 분석: 글자층 · OCR · 오선/멜로디 ---------- */
     var mctx = null;
     function measurer() { if (!mctx) { mctx = doc.createElement('canvas').getContext('2d'); mctx.font = '800 20px Helvetica, Arial, sans-serif'; } return function (s) { return mctx.measureText(s).width; }; }
+    /** 표 모양 머리말: "KEY" 글자 바로 아래(또는 오른쪽)에 적힌 조 — "Ab" · "F-G-A"(메들리는 첫 조) */
+    function keyUnderLabel(toks) {
+      var lab = toks.filter(function (t) { return /^key:?$/i.test(String(t.text).trim()) || String(t.text).trim() === 'KEY'; });
+      toks.forEach(function (t) {                                                               // "K" "E" "Y" 가 한 글자씩 따로 된 PDF
+        if (String(t.text).trim().toUpperCase() !== 'K') return; var hh = Math.max(4, t.y1 - t.y0);
+        var e = toks.filter(function (q) { return /^e$/i.test(String(q.text).trim()) && q.x0 > t.x0 && q.x0 - t.x1 < hh && Math.abs(q.y0 - t.y0) < hh * 0.5; })[0];
+        var y = e && toks.filter(function (q) { return /^y$/i.test(String(q.text).trim()) && q.x0 > e.x0 && q.x0 - e.x1 < hh && Math.abs(q.y0 - t.y0) < hh * 0.5; })[0];
+        if (y) lab.push({ text: 'KEY', x0: t.x0, x1: y.x1, y0: t.y0, y1: t.y1 });
+      });
+      for (var i = 0; i < lab.length; i++) {
+        var L0 = lab[i], hh = Math.max(4, L0.y1 - L0.y0), best = null, bd = 1e9;
+        toks.forEach(function (t) {
+          if (t === L0 || (t.x0 >= L0.x0 - 1 && t.x1 <= L0.x1 + 1 && Math.abs(t.y0 - L0.y0) < hh)) return;
+          var m = /^([A-G](?:[#b♯♭])?m?)(?:\s*[-–]\s*[A-G][#b♯♭]?m?)*$/.exec(String(t.text).trim()); if (!m) return;
+          var dy = t.y0 - L0.y0, dx = t.x0 - L0.x0, below = dy > 0 && dy < hh * 5 && Math.abs(dx) < hh * 4, right = Math.abs(dy) < hh * 0.6 && t.x0 > L0.x1 && t.x0 - L0.x1 < hh * 4;
+          if (!(below || right)) return; var d = Math.abs(dx) + Math.abs(dy); if (d < bd) { bd = d; best = m[1]; }
+        });
+        if (best) { var k = HC.parseKey(best); if (k) return k; }
+      }
+      return null;
+    }
     function textLayerChords(pg) {
       var pdf = P.pdf && P.pdf(); if (!pdf) return Promise.resolve(null);
       return pdf.getPage(pg).then(function (page) {
@@ -293,7 +326,7 @@
             var item = { str: it.str, x0: p0[0], x1: p0[0] + wpx, y0: p0[1] - fs * 0.8, y1: p0[1] + fs * 0.22, fs: fs };
             HC.splitItem(item, ms).forEach(function (t) { t.fs = fs; toks.push(t); });
           });
-          var cs = HC.chordsFromTokens(toks, {}), kt = HC.findKeyText(all.join(' ')) || HC.findKeyText(all.join(''));       // V849 — 악보에 적힌 "Key: G"
+          var cs = HC.chordsFromTokens(toks, {}), kt = HC.findKeyText(all.join(' ')) || HC.findKeyText(all.join('')) || keyUnderLabel(toks);       // V849 — 악보에 적힌 "Key: G"
           return { hasText: chars > 8, keyText: kt ? kt.name : '', chords: cs.map(function (c) {
             var fs = 0; toks.some(function (t) { if (t.x0 === c.x0 && t.y0 === c.y0) { fs = t.fs; return true; } return false; });
             return { id: uid(), text: c.text, pre: c.pre, post: c.post, x: c.x0 / vp.width, y: c.y0 / vp.height, w: (c.x1 - c.x0) / vp.width, h: (c.y1 - c.y0) / vp.height, fs: (fs || (c.y1 - c.y0)) / vp.height, src: 'text' };
@@ -377,12 +410,15 @@
     }
     function readChordImg(w, cnv, single) {
       var modes = single ? ['10', '8', '7'] : ['7', '8'], best = null, i = 0;
+      var raw1 = '';
       function step() {
-        if (i >= modes.length) return Promise.resolve(best);
+        if (i >= modes.length) return Promise.resolve(best || (raw1 ? { text: raw1, conf: 0, raw: raw1, bad: true } : null));
         var psm = modes[i++];
         return setP(w, psm, WL).then(function () { return w.recognize(cnv); }).then(function (r) {
           var raw = String((r.data && r.data.text) || '').replace(/\s+/g, ''), fx = HC.fixOcrChord(raw), ok = !!HC.parseChord(fx), conf = (r.data && r.data.confidence) || 0;
-          if (ok && (!best || conf > best.conf)) best = { text: fx, conf: conf, raw: raw };
+          if (S.ocrDbg) S.ocrDbg.push(psm + ':' + raw + ':' + Math.round(conf) + ':' + cnv.width + 'x' + cnv.height);            // 점검용 (보통은 꺼져 있음)
+          if (!raw1 && raw) raw1 = raw;
+          if (ok && (!best || conf > best.conf || (conf === best.conf && fx.length > best.text.length))) best = { text: fx, conf: conf, raw: raw };
           if (ok && conf >= 78) return best;
           return step();
         });
@@ -449,9 +485,9 @@
       }).catch(function () { return ''; });
     }
     /** 오선 위 띠마다 글자 덩어리를 하나씩 잘라 읽음 (쪽 전체를 한꺼번에 읽으면 C · G 같은 한 글자 코드를 자주 놓침) — 코드로 읽히는 것만 남김 */
-    function ocrChords(cv0, om, W, Hh) {
+    function ocrChords(cv0, om, W, Hh, only) {
       return getWorker().then(function (w) {
-        var melodyStaves = om.staves.filter(function (s) { return s.melody; }), out = [], big = cv0.getContext('2d');
+        var melodyStaves = (only || om.staves.filter(function (s) { return s.melody; })), out = [], big = cv0.getContext('2d');
         function pageLevel() {
           setStat('OCR 읽는 중… (페이지 전체에서 코드 줄 찾기)');
           var bc = binCanvas(cv0);
@@ -491,19 +527,41 @@
             for (k = 0; k < ink.length; k++) ink[k] = (d[k * 4] * 0.299 + d[k * 4 + 1] * 0.587 + d[k * 4 + 2] * 0.114) <= thr ? 1 : 0;
             ink = denoise(ink, W, bh);
             eraseStems(ink, W, bh, st.sp);
+            (function dropLongLines() {                                                         // 반복 괄호(1. 2.) · 긴 선은 글자를 이어 붙이므로 지움
+              var yy, xx, lim = Math.round(3 * st.sp);
+              for (yy = 0; yy < bh; yy++) { var run = 0; for (xx = 0; xx <= W; xx++) { var on = xx < W && ink[yy * W + xx]; if (on) run++; else { if (run >= lim) for (var k5 = xx - run; k5 < xx; k5++) ink[yy * W + k5] = 0; run = 0; } } }
+            })();
+            /* V849 — 띠 안의 글자 줄을 가로 투영으로 나누고, 오선에 가장 가까운 "글자 높이" 줄(= 코드 줄)만 남김 (윗단 가사 · 이음줄이 섞이지 않게) */
+            (function keepChordLine() {
+              var prof = new Int32Array(bh), yy, xx, lines = [], cur = null, gapN = 0;
+              for (yy = 0; yy < bh; yy++) { var cnt = 0; for (xx = 0; xx < W; xx++) cnt += ink[yy * W + xx]; prof[yy] = cnt; }
+              for (yy = 0; yy < bh; yy++) {
+                if (prof[yy] > 0) { if (!cur || gapN > Math.max(2, Math.round(st.sp * 0.18))) { cur = { a: yy, b: yy, m: 0 }; lines.push(cur); } cur.b = yy; cur.m += prof[yy]; gapN = 0; }
+                else gapN++;
+              }
+              var ok3 = lines.filter(function (l) { var hh = l.b - l.a + 1; return hh >= 0.7 * st.sp && hh <= 4.8 * st.sp && l.m >= st.sp * st.sp * 0.6; });
+              if (!ok3.length) return;
+              /* 오선 바로 위에 붙은 얇은 줄(빔 · 이음줄)은 버리고, 글자 줄은 가까운 쪽 두 줄까지 남김 — 어느 줄이 코드인지는 읽은 뒤(dominantRow) 정함 */
+              var keep = ok3.filter(function (l) { return !(l.b >= bh - 0.55 * st.sp && (l.b - l.a + 1) < 1.0 * st.sp); }).slice(-2);
+              if (!keep.length) keep = ok3.slice(-1);
+              for (yy = 0; yy < bh; yy++) { var inK = keep.some(function (l) { return yy >= l.a - 1 && yy <= l.b + 1; }); if (!inK) for (xx = 0; xx < W; xx++) ink[yy * W + xx] = 0; }
+            })();
             var grp = dilateH(ink, W, bh, Math.max(1, Math.round(st.sp * 0.12)));
+            if (S.ocrDbg) S.ocrDbg.push('band ' + i + ' thr=' + thr + ' sp=' + st.sp.toFixed(1));
             var hx = st.keySig && st.keySig.endX != null ? st.keySig.endX : st.x0 + 2.5 * st.sp;                // 음자리표 · 조표 위(조표 ♭ 의 줄기)는 코드가 아님
             var toks = inkTokens(grp, W, bh, st.sp).map(function (t) { var a = t.x0, b = t.x1, yy, ok2; while (a < b) { ok2 = false; for (yy = t.y0; yy <= t.y1; yy++) if (ink[yy * W + a]) { ok2 = true; break; } if (ok2) break; a++; } while (b > a) { ok2 = false; for (yy = t.y0; yy <= t.y1; yy++) if (ink[yy * W + b]) { ok2 = true; break; } if (ok2) break; b--; } var rows = [], yy2, xx2, best2 = null, cur2 = null; for (yy2 = t.y0; yy2 <= t.y1; yy2++) { var cnt2 = 0; for (xx2 = a; xx2 <= b; xx2++) cnt2 += ink[yy2 * W + xx2]; rows.push(cnt2); }
               rows.forEach(function (c2, j) { if (c2 > 0) { if (!cur2) cur2 = { a: j, b: j, m: 0 }; cur2.b = j; cur2.m += c2; } else if (cur2) { if (!best2 || cur2.m > best2.m) best2 = cur2; cur2 = null; } }); if (cur2 && (!best2 || cur2.m > best2.m)) best2 = cur2;      // V849 — 가장 잉크가 많은 가로 띠(글자)만: 줄기 끝 · 잡음은 뺌
-              return best2 ? { x0: a, x1: b, y0: t.y0 + best2.a, y1: t.y0 + best2.b } : { x0: a, x1: b, y0: t.y0, y1: t.y1 }; }).filter(function (t) { var th = t.y1 - t.y0 + 1, tw = t.x1 - t.x0 + 1; return th >= st.sp * 0.5 && th <= st.sp * 3 && tw >= st.sp * 0.3 && t.x1 > hx; }), ti = 0, found = [];
+              return best2 ? { x0: a, x1: b, y0: t.y0 + best2.a, y1: t.y0 + best2.b } : { x0: a, x1: b, y0: t.y0, y1: t.y1 }; }).filter(function (t) { var th = t.y1 - t.y0 + 1, tw = t.x1 - t.x0 + 1; return th >= st.sp * 0.5 && th <= st.sp * 4.6 && tw >= st.sp * 0.3 && t.x1 > hx; }), ti = 0, found = [], pieces = [];
+            if (S.ocrDbg) { var all0 = inkTokens(grp, W, bh, st.sp); S.ocrDbg.push(' top=' + top + ' bh=' + bh + ' hx=' + Math.round(hx) + ' raw=' + all0.map(function (t) { return t.x0 + ':' + (t.x1 - t.x0 + 1) + 'x' + (t.y1 - t.y0 + 1) + '@' + t.y0; }).join(' ') + ' kept=' + toks.length); }
             function readTok(t, depth) {
               var single = (t.x1 - t.x0 + 1) <= (t.y1 - t.y0 + 1) * 1.15;
               return readChordImg(w, grayCrop(cv0, t.x0, top + t.y0, t.x1 + 1, top + t.y1 + 1), single).then(function (r) {
-                return r || readChordImg(w, tokenCanvas(ink, W, t), single);                                          // 회색 그림 → 안 되면 흑백 그림
+                return r && !r.bad ? r : readChordImg(w, tokenCanvas(ink, W, t), single).then(function (r2) { return r2 && !r2.bad ? r2 : (r2 || r); });     // 회색 그림 → 안 되면 흑백 그림
               }).then(function (r) {
+                var badTxt = r && r.bad ? r.text : ''; if (r && r.bad) r = null;
                 if (r) { found.push({ text: r.text, conf: r.conf, x0: t.x0, x1: t.x1 + 1, y0: t.y0, y1: t.y1 + 1 }); return; }
                 var parts = depth < 1 && (t.x1 - t.x0 + 1) > (t.y1 - t.y0 + 1) * 1.3 ? splitTok(ink, W, t) : null;      // 두 코드가 붙어 있으면 갈라서
-                if (!parts) return;
+                if (!parts) { if (badTxt && /^[A-Ga-z0-9#b/()+-]{1,8}$/.test(badTxt)) pieces.push({ text: badTxt, x0: t.x0, x1: t.x1 + 1, y0: t.y0, y1: t.y1 + 1 }); return; }   // 코드 조각일 수 있음 ("D" + "m7")
                 return readTok(parts[0], depth + 1).then(function () { return readTok(parts[1], depth + 1); });
               });
             }
@@ -514,6 +572,11 @@
               return readTok(t, 0).then(next);
             }
             return Promise.resolve(next()).then(function () {
+              if (pieces.length) {                                                             // V849 — 띄어 쓴 코드("D m7")는 조각을 붙여서
+                var mg = HC.mergeChordPieces(found.concat(pieces).map(function (c) { var hh2 = c.y1 - c.y0; return { text: c.text, conf: c.conf, x0: c.x0 - hh2 * 0.3, x1: c.x1, y0: c.y0, y1: c.y1, sh: hh2 * 0.3 }; }));
+                found = mg.filter(function (c) { return HC.parseChord(HC.fixOcrChord(c.text)); }).map(function (c) { return { text: HC.fixOcrChord(c.text), conf: c.conf || 0, x0: c.x0 + (c.sh || 0), x1: c.x1, y0: c.y0, y1: c.y1 }; });
+              }
+              found = found.filter(function (c) { return !/-$/.test(c.text); });               // "E-" 같은 잡음
               found = dominantRow(found);
               var capH = median(found.map(function (c) { return c.y1 - c.y0; }));
               found.forEach(function (c) {
@@ -522,7 +585,7 @@
             });
           });
         });
-        return seq.then(function () { if (out.length) return out; return pageLevel(); });          // 오선 위에서 하나도 못 찾으면 쪽 전체에서 한 번 더
+        return seq.then(function () { if (out.length || only) return out; return pageLevel(); });          // 오선 위에서 하나도 못 찾으면 쪽 전체에서 한 번 더
       });
     }
     function samplePaper(rgba) {
@@ -539,6 +602,18 @@
           setStat(pg + '페이지 오선 · 멜로디를 찾는 중…');
           var om = OM.analyze(img.data, W, Hh, { adaptive: !(P.pdf && P.pdf()) }), paper = samplePaper(img.data);
           return tick().then(function () { return forceOcr ? null : textLayerChords(pg); }).then(function (tl) {
+            /* V849 — 글자층 코드는 오선 위 코드 자리에 있는 것만 (표지 · 송폼 줄의 "C" "B" 같은 글자는 코드가 아님).
+               글자층에 코드가 없는 오선(악보가 그림으로 들어간 PDF — 콘티 묶음 등)은 그 오선만 OCR 로 */
+            var mel = om.staves.filter(function (s2) { return s2.melody; });
+            if (tl && tl.chords.length && mel.length) {
+              var bandOf = function (c) { var cy = (c.y + c.h) * Hh, cx = (c.x + c.w / 2) * W; for (var i2 = 0; i2 < mel.length; i2++) { var s3 = mel[i2], prevB = -1e9; om.staves.forEach(function (o3) { if (o3.bottom < s3.top && o3.bottom > prevB) prevB = o3.bottom; }); if (cy <= s3.top + 0.6 * s3.sp && cy >= Math.max(prevB, s3.top - 8 * s3.sp) && cx >= s3.x0 - 2 * s3.sp && cx <= s3.x1 + 2 * s3.sp) return i2; } return -1; };
+              var kept = tl.chords.filter(function (c) { return bandOf(c) >= 0; }), have = {};
+              kept.forEach(function (c) { have[bandOf(c)] = 1; });
+              var missing = mel.filter(function (s4, i4) { return !have[i4]; });
+              if (!missing.length) return { chords: kept, src: 'text', keyText: tl.keyText || '' };
+              setStat('글자층에 코드가 없는 오선 ' + missing.length + '줄을 OCR 로 읽는 중…');
+              return ocrChords(cv0, om, W, Hh, missing).then(function (cs) { return { chords: kept.concat(cs), src: kept.length ? 'text+ocr' : 'ocr', keyText: tl.keyText || '' }; });
+            }
             if (tl && tl.chords.length) return { chords: tl.chords, src: 'text', keyText: tl.keyText || '' };
             setStat('코드를 OCR 로 읽는 중… (처음에는 OCR 도구를 내려받느라 시간이 걸립니다)');
             return ocrChords(cv0, om, W, Hh).then(function (cs) {
@@ -564,7 +639,7 @@
         S.busy = false; saveNow(); computeModel(); redraw();
         var cur = results.filter(function (r) { return String(r.pg) === pgKey(); })[0] || results[0];
         var msg = pages.length > 1 ? results.length + '페이지 분석 완료. ' : '';
-        if (cur) msg += cur.pg + '페이지: 코드 ' + cur.chords + '개(' + (cur.src === 'text' ? 'PDF 글자층' : 'OCR') + ') · 오선 ' + cur.staves + '줄 · 멜로디 음 ' + cur.notes + '개';
+        if (cur) msg += cur.pg + '페이지: 코드 ' + cur.chords + '개(' + (cur.src === 'text' ? 'PDF 글자층' : cur.src === 'text+ocr' ? 'PDF 글자층 + OCR' : 'OCR') + ') · 오선 ' + cur.staves + '줄 · 멜로디 음 ' + cur.notes + '개';
         if (cur && S.okey) msg += ' · 원래 조 ' + HC.keyName(S.okey) + ({ text: ' (악보의 Key 글자)', sig: ' (조표 ' + (cur.sig && cur.sig.n ? Math.abs(cur.sig.n) + (cur.sig.n > 0 ? '♯' : '♭') : '') + ' + 코드)', chords: ' (코드 흐름)', song: ' (곡 정보)' }[S.keySrc] || '');
         var warn = '';
         if (cur && !cur.staves) warn = ' — 오선을 찾지 못했습니다. 코드 변환만 되고 화음은 만들 수 없습니다.';
@@ -572,7 +647,7 @@
         else if (cur && !cur.chords) warn = ' — 코드를 찾지 못했습니다. "코드 수정"에서 직접 넣을 수 있습니다.';
         setStat(msg + warn, !!warn); syncPanel();
         if (S.autoRun) {                                                               // 키 이동 때문에 자동으로 돌린 분석 — 유튜브 · 재생 카드에도 결과를 알림
-          if (cur && cur.chords) note('이 페이지 코드 ' + cur.chords + '개를 ' + HC.keyName(S.okey) + ' → ' + HC.keyName(S.tkey) + ' (' + (S.semis > 0 ? '+' : '') + S.semis + ') 로 바꿔 그렸습니다. (' + (cur.src === 'text' ? 'PDF 글자층' : 'OCR') + ')');
+          if (cur && cur.chords) note('이 페이지 코드 ' + cur.chords + '개를 ' + HC.keyName(S.okey) + ' → ' + HC.keyName(S.tkey) + ' (' + (S.semis > 0 ? '+' : '') + S.semis + ') 로 바꿔 그렸습니다. (' + (cur.src === 'text' ? 'PDF 글자층' : cur.src === 'text+ocr' ? 'PDF 글자층 + OCR' : 'OCR') + ')');
           else note('이 페이지에서 코드를 찾지 못해 바꿀 코드가 없습니다.' + (cur && !cur.staves ? '' : ' 화음 탭의 "코드" 모드에서 직접 넣을 수 있습니다.'), true);
         }
         S.autoRun = false; if (S.autoPend) { S.autoPend = false; maybeAuto(); }
@@ -1013,7 +1088,7 @@
     }
 
     /* ---------- 연습 화면 이벤트 ---------- */
-    P.on('page', function () { if (S.dead) return; if (S.playing) stop(); S.sel = null; S.statMsg = ''; if (S.editor) closeEditor(true); redraw(); syncPanel(); if (pShift()) { noteState(); maybeAuto(); } });
+    P.on('page', function () { if (S.dead) return; if (S.playing) stop(); S.sel = null; S.statMsg = ''; if (S.editor) closeEditor(true); computeModel(); redraw(); syncPanel(); if (pShift()) { noteState(); maybeAuto(); } });
     P.on('sheet', function () { if (S.dead) return; if (S.fid && S.data) saveNow(); S.statMsg = ''; loadFile(); if (pShift()) { noteState(); maybeAuto(); } });
     P.on('keyshift', function (n) { if (S.dead || S.reflecting) return; applyShift(n); });                    // 유튜브 카드 · 재생 카드가 연습 키를 바꿈
     P.on('song', function () { if (S.dead) return; applyShift(pShift()); });                                    // 곡이 바뀌면 그 곡의 연습 키로
