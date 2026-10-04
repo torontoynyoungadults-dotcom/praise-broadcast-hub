@@ -621,9 +621,10 @@
       if (clipState || destroyed || typeof fetch !== 'function' || !AC) return;
       if (typeof window !== 'undefined' && window.__YN_NO_CLIPS) { clipState = 'off'; return; }      // 시험용 — 음성 합성 경로만 시험할 때
       clipState = 'loading';
-      fetch(clipBase + 'en/manifest.json').then(function (r) { if (!r.ok) throw new Error('manifest'); return r.json(); }).then(function (man) {
+      fetch(clipBase + 'en/manifest.json', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error('manifest'); return r.json(); }).then(function (man) {
         clipMan = man; clipVoices = man.voices || {}; clipDefault = man['default'] || 'am_eric';
-        if (!man.voices) clipVoices = {}; 
+        if (!man.voices) clipVoices = {};
+        if (!destroyed) emitState();          // V856 — 목소리 목록을 소리 파일이 다 받아지기 전에 바로 채움
         wantVoices();
         return vLoad[clipDefault];
       }).then(function () { clipState = clips[clipDefault] && Object.keys(clips[clipDefault]).length ? 'ready' : 'fail'; if (!destroyed) emitState(); }).catch(function () { clipState = 'fail'; });

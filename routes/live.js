@@ -190,6 +190,7 @@ window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n}
 <script defer src="/worship/practice.js${v}"></script>
 <script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>
+${pageShell.BUILD_HTML}
 </body>
 </html>`);
 }
