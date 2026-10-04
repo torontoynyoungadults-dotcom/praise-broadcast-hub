@@ -60,13 +60,18 @@
         else if (r && r.locked) { stop(); P.toast('다른 사람이 클릭 컨트롤 중이라 BPM 을 바꿀 수 없습니다.', true, 1400); }
         if (after) after();
       }
-      function loop() { once(); n++; t2 = setTimeout(loop, n > 12 ? 45 : n > 5 ? 80 : 130); }
-      function stop() { clearTimeout(t1); clearTimeout(t2); t1 = t2 = 0; n = 0; pid = null; }
+      /* V844 — 누르고 있는 동안만 반복: 손을 뗀 신호를 단추가 못 받는 경우(단추가 다시 그려져 화면에서 잠깐 빠짐 · 펜슬 · 팜 리젝션)에도
+         문서 전체의 pointerup/cancel · 단추가 화면에서 빠짐 · 6초 안전장치로 반드시 멈춥니다 (예전: BPM 이 30 까지 계속 내려가던 문제) */
+      var t0 = 0;
+      function loop() { if (!btn.isConnected || btn.disabled || Date.now() - t0 > 6000) { stop(); return; } once(); n++; t2 = setTimeout(loop, n > 12 ? 45 : n > 5 ? 80 : 130); }
+      function stop() { clearTimeout(t1); clearTimeout(t2); t1 = t2 = 0; n = 0; pid = null; doc.removeEventListener('pointerup', docUp, true); doc.removeEventListener('pointercancel', docUp, true); }
+      function docUp(e) { if (pid == null || e.pointerId === pid) stop(); }
       btn.addEventListener('pointerdown', function (e) {
         e.stopPropagation();
         if (btn.disabled || (e.pointerType === 'mouse' && e.button !== 0)) return;
         e.preventDefault(); pid = e.pointerId;
         try { btn.setPointerCapture(e.pointerId); } catch (x) { /* 캡처가 안 돼도 pointerup 으로 멈춤 */ }
+        t0 = Date.now(); doc.addEventListener('pointerup', docUp, true); doc.addEventListener('pointercancel', docUp, true);
         once(); t1 = setTimeout(loop, 450);
       });
       ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (k) { btn.addEventListener(k, function (e) { e.stopPropagation(); stop(); }); });
@@ -526,6 +531,8 @@
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
           '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 끝으로 같은 자리를 두 번 톡 → 펜 ↔ 지우개 전환</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="eraseback" checked> 펜슬로 지우개를 쓰고 떼면 원래 펜으로 돌아가기</label>' +
+          '<p class="pv-help">굵기 3칸: 고른 칸을 한 번 더 누르면 조절 막대가 나와요. 바꾼 굵기는 그 칸에 저장됩니다 (펜 · 형광펜 따로).</p>' +
           '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜 끝으로 두 번 톡 치는 것(또는 펜 옆 버튼)으로 대신합니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
         '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
@@ -544,7 +551,7 @@
         if (st.minePending) t.push('내 필기 저장 대기 ' + st.minePending + '건');
         t.push(st.savedAt ? '마지막 저장 ' + hhmm(st.savedAt) : '아직 저장한 기록 없음');
         host.querySelector('[data-role="save"]').innerHTML = t.map(function (x) { return '<div>' + h(x) + '</div>'; }).join('');
-        host.querySelector('[data-o="pen"]').value = P.penMode(); host.querySelector('[data-o="pentap"]').checked = P.penTap();
+        host.querySelector('[data-o="pen"]').value = P.penMode(); host.querySelector('[data-o="pentap"]').checked = P.penTap(); host.querySelector('[data-o="eraseback"]').checked = P.eraseBack ? P.eraseBack() : true;
         host.querySelector('[data-o="lefty"]').checked = P.hand() === 'left'; host.querySelector('[data-o="mineonly"]').checked = P.getLayer() === 'mine';
       }
       host.addEventListener('click', function (e) {
@@ -563,6 +570,7 @@
         else if (t.dataset.o === 'straight') an().setStraight(t.checked);
         else if (t.dataset.o === 'pen') P.setPenModePref(t.value);
         else if (t.dataset.o === 'pentap') P.setPenTap(t.checked);
+        else if (t.dataset.o === 'eraseback') P.setEraseBack(t.checked);
         else if (t.dataset.o === 'lefty') P.setHand(t.checked ? 'left' : 'right');
         else if (t.dataset.o === 'mineonly') P.setLayer(t.checked ? 'mine' : 'team');
       });

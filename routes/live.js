@@ -31,7 +31,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca843-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca844-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }

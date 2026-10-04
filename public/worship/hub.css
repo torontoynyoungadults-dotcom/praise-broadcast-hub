@@ -2050,3 +2050,13 @@ html[data-theme="light"] .pv .pv-toolsbtn .ic { color: #0E7C86 !important; }
 .pv .pv-metro .pv-lv-cnt { height: 40px; min-width: 46px; padding: 0 8px; border-radius: 12px; font-size: 12px; font-weight: 900; letter-spacing: .04em; font-variant-numeric: tabular-nums; background: var(--v6-sf2); color: var(--v6-ink); border: 1px solid transparent; }
 .pv .pv-metro .pv-lv-cnt:active { background: var(--v6-a); color: #1a0d02; }
 .pv.pv-compact .pv-metro .pv-lv-cnt { height: 44px; min-width: 44px; font-size: 11px; }
+
+/* V844 — 굵기 칸 조절 막대 (고른 굵기 칸을 한 번 더 누르면) */
+.pv-sizes { position: relative; flex-wrap: wrap; }
+.pv-szpop { flex: 1 0 100%; display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 8px 10px; border-radius: 12px; background: rgba(20, 20, 27, .92); border: 1px solid var(--g-line2, rgba(255,255,255,.18)); box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.pv-szpop span { font-size: 12px; font-weight: 800; white-space: nowrap; color: var(--g-sub, #bbb); }
+.pv-szpop input[type=range] { flex: 1; min-width: 120px; accent-color: var(--g-a, #ff8a2a); height: 28px; }
+.pv-szprev { flex: none; width: var(--s); height: var(--s); border-radius: 50%; background: currentColor; color: var(--g-ink, #fff); }
+.pv-szok { flex: none; height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: var(--g-a, #ff8a2a); color: #1a0d02; font-weight: 800; }
+html[data-theme="light"] .pv-szpop { background: rgba(255,255,255,.97); border-color: rgba(15,23,42,.16); }
+html[data-theme="light"] .pv-szprev { color: #111; }

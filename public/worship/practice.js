@@ -933,6 +933,7 @@
       lang: function () { return S.lang; }, setLang: function (l) { S.lang = l === 'ko' ? 'ko' : 'en'; ls('lang', S.lang); },
       cacheInfo: function () { return { pages: S.pcache.size, bytes: S.pcBytes, mine: Object.keys(S.mineCache).length }; },
       penTap: function () { return ls('pentap') !== '0'; },
+      setEraseBack: function (v) { S.eraseBack = !!v; ls('eraseback', v ? '1' : '0'); }, eraseBack: function () { return S.eraseBack !== false; },
       setPenTap: function (on) { ls('pentap', on ? '1' : '0'); if (an.setPenTap) an.setPenTap(!!on); },
       penMode: function () { return (an.state && an.state().penMode) || 'auto'; },
       setPenModePref: function (v) { v = v === 'always' || v === 'off' ? v : 'auto'; ls('penmode', v); an.setPenMode(S.layout === 'tablet' ? v : 'off'); },
@@ -989,6 +990,10 @@
       host: box, canvas: annoCv, me: opts.me || '', canEdit: !!opts.canEdit,
       sawPen: ls('sawpen') === '1', onPenSeen: function () { ls('sawpen', '1'); },                    // 이 기기에서 펜슬을 한 번 쓴 적이 있으면 처음부터 손가락 필기를 막음 (손바닥 방지) — 필기 탭의 "펜 입력"에서 바꿀 수 있음
       onToolSwap: function (to, from, via) { swapTool(to, via); },
+      onEraseDone: function () {                                                        // V844 — 펜슬로 지우고 떼면 원래 펜으로
+        if (S.eraseBack === false || S.tool !== 'eraser' || !S.prevDraw) return;
+        setTool(S.prevDraw, false, true); toast(S.prevDraw === 'hl' ? '형광펜으로 돌아왔습니다' : '펜으로 돌아왔습니다', false, 900);
+      },
       onAutoSelect: function () { setTool('select', true); toast('선택·이동 모드 — 다시 쓰려면 도구를 누르세요', false, 1400); },
       onAdd: function (layer, it) { annoSend(layer, it, 'add'); }, onDel: function (layer, id) { annoSend(layer, { id: id }, 'del'); },
       onClear: function (layer, ids, pg, all) { annoClear(layer, ids, pg, all); },
@@ -1337,11 +1342,17 @@
 
     /* ------------------------------------------------------------ 도구 막대 */
     var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05], fbox: [0.02, 0.028, 0.04] };
+    /* V844 — 펜 · 형광펜 굵기 3칸을 각자 원하는 굵기로: 이미 고른 칸을 한 번 더 누르면 조절 막대가 나오고, 바꾼 굵기는 그 칸에 이 기기에 저장됩니다 */
+    var SZ_RANGE = { pen: [0.0008, 0.016], hl: [0.006, 0.06] };
+    function slotSizes(k) { var d = SIZES[k].slice(); if (!SZ_RANGE[k]) return d; try { var v = JSON.parse(ls('sz.' + k) || 'null'); if (Array.isArray(v)) for (var i = 0; i < 3; i++) if (+v[i] >= SZ_RANGE[k][0] && +v[i] <= SZ_RANGE[k][1]) d[i] = +v[i]; } catch (e) { /* 기본값 */ } return d; }
+    function slotSave(k, i, v) { var a = slotSizes(k); a[i] = v; ls('sz.' + k, JSON.stringify(a)); }
+    function slotDot(k, v, i) { if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(4, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
+    S.szEdit = -1; S.eraseBack = ls('eraseback') !== '0';
     S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
     function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
     S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
     function applySize() {
-      var v = S.fsz[sizeKey()] || SIZES[sizeKey()][S.sizeIdx];
+      var v = S.fsz[sizeKey()] || slotSizes(sizeKey())[S.sizeIdx];
       if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v); else if (S.tool === 'fbox') an.setFboxSize(v);
     }
     /** 펜 ↔ 지우개 빠른 전환 (펜 끝으로 같은 자리를 두 번 톡 · 펜 옆 버튼) — 도구 막대의 단추를 누른 것과 똑같이 바꿉니다 */
@@ -1351,8 +1362,10 @@
     }
     function setTool(t, fromAnno, quiet) {
       if (opts.readOnly && t !== 'none') return;
+      if (t === 'eraser' && (S.tool === 'pen' || S.tool === 'hl')) S.prevDraw = S.tool;      // V844 — 지우개를 쓰고 펜슬을 떼면 돌아갈 도구
+      if (t !== S.tool) S.szEdit = -1;
       S.tool = t; if (!fromAnno) an.setTool(t);
-      if (t === 'pen') an.setWidth(SIZES.pen[S.sizeIdx]); else if (t === 'hl') an.setWidth(SIZES.hl[S.sizeIdx]);
+      if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
       var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
@@ -1387,7 +1400,8 @@
         colRow +
         fontRow +
         fbRow +
-        (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[sizeKey()] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>') +
+        (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { var k = sizeKey(), sv = slotSizes(k); return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[k] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + (SZ_RANGE[k] ? ' — 한 번 더 누르면 굵기 조절' : '') + '"><i style="--s:' + slotDot(k, sv[i], i) + 'px"></i></button>'; }).join('') +
+          (SZ_RANGE[sizeKey()] && S.szEdit >= 0 ? (function () { var k = sizeKey(), r = SZ_RANGE[k], v = slotSizes(k)[S.szEdit]; return '<div class="pv-szpop" role="group" aria-label="굵기 ' + (S.szEdit + 1) + ' 조절"><span>굵기 ' + (S.szEdit + 1) + '</span><input type="range" data-szr min="' + r[0] + '" max="' + r[1] + '" step="' + (k === 'pen' ? 0.0002 : 0.001) + '" value="' + v + '" aria-label="굵기"><i class="pv-szprev" style="--s:' + slotDot(k, v, S.szEdit) + 'px"></i><button type="button" class="pv-szok" data-a="szok">완료</button></div>'; })() : '') + '</div>') +
         '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">' + I('undo') + '</span><span class="nm">취소</span></button>' +
           '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">' + I('redo') + '</span><span class="nm">다시</span></button>' +
           '<button class="pv-tool sm pv-sec" data-a="clearpg" title="현재 페이지에 내가 쓴 필기 지우기"><span class="ic">' + I('trash') + '</span><span class="nm">현재 페이지</span></button></div>' +
@@ -1403,7 +1417,13 @@
       if (b.dataset.step != null) { if (e.detail === 0) stepFsz(+b.dataset.step); return; }               // 마우스 · 터치는 pointerdown (꾹 누르면 반복), 키보드(Enter · Space)만 여기서
       if (b.dataset.color && S.tool === 'select') { if (an.editSelected({ c: b.dataset.color })) renderTools(); return; }
       if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); if (S.tool === 'chord' || S.tool === 'fbox') (S.toolCol = S.toolCol || {})[S.tool] = S.curColor; else S.penSel = S.curColor; } renderTools(); an.focusEditor && an.focusEditor(); return; }
-      if (b.dataset.size != null) { S.sizeIdx = +b.dataset.size; delete S.fsz[sizeKey()]; applySize(); renderTools(); an.focusEditor && an.focusEditor(); return; }
+      if (b.dataset.size != null) {
+        var si = +b.dataset.size, again = S.sizeIdx === si && !S.fsz[sizeKey()];
+        S.sizeIdx = si; delete S.fsz[sizeKey()];
+        S.szEdit = again && SZ_RANGE[sizeKey()] ? (S.szEdit === si ? -1 : si) : -1;         // V844 — 이미 고른 칸을 한 번 더 누르면 굵기 조절 막대 열기 · 닫기
+        applySize(); renderTools(); an.focusEditor && an.focusEditor(); return;
+      }
+      if (b.dataset.a === 'szok') { S.szEdit = -1; renderTools(); return; }
       var a = b.dataset.a;
       if (a === 'dockhide') { setTools(false, true); return; }
       if (a === 'dockmore') { setDockMore(!S.dockMore, true); return; }
@@ -1423,7 +1443,15 @@
       else if (t.dataset && t.dataset.fsz != null) { var nv = parseInt(t.value, 10); if (isFinite(nv)) setFsz(nv / 1000); S.toolsDirty = false; renderTools(); an.focusEditor && an.focusEditor(); }
     });
     toolsEl.addEventListener('input', function (e) {
-      var t = e.target; if (!(t.dataset && t.dataset.fsz != null)) return;
+      var t = e.target;
+      if (t.dataset && t.dataset.szr != null && S.szEdit >= 0) {                        // V844 — 굵기 칸 조절: 바로 반영 + 이 기기에 저장 (막대를 끄는 동안 도구 막대를 다시 그리지 않음)
+        var k = sizeKey(), v = Math.round(+t.value * 10000) / 10000; if (!SZ_RANGE[k] || !(v > 0)) return;
+        slotSave(k, S.szEdit, v); if (S.sizeIdx === S.szEdit) an.setWidth(v);
+        var pv = toolsEl.querySelector('.pv-szprev'); if (pv) pv.style.setProperty('--s', slotDot(k, v, S.szEdit) + 'px');
+        var bt = toolsEl.querySelector('.pv-size[data-size="' + S.szEdit + '"] i'); if (bt) bt.style.setProperty('--s', slotDot(k, v, S.szEdit) + 'px');
+        return;
+      }
+      if (!(t.dataset && t.dataset.fsz != null)) return;
       var nv = parseInt(t.value, 10); if (isFinite(nv) && nv >= (+t.min || 1) && nv <= (+t.max || 999)) setFsz(nv / 1000, true);      // 숫자를 치는 도중에도 바로 반영
     });
     /* 글자 크기 — 숫자칸 + ▲▼ (1 단위). 선택·이동 도구에서는 선택한 항목에, 나머지는 새로 쓸 글자 · 기호 크기에 적용 */
@@ -1771,7 +1799,11 @@
       }
       S.leadBy = st.by || ''; paintForm();
     });
-    P.on('bpmview', function () { paintForm(); });
+    function paintBpm() {                                                              // V844 — BPM 숫자만 그 자리에서 바꿈 (창 전체를 다시 그리지 않음)
+      var cb = P.curBpm ? P.curBpm() : null, s0 = songs[S.songIdx] || {}, t = cb ? cb + ' BPM' : (s0.bpm ? s0.bpm + ' BPM' : '');
+      Array.prototype.forEach.call(el.querySelectorAll('.pv-form-bpm'), function (n) { if (n.textContent !== t) n.textContent = t; });
+    }
+    P.on('bpmview', paintBpm);
     function flashCue(id) { var t = CUE_TAGS[id]; if (!t || !t.length || !an || !an.flashTags) return 0; return an.flashTags(t, 1800); }
     var spaceEaten = false;
     function onKey(e) {
@@ -1951,11 +1983,11 @@
     function paintForm() {
       if (S.dead) return;
       var i = S.songIdx, s = i >= 0 ? songs[i] : null;
-      var cb = P.curBpm ? P.curBpm() : null;                                               // V842 — 지금 BPM (리드가 바꾸면 모두 같은 숫자)
-      var meta = s ? [s.key ? 'Key ' + s.key : '', cb ? cb + ' BPM' : (s.bpm ? s.bpm + ' BPM' : ''), S.leadBy ? '리드 ' + S.leadBy : ''].filter(Boolean).join(' · ') : '';
+      // V842 → V844 — 지금 BPM 은 따로 칸(pv-form-bpm)에 넣고 그 자리만 바꿉니다 (BPM 이 바뀔 때마다 송폼 창 전체를 다시 그리면 −/+ 를 누르고 있던 손이 풀린 걸 못 알아채 BPM 이 계속 내려가던 문제)
+      var meta = s ? [s.key ? 'Key ' + h(s.key) : '', '<span class="pv-form-bpm"></span>', S.leadBy ? '리드 ' + h(S.leadBy) : ''].filter(Boolean).join(' · ') : '';
       var i2 = spreadOn() ? badgeIdx(S.page + 1) : -1;
       var h2 = i2 >= 0 && i2 !== i ? '<div class="pv-form-2"><b>' + h((songs[i2] || {}).title || '') + '</b>' + formBadgeHtml(i2) + '</div>' : '';
-      var html = s ? '<div class="pv-form-h"><b>' + h(s.title || '') + '</b>' + (meta ? '<small>' + h(meta) + '</small>' : '') + '</div>' + (formBadgeHtml(i) || '<span class="pv-form-none">송폼 없음</span>') + h2 : '<span class="pv-form-none">곡을 고르면 송폼이 여기에 보입니다</span>';
+      var html = s ? '<div class="pv-form-h"><b>' + h(s.title || '') + '</b>' + (meta ? '<small>' + meta + '</small>' : '') + '</div>' + (formBadgeHtml(i) || '<span class="pv-form-none">송폼 없음</span>') + h2 : '<span class="pv-form-none">곡을 고르면 송폼이 여기에 보입니다</span>';
       if (formEl.getAttribute('data-h') !== html) {
         formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div><span class="pv-rsz" aria-hidden="true" title="끌어서 크기 조절 (두 번 누르면 처음 크기)"></span>'; formEl.setAttribute('data-h', html);
         if (S.formCur && S.formCur.s === i) { var cn = formEl.querySelector('.pv-fb-t[data-i="' + S.formCur.i + '"]'); if (cn) cn.classList.add('cur'); }
@@ -1963,6 +1995,7 @@
         if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 메트로놈 동그라미
         requestAnimationFrame(function () { flPlace('form'); });
       }
+      paintBpm();
     }
     /* 메트로놈 창 — 라이브 컨트롤(▶ · BPM · 콜아웃)을 도구 도크에서 떼어 따로 띄웁니다 */
     /* v6.1 — 송폼 창 크기 조절: 오른쪽 아래 모서리를 끌면 옆으로 = 폭(두 줄 → 한 줄), 위아래로 = 글자 크기. 이 기기에 기억 */

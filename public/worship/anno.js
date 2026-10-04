@@ -721,6 +721,8 @@
         adopt(S.layer, addLocal(S.layer, fb)); S.placed = true;
       } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; adopt(S.layer, addLocal(S.layer, s)); S.placed = true; }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
+      /* V844 — 애플 펜슬로 지우개를 쓰다가 펜슬을 떼면 (실제로 무언가를 지웠을 때만) 원래 쓰던 펜 · 형광펜으로 — 두 번 톡 전환과 겹치지 않게 지운 것이 없으면 그대로 */
+      if (c.kind === 'erase' && c.pen && e.type === 'pointerup' && S.seq !== c.seq0 && o.onEraseDone) { try { o.onEraseDone(); } catch (x) { /* 무시 */ } }
       if (S.tapDown && e.pointerType === 'pen') {                                                                        // 펜으로 짧게 톡 친 것을 기억 (두 번째 톡이 오면 전환)
         var d0 = S.tapDown; S.tapDown = null;
         if (e.type === 'pointerup' && Date.now() - d0.t < 260 && Math.hypot(e.clientX - d0.x, e.clientY - d0.y) < 10 && (c.kind === 'pen' || c.kind === 'hl' || c.kind === 'erase')) S.tapLast = { t: Date.now(), x: d0.x, y: d0.y, before: d0.seq, after: S.seq, tool: S.tool };
