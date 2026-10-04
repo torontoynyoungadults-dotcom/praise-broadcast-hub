@@ -42,7 +42,7 @@
         if (S.socket) return api;
         S.closed = false; setState('connecting');
         var sock;
-        try { sock = ioFn(opt.url || undefined, { path: opt.path || '/socket.io', transports: opt.transports || ['websocket', 'polling'], reconnection: true, reconnectionDelay: 800, reconnectionDelayMax: 8000, timeout: 12000 }); }
+        try { sock = ioFn(opt.url || undefined, { path: opt.path || '/socket.io', transports: opt.transports || ['websocket', 'polling'], tryAllTransports: true, reconnection: true, reconnectionDelay: 500, reconnectionDelayMax: 5000, timeout: 8000 }); }   // V857 — 웹소켓이 막힌 와이파이에서는 곧바로 HTTP 방식으로
         catch (e) { setState('unavailable', '연결을 시작하지 못했습니다: ' + e.message); return api; }
         S.socket = sock;
         sock.on('connect', function () { join(); });
