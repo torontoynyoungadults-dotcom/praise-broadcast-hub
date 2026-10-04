@@ -2134,6 +2134,8 @@
       var d = tapD; tapD = null;
       if (!d || e.pointerId !== d.id || S.dead) return;
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || Date.now() - d.t > 400) return;
+      /* V849 — 이동 도구로 악보의 코드 글자를 톡 → 피아노로 그 코드 (화음 탭에서 분석해 둔 페이지) */
+      if (d.tool === 'none' && S.tool === 'none') { try { var hz = P.ensureTab ? P.ensureTab('harmony') : null; if (hz && hz.chordTap && hz.chordTap(e.clientX, e.clientY, d.type !== 'mouse')) return; } catch (x) { /* 화음 도구가 없어도 화면은 계속 */ } }
       /* V848 — 이동 도구로 필기를 톡 → 누가 썼는지 잠깐 (이름표) */
       if (d.tool === 'none' && S.tool === 'none' && an && an.peekAt && an.peekAt(e.clientX, e.clientY, d.type === 'touch')) return;
       /* v6.9 — 악보의 아무 곳이나 톡 치면 열려 있던 메뉴(🛠 서랍 · ⋯ 더보기 · 태블릿의 옆 패널: 필기 · 송폼 · 메트로놈 …)가 다시 숨겨집니다 */

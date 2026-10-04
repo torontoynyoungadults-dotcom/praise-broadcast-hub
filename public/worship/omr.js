@@ -266,20 +266,86 @@
     return notes;
   }
 
+  /* ------------------------------------------------------------ 6) 조표 (V849)
+     음자리표(오선보다 큰 덩어리) 바로 뒤에 이어지는 ♯ · ♭ 덩어리를 셉니다.
+       ♯ = 오선 1.3칸 이상 긴 세로 획이 둘 · ♭ = 왼쪽에 긴 세로 획 하나 + 아래쪽이 불룩(둥근 배)
+     첫 기호의 자리도 확인합니다 (♯ 는 맨 윗줄 F5 근처에서, ♭ 은 가운데 줄 B4 근처에서 시작).
+     반환 { n: 샵 수(+) · 플랫 수(−) · 0, endX: 조표가 끝나는 x(픽셀), conf: 0~1 } */
+  function detectKeySig(bin, w, h, st) {
+    var s = stripStaff(bin, w, h, st), sp = st.sp, half = sp / 2, bottomY = st.bottom - s.oy;
+    var xr = Math.min(s.bw, Math.round(st.x0 - s.ox + 15 * sp)), sub = new Uint8Array(xr * s.bh), x, y;
+    for (y = 0; y < s.bh; y++) for (x = 0; x < xr; x++) sub[y * xr + x] = s.bmp[y * s.bw + x];
+    var comps = components(sub, xr, s.bh).filter(function (c) { return (c.y1 - c.y0 + 1) >= 1.1 * sp; }).sort(function (a, b) { return a.x0 - b.x0; });
+    // 같은 기호의 조각(오선을 지우며 끊긴 것)을 붙임: x 가 많이 겹치면 하나로
+    var merged = [];
+    comps.forEach(function (c) {
+      var m = merged.length ? merged[merged.length - 1] : null;
+      if (m && c.x0 <= m.x1 - 0.15 * sp && c.x1 <= m.x1 + 0.4 * sp) { m.x0 = Math.min(m.x0, c.x0); m.x1 = Math.max(m.x1, c.x1); m.y0 = Math.min(m.y0, c.y0); m.y1 = Math.max(m.y1, c.y1); m.area += c.area; }
+      else merged.push({ x0: c.x0, x1: c.x1, y0: c.y0, y1: c.y1, area: c.area });
+    });
+    var clefIdx = -1, i;
+    for (i = 0; i < merged.length && i < 4; i++) { var ch = merged[i].y1 - merged[i].y0 + 1; if (ch >= 4.6 * sp) { clefIdx = i; break; } }
+    if (clefIdx < 0) return { n: 0, endX: null, conf: 0 };
+    function col(xx, c) { var best = 0, run = 0; for (var yy = c.y0; yy <= c.y1; yy++) { if (sub[yy * xr + xx]) { run++; if (run > best) best = run; } else run = 0; } return best; }
+    function classify(c) {
+      var hh = c.y1 - c.y0 + 1, ww = c.x1 - c.x0 + 1;
+      if (hh > 3.6 * sp || hh < 1.6 * sp || ww > 1.6 * sp || ww < 0.4 * sp) return null;
+      var strokes = [], inS = false, xx;
+      for (xx = c.x0; xx <= c.x1; xx++) { var r = col(xx, c) >= 1.4 * sp; if (r && !inS) strokes.push({ a: xx, b: xx }); else if (r) strokes[strokes.length - 1].b = xx; inS = r; }
+      if (strokes.length >= 2 && strokes.length <= 3 && (strokes[strokes.length - 1].a - strokes[0].b) >= 0.2 * sp) {
+        return { t: 1, cy: (c.y0 + c.y1) / 2 };
+      }
+      if (strokes.length === 1 && (strokes[0].b - c.x0) <= 0.45 * ww) {
+        var midY = c.y0 + hh * 0.55, top = 0, bot = 0;
+        for (var yy = c.y0; yy <= c.y1; yy++) { var cnt = 0; for (xx = strokes[0].b + 1; xx <= c.x1; xx++) cnt += sub[yy * xr + xx]; if (yy < midY) top += cnt; else bot += cnt; }
+        if (bot > top * 1.6 && bot > 0.4 * sp * sp * 0.3) return { t: -1, cy: c.y1 - 0.45 * sp };
+      }
+      return null;
+    }
+    var list = [], prevEnd = merged[clefIdx].x1;
+    for (i = clefIdx + 1; i < merged.length && list.length < 7; i++) {
+      var c = merged[i];
+      if (c.x0 - prevEnd > 1.5 * sp) break;
+      var k = classify(c); if (!k) break;
+      if (list.length && k.t !== list[0].t) break;
+      list.push({ t: k.t, step: Math.round((bottomY - k.cy) / half), x1: c.x1 }); prevEnd = c.x1;
+    }
+    if (!list.length) return { n: 0, endX: merged[clefIdx].x1 + s.ox, conf: 0.4 };
+    var t = list[0].t, want = t > 0 ? [8, 5, 9, 6, 3, 7, 4] : [4, 7, 3, 6, 2, 5, 1], hitN = 0;
+    list.forEach(function (a, j) { if (Math.abs(a.step - want[j]) <= 1) hitN++; });
+    var conf = hitN / list.length;
+    return { n: t * list.length, endX: list[list.length - 1].x1 + s.ox, conf: Math.round(conf * 100) / 100 };
+  }
+  /** 여러 오선의 조표를 모아 가장 많이 나온 값 (멜로디 오선 우선) */
+  function voteKeySig(staves) {
+    var tally = {}, best = null;
+    staves.forEach(function (st) { var k = st.keySig; if (!k || k.conf < 0.4) return; var key = String(k.n); tally[key] = (tally[key] || 0) + (st.melody ? 2 : 1) * (0.5 + k.conf); });
+    Object.keys(tally).forEach(function (key) { if (!best || tally[key] > tally[best]) best = key; });
+    if (best == null) return null;
+    var tot = 0; Object.keys(tally).forEach(function (key) { tot += tally[key]; });
+    return { n: +best, conf: Math.round(tally[best] / tot * 100) / 100, votes: tally };
+  }
+
   /** 한 번에: RGBA 픽셀 → { staves, notes, w, h }. 음표는 staff(오선 번호) · 멜로디 오선(melody)에서 찾은 것만 (모든 오선을 원하면 opt.allStaves) */
   function analyze(rgba, w, h, opt) {
     opt = opt || {};
     var gray = toGray(rgba, w, h), bin = binarize(gray, w, h, { adaptive: !!opt.adaptive });
     var staves = groupSystems(detectStaves(bin, w, h)), notes = [];
+    if (!opt.adaptive && staves.length < 2) {                                           // V849 — 스캔을 넣은 PDF · 그늘진 사진: 전체 기준으로 오선이 안 보이면 국소 기준으로 다시
+      var bin2 = binarize(gray, w, h, { adaptive: true }), st2 = groupSystems(detectStaves(bin2, w, h));
+      if (st2.length > staves.length) { bin = bin2; staves = st2; }
+    }
+    staves.forEach(function (st) { try { st.keySig = detectKeySig(bin, w, h, st); } catch (e) { st.keySig = null; } });
     staves.forEach(function (st, si) {
-      var list = detectNotes(bin, w, h, st, opt);
+      var o2 = opt; if (st.keySig && st.keySig.endX != null && opt.skipLeft == null) { o2 = {}; for (var kk in opt) o2[kk] = opt[kk]; o2.skipLeft = st.keySig.endX + 0.5 * st.sp; }   // V849 — 조표가 끝난 자리부터 음표
+      var list = detectNotes(bin, w, h, st, o2);
       estimateBeats(list);
       list.forEach(function (n) { n.staff = si; notes.push(n); });
     });
-    return { staves: staves, notes: notes, w: w, h: h };
+    return { staves: staves, notes: notes, w: w, h: h, keySig: voteKeySig(staves) };
   }
   /** 조표 개수(샵 · 플랫 수)에 따른 악보 앞부분(음자리표 + 조표) 폭 — 그 왼쪽의 음표 "후보"는 무시하는 데 씀 (오선 간격 단위) */
   function headerSpaces(sigCount) { return 3.6 + 1.2 * Math.abs(sigCount || 0); }
 
-  return { toGray: toGray, binarize: binarize, detectStaves: detectStaves, groupSystems: groupSystems, stripStaff: stripStaff, detectNotes: detectNotes, estimateBeats: estimateBeats, analyze: analyze, headerSpaces: headerSpaces };
+  return { toGray: toGray, binarize: binarize, detectStaves: detectStaves, groupSystems: groupSystems, stripStaff: stripStaff, detectNotes: detectNotes, estimateBeats: estimateBeats, analyze: analyze, headerSpaces: headerSpaces, detectKeySig: detectKeySig, voteKeySig: voteKeySig };
 }));

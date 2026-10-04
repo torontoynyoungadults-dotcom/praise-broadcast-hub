@@ -1067,7 +1067,7 @@
       var sub = doc.createElement('div'); sub.className = 'pv-hmhost'; host.appendChild(sub);
       if (!need('화음 · 코드 변환', root.YNHarmonyUI && root.YNHarmony && root.YNOmr, sub)) return;
       var ui = root.YNHarmonyUI.mount(sub, P); if (!ui) return;
-      return { onShow: function () { ui.onShow(); }, destroy: function () { try { ui.destroy(); } catch (e) {} } };
+      return { onShow: function () { ui.onShow(); }, destroy: function () { try { ui.destroy(); } catch (e) {} }, chordTap: function (x, y, t) { return ui.chordTap ? ui.chordTap(x, y, t) : false; } };   // V849 — 악보의 코드 톡 → 피아노
     } });
 
     /* ------------------------------------------------------------ 메인스테이지 컨트롤 (MIDI 로 MainStage 페이더 · 패치 전환)

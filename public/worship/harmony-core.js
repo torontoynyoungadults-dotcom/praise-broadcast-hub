@@ -105,70 +105,192 @@
     return { key: key, score: best.s, margin: best.s - cand[1].s };
   }
 
+  /* ---- V849 조 찾기: 악보에 적힌 "Key" 글자 · 조표 · 코드 흐름 · 곡 정보를 합쳐서 ---- */
+  /** 글에서 "Key: G" · "Key - Bb" · "Key of D" · "KEY=F#m" · "(Key E)" · "키: A" 를 찾음 → parseKey 결과 | null */
+  function findKeyText(text) {
+    var t = String(text == null ? '' : text).replace(/[♯＃]/g, '#').replace(/♭/g, 'b');
+    var re = /(?:^|[^A-Za-z])(?:original\s+)?(?:key|키)\s*(?:of|is|in)?\s*[:=\-–—]?\s*\(?\s*([A-Ga-g])\s?([#b]?)\s*(minor|major|min|maj|m)?(?![A-Za-z0-9#])/i, m = re.exec(t);
+    if (!m) return null;
+    var q = (m[3] || '').toLowerCase();
+    return parseKey(m[1].toUpperCase() + m[2] + (q === 'm' || q === 'min' || q === 'minor' ? 'm' : ''));
+  }
+  /** 조표(샵 + · 플랫 −) 개수 → 그 조표의 장조 · 나란한조 */
+  function keysForSig(n) {
+    n = Math.round(+n) || 0; var maj = n >= 0 ? mod(7 * n, 12) : mod(5 * -n, 12);
+    var M = { tonic: maj, minor: false, name: '', flats: n < 0 }, m = { tonic: mod(maj + 9, 12), minor: true, name: '', flats: n < 0 };
+    M.name = keyName(M); m.name = keyName(m); return [M, m];
+  }
+  /** 코드 흐름으로 매긴 24개 조의 점수 (높은 순) */
+  function rankKeys(chords) {
+    var list = (chords || []).filter(function (c) { return c && typeof c.root === 'number'; }), cand = [], t, minor;
+    if (!list.length) return [];
+    for (t = 0; t < 12; t++) for (minor = 0; minor < 2; minor++) {
+      var map = minor ? { 0: 'm', 2: 'd', 3: 'M', 5: 'm', 7: 'mM', 8: 'M', 10: 'M' } : { 0: 'M', 2: 'm', 4: 'm', 5: 'M', 7: 'M', 9: 'm', 11: 'd' }, sc = 0;
+      list.forEach(function (c) {
+        var rel = mod(c.root - t, 12), want = map[rel];
+        if (want == null) { sc -= 0.7; return; }
+        var q = c.triad === 'min' ? 'm' : c.triad === 'dim' ? 'd' : 'M';
+        sc += want.indexOf(q) >= 0 ? 1 : 0.35;
+        if (rel === 0 || rel === 7 || rel === 5) sc += 0.2;
+      });
+      var first = list[0], last = list[list.length - 1];
+      if (last.root === t && (last.triad === 'min') === !!minor) sc += 2.2; else if (last.root === t) sc += 0.8;
+      if (first.root === t && (first.triad === 'min') === !!minor) sc += 1.4; else if (first.root === t) sc += 0.5;
+      if (minor) sc -= 0.3;
+      cand.push({ s: sc, tonic: t, minor: !!minor });
+    }
+    return cand.sort(function (a, b) { return b.s - a.s; });
+  }
+  /**
+   * 원래 조 정하기. o = { text: parseKey|null (악보의 Key 글자), sig: {n, conf}|null (조표), chords: [parseChord…], song: parseKey|null }
+   *  1) 악보에 "Key" 가 적혀 있으면 그것  2) 조표를 읽었으면 그 조표의 장조 · 단조 중 코드 흐름에 더 맞는 쪽 (샵 · 플랫 없음은 코드와 맞을 때만)
+   *  3) 코드 흐름이 뚜렷하면 그것  4) 곡 정보의 Key  5) C
+   * 반환 { key, src: 'text' | 'sig' | 'chords' | 'song' | 'none' }
+   */
+  function fuseKey(o) {
+    o = o || {};
+    function fin(k) { var key = { tonic: k.tonic, minor: !!k.minor, name: '', flats: false }; key.flats = keyUsesFlats(key); key.name = keyName(key); return key; }
+    if (o.text) return { key: fin(o.text), src: 'text' };
+    var ranks = rankKeys(o.chords || []), scoreOf = function (k) { for (var i = 0; i < ranks.length; i++) if (ranks[i].tonic === k.tonic && ranks[i].minor === k.minor) return ranks[i].s; return -1e9; };
+    var sig = o.sig;
+    if (sig && sig.n != null && (sig.n !== 0 || (ranks.length >= 3 && ranks[0].tonic === 0 && !ranks[0].minor) || (ranks.length >= 3 && ranks[0].tonic === 9 && ranks[0].minor))) {
+      var pair = keysForSig(sig.n), pick = pair[0];
+      if (ranks.length >= 2 && scoreOf(pair[1]) > scoreOf(pair[0]) + 1) pick = pair[1];
+      else if (!ranks.length && o.song && o.song.minor && o.song.tonic === pair[1].tonic) pick = pair[1];
+      return { key: fin(pick), src: 'sig' };
+    }
+    if (ranks.length >= 3 && (ranks[0].s - ranks[1].s) > 0.25) return { key: fin(ranks[0]), src: 'chords' };
+    if (o.song) return { key: fin(o.song), src: 'song' };
+    if (ranks.length >= 2) return { key: fin(ranks[0]), src: 'chords' };
+    return { key: fin({ tonic: 0, minor: false }), src: 'none' };
+  }
+
   /* ============================================================ 코드 기호 */
-  /** 코드 뒤 글자(quality)를 왼쪽부터 읽어 구성음을 계산. 알 수 없는 글자가 남으면 null */
-  function readSuffix(suf) {
-    var st = { triad: 'maj', seventh: null, sixth: false, ext: [], alt: [], sus: null, power: false };
+  /* ============================================================ 코드 기호 (V849 — 텐션 · 변화 코드 전부)
+     읽는 것: 장 · 단 · dim · aug · sus2/4 · 5(파워) · 6 · 6/9 · 7 · maj7 · mM7 · dim7 · m7b5(ø) · 9 · 11 · 13 · add2/4/6/9/11/13 ·
+              b5 #5 b9 #9 #11 b13 (+ − 표기 · 괄호 · 쉼표 포함) · alt · omit3/no3 · omit5/no5 · 슬래시 베이스(G/B)
+     구성음은 도(interval)와 도수(deg) 목록(iv)으로 만들어 두고 → tones(12음 안, 정렬) · 피아노 보이싱(voiceChord) 이 함께 씁니다. */
+  function normChordText(s) {
+    return String(s == null ? '' : s).trim()
+      .replace(/[♯＃]/g, '#').replace(/♭/g, 'b').replace(/[−–—]/g, '-')
+      .replace(/[Δ△](?=(9|11|13))/g, 'maj').replace(/[Δ△]7?/g, 'maj7')
+      .replace(/[øØ]7?/g, 'm7b5').replace(/[°º˚]/g, 'dim')
+      .replace(/\s+/g, '');
+  }
+  var ADD_IV = { '2': [2, '2'], '4': [5, '4'], '6': [9, '6'], '9': [14, '9'], 'b9': [13, 'b9'], '#9': [15, '#9'], '11': [17, '11'], '#11': [18, '#11'], '13': [21, '13'], 'b13': [20, 'b13'], 'b6': [8, 'b6'] };
+  var ALT_IV = { 'b5': 'f-', '#5': 'f+', 'b9': [13, 'b9'], '#9': [15, '#9'], '#11': [18, '#11'], 'b13': [20, 'b13'], 'b6': [20, 'b13'] };
+  function newSt() { return { q: 'maj', sev: null, six: false, sus: null, power: false, no3: false, no5: false, fifth: 0, x: [], nums: false, alt: false }; }
+  function addX(st, i, d, imp) { for (var k = 0; k < st.x.length; k++) if (st.x[k].i === i) { if (!imp) st.x[k].imp = false; return; } st.x.push({ i: i, d: d, imp: !!imp }); }
+  /** 숫자 7 · 9 · 11 · 13 이 붙으면 7음(없으면 b7)과 그 아래 텐션이 따라옴 */
+  function extNum(st, n, sev) {
+    if (!st.sev) st.sev = sev || (st.q === 'dim' && n === '7' ? 'd7' : '7');
+    if (n === '9' || n === '11' || n === '13') addX(st, 14, '9', true);
+    if (n === '11') addX(st, 17, '11', n !== '11' || true);
+    if (n === '13') { addX(st, 21, '13', true); if (st.q === 'min') addX(st, 17, '11', true); }
+    if (n === '11') st.x.forEach(function (e) { if (e.i === 17) e.imp = false; });
+    st.nums = true;
+  }
+  /** 코드 뒤 글자(quality)를 왼쪽부터 읽음. 알 수 없는 글자가 남으면 null */
+  function readSuffix(suf, st, inPar) {
+    st = st || newSt();
     var s = suf, m, guard = 0;
-    function add(i) { if (st.ext.indexOf(i) < 0) st.ext.push(i); }
-    while (s.length && guard++ < 24) {
-      if ((m = /^(maj|Maj|MAJ|M|Δ|△)(7|9|11|13)?/.exec(s))) {
-        if (m[2]) { st.seventh = 'maj7'; if (m[2] === '9') add(2); else if (m[2] === '11') { add(2); add(5); } else if (m[2] === '13') { add(2); add(9); } }
-      } else if ((m = /^(min|mi|m|-|–)(?!aj)/.exec(s))) { st.triad = 'min'; }
-      else if ((m = /^(dim|°)(7)?/.exec(s))) { st.triad = 'dim'; if (m[2]) st.seventh = 'bb7'; }
-      else if ((m = /^(ø|Ø)(7)?/.exec(s))) { st.triad = 'dim'; st.seventh = 'b7'; }
-      else if ((m = /^(aug|\+)(7)?/.exec(s))) { st.triad = 'aug'; if (m[2]) st.seventh = 'b7'; }
-      else if ((m = /^sus(2|4)?/.exec(s))) { st.sus = m[1] === '2' ? 2 : 4; }
-      else if ((m = /^add(2|4|9|11|13)/.exec(s))) { add({ 2: 2, 4: 5, 9: 2, 11: 5, 13: 9 }[m[1]]); }
-      else if ((m = /^6\/9/.exec(s))) { st.sixth = true; add(2); }
-      else if ((m = /^(13|11|9|7)/.exec(s))) {
-        if (!st.seventh) st.seventh = 'b7';
-        if (m[1] === '9') add(2); else if (m[1] === '11') { add(2); add(5); } else if (m[1] === '13') { add(2); add(9); }
+    while (s.length && guard++ < 40) {
+      if ((m = /^\(([^()]*)\)/.exec(s))) {
+        var parts = m[1].split(/[,\s/]+/).filter(Boolean), ok = true;
+        parts.forEach(function (p) { if (ok && !readSuffix(p, st, true)) ok = false; });
+        if (!ok) return null;
       }
-      else if ((m = /^6/.exec(s))) { st.sixth = true; }
-      else if ((m = /^5(?![#b♭♯])/.exec(s))) { st.power = true; }
-      else if ((m = /^(2|4)/.exec(s))) { add(m[1] === '2' ? 2 : 5); }
-      else if ((m = /^(b5|♭5|#5|♯5|b9|♭9|#9|♯9|#11|♯11|b13|♭13)/.exec(s))) { st.alt.push(m[1].replace('♭', 'b').replace('♯', '#')); }
-      else if ((m = /^\(([^()]*)\)/.exec(s))) { var inner = readSuffix(m[1]); if (!inner) return null; st = mergeSuffix(st, inner); }
+      else if ((m = /^(mM|mMaj|mmaj|mMA|mma|minmaj|minMaj|-maj|-M|mΔ|m\/maj|m\/M)(7|9|11|13)?/.exec(s))) { st.q = 'min'; extNum(st, m[2] || '7', 'M7'); }
+      else if ((m = /^(maj|Maj|MAJ|Ma|MA|M)(7|9|11|13)?(?![a-z])/.exec(s))) { if (m[2]) extNum(st, m[2], 'M7'); }
+      else if ((m = /^(major)/.exec(s))) { /* 장조 그대로 */ }
+      else if ((m = /^(min|mi|m)(?!aj|a\b)/.exec(s))) { st.q = 'min'; }
+      else if ((m = /^-(5|9|11|13)/.exec(s)) && (st.nums || st.sev || st.six)) { var a1 = ALT_IV['b' + m[1]]; if (a1 === 'f-') st.fifth = -1; else if (a1) addX(st, a1[0], a1[1]); else return null; }
+      else if ((m = /^\+(5|9|11)/.exec(s)) && (st.nums || st.sev || st.six)) { var a2 = ALT_IV['#' + m[1]]; if (a2 === 'f+') st.fifth = 1; else if (a2) addX(st, a2[0], a2[1]); }
+      else if ((m = /^-/.exec(s))) { st.q = 'min'; }
+      else if ((m = /^dim(7|9)?/.exec(s))) { st.q = 'dim'; if (m[1]) { st.sev = 'd7'; if (m[1] === '9') addX(st, 14, '9'); st.nums = true; } }
+      else if ((m = /^(aug|\+)(7|9|11|13)?/.exec(s))) { st.q = 'aug'; if (m[2]) extNum(st, m[2]); }
+      else if ((m = /^sus(2sus4|24|42|2|4)?/.exec(s))) { st.sus = !m[1] || m[1] === '4' ? 4 : m[1] === '2' ? 2 : 24; }
+      else if ((m = /^add(b|#)?(2|4|6|9|11|13)/.exec(s))) { var ad = ADD_IV[(m[1] || '') + m[2]]; if (!ad) return null; addX(st, ad[0], ad[1]); }
+      else if ((m = /^(omit|no)(3|5)/.exec(s))) { if (m[2] === '3') st.no3 = true; else st.no5 = true; }
+      else if ((m = /^alt/.exec(s))) { st.alt = true; if (!st.sev) st.sev = '7'; addX(st, 13, 'b9'); addX(st, 15, '#9'); addX(st, 20, 'b13'); st.no5 = true; st.nums = true; }
+      else if ((m = /^(6\/9|69)/.exec(s))) { st.six = true; addX(st, 14, '9'); st.nums = true; }
+      else if ((m = /^(b|#)(5|6|9|11|13)/.exec(s))) { var a3 = ALT_IV[m[1] + m[2]]; if (!a3) return null; if (a3 === 'f-') st.fifth = -1; else if (a3 === 'f+') st.fifth = 1; else addX(st, a3[0], a3[1]); }
+      else if ((m = /^(13|11|9|7)/.exec(s))) { if (inPar && m[1] !== '7') { addX(st, { 9: 14, 11: 17, 13: 21 }[m[1]], m[1]); st.nums = true; } else extNum(st, m[1]); }      // 괄호 안의 (9) (11) (13) 은 그 음만 더함
+      else if ((m = /^6/.exec(s))) { st.six = true; st.nums = true; }
+      else if ((m = /^5(?![#b])/.exec(s))) { st.power = true; }
+      else if ((m = /^2/.exec(s))) { addX(st, 2, '2'); }
+      else if ((m = /^4/.exec(s))) { st.sus = 4; }
+      else if ((m = /^[,]/.exec(s))) { /* 괄호 밖 쉼표 */ }
       else return null;
       s = s.slice(m[0].length);
     }
     return s.length ? null : st;
   }
-  function mergeSuffix(a, b) {
-    if (b.triad !== 'maj') a.triad = b.triad;
-    a.seventh = b.seventh || a.seventh; a.sixth = a.sixth || b.sixth; a.sus = b.sus || a.sus; a.power = a.power || b.power;
-    b.ext.forEach(function (e) { if (a.ext.indexOf(e) < 0) a.ext.push(e); }); a.alt = a.alt.concat(b.alt); return a;
-  }
-  function tonesOf(st) {
-    var base = { maj: [0, 4, 7], min: [0, 3, 7], dim: [0, 3, 6], aug: [0, 4, 8] }[st.triad], iv;
-    if (st.power) base = [0, 7];
-    if (st.sus) base = [0, st.sus === 2 ? 2 : 5, 7];
-    iv = base.slice();
-    if (st.seventh === 'b7') iv.push(10); else if (st.seventh === 'maj7') iv.push(11); else if (st.seventh === 'bb7') iv.push(9);
-    if (st.sixth) iv.push(9);
-    st.ext.forEach(function (e) { iv.push(e); });
-    st.alt.forEach(function (a) {
-      var i;
-      if (a === 'b5') { i = iv.indexOf(7); if (i >= 0) iv[i] = 6; else iv.push(6); }
-      else if (a === '#5') { i = iv.indexOf(7); if (i >= 0) iv[i] = 8; else iv.push(8); }
-      else if (a === 'b9') iv.push(1); else if (a === '#9') iv.push(3); else if (a === '#11') iv.push(6); else if (a === 'b13') iv.push(8);
+  /** 읽은 상태 → 구성음 [{ i: 루트에서 반음(9 · 11 · 13 은 옥타브 위), d: 도수 이름 }] */
+  function chordIvs(st) {
+    var iv = [{ i: 0, d: '1' }];
+    var dom11 = st.q === 'maj' && !st.sus && st.x.some(function (e) { return e.i === 17; }) && st.sev && !st.x.some(function (e) { return e.i === 17 && e.add; });
+    if (st.power) { /* 3음 없음 */ }
+    else if (st.sus === 2) iv.push({ i: 2, d: '2' });
+    else if (st.sus === 4) iv.push({ i: 5, d: '4' });
+    else if (st.sus === 24) { iv.push({ i: 2, d: '2' }); iv.push({ i: 5, d: '4' }); }
+    else if (!st.no3 && !dom11) iv.push(st.q === 'min' || st.q === 'dim' ? { i: 3, d: 'b3' } : { i: 4, d: '3' });
+    if (!st.no5) {
+      var f = st.q === 'dim' ? 6 : st.q === 'aug' ? 8 : 7;
+      if (st.fifth === -1) f = 6; else if (st.fifth === 1) f = 8;
+      iv.push({ i: f, d: f === 6 ? 'b5' : f === 8 ? '#5' : '5' });
+    }
+    if (st.sev === '7') iv.push({ i: 10, d: 'b7' }); else if (st.sev === 'M7') iv.push({ i: 11, d: '7' }); else if (st.sev === 'd7') iv.push({ i: 9, d: 'bb7' });
+    if (st.six && st.sev !== 'd7') iv.push({ i: 9, d: '6' });
+    var has = function (i) { return st.x.some(function (e) { return e.i === i; }); };
+    st.x.forEach(function (e) {
+      if (e.imp && e.i === 14 && (has(13) || has(15))) return;                 // b9 · #9 가 있으면 저절로 붙는 9 는 뺌
+      if (e.imp && e.i === 21 && has(20)) return;
+      if (e.imp && e.i === 17 && has(18)) return;
+      if (e.i === 8 && st.q !== 'aug' && st.fifth !== 1 && !st.sev) { iv.push({ i: 8, d: 'b6' }); return; }
+      iv.push({ i: e.i, d: e.d });
     });
-    var seen = {}; return iv.map(function (x) { return mod(x, 12); }).filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }).sort(function (a, b) { return a - b; });
+    var seen = {}; return iv.filter(function (e) { var k = e.i; if (seen[k]) return false; seen[k] = 1; return true; }).sort(function (a, b) { return a.i - b.i; });
   }
-  /** 코드 글자 하나("Am7", "G/B", "F#m7b5") → { root, bass, suffix, triad, tones, pcs, text } · 코드가 아니면 null */
+  /** 코드 글자 하나("Am7", "G/B", "F#m7b5", "C7(b9,#11)", "Bbmaj9#11/D") → { root, bass, suffix, triad, tones, pcs, iv, text } · 코드가 아니면 null */
   function parseChord(str) {
-    var s = String(str == null ? '' : str).trim();
-    var m = /^([A-G])([#♯b♭]?)(.*)$/.exec(s);
+    var raw = String(str == null ? '' : str).trim(), s = normChordText(raw);
+    var m = /^([A-G])([#b]?)(.*)$/.exec(s);
     if (!m) return null;
-    var rest = m[3], bassPc = null, bassTxt = '', bm = /^(.*?)\/([A-G])([#♯b♭]?)$/.exec(rest);
+    var rest = m[3], bassPc = null, bassTxt = '', bm = /^(.*?)\/([A-G])([#b]?)$/.exec(rest);
     if (bm) { rest = bm[1]; bassTxt = bm[2] + bm[3]; bassPc = mod(LETTER_PC[bm[2]] + accOf(bm[3]), 12); }
     var st = readSuffix(rest);
     if (!st) return null;
-    var root = mod(LETTER_PC[m[1]] + accOf(m[2]), 12), tones = tonesOf(st);
+    var root = mod(LETTER_PC[m[1]] + accOf(m[2]), 12), iv = chordIvs(st);
+    var seen = {}, tones = iv.map(function (e) { return mod(e.i, 12); }).filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }).sort(function (a, b) { return a - b; });
     var pcs = tones.map(function (t) { return mod(root + t, 12); });
     if (bassPc != null && pcs.indexOf(bassPc) < 0) pcs.push(bassPc);
-    return { root: root, rootText: m[1] + m[2], suffix: rest, bass: bassPc, bassText: bassTxt, triad: st.sus ? 'sus' : st.power ? 'p5' : st.triad, tones: tones, pcs: pcs, text: s };
+    var core = iv.filter(function (e) { return e.i < 12; }).map(function (e) { return mod(root + e.i, 12); });
+    var seventh = st.sev === '7' ? 'b7' : st.sev === 'M7' ? 'maj7' : st.sev === 'd7' ? 'bb7' : null;
+    return { root: root, rootText: m[1] + m[2], suffix: rest, bass: bassPc, bassText: bassTxt, triad: st.sus ? 'sus' : st.power ? 'p5' : st.q, seventh: seventh,
+      tones: tones, pcs: pcs, core: core, iv: iv, text: raw };
+  }
+  /**
+   * 피아노로 칠 소리(MIDI) — 왼손 베이스(루트 또는 슬래시 베이스, C2 ~ B2 근처) + 오른손(3음 · 7음 · 텐션, 대략 E3 ~ G5).
+   *  음이 많으면 5음 → (베이스가 루트면) 루트 순으로 뺍니다. semis = 옮길 반음. 반환 { bass, notes:[...], all:[...], names:[...] }
+   */
+  function voiceChord(c, semis, flats) {
+    if (!c) return null;
+    semis = semis | 0;
+    var rootPc = mod(c.root + semis, 12), bassPc = c.bass != null ? mod(c.bass + semis, 12) : rootPc;
+    var bass = 36 + bassPc; if (bass > 44) bass -= 12;                                  // A1 ~ G#2 (낮게 울려도 탁하지 않게)
+    var ups = (c.iv || []).slice();
+    var max = 6;
+    if (ups.length > max) ups = ups.filter(function (e) { return e.d !== '5'; });
+    if (ups.length > max - 1 && bassPc === rootPc) ups = ups.filter(function (e) { return e.i !== 0; });
+    var r = 48 + rootPc; if (r < 52) r += 12;                                            // 오른손 루트 자리: E3 ~ D#4
+    var notes = ups.map(function (e) { return r + e.i; });
+    while (notes.length && Math.max.apply(null, notes) > 84) notes = notes.map(function (n) { return n - 12; });
+    notes = notes.map(function (n) { while (n <= bass + 3) n += 12; return n; });
+    var seen = {}; notes = notes.filter(function (n) { if (seen[n]) return false; seen[n] = 1; return true; }).sort(function (a, b) { return a - b; });
+    var all = [bass].concat(notes), nm = flats ? FLAT : SHARP;
+    return { bass: bass, notes: notes, all: all, names: all.map(function (n) { return nm[mod(n, 12)]; }),
+      degs: (c.iv || []).map(function (e) { return { d: e.d, pc: mod(rootPc + e.i, 12), name: nm[mod(rootPc + e.i, 12)] }; }) };
   }
   function isChordSymbol(str) { return !!parseChord(str); }
   function nameOfPc(pc, flats) { return (flats ? FLAT : SHARP)[mod(pc, 12)]; }
@@ -192,7 +314,7 @@
   function fixOcrChord(text) {
     var t = String(text == null ? '' : text).trim();
     if (!t || parseChord(t)) return t;
-    var v = t.replace(/^([A-G][#♯b♭]?[^A-G/]*?)[Il|1!\\](?=[A-G][#♯b♭]?$)/, '$1/');
+    var v = t.replace(/^([A-G][#♯b♭]?[^A-G/]*?)[Iil|1!\\jJ](?=[A-G][#♯b♭]?$)/, '$1/');
     if (v !== t && parseChord(v)) return v;
     v = t.replace(/[Il|!]+$/, '');
     if (v !== t && parseChord(v)) return v;
@@ -220,6 +342,30 @@
     }
     return out;
   }
+  /** V849 — 조각난 코드 글자 붙이기: PDF 는 위첨자(maj7 · sus4) · ♯ 기호 · 슬래시 베이스를 따로 된 글자로 넣는 일이 많습니다.
+   *  바로 옆(빈틈이 글자 높이의 35% 이하) · 세로로 겹치는 두 조각을 붙여서 코드가 되면 하나로 합칩니다 ("C"+"#m7" · "D/F"+"#" · "G"+"sus4"). */
+  function mergeChordPieces(toks) {
+    var list = toks.slice().sort(function (a, b) { return a.x0 - b.x0; }), changed = true, guard = 0;
+    while (changed && guard++ < 6) {
+      changed = false;
+      for (var i = 0; i < list.length; i++) {
+        var a = list[i]; if (!a) continue;
+        var ha = a.y1 - a.y0;
+        for (var j = 0; j < list.length; j++) {
+          var b = list[j]; if (!b || b === a) continue;
+          var hb = b.y1 - b.y0, gap = b.x0 - a.x1, hm = Math.max(1, Math.min(ha, hb));
+          if (gap < -0.15 * hm || gap > 0.35 * Math.max(ha, hb) || b.y0 >= a.y1 || b.y1 <= a.y0) continue;
+          var at = String(a.text).trim(), bt = String(b.text).trim(), joined = at + bt;
+          if (!/^[A-G]/.test(at) || /^[A-G]/.test(bt) && !/^\//.test(bt) && parseChord(bt)) continue;
+          if (!parseChord(joined) || (parseChord(at) && parseChord(bt) && !/^[#b♯♭(\/]/.test(bt) && !/^(maj|min|m|sus|add|dim|aug|alt|[0-9])/.test(bt))) continue;
+          list[i] = { text: joined, x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1), conf: a.conf, fs: a.fs || b.fs };
+          list[j] = null; a = list[i]; ha = a.y1 - a.y0; changed = true;
+        }
+      }
+      list = list.filter(Boolean);
+    }
+    return list;
+  }
   function median(a) { if (!a.length) return 0; var b = a.slice().sort(function (x, y) { return x - y; }), n = b.length; return n % 2 ? b[(n - 1) / 2] : (b[n / 2 - 1] + b[n / 2]) / 2; }
   /** tokens: [{text, x0,y0,x1,y1, conf?}] (같은 좌표 단위) → 코드 목록 [{ text, chord, pre, post, x0,y0,x1,y1, conf }]
    *  opt.loose = true 이면 "코드 띠만 읽은 OCR 결과"라 잡음 낱말이 코드보다 많지만 않으면 코드 줄로 봅니다. opt.fixOcr = OCR 오류 고치기.
@@ -228,6 +374,7 @@
     opt = opt || {};
     var toks = (tokens || []).filter(function (t) { return t && String(t.text).trim() && t.x1 >= t.x0 && t.y1 >= t.y0; });
     if (!toks.length) return [];
+    if (opt.merge !== false) toks = mergeChordPieces(toks);
     var mh = median(toks.map(function (t) { return t.y1 - t.y0; })) || 1;
     toks.sort(function (a, b) { return (a.y0 + a.y1) - (b.y0 + b.y1); });
     var rows = [], cur = null;
@@ -365,19 +512,20 @@
     var aR = opt.alto || VOICE_RANGE.alto, tR = opt.tenor || VOICE_RANGE.tenor;
     var n = notes.length; if (!n) return [];
     // 1) 음마다 후보 (알토 · 테너)
+    /* V849 — 코드가 있으면 알토 · 테너는 반드시 그 코드의 구성음 안에서만 (텐션음 9 · 11 · 13 은 조금 덜 선호). 코드가 없을 때만 조의 음계 */
     function cands(m, chord, lo, hi, costFn, isTenor) {
-      var chordPcs = chord ? chord.pcs : null, mIsChordTone = !chordPcs || chordPcs.indexOf(mod(m, 12)) >= 0, out = [], p;
+      var chordPcs = chord ? chord.pcs : null, core = chord ? (chord.core || chord.pcs) : null, out = [], p;
       var center = isTenor ? 58 : 66;
+      function ok(pc) { return chordPcs ? chordPcs.indexOf(pc) >= 0 : scale.indexOf(pc) >= 0; }
       for (p = Math.max(lo, m - 17); p <= Math.min(hi, m + 14); p++) {
         if (p === m) continue;
-        var pc = mod(p, 12), inChord = chordPcs ? chordPcs.indexOf(pc) >= 0 : false, inScale = scale.indexOf(pc) >= 0;
-        if (!inChord && !inScale) continue;
-        var pen = 0;
-        if (chordPcs && !inChord) pen = mIsChordTone ? 3.2 : 0.8;                 // 코드음 밖의 음은 멜로디 자신이 경과음일 때만 쓰는 편
-        out.push({ p: p, c: costFn(m, p) + pen + 0.04 * Math.abs(p - center), inChord: inChord });
+        var pc = mod(p, 12); if (!ok(pc)) continue;
+        var pen = chordPcs && core.indexOf(pc) < 0 ? 0.6 : 0;
+        if (chord && chord.bass != null && pc === chord.bass && core.indexOf(pc) < 0) pen += 0.4;     // 슬래시 베이스음은 베이스에 맡김
+        out.push({ p: p, c: costFn(m, p) + pen + 0.04 * Math.abs(p - center), inChord: !!chordPcs });
       }
-      if (!out.length) {                                            // 범위 안에 후보가 없으면(아주 높은/낮은 음) 범위를 넓혀 가장 가까운 쪽으로
-        for (p = m - 12; p <= m + 12; p++) { if (p === m) continue; var q = mod(p, 12); if (scale.indexOf(q) >= 0 || (chordPcs && chordPcs.indexOf(q) >= 0)) out.push({ p: p, c: costFn(m, p) + 3 + 0.1 * (p < lo ? lo - p : p > hi ? p - hi : 0), inChord: chordPcs ? chordPcs.indexOf(q) >= 0 : false }); }
+      if (!out.length) {                                            // 범위 안에 후보가 없으면(아주 높은/낮은 음) 범위를 넓혀 가장 가까운 코드음으로
+        for (p = m - 14; p <= m + 14; p++) { if (p === m) continue; if (ok(mod(p, 12))) out.push({ p: p, c: costFn(m, p) + 3 + 0.1 * (p < lo ? lo - p : p > hi ? p - hi : 0), inChord: !!chordPcs }); }
       }
       return out;
     }
@@ -448,9 +596,9 @@
 
   return {
     SHARP: SHARP, FLAT: FLAT, KEY_CHOICES: KEY_CHOICES, VOICE_RANGE: VOICE_RANGE,
-    parseKey: parseKey, keyUsesFlats: keyUsesFlats, keySignature: keySignature, keySemitones: keySemitones, scalePcs: scalePcs, keyName: keyName, guessKey: guessKey,
-    parseChord: parseChord, isChordSymbol: isChordSymbol, transposeChord: transposeChord, formatChord: formatChord, nameOfPc: nameOfPc,
-    classifyToken: classifyToken, fixOcrChord: fixOcrChord, splitItem: splitItem, chordsFromTokens: chordsFromTokens,
+    parseKey: parseKey, keyUsesFlats: keyUsesFlats, keySignature: keySignature, keySemitones: keySemitones, scalePcs: scalePcs, keyName: keyName, guessKey: guessKey, findKeyText: findKeyText, keysForSig: keysForSig, rankKeys: rankKeys, fuseKey: fuseKey,
+    parseChord: parseChord, voiceChord: voiceChord, normChordText: normChordText, isChordSymbol: isChordSymbol, transposeChord: transposeChord, formatChord: formatChord, nameOfPc: nameOfPc,
+    classifyToken: classifyToken, fixOcrChord: fixOcrChord, splitItem: splitItem, chordsFromTokens: chordsFromTokens, mergeChordPieces: mergeChordPieces,
     stepToMidi: stepToMidi, midiToStep: midiToStep, stepLetter: stepLetter, midiName: midiName, staffPitchName: staffPitchName,
     assignChords: assignChords, buildHarmony: buildHarmony, intervalName: intervalName, buildSchedule: buildSchedule
   };
