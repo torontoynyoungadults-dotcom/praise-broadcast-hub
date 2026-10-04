@@ -46,6 +46,7 @@
         }
       });
       M.setLang(P.lang());
+      setTimeout(function () { try { if (P.ensureTab) P.ensureTab('metro'); } catch (e) { /* 탭이 없어도 메트로놈은 */ } }, 0);   // V848 — 곡별 저장 BPM 을 탭을 열지 않아도 적용
       return M;
     }
 
@@ -161,6 +162,73 @@
     }
     P.metroCircle = function () { return circleMetro(); };
 
+    /* ---------- V848 — 박 흐름 막대 (송폼 창 · 메트로놈 창) ----------
+       ● ● ● ●  박이 흘러가는 것을 보여 주고(2박으로 쪼개면 사이에 작은 점), 바로 누르는 단추들:
+         [저장] (송폼 창만 — 지금 BPM 을 이 곡에 저장. 누르지 않으면 바꾼 BPM 은 저장되지 않고, 다른 곡에 갔다 오면 저장된 BPM 으로)
+         [1234] 숫자로 세기(한 마디) · [1박] 1박 다시 맞추기 · [×2] 2박으로 쪼개기 · ☐ 숫자로(딸깍 대신 계속) · ☐ 콜아웃 뒤 3·2·1 */
+    var saveBpmImpl = null;
+    P.saveBpm = function () { try { if (P.ensureTab) P.ensureTab('metro'); } catch (e) { /* 없음 */ } return saveBpmImpl ? saveBpmImpl() : false; };
+    P.savedBpm = function () { var s = P.song(); if (!s) return null; var mc = P.cfgGet ? P.cfgGet('metro', String(s.title || '')) : null; if (mc && mc.bpm >= 30 && mc.bpm <= 300) return Math.round(mc.bpm); return +s.bpm >= 30 && +s.bpm <= 300 ? Math.round(+s.bpm) : null; };
+    function beatStrip(kind) {
+      var el = doc.createElement('div'); el.className = 'pv-bs pv-bs-' + kind; el.setAttribute('role', 'group'); el.setAttribute('aria-label', '박 흐름 · 세기');
+      el.innerHTML = (kind === 'form' ? '<button type="button" class="pv-bs-save" data-bs="save" title="지금 BPM 을 이 곡에 저장 (누르지 않으면 바꾼 BPM 은 저장되지 않아요)">저장</button>' : '') +
+        '<div class="pv-bs-dots" aria-hidden="true"></div>' +
+        '<div class="pv-bs-row">' +
+          (kind === 'form' ? '<button type="button" class="pv-bs-b" data-bs="count" title="숫자로 세기 (N) — 바로 다음 박부터 One · Two · Three · Four">1234</button>' : '') +
+          '<button type="button" class="pv-bs-b" data-bs="re" title="1박 다시 맞추기 — 누른 그 박이 새 1박">1박</button>' +
+          '<button type="button" class="pv-bs-b" data-bs="sub" aria-pressed="false" title="2박으로 쪼개기 — 4/4 면 한 마디에 8번 (화면 깜빡임은 4번)">×2</button>' +
+          '<label class="pv-bs-c" title="딸깍 대신 One · Two · Three · Four 로 계속 세기"><input type="checkbox" data-bs="cnum"><span>숫자로</span></label>' +
+          '<label class="pv-bs-c" title="콜아웃 뒤 Three · Two · One (예: Verse, 3, 2, 1)"><input type="checkbox" data-bs="cd"><span>3·2·1</span></label>' +
+        '</div>';
+      var dots = el.querySelector('.pv-bs-dots'), saveB = el.querySelector('.pv-bs-save'), key = '', subT = 0;
+      function sync() {
+        var st = M ? M.state() : null, c = st ? st.cfg : {}, num = st ? st.num : 4, sub = c.sub === 2, k = num + ':' + (sub ? 2 : 1);
+        if (k !== key) { key = k; var hh = ''; for (var i = 0; i < num; i++) hh += '<i data-b="' + i + '"' + (i === 0 ? ' class="d1"' : '') + '></i>' + (sub ? '<i class="h" data-h="' + i + '"></i>' : ''); dots.innerHTML = hh; dots.style.setProperty('--n', String(num * (sub ? 2 : 1))); }
+        var sb = el.querySelector('[data-bs="sub"]'); sb.classList.toggle('on', sub); sb.setAttribute('aria-pressed', sub ? 'true' : 'false');
+        var cn = el.querySelector('[data-bs="cnum"]'), cd = el.querySelector('[data-bs="cd"]');
+        if (cn.checked !== !!c.countAll) cn.checked = !!c.countAll; if (cd.checked !== !!c.countdown) cd.checked = !!c.countdown;
+        el.querySelector('[data-bs="re"]').disabled = !(st && st.running);
+        if (!(st && st.running)) Array.prototype.forEach.call(dots.children, function (d) { d.classList.remove('on'); });
+        if (saveB) {
+          var cur = P.curBpm ? P.curBpm() : null, sv = P.savedBpm(), dirty = !!(cur && sv && cur !== sv);
+          saveB.classList.toggle('dirty', dirty); saveB.disabled = !P.song();
+          saveB.textContent = dirty ? '저장 ' + cur : '저장됨';
+          saveB.title = dirty ? '지금 ' + cur + ' BPM 을 이 곡에 저장 (저장된 값 ' + sv + ') — 누르지 않으면 다른 곡에 갔다 오면 ' + sv + ' 로 돌아가요' : '이 곡에 저장된 BPM ' + (sv || '—');
+        }
+      }
+      function beat(e) {
+        var ds = dots.children; for (var i = 0; i < ds.length; i++) ds[i].classList.remove('on');
+        var d = dots.querySelector('[data-b="' + (e && e.beat) + '"]'); if (d) d.classList.add('on');
+        clearTimeout(subT);
+        var st = M ? M.state() : null;
+        if (st && st.cfg.sub === 2) { var hd = dots.querySelector('[data-h="' + e.beat + '"]'); if (hd) subT = setTimeout(function () { if (d) d.classList.remove('on'); hd.classList.add('on'); }, 30000 / st.bpm); }
+      }
+      el.addEventListener('pointerdown', function (e) { if (e.target.closest && e.target.closest('button,input,label')) e.stopPropagation(); });   // 창 끌기 · 악보 톡과 겹치지 않게
+      el.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-bs]') : null; if (!b) return;
+        e.stopPropagation();
+        var a = b.getAttribute('data-bs'); if (b.tagName === 'INPUT') return;           // 체크칸은 change 에서
+        var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
+        if (a === 'save') P.saveBpm();
+        else if (a === 'count') P.metroKey('count');
+        else if (a === 're') { var rr = m.markNow(); P.toast(rr != null ? '지금 박을 1박으로 다시 맞췄습니다' : '먼저 메트로놈을 시작하세요', rr == null, 1100); }
+        else if (a === 'sub') { var on = m.state().cfg.sub !== 2; m.setSub(on ? 2 : 1); P.toast(on ? '2박으로 쪼개기 — 한 마디 ' + (m.state().num * 2) + '번 (깜빡임은 ' + m.state().num + '번)' : '쪼개기 끔', false, 1300); }
+        syncAllStrips();
+      });
+      el.addEventListener('change', function (e) {
+        var t = e.target; if (!t || !t.getAttribute) return; var a = t.getAttribute('data-bs'); if (!a) return;
+        var m = metro(); if (!m) return;
+        if (a === 'cnum') { m.setCountAll(t.checked); P.toast(t.checked ? '딸깍 대신 숫자로 셉니다 (One · Two · Three · Four)' : '숫자로 세기 끔 — 딸깍', false, 1300); }
+        else if (a === 'cd') { m.setCountdown(t.checked); P.toast(t.checked ? '콜아웃 뒤 Three · Two · One 켜짐' : '콜아웃 뒤 3·2·1 끔', false, 1200); }
+        syncAllStrips(); if (mUi) mUi.sync();
+      });
+      var api = { el: el, sync: sync, beat: beat, destroy: function () { clearTimeout(subT); var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); if (el.parentNode) el.parentNode.removeChild(el); } };
+      minis.push(api); sync(); P.on('song', sync); P.on('cfg', function () { setTimeout(sync, 0); }); P.on('close', api.destroy);
+      return api;
+    }
+    function syncAllStrips() { minis.forEach(function (x) { try { x.sync(); } catch (e) { /* 화면만 */ } }); }
+    P.beatStrip = function (kind) { return beatStrip(kind); };
+
     /* ---------- 라이브 컨트롤 (Step 2.15) — 도크 맨 앞의 메트로놈 · 음성 콜아웃(TTS) 켜기/끄기 ----------
        필기 도구 도크(태블릿 캡슐 · 컴퓨터 떠 있는 막대)의 맨 앞에 붙어서, 패널을 열지 않고도 라이브 예배 중에 바로 누릅니다.
        메트로놈은 빠른 버튼 · 패널 · Space 와 같은 경로(P.metroKey)를 쓰므로 클릭 컨트롤 잠금 · 팀 동기화가 그대로 적용됩니다.
@@ -217,6 +285,7 @@
           '<button type="button" class="pv-lv-tts" aria-pressed="true" title="음성 콜아웃 (TTS) 켜기 / 끄기" aria-label="음성 콜아웃 켜짐">' + IC.vol + '<small>콜아웃</small></button>' +
           '<button type="button" class="pv-lv-exp" aria-pressed="false" aria-expanded="false" title="콜아웃 펼치기 / 접기 (반복 · 다이내믹 · 진행 · 볼륨)" aria-label="콜아웃 펼치기">▾</button>' +
           '<div class="pv-lv-cues" role="group" aria-label="콜아웃 — 반복 · 다이내믹 · 진행 · 들어가기">' + cuesHtml() + '</div>';
+        try { var bsx = beatStrip('metro'); el.insertBefore(bsx.el, el.querySelector('.pv-lv-cues')); } catch (x) { /* 박 막대는 덤 */ }    // V848 — 박 흐름 · 1박 · ×2 · 숫자로 · 3·2·1
         expB = el.querySelector('.pv-lv-exp'); cuesEl = el.querySelector('.pv-lv-cues');
         goB = el.querySelector('.pv-lv-go'); bpmB = el.querySelector('.pv-lv-bpm'); ttsB = el.querySelector('.pv-lv-tts'); dot = el.querySelector('.pv-lv-dot');
         bpmStep(el.querySelector('.pv-lv-dn'), -1, sync); bpmStep(el.querySelector('.pv-lv-up'), 1, sync);
@@ -374,7 +443,13 @@
     }
     P.on('lead', function (st) {
       var rt = P.rt(); if (!st || (rt && rt.me && st.by === rt.me.name)) return;
-      P.leadNow = st;
+      var prevLead = P.leadNow; P.leadNow = st;
+      var fresh = !!(rt && rt.serverNow && st.t && Math.abs(rt.serverNow() - st.t) < 4000);
+      if (st.cue && fresh) remoteCueFlash(String(st.cue), st.by);                         // V848 — 리드가 누른 콜아웃 (큐 보내기 설정과 상관없이)
+      if (st.bpm >= 30 && fresh && prevLead && prevLead.bpm && prevLead.bpm !== st.bpm) {  // V848 — 리드가 BPM 을 바꾸면 모두에게 숫자로
+        P.toast('♩ ' + (st.by ? st.by + ' — ' : '') + 'BPM ' + st.bpm, false, 1300);
+        Array.prototype.forEach.call(P.el.querySelectorAll('.pv-form-bpm,.pv-lv-bpm b'), function (n) { n.classList.remove('pv-bpmchg'); void n.offsetWidth; n.classList.add('pv-bpmchg'); });
+      }
       if (st.bpm >= 30) {
         var m = metro();
         if (m) {
@@ -473,17 +548,24 @@
       var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
       var r = m.cue(id);
       if (!r.ok) P.toast(r.error || '큐를 재생하지 못했습니다.', true);
-      else { if (r.muted) P.toast('음성 콜아웃이 꺼져 있습니다 — "' + (r.text || '') + '"', false, 1400); if (!fromRemote) P.broadcastCue(id); try { P.flashCue && P.flashCue(id); } catch (e) { /* 깜빡임은 덤 */ } }
+      else { if (r.muted) P.toast('음성 콜아웃이 꺼져 있습니다 — "' + (r.text || '') + '"', false, 1400); if (!fromRemote) { P.broadcastCue(id); try { P.sendLead({ cue: String(id).slice(0, 40) }); } catch (x) { /* 리드가 아니면 보내지 않음 */ } } try { P.flashCue && P.flashCue(id); } catch (e) { /* 깜빡임은 덤 */ } }
       return r;
     }
     P.cueKey = function (id) { return metro() ? (doCue(id) || { ok: false }) : null; };
     P.on('cue', function (c) {
       /* V842 — 리드의 콜아웃은 받는 기기에서 절대 소리 내지 않습니다. 화면에만: 알림 · 악보의 송폼 라벨 깜빡임 · 송폼 창 위치 */
-      if (!P.recvCue() || !c || !c.label) return;
-      var cb = root.YNMetro && root.YNMetro.CUE_BY[c.label], name = cb ? (P.lang() === 'ko' ? cb.ko : cb.en) : String(c.label);
-      try { P.flashCue && P.flashCue(String(c.label)); } catch (e) { /* 깜빡임은 덤 */ }
-      P.toast('🔇 ' + (c.by ? c.by + ' — ' : '') + name, false, 1500);
+      /* V848 — 따라가기 · 큐 받기를 꺼 두었어도 리드의 콜아웃은 반드시 반짝 (소리는 여전히 안 남) */
+      if (!c || !c.label) return;
+      remoteCueFlash(String(c.label), c.by);
     });
+    var lastRemoteCue = { k: '', t: 0 };
+    function remoteCueFlash(label, by) {
+      var now = Date.now(); if (lastRemoteCue.k === label && now - lastRemoteCue.t < 1500) return;      // 같은 콜아웃이 두 길(큐 · 리드 상태)로 와도 한 번만
+      lastRemoteCue = { k: label, t: now };
+      var cb = root.YNMetro && root.YNMetro.CUE_BY[label], name = cb ? (P.lang() === 'ko' ? cb.ko : cb.en) : label;
+      try { P.flashCue && P.flashCue(label); } catch (e) { /* 깜빡임은 덤 */ }
+      P.toast('🔇 ' + (by ? by + ' — ' : '') + name, false, 1500);
+    }
     P.on('metro', function (st) { remoteMetro(st); });
     /* 동기화를 다시 켜면 지금 팀 메트로놈 상태로 바로 맞춥니다 */
     P.on('followm', function (on) {
@@ -530,10 +612,10 @@
         '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
           '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 끝으로 같은 자리를 두 번 톡 → 펜 ↔ 지우개 전환</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 · 형광펜을 화면에 1초 대고 있으면 지우개 (떼면 원래대로) · 형광펜 줄 끝에서 1초 멈추면 반듯하게</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="eraseback" checked> 펜슬로 지우개를 쓰고 떼면 원래 펜으로 돌아가기</label>' +
           '<p class="pv-help">굵기 3칸: 고른 칸을 한 번 더 누르면 조절 막대가 나와요. 바꾼 굵기는 그 칸에 저장됩니다 (펜 · 형광펜 따로).</p>' +
-          '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜 끝으로 두 번 톡 치는 것(또는 펜 옆 버튼)으로 대신합니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
+          '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜슬을 1초 대고 있기(또는 펜 옆 버튼)로 지우개를 씁니다. 펜으로 다른 필기를 톡 치면 누가 썼는지 잠깐 보입니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
         '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
@@ -584,7 +666,7 @@
       host.innerHTML =
         '<div class="pv-sec"><h4>누가 썼나요 <small>여러 명이 동시에 써도 실시간으로 모두에게 보입니다</small></h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="showby"> 악보 위에 쓴 사람 이름표 보이기</label>' +
-          '<p class="pv-help">"선택" 도구로 필기를 누르면 쓴 사람과 시각이 주황 이름표로 보입니다. 남의 필기는 볼 수만 있고, 팀장 · 인도자만 고치거나 지울 수 있습니다.</p>' +
+          '<p class="pv-help">아래 "최근 필기"를 누르면 그 필기가 악보에서 반짝입니다. 펜 · 이동 도구로 필기를 톡 치면 쓴 사람이 잠깐 보이고, "선택" 도구로 필기(펜 획 포함)를 누르면 쓴 사람과 시각이 주황 이름표로 보입니다. 남의 필기는 볼 수만 있고, 팀장 · 인도자만 고치거나 지울 수 있습니다.</p>' +
           '<div class="pv-logwho" data-role="who"></div></div>' +
         '<div class="pv-sec"><h4>최근 필기</h4><div class="pv-logrec" data-role="rec"></div></div>';
       var whoEl = host.querySelector('[data-role="who"]'), recEl = host.querySelector('[data-role="rec"]'), chk = host.querySelector('[data-o="showby"]');
@@ -608,7 +690,11 @@
       host.addEventListener('click', function (e) {
         var a = an(); if (!a) return; var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
         if (b.hasAttribute('data-only')) { var n = b.getAttribute('data-only'); a.setAuthorFilter(a.authorFilter() === n ? null : n); paint(); return; }
-        if (b.classList.contains('pv-logit')) { var pg = +b.getAttribute('data-pg'); if (pg && pg !== P.page()) P.goPage(pg); setTimeout(function () { try { P.setTool && P.setTool('select'); a.select(b.getAttribute('data-ly'), b.getAttribute('data-id')); } catch (x) {} }, 250); return; }
+        if (b.classList.contains('pv-logit')) {                                                   // V848 — 누르면 그 필기가 반짝 (도구는 그대로)
+          var pg = +b.getAttribute('data-pg'), id = b.getAttribute('data-id'), turn = pg && pg !== P.page();
+          Array.prototype.forEach.call(recEl.querySelectorAll('.pv-logit.on'), function (x) { x.classList.remove('on'); }); b.classList.add('on');
+          if (turn) P.goPage(pg);
+          setTimeout(function () { try { if (a.flashItem) a.flashItem(id); } catch (x) { /* 없음 */ } }, turn ? 450 : 0); return; }
         if (b.hasAttribute('data-pg')) { P.goPage(+b.getAttribute('data-pg')); }
       });
       chk.addEventListener('change', function () { var a = an(); if (a) a.setShowAuthors(chk.checked); });
@@ -715,7 +801,9 @@
           '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div></div>' +
           '<div class="pv-row"><label class="pv-chk">박자 <select data-o="sig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
-          '<div class="pv-row"><button class="pv-btn2" data-a="reanchor">1박 다시 맞추기</button><button class="pv-btn2" data-a="count4">숫자로 세기</button></div>' +
+          '<div class="pv-row"><button class="pv-btn2" data-a="reanchor">1박 다시 맞추기</button><button class="pv-btn2" data-a="count4">숫자로 세기</button><button class="pv-btn2" data-a="sub" aria-pressed="false">×2 쪼개기</button><button class="pv-btn2" data-a="savebpm">이 곡 BPM 저장</button></div>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="countall"> 딸깍 대신 숫자로 세기 <small>(One · Two · Three · Four 를 계속)</small></label>' +
+          '<p class="pv-help">"×2 쪼개기" — 박 사이에 작은 딸깍을 하나 더 (4/4 면 한 마디에 8번 · 화면 깜빡임은 4번). 연주 중에 바꾼 BPM 은 저장되지 않습니다 — "이 곡 BPM 저장"(또는 송폼 창의 "저장")을 눌러야 다음에도 그 BPM 으로 열립니다.</p>' +
           '<p class="pv-help">"1박 다시 맞추기" — 밴드가 실제로 들어간 순간에 누르면, 딸깍 간격은 그대로 두고 그 박을 "1박"으로 다시 정합니다 (강세 · 음성 큐 기준이 그 박으로 옮겨갑니다).<br>"숫자로 세기" — 다음 마디를 딸깍 대신 One · Two · Three · Four 로 세어 줍니다(한 번만, 실제 박자 그대로).</p>' +
           '<p class="pv-help pv-dotshelp">원(박)을 누르면 ">" 강세가 켜지고 꺼집니다 — 강세 박은 더 높고 크게 울립니다.</p>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> ' + I('bulb') + '전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
@@ -798,6 +886,8 @@
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.voiceSel === 'male' ? 'mix' : (c.voiceSel || 'mix'); q('[data-role="voiceout"]').textContent = '×' + (Math.round(c.voice * 10) / 10);
         q('[data-o="countdown"]').checked = c.countdown === true; q('[data-o="cdskip"]').checked = c.cdSkip !== false;
+        var sbB = q('[data-a="sub"]'); if (sbB) { sbB.classList.toggle('on', c.sub === 2); sbB.setAttribute('aria-pressed', c.sub === 2 ? 'true' : 'false'); }
+        var caB = q('[data-o="countall"]'); if (caB) caB.checked = !!c.countAll;
         var rAn = q('[data-a="reanchor"]'), rCnt = q('[data-a="count4"]'); if (rAn) rAn.disabled = !st.running; if (rCnt) rCnt.disabled = false;
         var vi = m.voiceInfo ? m.voiceInfo(c.lang) : null;
         var recSel = /^(v:|rot:)/.test(c.voiceSel || '') || c.voiceSel === 'mix' || c.voiceSel === 'male';
@@ -833,13 +923,16 @@
         /* v8.39 — 둘 다 이 기기만의 설정(강세 표시 · 세는 소리)이라 클릭 컨트롤 잠금과 무관하게 바로 씁니다 */
         else if (a === 'reanchor') { var rr = m.markNow(); say(rr != null ? '지금 박을 1박으로 다시 맞췄습니다.' : '먼저 메트로놈을 시작하세요.', rr == null); }
         else if (a === 'count4') { var rc = m.countNow(); say(rc.ok ? '바로 다음 박부터 숫자로 세어 줍니다.' : (rc.error || ''), !rc.ok); }
+        else if (a === 'sub') { m.setSub(m.state().cfg.sub === 2 ? 1 : 2); syncAllStrips(); }
+        else if (a === 'savebpm') P.saveBpm();
         sync();
       });
       bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); act('bpm', v); rememberBpm(); });
       /* 곡 자동 BPM — 악보 쪽을 넘겨 다음 곡이 되면 리더가 곡 정보에 넣어 둔 BPM 을 자동으로 적용합니다.
          곡 정보에 BPM 이 없거나 현장에서 바꾸고 싶으면 그대로 고치면 됩니다 (−/＋ · 탭 · 직접 입력). 고친 값은 그 곡에만 기억되어 다시 돌아와도 유지됩니다. */
       var bpmOver = {}, curSongKey = '';
-      function rememberBpm() { if (curSongKey) bpmOver[curSongKey] = Math.round(m.state().bpm); saveMetroSoon(); }
+      /* V848 — 연주 중에 바꾼 BPM 은 저장하지 않습니다 ("저장" 단추를 누를 때만). 다른 곡에 갔다 오면 저장된 BPM 으로 */
+      function rememberBpm() { syncAllStrips(); }
       onBpmUser = rememberBpm;
       host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
       /* 곡별 메트로놈 설정(박자 · 강세 · 시작 전 마디 · BPM)을 팀과 함께 저장 · 실시간 공유 — 저장은 P.cfgSet (나만 보기 · 권한은 거기서 처리) */
@@ -850,17 +943,29 @@
         if (!saveT) return false;
         clearTimeout(saveT); saveT = 0;
         var key = saveKey; saveKey = ''; if (!key) return false;
-        var st = m.state();
-        P.cfgSet('metro', key, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: Math.round(st.bpm) });
+        var st = m.state(), prev = P.cfgGet('metro', key) || {};
+        var body = { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0 };
+        if (prev.bpm >= 30 && prev.bpm <= 300) body.bpm = prev.bpm;                // V848 — BPM 은 저장된 값 그대로 (박자 · 강세만 자동 저장)
+        P.cfgSet('metro', key, body);
         return true;
       }
+      /** V848 — "저장" 단추: 지금 BPM 을 이 곡에 저장 (박자 · 강세도 함께) */
+      saveBpmImpl = function () {
+        if (!curSongKey) { var sg = P.song(); if (sg) curSongKey = String(sg.title || ''); }
+        if (!curSongKey) { P.toast('곡을 먼저 고르세요.', true); return false; }
+        clearTimeout(saveT); saveT = 0; saveKey = '';
+        var st = m.state(), b = Math.round(st.bpm);
+        P.cfgSet('metro', curSongKey, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: b });
+        P.toast('BPM ' + b + ' 저장 — ' + curSongKey, false, 1300); say('BPM ' + b + ' 를 이 곡에 저장했습니다.');
+        setTimeout(syncAllStrips, 0); return true;
+      };
       function saveMetroSoon() {
         if (applyingCfg || !curSongKey) return;
         saveKey = curSongKey; clearTimeout(saveT);
         saveT = setTimeout(flushMetroSave, 700);
       }
       flushMetroCfg = flushMetroSave;
-      function applyMetroCfg(fromRemote) {
+      function applyMetroCfg(fromRemote, keepBpm) {
         var mc = curSongKey ? P.cfgGet('metro', curSongKey) : null; if (!mc) return false;
         if (ctl() === 'locked') return false;                                       // 클릭 컨트롤의 박자를 따르는 중
         if (m.state().running && fromRemote) { pendingCfg = true; say('팀 메트로놈 설정이 바뀌었습니다 — 멈추면 적용됩니다.'); return false; }
@@ -870,19 +975,22 @@
           if (mc.num && (mc.num !== st.num || mc.den !== st.den)) act('sig', mc.num, mc.den);
           if (Array.isArray(mc.marks) && mc.marks.length === m.state().num) act('marks', mc.marks);
           if (mc.count != null && mUi) { var cs = q('[data-o="count"]'); if (cs) cs.value = String(Math.min(2, mc.count)); }
-          if (mc.bpm >= 30 && mc.bpm <= 300 && Math.round(m.state().bpm) !== mc.bpm) { bpmOver[curSongKey] = mc.bpm; act('bpm', mc.bpm); }
+          if (!keepBpm && mc.bpm >= 30 && mc.bpm <= 300 && Math.round(m.state().bpm) !== mc.bpm) act('bpm', mc.bpm);
           if (mUi) { drawDots(m.state().num, m.state().marks); mUi.sync(); }
         } finally { applyingCfg = false; }
-        return true;
+        return mc.bpm >= 30 && mc.bpm <= 300 ? true : 'nobpm';
       }
-      function applySongBpm(x, fromSync) {
+      function applySongBpm(x, fromSync, keepBpm) {
         flushMetroSave();                                                     // 곡이 바뀌기 전에, 이전 곡에 걸려 있던 저장을 먼저 보냄
         if (!x) { curSongKey = ''; return; }
-        curSongKey = String(x.title || '');
+        var nk = String(x.title || '');
+        if (keepBpm && nk !== curSongKey) keepBpm = false;
+        curSongKey = nk;
         if (pendingCfg && !m.state().running) pendingCfg = false;
-        var got = applyMetroCfg(!!fromSync);
-        if (got) { say('팀 · 내 메트로놈 설정(' + Math.round(m.state().bpm) + ' BPM · ' + m.state().num + '/' + m.state().den + ')을 적용했습니다.'); return; }
-        var own = bpmOver[curSongKey], base = Math.round(+x.bpm);
+        var got = applyMetroCfg(!!fromSync, keepBpm);
+        if (got === true || (got && keepBpm)) { if (!keepBpm) say('저장된 메트로놈 설정(' + Math.round(m.state().bpm) + ' BPM · ' + m.state().num + '/' + m.state().den + ')을 적용했습니다.'); syncAllStrips(); return; }
+        if (keepBpm) return;
+        var own = 0, base = Math.round(+x.bpm);
         var v = own || (base >= 30 && base <= 300 ? base : 0);
         if (!v) { say('이 곡에는 BPM 이 없습니다. 직접 입력하거나 탭 템포를 쓰세요.'); return; }
         if (ctl() === 'locked') { say(''); return; }                             // 클릭 컨트롤의 BPM 을 따르는 중
@@ -891,7 +999,7 @@
         say(own ? '이 곡에서 고친 BPM ' + v + ' 를 적용했습니다.' : '곡 정보의 BPM ' + v + ' 를 자동 적용했습니다. (바꾸려면 직접 고치세요)');
       }
       /* 팀이 바꾼 설정 · 곡 정보가 오면 (메트로놈이 멈춰 있을 때) 바로 적용 */
-      P.on('cfg', function (e) { if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote); });
+      P.on('cfg', function (e) { if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote, e.kind === 'all'); });   // V848 — 다른 설정이 새로 와도 지금 BPM 은 그대로
       P.on('songedit', function (s) { if (s && String(s.title || '') === curSongKey) { bpmOver[curSongKey] = 0; applySongBpm(s, true); } });
       P.on('song', applySongBpm); P.on('close', flushMetroSave);
       try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
@@ -903,7 +1011,8 @@
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
         else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'gender') m.setGender(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
         else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked); else if (o === 'speak') m.setSpeak(t.checked);
-        else if (o === 'countdown') m.setCountdown(t.checked);
+        else if (o === 'countdown') { m.setCountdown(t.checked); syncAllStrips(); }
+        else if (o === 'countall') { m.setCountAll(t.checked); syncAllStrips(); }
         else if (o === 'cdskip') m.setCountdownSkip(t.checked);
         sync();
       });
@@ -1103,6 +1212,8 @@
     P.on('song', function () { quick.sync(); }); ['clicker', 'conn', 'leader', 'manual', 'followm'].forEach(function (n) { P.on(n, function () { quick.sync(); }); });
     setTimeout(function () { quick.mount(); live.attach(P.el.querySelector('.pv-tools')); }, 0);
     P.on('toolsrender', function (host) { live.attach(host); });          // 화면 뼈대가 다 만들어진 다음에 붙입니다
+    /* V848 — "기록" 탭은 맨 뒤 ("함께" 다음) */
+    (function () { var i = -1; tabs.forEach(function (t, k) { if (t.id === 'log') i = k; }); if (i >= 0) tabs.push(tabs.splice(i, 1)[0]); })();
     return tabs;
   }
 

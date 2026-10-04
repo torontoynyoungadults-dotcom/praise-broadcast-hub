@@ -994,6 +994,7 @@
         if (S.eraseBack === false || S.tool !== 'eraser' || !S.prevDraw) return;
         setTool(S.prevDraw, false, true); toast(S.prevDraw === 'hl' ? '형광펜으로 돌아왔습니다' : '펜으로 돌아왔습니다', false, 900);
       },
+      onHoldEraseEnd: function (back) { setTool(back === 'hl' ? 'hl' : 'pen', false, true); },      // V848 — 1초 눌러 쓴 지우개를 떼면 원래 도구로
       onAutoSelect: function () { setTool('select', true); toast('선택·이동 모드 — 다시 쓰려면 도구를 누르세요', false, 1400); },
       onAdd: function (layer, it) { annoSend(layer, it, 'add'); }, onDel: function (layer, id) { annoSend(layer, { id: id }, 'del'); },
       onClear: function (layer, ids, pg, all) { annoClear(layer, ids, pg, all); },
@@ -1355,10 +1356,11 @@
       var v = S.fsz[sizeKey()] || slotSizes(sizeKey())[S.sizeIdx];
       if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v); else if (S.tool === 'fbox') an.setFboxSize(v);
     }
-    /** 펜 ↔ 지우개 빠른 전환 (펜 끝으로 같은 자리를 두 번 톡 · 펜 옆 버튼) — 도구 막대의 단추를 누른 것과 똑같이 바꿉니다 */
+    /** 펜 ↔ 지우개 빠른 전환 (V848: 펜 · 형광펜을 1초 누르고 있기 · 펜 옆 버튼) — 도구 막대의 단추를 누른 것과 똑같이 바꿉니다 */
     function swapTool(to, via) {
       setTool(to);
-      toast(to === 'eraser' ? '지우개로 전환 — 같은 방법으로 다시 톡톡 치면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
+      if (via === 'hold') { toast('지우개 — 문질러 지우세요 · 떼면 ' + (S.prevDraw === 'hl' ? '형광펜' : '펜') + '으로 돌아갑니다', false, 1300); return; }
+      toast(to === 'eraser' ? '지우개로 전환 — 펜 옆 버튼을 다시 누르면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
     }
     function setTool(t, fromAnno, quiet) {
       if (opts.readOnly && t !== 'none') return;
@@ -1389,7 +1391,7 @@
           '<input type="number" inputmode="numeric" pattern="[0-9]*" data-fsz min="' + rng[0] + '" max="' + rng[1] + '" step="1" value="' + Math.round(fsz * 1000) + '" aria-label="크기 숫자"' + lock + '>' +
           '<span class="pv-numbtns"><button type="button" class="pv-nb" data-step="1" aria-label="크기 키우기" title="크기 키우기"' + lock + '>▲</button><button type="button" class="pv-nb" data-step="-1" aria-label="크기 줄이기" title="크기 줄이기"' + lock + '>▼</button></span></span></div>' +
         (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + '</div>';
-      if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택하세요. 선택한 뒤 끌면 옮겨집니다.</div>';
+      if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 눌러 선택하세요. 선택한 뒤 끌면 옮겨지고, 쓴 사람이 보입니다.</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
       var colRow = S.tool === 'select' && !sel ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' :
@@ -1993,13 +1995,14 @@
         if (S.formCur && S.formCur.s === i) { var cn = formEl.querySelector('.pv-fb-t[data-i="' + S.formCur.i + '"]'); if (cn) cn.classList.add('cur'); }
         paintLeadPos();
         if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 메트로놈 동그라미
+        if (fsApi) { var fh = formEl.querySelector('.pv-form-h'); if (fh) fh.parentNode.insertBefore(fsApi.el, fh.nextSibling); else if (fsApi.el.parentNode) fsApi.el.parentNode.removeChild(fsApi.el); fsApi.sync(); }
         requestAnimationFrame(function () { flPlace('form'); });
       }
       paintBpm();
     }
     /* 메트로놈 창 — 라이브 컨트롤(▶ · BPM · 콜아웃)을 도구 도크에서 떼어 따로 띄웁니다 */
     /* v6.1 — 송폼 창 크기 조절: 오른쪽 아래 모서리를 끌면 옆으로 = 폭(두 줄 → 한 줄), 위아래로 = 글자 크기. 이 기기에 기억 */
-    var mcApi = null;
+    var mcApi = null, fsApi = null;
     function formSize() { try { var v = JSON.parse(ls('size.form') || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } }
     function applyFormSize() {
       var v = formSize();
@@ -2103,6 +2106,7 @@
       P.floatWin = function (k, node, def) { return makeFloat(k, node, def); };            // v6.1 — 패널이 만드는 떠 있는 창 (시작음 피아노)
       P.floatPlace = function (k) { requestAnimationFrame(function () { flPlace(k); }); };
       try { if (P.metroCircle) mcApi = P.metroCircle(); } catch (e) { mcApi = null; }
+      try { if (P.beatStrip) fsApi = P.beatStrip('form'); } catch (e) { fsApi = null; }      // V848 — 송폼 창: 저장 · 박 흐름 · 1234 · 1박 · ×2 · 숫자로 · 3·2·1
       applyFormSize(); paintShows(); paintForm();
       P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm); P.on('songedit', paintForm); P.on('songs', paintForm);   // V838 — 송폼을 고치면 떠 있는 송폼 창도 바로 바뀜
       root.addEventListener('resize', flResize);
@@ -2130,6 +2134,8 @@
       var d = tapD; tapD = null;
       if (!d || e.pointerId !== d.id || S.dead) return;
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || Date.now() - d.t > 400) return;
+      /* V848 — 이동 도구로 필기를 톡 → 누가 썼는지 잠깐 (이름표) */
+      if (d.tool === 'none' && S.tool === 'none' && an && an.peekAt && an.peekAt(e.clientX, e.clientY, d.type === 'touch')) return;
       /* v6.9 — 악보의 아무 곳이나 톡 치면 열려 있던 메뉴(🛠 서랍 · ⋯ 더보기 · 태블릿의 옆 패널: 필기 · 송폼 · 메트로놈 …)가 다시 숨겨집니다 */
       var closed = false;
       if (S.compact && el.classList.contains('pv-drawopen')) { setDrawer(false); closed = true; }

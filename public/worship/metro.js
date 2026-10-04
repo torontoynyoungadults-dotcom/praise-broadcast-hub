@@ -385,7 +385,7 @@
     var countdownArmed = false, countdownActive = false;   // 옵션: 콜아웃이 떨어진 마디의 마지막 3박에서 Three·Two·One (딸깍과 함께)
     var S = {
       click: store('vol'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first'), speak: store('speak'), countdown: store('countdown'), cdskip: store('cdskip')
-    };
+    , sub: store('sub'), countall: store('countall') };
     var cfg = {
       click: S.click == null ? 0.62 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : clamp(S.voice, 0, 2), mode: S.mode || 'lead', lead: S.lead || 2,
       lang: S.lang || 'en', voiceSel: parseSel(S.gender), gender: legacyGender(parseSel(S.gender)), lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
@@ -395,7 +395,9 @@
       flash: S.flash === true,                                   // 화면 전체 깜빡임 (켬/끔)
       flashAll: S.flashall !== false,                            // 켬(기본)이면 모든 박마다, 끄면 첫 박에만 (Step 2.11)
       countdown: S.countdown === true,                           // v8.39 — 콜아웃 뒤 "Three·Two·One" 세어주기 (기본 끔)
-      cdSkip: S.cdskip !== false                                 // V842 — 반복 · 다이내믹 콜아웃에는 Three·Two·One 을 하지 않음 (기본 켬)
+      cdSkip: S.cdskip !== false,                                // V842 — 반복 · 다이내믹 콜아웃에는 Three·Two·One 을 하지 않음 (기본 켬)
+      sub: S.sub === 2 ? 2 : 1,                                  // V848 — 2박으로 쪼개기: 4/4 면 한 마디에 8번 (엇박은 작게 · 화면 깜빡임은 4번만)
+      countAll: S.countall === true                              // V848 — 딸깍 대신 1 · 2 · 3 · 4 숫자로 세기 (계속)
     };
     sched.setMark(0, cfg.first);
     var voices = [], speechOk = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
@@ -526,6 +528,11 @@
       o.connect(g); g.connect(cbus());
       o.onended = function () { o.onended = null; try { o.disconnect(); g.disconnect(); } catch (e) { /* 이미 끊김 */ } };   // 다 울린 소리 노드는 바로 끊어 메모리에 쌓이지 않게
       o.start(time); o.stop(time + 0.02 + hold + dec + 0.01);
+    }
+    /** V848 — 2박으로 쪼갤 때의 엇박: 평소 딸깍보다 작고 살짝 높게 */
+    function subClick(time) {
+      var keep = clickMul; clickMul = keep * 0.5;
+      try { click(time, 0, false); } finally { clickMul = keep; }
     }
     /** v8.34 — 소리 없는 딸깍을 한 번 흘려 오디오 경로 · 노드 생성을 미리 데워 둡니다 (첫 딸깍이 늦던 것) */
     var warmed = false;
@@ -719,18 +726,22 @@
       var ev = sched.tick();
       for (var i = 0; i < ev.length; i++) {
         var e = ev[i], n = sched.num;
-        /* v8.39 — "숫자로 세기" 버튼: 다음 마디 첫 박부터 한 마디를 딸깍 대신 One·Two·Three·Four 로 */
-        if (pendingCount && e.beat === 0) { pendingCount = false; countRemain = n; }
-        if (countRemain > 0) { speakCountBeat(e, e.beat + 1); countRemain--; }   // V843 — 세는 마디는 딸깍 없이 목소리만
-        else click(e.time, e.accent, e.countIn);
-        /* v8.39 — 옵션: 콜아웃이 떨어진 마디 끝 3박에서 Three·Two·One (딸깍은 그대로 — 콜아웃 음성과 같은 자리) */
+        /* v8.39 — 옵션: 콜아웃이 떨어진 마디 끝 3박에서 Three·Two·One */
+        var cdN = 0;
         if (countdownArmed && e.beat === 0) { countdownArmed = false; countdownActive = true; }
         else if (countdownActive) {
-          if (n >= 4 && e.beat === n - 3) speakCountBeat(e, 3);
-          else if (n >= 4 && e.beat === n - 2) speakCountBeat(e, 2);
-          else if (n >= 4 && e.beat === n - 1) speakCountBeat(e, 1);
-          else if (e.beat === 0) countdownActive = false;      // 다음 마디 시작 = 등장 — 평소처럼 딸깍만
+          if (n >= 4 && e.beat === n - 3) cdN = 3;
+          else if (n >= 4 && e.beat === n - 2) cdN = 2;
+          else if (n >= 4 && e.beat === n - 1) cdN = 1;
+          else if (e.beat === 0) countdownActive = false;      // 다음 마디 시작 = 등장 — 평소처럼
         }
+        /* v8.39 — "숫자로 세기" 버튼: 다음 마디 첫 박부터 한 마디를 딸깍 대신 One·Two·Three·Four (V843 목소리만) */
+        if (pendingCount && e.beat === 0) { pendingCount = false; countRemain = n; }
+        if (countRemain > 0) { speakCountBeat(e, e.beat + 1); countRemain--; }
+        else if (cdN) { if (!cfg.countAll) click(e.time, e.accent, e.countIn); speakCountBeat(e, cdN); }
+        else if (cfg.countAll) speakCountBeat(e, e.beat + 1);                        // V848 — 늘 숫자로 (딸깍 대신)
+        else click(e.time, e.accent, e.countIn);
+        if (cfg.sub === 2) subClick(e.time + sched.interval() / 2);                  // V848 — 엇박 (화면 깜빡임 · 박 표시는 하지 않음)
         q.push(e);
       }
     }
@@ -968,6 +979,9 @@
       setCountdownSkip: function (on) { cfg.cdSkip = !!on; store('cdskip', cfg.cdSkip); emitState(); },
       /** v8.39 — 콜아웃 뒤 Three·Two·One 옵션 켬/끔 */
       setCountdown: function (on) { set('countdown', !!on); },
+      /** V848 — 2박으로 쪼개기 (1 또는 2) · 숫자로 세기(딸깍 대신, 계속) */
+      setSub: function (n) { cfg.sub = +n === 2 ? 2 : 1; store('sub', cfg.sub); emitState(); },
+      setCountAll: function (on) { cfg.countAll = !!on; store('countall', cfg.countAll); emitState(); },
       /** V836 — 고를 수 있는 녹음 목소리 [{ id, label, g }] (불러오기 전에는 빈 목록) */
       clipVoices: function () { return Object.keys(clipVoices).map(function (v) { return { id: v, label: clipVoices[v].label || v, g: clipVoices[v].g || 'm' }; }); },
       clipDefault: function () { return clipDefault; },

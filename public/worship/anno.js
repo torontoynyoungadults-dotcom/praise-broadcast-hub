@@ -144,9 +144,19 @@
     if (it.t === 'text') { var px = Math.max(8, (it.sz || 0.025) * W), w = textWidth(it, W); return { x: it.x * W - 3, y: it.y * H - px - 1, w: w + 6, h: px * 1.3 + 4 }; }
     if (it.t === 'sym') { var b = symBox(it.k, it, W, H); return { x: b.x1, y: b.y1, w: b.x2 - b.x1, h: b.y2 - b.y1 }; }
     if (it.t === 'fbox') { var lb = fboxLabel(it, W, H); return { x: lb.x, y: lb.y, w: lb.w, h: lb.h }; }
+    if (it.t === 'pen' || it.t === 'hl') { var bb = strokeBB(it.p); if (!bb) return null; var hw = Math.max(2, (it.w || 0.003) * W / 2); return { x: bb.x1 * W - hw, y: bb.y1 * H - hw, w: (bb.x2 - bb.x1) * W + hw * 2, h: (bb.y2 - bb.y1) * H + hw * 2 }; }
     return null;
   }
-  function movable(it) { return !!it && (it.t === 'text' || it.t === 'sym' || it.t === 'fbox'); }
+  /** V848 — 펜 · 형광펜 획의 테두리 (0~1 좌표) */
+  function strokeBB(p) {
+    p = p || []; if (p.length < 2) return null;
+    var x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9;
+    for (var i = 0; i + 1 < p.length; i += 2) { if (p[i] < x1) x1 = p[i]; if (p[i] > x2) x2 = p[i]; if (p[i + 1] < y1) y1 = p[i + 1]; if (p[i + 1] > y2) y2 = p[i + 1]; }
+    return { x1: x1, y1: y1, x2: x2, y2: y2 };
+  }
+  function isStroke(it) { return !!it && (it.t === 'pen' || it.t === 'hl'); }
+  /* V848 — 선택·이동 도구로 펜 · 형광펜 획도 눌러 고를 수 있습니다 (옮기기 · 지우기 · 색 바꾸기 · 누가 썼는지 보기) */
+  function movable(it, strokes) { return !!it && (it.t === 'text' || it.t === 'sym' || it.t === 'fbox' || (!!strokes && isStroke(it))); }
   var SZ_RANGE = { text: [0.012, 0.08], sym: [0.012, 0.12], fbox: [0.008, 0.06] };
 
   /* ------------------------------------------------------------ 송폼 박스 도우미 */
@@ -350,6 +360,7 @@
         drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.75 });
       }
       if (S.showBy) drawAuthorTags(ctx);
+      drawItemFlash(ctx); drawPeek(ctx);
       var si = selItem();
       if (si && si.pg === S.page && S.vis[S.sel.layer]) drawSel(ctx, si);
     }
@@ -362,7 +373,7 @@
     }
     function byTag(c, x, y, text, strong) {
       c.save(); c.font = (strong ? '700 12px' : '600 10.5px') + ' sans-serif'; c.textBaseline = 'middle';
-      var tw = c.measureText(text).width, h = strong ? 18 : 15, w = tw + 10;
+      var mt = c.measureText ? c.measureText(text) : null, tw = (mt && mt.width) || text.length * 6.5, h = strong ? 18 : 15, w = tw + 10;
       x = clamp(x, 2, Math.max(2, S.W - w - 2)); y = clamp(y, 2, Math.max(2, S.H - h - 2));
       c.fillStyle = strong ? 'rgba(255,138,42,.95)' : 'rgba(20,20,26,.78)'; c.beginPath();
       if (c.roundRect) c.roundRect(x, y, w, h, h / 2); else c.rect(x, y, w, h); c.fill();
@@ -407,10 +418,11 @@
       c.lineWidth = 1.8; c.strokeStyle = can ? '#ff8a2a' : '#8b8b96'; c.strokeRect(g.x, g.y, g.w, g.h); c.setLineDash([]);
       byTag(c, g.x + (can ? 0 : 0), g.y - 22, '✎ ' + (hon(it.by) || '알 수 없음') + (it.ts ? ' · ' + ago(it.ts) : '') + (S.sel.layer === 'mine' ? ' · 나만 보기' : ''), true);   // V842 — 누가 · 언제 쓴 필기인지
       if (can) {
-        drawHandle(c, g.tr, '#e5484d', 'del'); drawHandle(c, g.br, '#ff8a2a', 'size');
+        drawHandle(c, g.tr, '#e5484d', 'del'); if (!isStroke(it)) drawHandle(c, g.br, '#ff8a2a', 'size');
         if (it.t === 'text') drawHandle(c, g.tl, '#ff8a2a', 'edit');
+        else if (isStroke(it)) { /* 획은 지우기 손잡이만 (끌어서 옮기기) */ }
         else { c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.rect(g.tl.x - 4, g.tl.y - 4, 8, 8); c.fill(); c.stroke(); }
-        c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.rect(g.bl.x - 4, g.bl.y - 4, 8, 8); c.fill(); c.stroke();
+        if (!isStroke(it)) { c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.rect(g.bl.x - 4, g.bl.y - 4, 8, 8); c.fill(); c.stroke(); }
       }
       c.restore();
     }
@@ -419,7 +431,7 @@
       var it = selItem(); if (!it || it.pg !== S.page || !S.vis[S.sel.layer] || !canModify(S.sel.layer, it)) return null;
       var g = handleGeom(it); if (!g) return null;
       var tol = touch ? 24 : 15, best = null, bd = 1e9;
-      [['del', g.tr], ['size', g.br]].concat(it.t === 'text' ? [['edit', g.tl]] : []).forEach(function (h) { var d = Math.hypot(px - h[1].x, py - h[1].y); if (d <= tol && d < bd) { bd = d; best = h[0]; } });
+      [['del', g.tr]].concat(isStroke(it) ? [] : [['size', g.br]]).concat(it.t === 'text' ? [['edit', g.tl]] : []).forEach(function (h) { var d = Math.hypot(px - h[1].x, py - h[1].y); if (d <= tol && d < bd) { bd = d; best = h[0]; } });
       return best;
     }
     /** 누른 자리가 선택 항목의 몸통 안인지 (손가락은 넉넉하게) */
@@ -487,18 +499,66 @@
     }
 
     /** 누른 자리의 옮길 수 있는 항목 (글자 · 코드 · 기호 · 송폼 라벨) — 위에 그려진 것부터 */
-    function pickMovable(px, py, touch) {
-      var tol = touch ? 14 : 7, found = null;
+    function pickMovable(px, py, touch, strokes) {
+      var tol = touch ? 14 : 7, found = null, foundS = null;
       ['team', 'mine'].forEach(function (ly) {
         if (!S.vis[ly]) return;
         pageItems(ly, S.page).forEach(function (it) {
-          if (!movable(it)) return;
+          if (!movable(it, strokes)) return;
+          if (S.byFilter && (it.by || '') !== S.byFilter) return;                     // 숨긴 사람의 필기는 집지 않음
+          if (isStroke(it)) { if (hit(it, px, py, S.W, S.H, tol)) foundS = { layer: ly, item: it }; return; }
           var b = itemBox(it, S.W, S.H);
           var inBox = it.t !== 'fbox' && b && px >= b.x - tol && px <= b.x + b.w + tol && py >= b.y - tol && py <= b.y + b.h + tol;
           if (inBox || hit(it, px, py, S.W, S.H, tol)) found = { layer: ly, item: it };
         });
       });
+      return found || foundS;                                                          // 글자 · 기호 · 라벨이 획보다 먼저
+    }
+    /** V848 — 누른 자리의 필기(무엇이든) — 누가 썼는지 잠깐 보여 줄 때 */
+    function pickAny(px, py, touch, skipId) {
+      var tol = touch ? 12 : 7, found = null;
+      ['team', 'mine'].forEach(function (ly) {
+        if (!S.vis[ly]) return;
+        pageItems(ly, S.page).forEach(function (it) {
+          if (it.id === skipId || (S.byFilter && (it.by || '') !== S.byFilter)) return;
+          if (hit(it, px, py, S.W, S.H, tol)) found = { layer: ly, item: it };
+        });
+      });
       return found;
+    }
+    /** 이름표를 잠깐 (약 2.4초) 띄움 */
+    function peek(g) {
+      if (!g) return false;
+      S.peek = { id: g.item.id, layer: g.layer, until: Date.now() + 2400 };
+      clearTimeout(S.peekT); S.peekT = setTimeout(function () { S.peek = null; if (!S.dead) invalidate(true); }, 2450);
+      invalidate(true); return true;
+    }
+    function drawPeek(c) {
+      var pk = S.peek; if (!pk || Date.now() > pk.until || !S.layers[pk.layer]) return;
+      var it = S.layers[pk.layer].get(pk.id); if (!it || it.pg !== S.page) return;
+      var b = itemBox(it, S.W, S.H); if (!b) return;
+      c.save(); c.setLineDash([4, 3]); c.lineWidth = 1.4; c.strokeStyle = 'rgba(255,138,42,.85)'; c.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6); c.restore();
+      byTag(c, b.x + b.w + 6, b.y - 4, '✎ ' + (it.by || '알 수 없음') + (it.ts ? ' · ' + ago(it.ts) : '') + (pk.layer === 'mine' ? ' · 나만 보기' : ''), true);
+    }
+    /** V848 — "기록" 에서 누른 필기를 반짝 (약 2초) */
+    function flashItem(id) {
+      var ly = S.layers.team.get(id) ? 'team' : S.layers.mine.get(id) ? 'mine' : ''; if (!ly) return null;
+      S.iflash = { id: id, layer: ly, t0: Date.now(), ms: 2200 }; clearInterval(S.iflashT);
+      S.iflashT = setInterval(function () { if (S.dead || !S.iflash || Date.now() - S.iflash.t0 > S.iflash.ms) { clearInterval(S.iflashT); S.iflash = null; if (!S.dead) invalidate(true); return; } invalidate(true); }, 120);
+      invalidate(true); return { layer: ly, pg: S.layers[ly].get(id).pg };
+    }
+    function drawItemFlash(c) {
+      var f = S.iflash; if (!f) return; var t = Date.now() - f.t0; if (t > f.ms) return;
+      var it = S.layers[f.layer] && S.layers[f.layer].get(f.id); if (!it || it.pg !== S.page) return;
+      var b = itemBox(it, S.W, S.H); if (!b) return;
+      var on = Math.floor(t / 280) % 2 === 0, pad = 8;
+      c.save();
+      c.shadowColor = 'rgba(255,122,28,.95)'; c.shadowBlur = on ? 22 : 8;
+      c.fillStyle = on ? 'rgba(255,138,42,.28)' : 'rgba(255,138,42,.10)';
+      c.strokeStyle = on ? '#FF7A1C' : 'rgba(255,122,28,.55)'; c.lineWidth = on ? 3 : 2;
+      c.beginPath(); if (c.roundRect) c.roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 8); else c.rect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2);
+      c.fill(); c.stroke(); c.restore();
+      if (on) drawItem(c, it, S.W, S.H);
     }
     function startMove(e, g, p, editOnTap) {
       var was = !!(S.sel && S.sel.id === g.item.id && S.sel.layer === g.layer), fresh = S.fresh === g.item.id;
@@ -527,7 +587,7 @@
       invalidate();
     }
     /** 그리던 것 · 옮기던 것을 버리고 원래 모양으로 (도구 · 쪽을 바꾸거나 두 번째 손가락이 닿았을 때) */
-    function dropCur() { var c = S.cur; S.cur = null; if (c && (c.kind === 'move' || c.kind === 'resize') && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); rectC = null; }
+    function dropCur() { clearTimeout(S.holdT); S.holdT = 0; var c = S.cur; S.cur = null; if (c && (c.kind === 'move' || c.kind === 'resize') && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); rectC = null; }
     /** 방금 만든 글자 · 기호 · 송폼 라벨을 바로 선택 상태(테두리 + 손잡이)로 — 곧바로 끌어서 옮기거나 크기를 바꿀 수 있음 */
     /* v6 — 자동 선택·이동: 글자 · 코드 · 기호 · 라벨 · 펜을 한 번 쓴 뒤 악보의 빈 곳을 톡 치면 선택·이동 도구로 바뀝니다 */
     function autoSelect() {
@@ -546,7 +606,6 @@
          ① 펜 끝으로 같은 자리를 빠르게 두 번 톡톡 (펜 · 형광펜 ↔ 지우개)  ② 펜 옆 버튼(서피스 펜 · S펜 · 와콤 등) 누르기  ③ 펜의 지우개 쪽 끝(잡고 있는 동안만 지우개)
          ④ 도구 막대의 단추 · E 키(지우개) 는 기존 그대로.
        첫 번째 톡으로 찍힌 점(또는 지워진 것)은 두 번째 톡이 확인되는 순간 자동으로 되돌립니다. */
-    var TAP_MS = 380, TAP_PX = 34;
     function swapPenEraser(via) {
       var from = S.tool, to = from === 'eraser' ? (S.prevDraw || 'pen') : (from === 'pen' || from === 'hl') ? 'eraser' : '';
       if (!to) return false;
@@ -554,19 +613,44 @@
       if (o.onToolSwap) { try { o.onToolSwap(to, from, via || 'tap'); } catch (x) {} } else api.setTool(to);
       return true;
     }
-    /** 펜 입력의 빠른 전환 처리 — 처리했으면 true (그 입력으로는 그리기를 시작하지 않음) */
+    /** 펜 옆 버튼 = 펜 ↔ 지우개 (V848 — 두 번 톡 전환은 없앴습니다: 1초 누르고 있기로 바꿈) */
     function penGesture(e) {
       if (!S.penTap) return false;
       var t = S.tool; if (t !== 'pen' && t !== 'hl' && t !== 'eraser') return false;
-      if ((e.buttons & 2) || e.button === 2) { S.tapLast = null; return swapPenEraser('barrel'); }        // 펜 옆 버튼
-      var L = S.tapLast, now = Date.now(); S.tapLast = null;
-      if (L && now - L.t < TAP_MS && Math.hypot(e.clientX - L.x, e.clientY - L.y) < TAP_PX && S.seq === L.after && t === L.tool) {
-        var n = L.after - L.before;                                                                       // 첫 번째 톡이 남긴 흔적만큼 되돌림
-        while (n-- > 0 && S.hist.length) { if (!undo()) break; }
-        return swapPenEraser('tap');
-      }
+      if ((e.buttons & 2) || e.button === 2) return swapPenEraser('barrel');
       return false;
     }
+    /* V848 — 길게 누르기 (1초)
+       · 펜 · 형광펜을 화면에 대고 움직이지 않은 채 1초 → 지우개 (누르고 있는 그대로 문질러 지우기 · 떼면 원래 펜으로)
+       · 형광펜으로 줄을 긋고 끝에서 1초 멈춤 → 반듯한 직선(평평한 끝)으로 바뀜 · 그대로 움직이면 끝점만 따라감 */
+    var HOLD_MS = 1000, HOLD_PX = 9;
+    function holdArm(c, x, y) {
+      clearTimeout(S.holdT); S.holdT = 0;
+      if (!S.penTap || !c) return;
+      c.hx = x; c.hy = y;
+      if (c.far && (c.kind !== 'hl' || c.snapped || c.straight)) return;                  // 펜은 처음 자리에서만 · 형광펜은 곧게 펴기 전까지
+      S.holdT = setTimeout(function () { S.holdT = 0; holdFire(c); }, HOLD_MS);
+    }
+    function holdFire(c) {
+      if (S.cur !== c || S.dead) return;
+      if (!c.far) {                                                                          // 움직이지 않고 1초 → 지우개
+        var from = S.tool, q = { x: c.p[0], y: c.p[1] };
+        try { S.live.delete(c.id); } catch (x) { /* 없음 */ }
+        S.prevDraw = from;
+        if (o.onToolSwap) { try { o.onToolSwap('eraser', from, 'hold'); } catch (x) { /* 무시 */ } } else api.setTool('eraser');
+        S.tool = 'eraser'; refreshTouch();
+        S.cur = { kind: 'erase', ptr: c.ptr, touch: c.touch, t0: Date.now(), seq0: S.seq, x0: q.x, y0: q.y, pen: c.pen, hold: from };
+        try { cv.setPointerCapture(c.ptr); } catch (x) { /* 무시 */ }
+        eraseAt(q.x * S.W, q.y * S.H); buzz(); invalidate(); return;
+      }
+      if (c.kind === 'hl' && !c.straight && c.p.length >= 4) {                               // 형광펜 줄 → 곧게
+        var n = c.p.length, d = Math.hypot((c.p[n - 2] - c.p[0]) * S.W, (c.p[n - 1] - c.p[1]) * S.H);
+        if (d < 24) return;
+        c.p = [c.p[0], c.p[1], c.p[n - 2], c.p[n - 1]]; c.straight = true; c.snapped = true; c.pred = [];
+        buzz(); sendLive(c, true); invalidate(true);
+      }
+    }
+    function buzz() { try { if (navigator.vibrate) navigator.vibrate(12); } catch (x) { /* 지원 안 함 */ } }
     function onDown(e) {
       if (!drawing() || S.dead) return;
       if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); try { o.onPenSeen && o.onPenSeen(); } catch (x) {} } }
@@ -585,9 +669,8 @@
       if (S.layer === 'team' && o.teamBlocked && o.teamBlocked()) { say(o.teamBlocked(), true); return; }
       e.preventDefault();
       try { cv.setPointerCapture(e.pointerId); } catch (x) {}
-      if (e.pointerType === 'pen' && S.penTap && (S.tool === 'pen' || S.tool === 'hl' || S.tool === 'eraser')) S.tapDown = { t: Date.now(), x: e.clientX, y: e.clientY, seq: S.seq };
       if (e.pointerType === 'pen' && S.penTap && (e.button === 5 || (e.buttons & 32)) && (S.tool === 'pen' || S.tool === 'hl')) {     // 지우개 쪽 끝: 잡고 있는 동안만 지우개
-        var pe = norm(e); S.tapDown = null; S.cur = { kind: 'erase', ptr: e.pointerId, touch: false }; eraseAt(pe.x * S.W, pe.y * S.H); return;
+        var pe = norm(e); S.cur = { kind: 'erase', ptr: e.pointerId, touch: false }; eraseAt(pe.x * S.W, pe.y * S.H); return;
       }
       var p = norm(e), touch = e.pointerType === 'touch', ppx = p.x * S.W, ppy = p.y * S.H;
       rectC = cv.getBoundingClientRect();                                                                              // 이 손가락이 떨어질 때까지 캔버스 자리를 다시 재지 않음
@@ -604,12 +687,13 @@
       if (keepSel && S.sel) { var hh = handleAt(ppx, ppy, touch); if (hh) { beginHandle(e, hh, p); return; } }              // 손잡이: 크기 · 지우기 · 고치기
       var relOk = !!(S.sel && (S.tool === 'select' || S.tool === 'text' || S.tool === 'chord') && selItem() && canModify(S.sel.layer, selItem()));
       if (S.tool === 'select') {
-        var g = pickMovable(ppx, ppy, touch);
+        var g = pickMovable(ppx, ppy, touch, true);
         if (g) startMove(e, g, p, false);
         else if (relOk) startRelMove(e, p, { kind: 'deselect' });                                                       // 빈 곳을 끌면 선택한 항목이 따라옴 · 톡 치면 선택 해제
         else if (S.sel) { S.sel = null; S.fresh = null; invalidate(); changed(); }
       } else if (S.tool === 'pen' || S.tool === 'hl') {
-        S.cur = { kind: S.tool, id: newId(), ptr: e.pointerId, p: [p.x, p.y], color: activeColor(), w: S.tool === 'hl' ? S.hw : S.pw, sent: 0, fresh: true, straight: S.tool === 'hl' && S.straight, touch: touch, t0: Date.now(), pen: e.pointerType === 'pen' };
+        S.cur = { kind: S.tool, id: newId(), ptr: e.pointerId, p: [p.x, p.y], color: activeColor(), w: S.tool === 'hl' ? S.hw : S.pw, sent: 0, fresh: true, straight: S.tool === 'hl' && S.straight, touch: touch, t0: Date.now(), pen: e.pointerType === 'pen', x0: e.clientX, y0: e.clientY, far: false };
+        holdArm(S.cur, e.clientX, e.clientY);
         invalidate();
       } else if (S.tool === 'eraser') { S.cur = { kind: 'erase', ptr: e.pointerId, touch: touch, t0: Date.now(), seq0: S.seq, x0: p.x, y0: p.y, pen: e.pointerType === 'pen' }; eraseAt(p.x * S.W, p.y * S.H); }
       else if (S.tool === 'sym' && S.sel && selItem() && canModify(S.sel.layer, selItem()) && inSelBox(ppx, ppy, touch)) startMove(e, { layer: S.sel.layer, item: selItem() }, p, false);   // 방금 놓은 기호를 다시 눌러 끌기
@@ -637,6 +721,11 @@
         c.moved = true;
         var qm = norm(e), o0 = c.orig, it0 = c.item, dx = qm.x - c.x0, dy = qm.y - c.y0;
         if (o0.t === 'fbox') { it0.x = r4(clamp(o0.x + dx, 0, 1 - (o0.w || 0))); it0.y = r4(clamp(o0.y + dy, 0, 1 - (o0.h || 0))); }
+        else if (isStroke(o0)) {                                                                                  // V848 — 획 옮기기: 모든 점을 같이 (쪽 밖으로 나가지 않게)
+          var bb0 = c.bb || (c.bb = strokeBB(o0.p)) || { x1: 0, y1: 0, x2: 1, y2: 1 };
+          var mx = clamp(dx, -bb0.x1, 1 - bb0.x2), my = clamp(dy, -bb0.y1, 1 - bb0.y2);
+          it0.p = (o0.p || []).map(function (v, k) { return r4(v + (k % 2 ? my : mx)); });
+        }
         else { it0.x = r4(clamp(o0.x + dx, 0, 1)); it0.y = r4(clamp(o0.y + dy, 0, 1)); }
         S.layers[c.layer].set(it0.id, it0); invalidate(true);                                                   // 미리보기: 옮기는 동안은 새 자리에 그려짐 (나머지 필기는 저장해 둔 그림)
       } else if (c.kind === 'resize') {
@@ -649,6 +738,11 @@
       } else if (c.kind === 'handle') {
         if (Math.hypot(e.clientX - c.px0, e.clientY - c.py0) > 12) c.moved = true;
       } else if (c.kind === 'pen' || c.kind === 'hl') {
+        if (Math.hypot(e.clientX - (c.hx == null ? c.x0 : c.hx), e.clientY - (c.hy == null ? c.y0 : c.hy)) > HOLD_PX) {   // V848 — 움직였으면 1초 누르기를 다시 셈
+          if (!c.far && Math.hypot(e.clientX - c.x0, e.clientY - c.y0) > HOLD_PX) c.far = true;
+          holdArm(c, e.clientX, e.clientY);
+        }
+        if (c.snapped) { var qs = norm(e); c.p = [c.p[0], c.p[1], qs.x, qs.y]; sendLive(c); invalidate(true); return; }   // 곧게 편 뒤에는 끝점만 따라감
         for (var i = 0; i < list.length; i++) {
           var q = norm(list[i]), n = c.p.length;
           if (n >= 6000) break;
@@ -681,6 +775,7 @@
     }
     function onUp(e) {
       var c = S.cur; if (!c || e.pointerId !== c.ptr) return;
+      clearTimeout(S.holdT); S.holdT = 0;
       S.cur = null; rectC = null; if (cv.style.cursor === 'grabbing' || cv.style.cursor === 'nwse-resize') cv.style.cursor = toolCursor();
       try { cv.releasePointerCapture(e.pointerId); } catch (x) {}
       if (e.type === 'pointercancel') { if (c.kind === 'move' || c.kind === 'resize') S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return; }
@@ -707,8 +802,10 @@
         }
         changed();
       /* v6.9 — 펜 · 형광펜은 빈 곳을 톡 쳐도 선택·이동으로 바뀌지 않고 계속 그 도구로 남습니다 (예전엔 톡 → 선택·이동). 글자 · 코드 · 기호 · 송폼만 빈 곳을 톡 치면 선택·이동. */
-      } else if (c.kind === 'erase' && S.autoSel && !c.pen && e.type === 'pointerup' && S.seq === c.seq0 && Date.now() - c.t0 < 320 && tinyPath([c.x0, c.y0].concat(norm(e) ? [norm(e).x, norm(e).y] : []))) {
+      } else if (c.kind === 'erase' && !c.hold && S.autoSel && !c.pen && e.type === 'pointerup' && S.seq === c.seq0 && Date.now() - c.t0 < 320 && tinyPath([c.x0, c.y0].concat(norm(e) ? [norm(e).x, norm(e).y] : []))) {
         autoSelect();                                                                                                   // 아무것도 지우지 않은 톡 → 선택·이동
+      } else if ((c.kind === 'pen' || c.kind === 'hl') && e.type === 'pointerup' && !c.far && Date.now() - c.t0 < 300 && peek(pickAny(c.p[0] * S.W, c.p[1] * S.H, c.touch, c.id))) {
+        try { S.live.delete(c.id); } catch (x) { /* 없음 */ }                                                         // V848 — 펜으로 다른 필기를 톡 → 점을 찍지 않고 누가 썼는지 잠깐 보여 줌
       } else if (c.kind === 'pen' || c.kind === 'hl') {
         var p = c.p; if (p.length < 4) p = [p[0], p[1], p[0] + 0.0005, p[1]];
         if (c.straight && p.length > 4) p = p.slice(0, 2).concat(p.slice(-2));
@@ -722,11 +819,11 @@
       } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; adopt(S.layer, addLocal(S.layer, s)); S.placed = true; }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
       /* V844 — 애플 펜슬로 지우개를 쓰다가 펜슬을 떼면 (실제로 무언가를 지웠을 때만) 원래 쓰던 펜 · 형광펜으로 — 두 번 톡 전환과 겹치지 않게 지운 것이 없으면 그대로 */
-      if (c.kind === 'erase' && c.pen && e.type === 'pointerup' && S.seq !== c.seq0 && o.onEraseDone) { try { o.onEraseDone(); } catch (x) { /* 무시 */ } }
-      if (S.tapDown && e.pointerType === 'pen') {                                                                        // 펜으로 짧게 톡 친 것을 기억 (두 번째 톡이 오면 전환)
-        var d0 = S.tapDown; S.tapDown = null;
-        if (e.type === 'pointerup' && Date.now() - d0.t < 260 && Math.hypot(e.clientX - d0.x, e.clientY - d0.y) < 10 && (c.kind === 'pen' || c.kind === 'hl' || c.kind === 'erase')) S.tapLast = { t: Date.now(), x: d0.x, y: d0.y, before: d0.seq, after: S.seq, tool: S.tool };
-        else S.tapLast = null;
+      if (c.kind === 'erase' && !c.hold && c.pen && e.type === 'pointerup' && S.seq !== c.seq0 && o.onEraseDone) { try { o.onEraseDone(); } catch (x) { /* 무시 */ } }
+      if (c.kind === 'erase' && c.hold) {                                                                               // V848 — 1초 눌러 쓴 지우개: 떼면 원래 펜 · 형광펜으로
+        var back = c.hold;
+        if (o.onHoldEraseEnd) { try { o.onHoldEraseEnd(back); } catch (x) { /* 무시 */ } } else api.setTool(back);
+        S.tool = back; refreshTouch();
       }
       invalidate();
     }
@@ -842,6 +939,12 @@
       setWidth: function (w) { w = +w; if (w > 0) { if (S.tool === 'hl') S.hw = clamp(w, 0.005, 0.06); else S.pw = clamp(w, 0.0008, 0.02); } },
       setSymbol: function (k) { if (SYMBOLS.some(function (s) { return s.k === k; })) { S.sym = k; S.placed = false; } },   // 새 기호를 고르면 또 놓으려는 것 — 자동 선택·이동은 다시 한 번 쓴 뒤부터
       flashTags: function (keys, ms) { return flashTags(keys, ms); },
+      /** V848 — 필기 하나를 반짝 ("기록" 에서 누름). 돌려줌: { layer, pg } 또는 null */
+      flashItem: function (id) { return flashItem(id); },
+      /** V848 — 화면의 (clientX, clientY) 자리의 필기를 쓴 사람을 잠깐 보여 줌 (이동 도구에서 톡). 찾았으면 true */
+      peekAt: function (cx, cy, touch) { var r = cv.getBoundingClientRect(); if (!r.width) return false; var x = (cx - r.left) / r.width * S.W, y = (cy - r.top) / r.height * S.H; if (x < 0 || y < 0 || x > S.W || y > S.H) return false; return peek(pickAny(x, y, !!touch)); },
+      flashing: function () { var f = S.iflash; return f && Date.now() - f.t0 < f.ms ? f.id : null; },
+      peeking: function () { return S.peek && Date.now() < S.peek.until ? S.peek.id : null; },
       setFboxTag: function (k) { k = String(k || '').slice(0, 8); if (/^[A-Za-z0-9\u3131-\uD7A3]{1,8}$/.test(k)) { S.fboxTag = k; S.placed = false; } }, setFboxSize: function (v) { S.fboxSize = clamp(+v || 0.028, 0.012, 0.06); },
       setSymSize: function (s) { S.symSize = clamp(+s || 0.032, 0.012, 0.12); }, setTextSize: function (s) { S.textSize = clamp(+s || 0.024, 0.012, 0.08); if (S.editor) { S.editor.sz = S.textSize; S.editor.szSet = true; paintEditor(); } },
       setLayer: function (ly) { if (ly === 'team' || ly === 'mine') S.layer = ly; },
