@@ -179,6 +179,7 @@
           '<button type="button" class="pv-bs-b" data-bs="sub" aria-pressed="false" title="2박으로 쪼개기 — 4/4 면 한 마디에 8번 (화면 깜빡임은 4번)">×2</button>' +
           '<label class="pv-bs-c" title="딸깍 대신 One · Two · Three · Four 로 계속 세기"><input type="checkbox" data-bs="cnum"><span>숫자로</span></label>' +
           '<label class="pv-bs-c" title="콜아웃 뒤 Three · Two · One (예: Verse, 3, 2, 1)"><input type="checkbox" data-bs="cd"><span>3·2·1</span></label>' +
+          '<label class="pv-bs-c pv-bs-cdr" title="3·2·1 때 누르면 바로 다음 박을 1박으로 (끄면 박은 그대로 — 다음 마디 첫 박에 콜아웃 → 3 · 2 · 1)"><input type="checkbox" data-bs="cdr"><span>바로 1박</span></label>' +
         '</div>';
       var dots = el.querySelector('.pv-bs-dots'), saveB = el.querySelector('.pv-bs-save'), key = '', subT = 0;
       function sync() {
@@ -187,6 +188,7 @@
         var sb = el.querySelector('[data-bs="sub"]'); sb.classList.toggle('on', sub); sb.setAttribute('aria-pressed', sub ? 'true' : 'false');
         var cn = el.querySelector('[data-bs="cnum"]'), cd = el.querySelector('[data-bs="cd"]');
         if (cn.checked !== !!c.countAll) cn.checked = !!c.countAll; if (cd.checked !== !!c.countdown) cd.checked = !!c.countdown;
+        var cr = el.querySelector('[data-bs="cdr"]'); if (cr) { if (cr.checked !== (c.cdReset !== false)) cr.checked = c.cdReset !== false; cr.disabled = !c.countdown; cr.parentNode.classList.toggle('off', !c.countdown); }
         el.querySelector('[data-bs="re"]').disabled = !(st && st.running);
         if (!(st && st.running)) Array.prototype.forEach.call(dots.children, function (d) { d.classList.remove('on'); });
         if (saveB) {
@@ -220,6 +222,7 @@
         var m = metro(); if (!m) return;
         if (a === 'cnum') { m.setCountAll(t.checked); P.toast(t.checked ? '딸깍 대신 숫자로 셉니다 (One · Two · Three · Four)' : '숫자로 세기 끔 — 딸깍', false, 1300); }
         else if (a === 'cd') { m.setCountdown(t.checked); P.toast(t.checked ? '콜아웃 뒤 Three · Two · One 켜짐' : '콜아웃 뒤 3·2·1 끔', false, 1200); }
+        else if (a === 'cdr') { if (m.setCountdownReset) m.setCountdownReset(t.checked); P.toast(t.checked ? '3·2·1 — 누르면 바로 다음 박이 1박' : '3·2·1 — 박은 그대로, 다음 마디 첫 박에 콜아웃', false, 1500); }
         syncAllStrips(); if (mUi) mUi.sync();
       });
       var api = { el: el, sync: sync, beat: beat, destroy: function () { clearTimeout(subT); var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); if (el.parentNode) el.parentNode.removeChild(el); } };
@@ -822,6 +825,7 @@
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="countdown"> 콜아웃 뒤 "Three, Two, One" 세어주기 <small>(예: Verse, Three, Two, One — 누른 뒤 바로 다음 박이 새 1박 — 콜아웃이 그 박에 나오고, 그 마디 끝 3박에서 숫자를 셉니다. 끄면 콜아웃은 박과 상관없이 누르는 즉시 나옵니다. 박자가 빠르면 빨리 말합니다)</small></label>' +
+          '<label class="pv-chk pv-sub"><input type="checkbox" data-o="cdreset" checked> 누르면 바로 다음 박을 1박으로 <small>(켬: 누른 바로 다음 박이 새 1박 — 박이 그 자리에서 다시 맞춰집니다. 끔: 박은 그대로 흐르고, 다음 마디 첫 박에 콜아웃이 나온 뒤 그 마디 끝 3박에서 Three, Two, One)</small></label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="cdskip"> 반복 · 다이내믹 콜아웃에는 Three, Two, One 하지 않기 <small>(Repeat · Voice only · Break … 는 바로 이어지므로)</small></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
           '<label class="pv-chk">음성 <select data-o="gender"></select></label>' +
@@ -885,7 +889,7 @@
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.voiceSel === 'male' ? 'mix' : (c.voiceSel || 'mix'); q('[data-role="voiceout"]').textContent = '×' + (Math.round(c.voice * 10) / 10);
-        q('[data-o="countdown"]').checked = c.countdown === true; q('[data-o="cdskip"]').checked = c.cdSkip !== false;
+        q('[data-o="countdown"]').checked = c.countdown === true; q('[data-o="cdskip"]').checked = c.cdSkip !== false; q('[data-o="cdreset"]').checked = c.cdReset !== false; q('[data-o="cdreset"]').disabled = !c.countdown;
         var sbB = q('[data-a="sub"]'); if (sbB) { sbB.classList.toggle('on', c.sub === 2); sbB.setAttribute('aria-pressed', c.sub === 2 ? 'true' : 'false'); }
         var caB = q('[data-o="countall"]'); if (caB) caB.checked = !!c.countAll;
         var rAn = q('[data-a="reanchor"]'), rCnt = q('[data-a="count4"]'); if (rAn) rAn.disabled = !st.running; if (rCnt) rCnt.disabled = false;
@@ -1014,6 +1018,7 @@
         else if (o === 'countdown') { m.setCountdown(t.checked); syncAllStrips(); }
         else if (o === 'countall') { m.setCountAll(t.checked); syncAllStrips(); }
         else if (o === 'cdskip') m.setCountdownSkip(t.checked);
+        else if (o === 'cdreset') { if (m.setCountdownReset) m.setCountdownReset(t.checked); syncAllStrips(); }
         sync();
       });
       host.addEventListener('click', function (e) {

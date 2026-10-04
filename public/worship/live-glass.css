@@ -1,0 +1,203 @@
+/* ============================================================
+   V856 — 라이브 악보 "글래스" 디자인 (어두운 · 밝은 화면 모두)
+   · hub.css 다음에 불러와 색 · 면 · 그림자만 덮어씁니다 (배치 · 크기 · 동작은 그대로)
+   · 반투명 유리 면 + 위쪽 광택 + 얇은 빛 테두리 + 부드러운 그림자, 주황은 "켜짐 · 시작"에만
+   · 흐림(backdrop-filter)은 쓰지 않습니다 — 아이패드에서 필기 · 스크롤이 끊기는 원인이라 hub.css 가 일부러 꺼 둠(성능 v5).
+     대신 거의 불투명한 유리색 + 광택 그라데이션으로 유리 느낌을 냅니다
+   · 이 파일을 빼면 예전 모양으로 돌아갑니다
+   ============================================================ */
+
+/* ---------- 색 토큰 · 어두운 화면 ---------- */
+html .pv {
+  --lg-bg: #07080B;
+  --lg-glass: rgba(26, 28, 36, .92);          /* 떠 있는 창 · 위 막대 (악보 위에 떠도 글자가 또렷하게) */
+  --lg-glass-hi: rgba(22, 24, 31, .94);
+  --lg-sheet: rgba(20, 22, 28, .985);          /* 아래에서 올라오는 패널(태블릿 · 폰) — 뒤 창이 비치지 않게 */
+  --lg-edge: rgba(255, 255, 255, .10);        /* 유리 테두리 */
+  --lg-edge-hi: rgba(255, 255, 255, .16);
+  --lg-shine: inset 0 1px 0 rgba(255, 255, 255, .09), inset 0 0 0 1px rgba(255, 255, 255, .02);
+  --lg-shadow: 0 22px 60px -12px rgba(0, 0, 0, .62), 0 6px 18px -6px rgba(0, 0, 0, .45);
+  --lg-ctl: rgba(255, 255, 255, .055);         /* 단추 바탕 */
+  --lg-ctl-hov: rgba(255, 255, 255, .10);
+  --lg-ctl-edge: rgba(255, 255, 255, .07);
+  --lg-ink: #F5F5F7; --lg-sub: #A9ABB6; --lg-dim: #6F7280;
+  --lg-a: #FF8A3D; --lg-a2: #FFB477; --lg-a-ink: #1A0E05;
+  --lg-a-soft: rgba(255, 138, 61, .15); --lg-a-edge: rgba(255, 150, 80, .45); --lg-a-text: #FFC18F;
+  --lg-a-grad: linear-gradient(135deg, #FFB067 0%, #FF8A3D 55%, #F26B1F 100%);
+  --lg-a-glow: 0 8px 24px -6px rgba(255, 122, 40, .55);
+
+  /* hub.css 의 토큰도 같은 값으로 (토큰을 쓰는 곳은 저절로 바뀜) */
+  --v6-bg: var(--lg-bg); --v6-sf: var(--lg-glass); --v6-sf2: var(--lg-ctl); --v6-sf3: var(--lg-ctl-hov);
+  --v6-line: rgba(255, 255, 255, .07); --v6-line2: var(--lg-edge); --v6-ink: var(--lg-ink); --v6-sub: var(--lg-sub); --v6-dim: var(--lg-dim);
+  --v6-a: var(--lg-a); --v6-a-soft: var(--lg-a-soft); --v6-sh: var(--lg-shine), var(--lg-shadow);
+  --g-a: var(--lg-a); --g-a2: var(--lg-a2); --g-a-rgb: 255, 138, 61; --g-ink: var(--lg-ink); --g-sub: var(--lg-sub); --g-dim: var(--lg-dim);
+  --g-line: rgba(255, 255, 255, .07); --g-line2: var(--lg-edge);
+  --g-bg: var(--lg-glass-hi); --g-bg2: rgba(255, 255, 255, .04);
+
+  color: var(--lg-ink);
+  background:
+    radial-gradient(900px 520px at 88% -8%, rgba(255, 138, 61, .13), transparent 62%),
+    radial-gradient(760px 560px at -8% 108%, rgba(120, 140, 255, .09), transparent 60%),
+    radial-gradient(600px 400px at 45% 55%, rgba(255, 255, 255, .025), transparent 70%),
+    var(--lg-bg);
+}
+
+/* ---------- 색 토큰 · 밝은 화면 ---------- */
+html[data-theme="light"] .pv {
+  --lg-bg: #ECEEF3;
+  --lg-glass: rgba(255, 255, 255, .90);
+  --lg-glass-hi: rgba(255, 255, 255, .90);
+  --lg-sheet: rgba(250, 250, 252, .985);
+  --lg-edge: rgba(15, 23, 42, .09);
+  --lg-edge-hi: rgba(15, 23, 42, .14);
+  --lg-shine: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .45);
+  --lg-shadow: 0 22px 50px -14px rgba(30, 41, 59, .22), 0 4px 14px -6px rgba(30, 41, 59, .14);
+  --lg-ctl: rgba(15, 23, 42, .045);
+  --lg-ctl-hov: rgba(15, 23, 42, .08);
+  --lg-ctl-edge: rgba(15, 23, 42, .06);
+  --lg-ink: #111827; --lg-sub: #4B5563; --lg-dim: #8A93A3;
+  --lg-a: #F2711F; --lg-a2: #C2520B; --lg-a-ink: #FFFFFF;
+  --lg-a-soft: rgba(242, 113, 31, .12); --lg-a-edge: rgba(226, 100, 20, .40); --lg-a-text: #B2470A;
+  --lg-a-grad: linear-gradient(135deg, #FF9F57 0%, #F57A26 55%, #E5600F 100%);
+  --lg-a-glow: 0 8px 22px -8px rgba(229, 96, 15, .55);
+
+  --v6-bg: var(--lg-bg); --v6-sf: var(--lg-glass); --v6-sf2: var(--lg-ctl); --v6-sf3: var(--lg-ctl-hov);
+  --v6-line: rgba(15, 23, 42, .07); --v6-line2: var(--lg-edge); --v6-ink: var(--lg-ink); --v6-sub: var(--lg-sub); --v6-dim: var(--lg-dim);
+  --v6-a: var(--lg-a); --v6-a-soft: var(--lg-a-soft); --v6-sh: var(--lg-shine), var(--lg-shadow);
+  --g-a: var(--lg-a); --g-a2: var(--lg-a2); --g-a-rgb: 242, 113, 31; --g-ink: var(--lg-ink); --g-sub: var(--lg-sub); --g-dim: var(--lg-dim);
+  --g-line: rgba(15, 23, 42, .07); --g-line2: var(--lg-edge);
+  --g-bg: var(--lg-glass-hi); --g-bg2: rgba(15, 23, 42, .03);
+
+  color: var(--lg-ink);
+  background:
+    radial-gradient(900px 520px at 88% -8%, rgba(255, 160, 90, .22), transparent 62%),
+    radial-gradient(760px 560px at -8% 108%, rgba(120, 150, 255, .16), transparent 60%),
+    var(--lg-bg);
+}
+
+/* ---------- 유리 면 (위 막대 · 떠 있는 창 · 패널 · 서랍 · 알림) ---------- */
+html .pv header.pv-top, html .pv .pv-top {
+  background: var(--lg-glass) !important;
+  border-bottom: 1px solid var(--lg-edge) !important; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .03), 0 10px 30px -18px rgba(0, 0, 0, .5);
+}
+html[data-theme="light"] .pv header.pv-top, html[data-theme="light"] .pv .pv-top { box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .8), 0 10px 30px -20px rgba(30, 41, 59, .35); }
+
+html .pv:not(.pv-compact) .pv-tools.pv-float,
+html .pv .pv-metro, html .pv .pv-form, html .pv .pv-toast, html .pv .yt-viewer.pv-float, html .pv .pv-sympop, html .pv .pv-mq {
+  background: var(--lg-glass) !important;
+  border: 1px solid var(--lg-edge) !important; box-shadow: var(--lg-shine), var(--lg-shadow) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, 0) 46%) !important;      /* 위쪽에 은은한 유리 광택 */
+}
+html .pv .pv-metro { border-radius: 22px; }
+html .pv:not(.pv-compact) .pv-tools.pv-float { border-radius: 20px; }
+html .pv .pv-form { border-radius: 18px; }
+html .pv .pv-toast { border-radius: 14px; color: var(--lg-ink); }
+html .pv .pv-float.pv-dragging { box-shadow: var(--lg-shine), 0 30px 70px -10px rgba(0, 0, 0, .55) !important; }
+
+html .pv .pv-side, html .pv .pv-drawer {
+  background: var(--lg-glass-hi) !important;
+  border-color: var(--lg-edge) !important;
+}
+html .pv .pv-side { border-left: 1px solid var(--lg-edge); box-shadow: inset 1px 0 0 rgba(255, 255, 255, .03); }
+html .pv.pv-tablet .pv-side, html .pv.pv-compact .pv-side { background: var(--lg-sheet) !important; box-shadow: var(--lg-shine), 0 -20px 60px -20px rgba(0, 0, 0, .55); }
+html .pv .pv-mstick {
+  background: linear-gradient(to bottom, var(--lg-glass-hi) 70%, transparent) !important;
+  border-bottom: 0 !important; box-shadow: none !important;
+}
+
+/* ---------- 위 막대 단추 묶음 ---------- */
+html .pv .pv-top .pv-grp, html .pv .pv-top .pv-b, html .pv .pv-top .pv-sel {
+  background: var(--lg-ctl) !important; border: 1px solid var(--lg-ctl-edge) !important; border-radius: 12px;
+}
+html .pv .pv-top .pv-grp .pv-b { background: transparent !important; border-color: transparent !important; }
+html .pv .pv-b, html .pv .pv-sel { color: var(--lg-ink); transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease; }
+html .pv .pv-b:hover:not(:disabled), html .pv .pv-top .pv-grp .pv-b:hover:not(:disabled) { background: var(--lg-ctl-hov) !important; }
+html .pv .pv-b[aria-pressed="true"], html .pv .pv-b.on, html .pv .pv-top .pv-grp .pv-b.on, html .pv .pv-top .pv-grp .pv-b[aria-pressed="true"] {
+  background: var(--lg-a-soft) !important; color: var(--lg-a-text) !important; border-color: var(--lg-a-edge) !important;
+}
+html .pv .pv-seg button.on { background: var(--lg-ctl-hov) !important; color: var(--lg-ink) !important; box-shadow: var(--lg-shine), 0 1px 3px rgba(0, 0, 0, .25); }
+html[data-theme="light"] .pv .pv-seg button.on { background: #FFFFFF !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .10), 0 0 0 1px rgba(15, 23, 42, .05); }
+html .pv .pv-chip.pv-conn { border-radius: 999px; }
+html .pv .pv-top .pv-splitbtn { background: var(--lg-ctl) !important; border: 1px solid var(--lg-ctl-edge) !important; color: var(--lg-ink) !important; border-radius: 999px; font-weight: 700; }
+html .pv .pv-top .pv-splitbtn.on { background: var(--lg-a-soft) !important; border-color: var(--lg-a-edge) !important; color: var(--lg-a-text) !important; }
+
+/* ---------- 필기 도구 ---------- */
+html .pv .pv-tool { border-radius: 12px; transition: background .15s ease, box-shadow .15s ease, transform .1s ease; }
+html .pv .pv-tool:active { transform: scale(.96); }
+html .pv .pv-tool.on, html .pv:not(.pv-compact) .pv-tools .pv-tool.on, html .pv .pv-mc.on,
+html[data-theme="light"] .pv .pv-tool.on, html[data-theme="light"] .pv:not(.pv-compact) .pv-tools .pv-tool.on, html[data-theme="light"] .pv .pv-mc.on {
+  background: var(--lg-a-grad) !important; color: var(--lg-a-ink) !important; border-color: rgba(255, 255, 255, .25) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lg-a-glow) !important;
+}
+html .pv:not(.pv-compact) .pv-tools .pv-dk[aria-pressed="true"] { background: var(--lg-a-soft) !important; color: var(--lg-a-text) !important; border-color: var(--lg-a-edge) !important; }
+html .pv .pv-size.on { background: var(--lg-a-soft); border-color: var(--lg-a-edge); }
+html .pv .pv-pill, html .pv .pv-mineonly { border-radius: 999px; background: var(--lg-ctl); border: 1px solid var(--lg-ctl-edge); }
+
+/* ---------- 메트로놈 float ---------- */
+html .pv .pv-metro .pv-live button { background: var(--lg-ctl) !important; border: 1px solid var(--lg-ctl-edge) !important; color: var(--lg-ink); border-radius: 12px; }
+html .pv .pv-metro .pv-live button:hover:not(:disabled) { background: var(--lg-ctl-hov) !important; }
+html .pv .pv-metro .pv-live .pv-lv-go, html[data-theme="light"] .pv .pv-metro .pv-live .pv-lv-go { border-radius: 50% !important; background: var(--lg-a-grad) !important; color: var(--lg-a-ink) !important; border-color: rgba(255, 255, 255, .25) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), var(--lg-a-glow) !important; }
+html .pv .pv-metro .pv-live .pv-lv-go.on, html[data-theme="light"] .pv .pv-metro .pv-live .pv-lv-go.on { background: linear-gradient(135deg, #F47A6E, #D63E33) !important; color: #fff !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 8px 22px -6px rgba(214, 62, 51, .55) !important; }
+html .pv .pv-metro .pv-lv-step { border-radius: 50% !important; }
+html .pv .pv-metro .pv-lv-bpm b { font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+html .pv .pv-metro .pv-lv-tts[aria-pressed="true"] { background: var(--lg-a-soft) !important; color: var(--lg-a-text) !important; border-color: var(--lg-a-edge) !important; }
+
+/* 박 흐름 막대 (메트로놈 · 송폼 창) */
+html .pv .pv-bs-b, html .pv .pv-bs-c { background: var(--lg-ctl) !important; border: 1px solid var(--lg-ctl-edge); color: var(--lg-ink); border-radius: 10px; }
+html .pv .pv-bs-b:hover:not(:disabled), html .pv .pv-bs-c:hover { background: var(--lg-ctl-hov) !important; }
+html .pv .pv-bs-b.on, html .pv .pv-bs-c:has(input:checked) { background: var(--lg-a-soft) !important; border-color: var(--lg-a-edge); color: var(--lg-a-text) !important; }
+html .pv .pv-bs-c input { accent-color: var(--lg-a); }
+html .pv.pv-compact .pv-bs-row { flex-wrap: wrap; row-gap: 6px; }
+html .pv .pv-bs-c.off { opacity: .38; pointer-events: none; }         /* 3·2·1 이 꺼져 있으면 "바로 1박" 은 흐리게 */
+html .pv .pv-bs-save { border-radius: 8px; border: 1px solid var(--lg-edge); color: var(--lg-sub); }
+html .pv .pv-bs-save.dirty { background: var(--lg-a-grad); color: var(--lg-a-ink); border-color: transparent; box-shadow: var(--lg-a-glow); }
+html .pv .pv-bs-dots i { background: var(--lg-ctl-hov); }
+html .pv .pv-bs-dots i.on { background: var(--lg-a); box-shadow: 0 0 0 3px var(--lg-a-soft), 0 0 14px rgba(255, 138, 61, .7); }
+
+/* 송폼 창 */
+html .pv .pv-form .pv-fb-t { background: var(--lg-ctl); border: 1px solid var(--lg-ctl-edge); border-radius: 8px; }
+html .pv .pv-mc { border-radius: 14px; }
+html .pv .pv-mcs { background: var(--lg-ctl) !important; border: 1px solid var(--lg-ctl-edge) !important; }
+
+/* ---------- 오른쪽 패널 ---------- */
+html .pv .pv-tabs { border-bottom: 1px solid var(--lg-edge); }
+html .pv .pv-tabbtn { border-radius: 10px; color: var(--lg-sub); transition: background .15s ease, color .15s ease; }
+html .pv .pv-tabbtn:hover { background: var(--lg-ctl); color: var(--lg-ink); }
+html .pv .pv-tabbtn.on { background: var(--lg-ctl-hov) !important; color: var(--lg-ink) !important; box-shadow: var(--lg-shine), inset 0 -2px 0 var(--lg-a); border: 0 !important; }
+html[data-theme="light"] .pv .pv-tabbtn.on { background: #FFFFFF !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .10), inset 0 -2px 0 var(--lg-a); }
+html .pv .pv-sec + .pv-sec { border-top: 1px solid var(--lg-edge); }
+html .pv .pv-sec h4 { color: var(--lg-dim); font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+html .pv .pv-btn2 { background: var(--lg-ctl) !important; border: 1px solid var(--lg-ctl-edge) !important; color: var(--lg-ink); border-radius: 12px; transition: background .15s ease, border-color .15s ease; }
+html .pv .pv-btn2:hover:not(:disabled) { background: var(--lg-ctl-hov) !important; border-color: var(--lg-edge-hi) !important; }
+html .pv .pv-btn2.primary, html .pv .pv-radio button.on, html .pv .pv-seg button.primary,
+html[data-theme="light"] .pv .pv-btn2.primary, html[data-theme="light"] .pv .pv-radio button.on, html[data-theme="light"] .pv .pv-seg button.primary, html[data-theme="light"] .pv.pv-narrow.pv-moreopen .pv-morebtn {
+  background: var(--lg-a-grad) !important; color: var(--lg-a-ink) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), var(--lg-a-glow);
+}
+html .pv .pv-big, html[data-theme="light"] .pv .pv-big {
+  border-radius: 18px; background: var(--lg-a-grad); color: var(--lg-a-ink); letter-spacing: -.01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 14px 34px -10px rgba(255, 122, 40, .6);
+}
+html .pv .pv-big.on, html[data-theme="light"] .pv .pv-big.on { background: linear-gradient(135deg, #F47A6E, #D63E33); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 14px 34px -10px rgba(214, 62, 51, .6); }
+html .pv .pv-sel, html .pv .pv-side select, html .pv .pv-side input[type="text"], html .pv .pv-side input[type="number"] {
+  background-color: var(--lg-ctl); border: 1px solid var(--lg-ctl-edge); color: var(--lg-ink); border-radius: 10px;
+}
+html .pv .pv-side select:focus, html .pv .pv-side input:focus { outline: none; border-color: var(--lg-a-edge); box-shadow: 0 0 0 3px var(--lg-a-soft); }
+html .pv .pv-chk input[type=checkbox] { accent-color: var(--lg-a); }
+html .pv .pv-chk.pv-sub { margin-left: 26px; }
+html .pv .pv-chk input:disabled { opacity: .45; }
+html .pv .pv-chk:has(input:disabled) { opacity: .55; }
+html .pv .pv-help, html .pv .pv-chk small { color: var(--lg-sub); }
+
+/* 큰 박 원 (메트로놈 탭) */
+html .pv .pv-beat { background: var(--lg-ctl); border: 1.5px solid var(--lg-edge-hi); box-shadow: var(--lg-shine); }
+html .pv .pv-beat.acc { background: var(--lg-a-soft); border-color: var(--lg-a-edge); }
+html .pv .pv-beat.on { background: var(--lg-a-grad); color: var(--lg-a-ink); border-color: transparent; box-shadow: 0 0 0 4px var(--lg-a-soft), 0 0 26px rgba(255, 138, 61, .6); }
+html .pv .pv-beat.on.ci { background: linear-gradient(135deg, #A8D8FF, #6FB4F2); box-shadow: 0 0 0 4px rgba(111, 180, 242, .2), 0 0 24px rgba(111, 180, 242, .6); }
+
+/* 스크롤 막대 (얇고 은은하게) */
+html .pv .pv-panes, html .pv .pv-drawer { scrollbar-width: thin; scrollbar-color: var(--lg-ctl-hov) transparent; }
+
+/* 투명 효과를 줄이길 원하는 기기는 불투명하게 */
+@media (prefers-reduced-transparency: reduce) {
+  html .pv { --lg-glass: rgba(24, 26, 33, .97); --lg-glass-hi: rgba(28, 30, 38, .98); }
+  html[data-theme="light"] .pv { --lg-glass: rgba(255, 255, 255, .97); --lg-glass-hi: rgba(255, 255, 255, .98); }
+}

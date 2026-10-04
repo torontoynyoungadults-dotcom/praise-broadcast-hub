@@ -31,7 +31,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca849-2';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca856-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -158,6 +158,7 @@ async function renderLive(req, res, o) {
 <script>(function(){try{var t=localStorage.getItem('ph.theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
+<link rel="stylesheet" href="/worship/live-glass.css${v}">
 <style>
   html, body { min-height: 100%; }
   .lv-fallback { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; max-width: 520px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }

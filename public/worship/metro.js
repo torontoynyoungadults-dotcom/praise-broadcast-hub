@@ -382,9 +382,9 @@
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     /* v8.39 — 숫자로 세기 */
     var pendingCount = false, countRemain = 0;             // 버튼: 다음 마디(1박부터)를 딸깍 대신 숫자로
-    var countdownArmed = false, countdownActive = false;   // 옵션: 콜아웃이 떨어진 마디의 마지막 3박에서 Three·Two·One (딸깍과 함께)
+    var countdownArmed = false, countdownActive = false, countdownAt = 0;   // V856 — countdownAt: 콜아웃이 떨어지는 1박의 오디오 시각 (그 마디에서만 셈)   // 옵션: 콜아웃이 떨어진 마디의 마지막 3박에서 Three·Two·One (딸깍과 함께)
     var S = {
-      click: store('vol'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first'), speak: store('speak'), countdown: store('countdown'), cdskip: store('cdskip')
+      click: store('vol'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first'), speak: store('speak'), countdown: store('countdown'), cdskip: store('cdskip'), cdreset: store('cdreset')
     , sub: store('sub'), countall: store('countall') };
     var cfg = {
       click: S.click == null ? 0.62 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : clamp(S.voice, 0, 2), mode: S.mode || 'lead', lead: S.lead || 2,
@@ -395,6 +395,7 @@
       flash: S.flash === true,                                   // 화면 전체 깜빡임 (켬/끔)
       flashAll: S.flashall !== false,                            // 켬(기본)이면 모든 박마다, 끄면 첫 박에만 (Step 2.11)
       countdown: S.countdown === true,                           // v8.39 — 콜아웃 뒤 "Three·Two·One" 세어주기 (기본 끔)
+      cdReset: S.cdreset !== false,                              // V856 — 3·2·1 켜고 콜아웃을 누르면: 켬(기본) = 바로 다음 박이 새 1박 · 끔 = 박은 그대로 두고 다음 마디 첫 박에 콜아웃
       cdSkip: S.cdskip !== false,                                // V842 — 반복 · 다이내믹 콜아웃에는 Three·Two·One 을 하지 않음 (기본 켬)
       sub: S.sub === 2 ? 2 : 1,                                  // V848 — 2박으로 쪼개기: 4/4 면 한 마디에 8번 (엇박은 작게 · 화면 깜빡임은 4번만)
       countAll: S.countall === true                              // V848 — 딸깍 대신 1 · 2 · 3 · 4 숫자로 세기 (계속)
@@ -729,7 +730,7 @@
         var e = ev[i], n = sched.num;
         /* v8.39 — 옵션: 콜아웃이 떨어진 마디 끝 3박에서 Three·Two·One */
         var cdN = 0;
-        if (countdownArmed && e.beat === 0) { countdownArmed = false; countdownActive = true; }
+        if (countdownArmed && e.beat === 0 && e.time >= countdownAt - 0.002) { countdownArmed = false; countdownActive = true; }
         else if (countdownActive) {
           if (n >= 4 && e.beat === n - 3) cdN = 3;
           else if (n >= 4 && e.beat === n - 2) cdN = 2;
@@ -886,11 +887,18 @@
       var useCountdown = !!cfg.countdown && !!ctx && sched.running && !(cfg.cdSkip && (c.g === 'rep' || c.g === 'dyn'));   // V842 — 반복 · 다이내믹은 세지 않음(옵션)
       if (useCountdown) {                                         // V843 — 이미 예약된 박은 그대로, 그 바로 다음 박이 새 1박: 콜아웃이 그 1박에, 그 마디 끝 3박에서 Three·Two·One
         var clipD = cfg.sound !== 'mute' && AC ? clipFor(c) : null;
-        var t1 = nextAsOne(); countdownArmed = true; countdownActive = false;
+        var t1;
+        if (cfg.cdReset) t1 = nextAsOne();                         // 바로 다음 박을 새 1박으로
+        else {                                                    // V856 — 박은 그대로: 다음 마디 첫 박(너무 가까우면 그다음 마디)에 콜아웃
+          var pl = sched.planCue('downbeat', { latency: clipD ? 0 : cfg.lat / 1000, leadBeats: cfg.lead });
+          if (!pl.ok) return { ok: false, error: '박자가 멈춰 있습니다.' };
+          t1 = pl.landAt;
+        }
+        countdownArmed = true; countdownActive = false; countdownAt = t1;
         if (clipD) playClip(clipD, t1);
         else if (speechOk && cfg.sound !== 'mute') { var w1 = Math.max(0, (t1 - cfg.lat / 1000 - ctx.currentTime) * 1000); setTimeout(function () { speak(text, cl); }, w1); }
         notify('cue', { status: 'spoken', text: text, downbeat: true });
-        return { ok: true, text: text, downbeat: true, landAt: t1 };
+        return { ok: true, text: text, downbeat: true, landAt: t1, reset: !!cfg.cdReset };
       }
       if (sched.running && ctx && !mode) {                        // V843 — 카운트다운이 아니면 박과 상관없이 누르는 즉시 (메트로놈은 그대로 BPM 대로 흐름)
         var clipN = cfg.sound !== 'mute' && AC ? clipFor(c) : null;
@@ -915,7 +923,7 @@
       }
       var plan = sched.planCue(mode, { latency: useSpeech ? cfg.lat / 1000 : 0, leadBeats: cfg.lead });
       if (!plan.ok) return { ok: false, error: '박자가 멈춰 있습니다.' };
-      if (useCountdown) { countdownArmed = true; countdownActive = false; }      // v8.39 — 이 마디의 마지막 3박에서 Three·Two·One
+      if (useCountdown) { countdownArmed = true; countdownActive = false; countdownAt = plan.landAt; }      // v8.39 — 이 마디의 마지막 3박에서 Three·Two·One
       var item = { plan: plan, text: text, cue: c, timeout: 0, src: null };
       if (clip) {
         item.src = playClip(clip, plan.landAt);                // 오디오 시계에 예약 — 타이머를 거치지 않아 놓치지 않고 박에 정확히 맞습니다
@@ -977,6 +985,7 @@
         nextAsOne(); countRemain = 0; pendingCount = true; return { ok: true };
       },
       downbeatNow: function () { return downbeatNow(); },
+      setCountdownReset: function (on) { cfg.cdReset = !!on; store('cdreset', cfg.cdReset); emitState(); },
       setCountdownSkip: function (on) { cfg.cdSkip = !!on; store('cdskip', cfg.cdSkip); emitState(); },
       /** v8.39 — 콜아웃 뒤 Three·Two·One 옵션 켬/끔 */
       setCountdown: function (on) { set('countdown', !!on); },
