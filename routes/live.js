@@ -32,7 +32,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca859-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca865-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -320,6 +320,17 @@ function serialSplit(key, fn) {
   return job.finally(() => { if (splitChains.get(key) === job) splitChains.delete(key); });
 }
 
+const HARM_OWNER = '#화음';
+const HARM_MAX = liveStore._internals.CHUNK * 10;   // 40만 글자
+function harmClean(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('화음 형식이 올바르지 않습니다.');
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  const ov = obj(data.ov);
+  const out = { pages: obj(data.pages), ov: { alto: obj(ov.alto), tenor: obj(ov.tenor) }, use: obj(data.use), orig: String(data.orig || 'auto').slice(0, 12) };
+  if (JSON.stringify(out).length > HARM_MAX) throw new Error('화음 자료가 너무 큽니다. 쓰지 않는 쪽의 분석을 지운 뒤 다시 저장해주세요.');
+  return out;
+}
+
 const FNS = {
   /** 필기 읽기 → { team, mine, me, canEdit } (mineOnly 면 team: null — 실시간 서버에서 따로 받음) */
   async worshipAnnoLoad(u, file, scope, mineOnly) {
@@ -392,6 +403,20 @@ const FNS = {
     });
   },
   async worshipSongsOf(u, room) { return { songs: await liveStore.songsOf(u.team, room) }; },
+  /** V865 — 화음 탭 팀 공유: 악보 파일마다 한 층(범위 'song' · 소유 '#화음')에 { data, at, by } (church-app worship2.js 와 같은 약속) */
+  async worshipHarmLoad(u, file) {
+    await liveStore.loadAnnos();
+    const it = liveStore.readLayer(u.team, file, 'song', HARM_OWNER)[0] || null;
+    return { data: it ? it.data : null, at: it ? it.at : 0, by: it ? it.by : '', canEdit: !!u.canEdit };
+  },
+  async worshipHarmSave(u, file, data) {
+    if (!u.canEdit) throw new Error('팀 화음 저장은 팀장 · 인도자만 할 수 있습니다. (여기서 고친 것은 이 기기에만 저장됩니다)');
+    const clean = harmClean(data);
+    await liveStore.loadAnnos();
+    const at = Date.now();
+    liveStore.writeLayer(u.team, file, 'song', HARM_OWNER, [{ data: clean, at, by: u.name }], u.name);
+    return { ok: true, at, by: u.name };
+  },
   /** 곡 정보(BPM · 송폼 · 유튜브 링크) 일부만 고치기 — 예배콘티의 그 곡 줄이 바뀝니다. 팀 모두에게 실시간 전달 */
   async worshipSongPatch(u, room, kind, seq, patch, cid) {
     if (!u.canEdit) throw new Error('곡 정보는 팀장 · 인도자만 바꿀 수 있습니다.');
@@ -413,7 +438,7 @@ router.post('/api/:fn', async (req, res) => {
     const u = liveAuth.verify(args[0]);
     const rest = args.slice(1);
     if (u.ro) {                                           // 방송팀 보기 링크 — 그 예배의 악보 · 필기 · 곡 정보 읽기만
-      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0 };
+      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1 };
       if (!own(RO_OK, fn)) throw new Error('방송팀 보기 링크는 읽기 전용입니다.');
       if (RO_OK[fn] >= 0 && String(rest[RO_OK[fn]] || '') !== u.room) throw new Error('이 링크로는 해당 예배의 라이브 악보만 볼 수 있습니다.');
     }
@@ -421,7 +446,7 @@ router.post('/api/:fn', async (req, res) => {
       await guestAccess.ensure(u);
       const ROOM_AT = { worshipAnnoLoad: 1, worshipAnnoSaveMine: 1, worshipCfgLoad: 0, worshipCfgSave: 0, worshipSongsOf: 0, worshipSongPatch: 0, worshipSheetSplit: 0 };
       if (own(ROOM_AT, fn)) { if (!guestAccess.roomOk(u, rest[ROOM_AT[fn]])) throw new Error('객원 멤버는 스케줄에 서는 날만 열 수 있습니다.'); }
-      else if (!['worshipSchedule', 'setMyUnavailableMany', 'removeMyUnavailable'].includes(fn)) throw new Error('객원 멤버는 쓸 수 없는 기능입니다.');
+      else if (!['worshipSchedule', 'setMyUnavailableMany', 'removeMyUnavailable', 'worshipHarmLoad'].includes(fn)) throw new Error('객원 멤버는 쓸 수 없는 기능입니다.');
     }
     if (fn === 'worshipRepoSongUse') rest.length = 4, rest.push((team, sc) => songsChanged(team, sc, 'saveWorshipSongs'));   // 콘티에 곡을 넣으면 열린 라이브 악보에 알림
     const result = await table[fn](u, ...rest);

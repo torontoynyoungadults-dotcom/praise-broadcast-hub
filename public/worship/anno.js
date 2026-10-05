@@ -184,6 +184,7 @@
   /* ------------------------------------------------------------ 항목 그리기
      V836 — 필기 선을 캣멀-롬(Catmull-Rom) 곡선으로: 찍힌 점을 모두 정확히 지나면서 그 사이를 매끄럽게 이어 손글씨(GoodNotes) 느낌에 가깝게.
      (예전에는 "중간점만 지나는" 곡선이라 각진 곳이 깎였습니다.) 저장되는 점 데이터는 그대로라서 예전 필기도 그대로 보이고, 서버 · 다른 기기와 호환됩니다. */
+  var INK_PX = 10e6;                   // V865 — 필기 캔버스 최대 화소 (iPad 캔버스 한도 1,670만보다 넉넉히 아래 · 악보 그림 한도 1,400만과 비슷한 선명도)
   function strokePath(c, p, W, H) {
     var n = p.length / 2; if (!n) return;
     function X(i) { return p[i * 2] * W; } function Y(i) { return p[i * 2 + 1] * H; }
@@ -319,6 +320,7 @@
     function baseWorth() {
       if (!S.cur && !S.live.size) return false;
       if (cv.width * cv.height > 12e6 || typeof document === 'undefined') return false;
+      if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl')) return true;          // V865 — 펜 · 형광펜은 늘 (긋는 부분만 다시 그리기 위해)
       var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (it) { if (it.pg === S.page) n++; }); });
       return n >= (movingId() ? 8 : 30);                                            // 항목을 끌 때는 8개만 넘어도 나머지를 저장해 둔 그림으로 붙임
     }
@@ -330,6 +332,29 @@
         S.baseId = movingId(); drawPage(b, S.W, S.H, S.page, null, S.baseId); S.baseOk = true;
       } catch (e) { S.baseOk = false; }
     }
+    /* V865 — 펜 · 형광펜을 긋는 동안 화면 전체를 다시 그리지 않고, 획 끝 부분(마지막 몇 점 + 예측점)만 저장해 둔 그림으로 되돌린 뒤 그 안에만 획을 다시 그립니다.
+       (확대해서 캔버스가 커질수록 전체 다시 그리기가 무거워 펜이 늦게 따라오던 문제) */
+    function inkFast() {
+      var cc = S.cur;
+      if (!cc || (cc.kind !== 'pen' && cc.kind !== 'hl') || cc.straight || S.baseId || S.live.size || S.showBy || S.iflash || S.peek || selItem() || !S.base) return false;
+      var p = cc.p || [], n = p.length; if (n < 2) return false;
+      var pts = cc.pred && cc.pred.length ? p.concat(cc.pred) : p, W = S.W, H = S.H;
+      var wpx = Math.max(cc.kind === 'hl' ? 4 : 0.8, (cc.w || (cc.kind === 'hl' ? 0.02 : 0.003)) * W), pad = wpx + 4;
+      var full = S.inkCur !== cc;
+      var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, i, from = full ? 0 : Math.max(0, n - 8);
+      for (i = from; i < pts.length; i += 2) { var x = pts[i] * W, y = pts[i + 1] * H; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      var r = { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad }, prev = S.inkTail;
+      if (!full && prev) { r.x0 = Math.min(r.x0, prev.x0); r.y0 = Math.min(r.y0, prev.y0); r.x1 = Math.max(r.x1, prev.x1); r.y1 = Math.max(r.y1, prev.y1); }
+      S.inkTail = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 };
+      if (full) { r = { x0: 0, y0: 0, x1: W, y1: H }; S.inkCur = cc; }
+      var d = S.dpr, sx = Math.max(0, Math.floor(r.x0 * d)), sy = Math.max(0, Math.floor(r.y0 * d)), ex = Math.min(cv.width, Math.ceil(r.x1 * d)), ey = Math.min(cv.height, Math.ceil(r.y1 * d));
+      if (ex <= sx || ey <= sy) return true;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(sx, sy, ex - sx, ey - sy); ctx.drawImage(S.base, sx, sy, ex - sx, ey - sy, sx, sy, ex - sx, ey - sy);
+      ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, ex - sx, ey - sy); ctx.clip(); ctx.setTransform(d, 0, 0, d, 0, 0);
+      drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: pts }, W, H);
+      ctx.restore(); ctx.setTransform(d, 0, 0, d, 0, 0);
+      return true;
+    }
     function freeBase() { S.baseOk = false; if (S.base) { try { S.base.width = S.base.height = 0; } catch (e) { /* 무시 */ } S.base = null; } }
     function redraw() {
       if (S.dead) return;
@@ -337,6 +362,8 @@
       if (S.baseOk && S.baseId !== movingId()) S.baseOk = false;                   // 저장해 둔 그림이 지금 옮기는 항목과 다르면 버림
       if (!dirty && !S.baseOk && baseWorth()) buildBase();
       var usedBase = !dirty && S.baseOk;
+      if (usedBase && inkFast()) return;                                           // V865 — 펜을 긋는 동안: 바뀐 작은 부분만
+      S.inkCur = null;
       if (usedBase) {                                                              // 획을 긋는 동안 : 확정된 필기는 저장해 둔 그림을 한 번에 붙임
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(S.base, 0, 0); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
         if (S.baseId && S.cur && S.cur.item) drawItem(ctx, S.cur.item, S.W, S.H);   // 옮기는 항목만 새 자리에 따로 그림
@@ -929,6 +956,9 @@
       resize: function (cssW, cssH) {
         S.dpr = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
         S.W = Math.max(1, Math.round(cssW)); S.H = Math.max(1, Math.round(cssH));
+        /* V865 — 크게 확대하면 캔버스가 iPad 한도(약 1,670만 화소)를 넘어 필기가 아예 안 보이던 문제 · 버벅임:
+           화소 수를 INK_PX 안으로 (확대한 만큼 화면 글자는 이미 크므로 선명도 차이는 거의 없음) */
+        if (S.W * S.H * S.dpr * S.dpr > INK_PX) S.dpr = Math.max(0.2, Math.floor(Math.sqrt(INK_PX / (S.W * S.H)) * 100) / 100);
         var pw = Math.round(S.W * S.dpr), ph = Math.round(S.H * S.dpr);
         if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }            // 크기가 그대로면 캔버스를 다시 만들지 않습니다 (메모리 · 깜빡임 절약)
         var sw = S.W + 'px', sh = S.H + 'px'; if (cv.style.width !== sw) cv.style.width = sw; if (cv.style.height !== sh) cv.style.height = sh;

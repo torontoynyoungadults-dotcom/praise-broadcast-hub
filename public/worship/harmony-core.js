@@ -6,7 +6,7 @@
  *  · 조(Key):                  parseKey · keySemitones · guessKey · keyUsesFlats
  *  · 오선 ↔ 음높이:            stepToMidi · midiToStep  (높은음자리표, 조표 반영. 아래 첫째 줄 = 미(E4) = step 0, 한 칸(선 → 간)마다 step +1)
  *  · 코드 붙이기:              assignChords (멜로디 음마다 "지금 울리는 코드"를 찾음)
- *  · 화음 만들기:              buildHarmony — 알토(3도 아래 · 위 6도) / 테너(아래 6도 · 옥타브 · 안쪽 화음음)를 코드음 안에서 고르고,
+ *  · 화음 만들기:              buildHarmony — 알토(3도 아래 · 위 6도) / 테너(V865 — 멜로디 위 3도 · 4도 · 5도)를 코드음 안에서 고르고,
  *                              앞뒤 음과의 도약 · 병행 5도/8도 · 성부 겹침을 따져 전체 곡에서 가장 매끄러운 조합을 동적계획법으로 찾음
  *  · 미리듣기 일정:            buildSchedule — 멜로디 + 알토 + 테너 소리 시작 시각 · 길이 목록
  *  옛 브라우저(아이패드 사파리 포함)에서도 돌도록 ES5 문법만 씁니다.
@@ -22,7 +22,7 @@
   var LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   var LETTERS = 'CDEFGAB';
   var SHARP_ORDER = 'FCGDAEB', FLAT_ORDER = 'BEADGCF';
-  var VOICE_RANGE = { alto: [55, 76], tenor: [48, 69], melody: [48, 88] };        // 소리 나는 높이(MIDI) 기준 — 알토 G3~E5 · 테너 C3~A4
+  var VOICE_RANGE = { alto: [55, 76], tenor: [60, 86], melody: [48, 88] };        // V865 — 테너는 멜로디 위로 쌓음 (악보에 적힌 높이 기준 C4~D6)        // 소리 나는 높이(MIDI) 기준 — 알토 G3~E5 · 테너 C3~A4
 
   function mod(n, m) { return ((n % m) + m) % m; }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -481,17 +481,20 @@
     }
     return c;
   }
+  /* V865 — 테너는 멜로디 "위로" 쌓습니다 (위 3도 · 4도가 가장 자연스럽고, 위 5도 · 6도 · 옥타브는 대안). 멜로디보다 아래는 피함 */
   function tenorIntervalCost(m, p) {
-    var d = m - p, a = Math.abs(d), c;
-    if (d > 0) c = { 1: 7, 2: 5, 3: 2.4, 4: 2.4, 5: 1.6, 6: 3, 7: 0.8, 8: 0, 9: 0, 10: 1.4, 11: 2.2, 12: 0.8, 13: 1.6, 14: 2.4, 15: 2.2, 16: 2.2, 17: 3 }[a];
-    else c = 8;                                                     // 테너는 멜로디보다 위로 가지 않음
+    var d = p - m, a = Math.abs(d), c;
+    if (d > 0) c = { 1: 7, 2: 4.5, 3: 0, 4: 0, 5: 0.9, 6: 2.6, 7: 1.4, 8: 1.2, 9: 1.2, 10: 3, 11: 3.4, 12: 2.2 }[a];
+    else c = 8;                                                     // 테너는 멜로디보다 아래로 내려가지 않음
     if (c == null) c = 4.5;
+    if (p >= 84) c += 1.5;                                          // 너무 높은 음은 덜
     return c;
   }
+  /** 알토(멜로디 아래) ↔ 테너(멜로디 위) 사이 — 멜로디를 사이에 두고 6도~옥타브 정도 벌어지는 것이 자연스러움 */
   function pairCost(a, t) {
-    var d = a - t;
-    var c = { 2: 2.5, 3: 0, 4: 0, 5: 0.2, 6: 1.2, 7: 0.5, 8: 0.2, 9: 0.2, 10: 0.8, 11: 1, 12: 0.8 }[d];
-    return c == null ? (d < 2 ? 9 : 2) : c;
+    var d = t - a;
+    var c = { 4: 2, 5: 0.8, 6: 0.2, 7: 0, 8: 0, 9: 0, 10: 0.4, 11: 0.8, 12: 0.6, 13: 1.4, 14: 1.6 }[d];
+    return c == null ? (d < 4 ? 9 : 2.4) : c;
   }
   /** 한 성부가 앞 음에서 이 음으로 옮겨 갈 때의 벌점. dm = 같은 순간 멜로디가 움직인 반음 수.
    *  · 제자리(같은 음 반복)는 보너스  · 멜로디와 같은 방향 · 같은 크기로 나란히 움직이면(3도/6도 평행) 거의 벌점 없음
@@ -523,7 +526,7 @@
     /* V849 — 코드가 있으면 알토 · 테너는 반드시 그 코드의 구성음 안에서만 (텐션음 9 · 11 · 13 은 조금 덜 선호). 코드가 없을 때만 조의 음계 */
     function cands(m, chord, lo, hi, costFn, isTenor) {
       var chordPcs = chord ? chord.pcs : null, core = chord ? (chord.core || chord.pcs) : null, out = [], p;
-      var center = isTenor ? 58 : 66;
+      var center = isTenor ? 71 : 64;
       function ok(pc) { return chordPcs ? chordPcs.indexOf(pc) >= 0 : scale.indexOf(pc) >= 0; }
       for (p = Math.max(lo, m - 17); p <= Math.min(hi, m + 14); p++) {
         if (p === m) continue;
@@ -542,7 +545,7 @@
       var nt = notes[i], m = nt.midi, ca = cands(m, nt.chord, aR[0], aR[1], altoIntervalCost, false), ct = cands(m, nt.chord, tR[0], tR[1], tenorIntervalCost, true), st = [];
       var chordPcs2 = nt.chord ? nt.chord.pcs : null;
       for (j = 0; j < ca.length; j++) for (k = 0; k < ct.length; k++) {
-        var a = ca[j], t = ct[k]; if (t.p > a.p - 2) continue;
+        var a = ca[j], t = ct[k]; if (t.p < a.p + 3) continue;          // V865 — 테너는 알토보다 위
         var pc = pairCost(a.p, t.p) + a.c + t.c;
         if (chordPcs2) {                                            // 코드음을 골고루 (멜로디 + 알토 + 테너가 코드의 서로 다른 음을 가지도록)
           var seen = {}, cov = 0;
@@ -552,7 +555,7 @@
         if (mod(a.p, 12) === mod(t.p, 12) || mod(a.p, 12) === mod(m, 12)) pc += 1;
         st.push({ a: a.p, t: t.p, cost: pc });
       }
-      if (!st.length) { var fa = ca[0] ? ca[0].p : m - 4, ft = ct[0] ? Math.min(ct[0].p, fa - 3) : fa - 4; st.push({ a: fa, t: ft, cost: 20 }); }
+      if (!st.length) { var fa = ca[0] ? ca[0].p : m - 4, ft = ct[0] ? Math.max(ct[0].p, fa + 3) : m + 4; st.push({ a: fa, t: ft, cost: 20 }); }
       states.push(st);
     }
     // 2) 앞뒤 연결 (동적계획법)
@@ -566,7 +569,7 @@
           c += leapCost(pv.a, cur.a, mv1 - mv0) + leapCost(pv.t, cur.t, mv1 - mv0);
           c += parallelPenalty(Math.min(mv0, pv.a), Math.max(mv0, pv.a), Math.min(mv1, cur.a), Math.max(mv1, cur.a));       // 멜로디 ↔ 알토
           c += parallelPenalty(Math.min(mv0, pv.t), Math.max(mv0, pv.t), Math.min(mv1, cur.t), Math.max(mv1, cur.t));       // 멜로디 ↔ 테너
-          c += parallelPenalty(pv.t, pv.a, cur.t, cur.a);                                                                   // 테너 ↔ 알토
+          c += parallelPenalty(pv.a, pv.t, cur.a, cur.t);                                                                   // 알토 ↔ 테너 (V865 — 테너가 위)
           if (c < bc) { bc = c; bp = k; }
         }
         best[i][j].cost = bc; best[i][j].prev = bp;

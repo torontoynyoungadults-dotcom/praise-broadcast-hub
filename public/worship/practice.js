@@ -1354,6 +1354,17 @@
     S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
     function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
     S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
+    /* V865 — 마지막에 쓰던 색 · 굵기를 기억 (도구마다, 이 기기) */
+    S.sizeOf = {};
+    (function () {
+      var m = {}; try { m = JSON.parse(ls('toolmemo') || '{}') || {}; } catch (e) { m = {}; }
+      var okc = function (c) { return typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null; };
+      if (okc(m.pen)) S.penSel = m.pen; if (okc(m.hl)) S.hlSel = m.hl;
+      if (m.tc && typeof m.tc === 'object') { S.toolCol = {}; ['chord', 'fbox'].forEach(function (k) { if (okc(m.tc[k])) S.toolCol[k] = m.tc[k]; }); }
+      if (m.sz && typeof m.sz === 'object') Object.keys(m.sz).forEach(function (k) { var v = +m.sz[k]; if (v === 0 || v === 1 || v === 2) S.sizeOf[k] = v; });
+      if (m.fsz && typeof m.fsz === 'object') Object.keys(m.fsz).forEach(function (k) { var v = +m.fsz[k]; if (v > 0 && v < 0.2) S.fsz[k] = v; });
+    })();
+    function memoSave() { try { ls('toolmemo', JSON.stringify({ pen: S.penSel || '', hl: S.hlSel || '', tc: S.toolCol || {}, sz: S.sizeOf, fsz: S.fsz })); } catch (e) { /* 저장이 막힌 브라우저 */ } }
     function applySize() {
       var v = S.fsz[sizeKey()] || slotSizes(sizeKey())[S.sizeIdx];
       if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v); else if (S.tool === 'fbox') an.setFboxSize(v);
@@ -1369,6 +1380,7 @@
       if (t === 'eraser' && (S.tool === 'pen' || S.tool === 'hl')) S.prevDraw = S.tool;      // V844 — 지우개를 쓰고 펜슬을 떼면 돌아갈 도구
       if (t !== S.tool) S.szEdit = -1;
       S.tool = t; if (!fromAnno) an.setTool(t);
+      if (S.sizeOf[sizeKey()] != null) S.sizeIdx = S.sizeOf[sizeKey()];                 // V865 — 그 도구에서 마지막에 고른 굵기
       if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
@@ -1420,10 +1432,10 @@
       if (b.dataset.tool) { setTool(b.dataset.tool === S.tool && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
       if (b.dataset.step != null) { if (e.detail === 0) stepFsz(+b.dataset.step); return; }               // 마우스 · 터치는 pointerdown (꾹 누르면 반복), 키보드(Enter · Space)만 여기서
       if (b.dataset.color && S.tool === 'select') { if (an.editSelected({ c: b.dataset.color })) renderTools(); return; }
-      if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); if (S.tool === 'chord' || S.tool === 'fbox') (S.toolCol = S.toolCol || {})[S.tool] = S.curColor; else S.penSel = S.curColor; } renderTools(); an.focusEditor && an.focusEditor(); return; }
+      if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); if (S.tool === 'chord' || S.tool === 'fbox') (S.toolCol = S.toolCol || {})[S.tool] = S.curColor; else S.penSel = S.curColor; } memoSave(); renderTools(); an.focusEditor && an.focusEditor(); return; }
       if (b.dataset.size != null) {
         var si = +b.dataset.size, again = S.sizeIdx === si && !S.fsz[sizeKey()];
-        S.sizeIdx = si; delete S.fsz[sizeKey()];
+        S.sizeIdx = si; delete S.fsz[sizeKey()]; S.sizeOf[sizeKey()] = si; memoSave();
         S.szEdit = again && SZ_RANGE[sizeKey()] ? (S.szEdit === si ? -1 : si) : -1;         // V844 — 이미 고른 칸을 한 번 더 누르면 굵기 조절 막대 열기 · 닫기
         applySize(); renderTools(); an.focusEditor && an.focusEditor(); return;
       }
@@ -1467,7 +1479,7 @@
     function setFsz(v, quiet) {
       var r = fszRange(); v = Math.max(r[0], Math.min(r[1], Math.round(v * 1000) / 1000));
       if (S.tool === 'select') { an.editSelected({ sz: v }); }
-      else { var key = sizeKey(); S.fsz[key] = v; if (key === 'sym') an.setSymSize(v); else an.setTextSize(v); }
+      else { var key = sizeKey(); S.fsz[key] = v; if (key === 'sym') an.setSymSize(v); else an.setTextSize(v); memoSave(); }
       var o = toolsEl.querySelector('input[data-fsz]'); if (o && doc.activeElement !== o) o.value = Math.round(v * 1000);
       if (!quiet) { S.toolsDirty = false; }
     }

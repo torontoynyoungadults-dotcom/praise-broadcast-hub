@@ -31,6 +31,7 @@
   /* ------------------------------------------------------------ 스타일 (한 번만) */
   var CSS = '' +
     '.pv-harm{z-index:3;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}' +
+    '.hm-share{margin-top:7px;font-size:12.5px;line-height:1.5;color:var(--g-sub,#d4cfc7)}.hm-share.bad{color:#ffc2c2}' +
     '.hm-stat{margin-top:9px;font-size:13px;line-height:1.55;color:var(--g-sub,#d4cfc7)}.hm-stat.bad{color:#ffc2c2}.hm-stat b{color:var(--g-a2,#ffb066)}' +
     '.hm-keys{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end}.hm-keys label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--g-sub,#d4cfc7);font-weight:800}' +
     '.hm-arrow{font-size:22px;color:var(--g-a2,#ffb066);padding-bottom:9px}' +
@@ -97,11 +98,61 @@
     function saveSoon() { clearTimeout(S.saveT); S.saveT = setTimeout(saveNow, 350); }
     function saveNow() {
       clearTimeout(S.saveT); if (!S.data || !S.fid) return;
+      shareCheck();
       try { root.localStorage.setItem(keyOf(S.fid), JSON.stringify(S.data, function (k, v) { return k === 'parsed' ? undefined : v; })); } catch (e) { toast('이 기기의 저장 공간이 부족해 분석 결과를 기억하지 못했습니다.', true); }
     }
     function toast(t, bad) { try { P.toast(t, !!bad); } catch (e) {} }
     function loadFile() {
       S.fid = fid(); S.data = S.fid ? loadData(S.fid) : freshData(); S.undo = []; S.sel = null; stop(); linkFromP(); computeModel(); redraw(); syncPanel();
+      S.shareHash = sharedHash(S.data); pullShared();
+    }
+    /* ---------- V865 — 팀 공유: 분석 결과(쪽마다 오선 · 음표 · 코드) · 손으로 고친 화음 · 고친 코드 · 쓸 오선 · 원래 조를 서버에 저장해
+       팀 모두가 같은 화음을 봅니다. 팀장 · 인도자(P.canEdit)가 고치면 자동 저장, 다른 분은 열 때(그리고 1분 30초마다) 받아 옵니다.
+       보기 설정(알토/테너 보이기 · 소리 · 볼륨 · 목표 조 · 연습 키)은 기기마다 그대로. 서버가 없거나 실패해도 이 기기 저장은 계속 */
+    function sharedPart(d) { return { pages: d.pages, ov: d.ov, use: d.use, orig: d.orig }; }
+    function sharedJson(d) { return JSON.stringify(sharedPart(d), function (k, v) { return k === 'parsed' ? undefined : v; }); }
+    function hashStr(t) { var x = 5381, i; for (i = 0; i < t.length; i++) x = ((x << 5) + x + t.charCodeAt(i)) | 0; return t.length + ':' + (x >>> 0).toString(36); }
+    function sharedHash(d) { try { return hashStr(sharedJson(d)); } catch (e) { return ''; } }
+    function canShare() { return !!(P.callServer && P.opts && P.opts.token && S.fid); }
+    function shareCheck() {
+      if (!S.data) return; var hsh = sharedHash(S.data); if (hsh === S.shareHash) return;
+      S.shareHash = hsh; S.data.editAt = Date.now();                                  // 이 기기에서 공유할 내용이 바뀜
+      if (P.canEdit && canShare()) { clearTimeout(S.pushT); S.pushT = setTimeout(pushShared, 1500); }
+    }
+    function pushShared() {
+      clearTimeout(S.pushT); if (S.dead || !S.data || !canShare() || !P.canEdit) return;
+      var d = S.data, f = S.fid, body = JSON.parse(sharedJson(d)), sent = S.shareHash;
+      if (!Object.keys(body.pages || {}).length) return;
+      P.callServer('worshipHarmSave', [P.opts.token, f, body], function (r) {
+        if (S.dead || S.fid !== f || !S.data) return;
+        S.data.sharedSig = sent; S.data.sharedAt = (r && r.at) || Date.now(); S.data.sharedBy = (r && r.by) || ''; S.shareMsg = ''; saveLocal(); syncShare();
+      }, function (e) { S.shareMsg = '팀 공유 저장 실패 — ' + ((e && e.message) || '잠시 후 다시 시도합니다'); syncShare(); S.pushT = setTimeout(pushShared, 30000); });
+    }
+    function saveLocal() { try { root.localStorage.setItem(keyOf(S.fid), JSON.stringify(S.data, function (k, v) { return k === 'parsed' ? undefined : v; })); } catch (e) { /* 공간 부족 — 다음 저장에 */ } }
+    function pullShared(quiet) {
+      if (!canShare() || S.pulling) return; var f = S.fid; S.pulling = true;
+      P.callServer('worshipHarmLoad', [P.opts.token, f], function (r) {
+        S.pulling = false; if (S.dead || S.fid !== f || !S.data) return;
+        var d = S.data, sv = r && r.data;
+        if (!sv || !sv.pages) { if (P.canEdit && Object.keys(d.pages).length) pushShared(); syncShare(); return; }     // 아직 공유된 것 없음 — 이 기기 것을 올림
+        var svJson = JSON.stringify(sv), svSig = hashStr(svJson);
+        if (svSig === S.shareHash) { d.sharedSig = svSig; d.sharedAt = r.at; d.sharedBy = r.by; syncShare(); return; }
+        var localDirty = d.sharedSig !== S.shareHash && (d.editAt || 0) > (d.sharedAt || 0);
+        if (localDirty && (d.editAt || 0) > (r.at || 0) && P.canEdit) { pushShared(); return; }                     // 내가 더 최근에 고침 → 올림
+        if (S.drag || S.editor) return;                                                                          // 고치는 중엔 덮지 않음 (다음에)
+        d.pages = sv.pages || {}; d.ov = sv.ov || { alto: {}, tenor: {} }; d.ov.alto = d.ov.alto || {}; d.ov.tenor = d.ov.tenor || {}; d.use = sv.use || {}; d.orig = sv.orig || 'auto';
+        d.sharedSig = svSig; d.sharedAt = r.at; d.sharedBy = r.by || ''; d.editAt = 0; S.shareHash = svSig; S.sel = null;
+        saveLocal(); computeModel(); redraw(); syncPanel();
+        if (!quiet && r.by) toast((r.by || '팀') + ' 님이 저장한 화음을 불러왔습니다.');
+      }, function () { S.pulling = false; });
+    }
+    function syncShare() {
+      var e = host.querySelector && host.querySelector('.hm-share'); if (!e || !S.data) return;
+      var d = S.data, when = d.sharedAt ? new Date(d.sharedAt) : null, ts = when ? (when.getMonth() + 1) + '/' + when.getDate() + ' ' + String(when.getHours()).padStart(2, '0') + ':' + String(when.getMinutes()).padStart(2, '0') : '';
+      e.className = 'hm-share' + (S.shareMsg ? ' bad' : '');
+      e.textContent = S.shareMsg || (P.canEdit
+        ? (ts ? '팀 공유됨 · ' + (d.sharedBy ? d.sharedBy + ' · ' : '') + ts + ' — 고친 화음 · 코드는 팀 모두에게 자동으로 보입니다.' : '고친 화음 · 코드는 팀 모두에게 자동으로 저장 · 공유됩니다.')
+        : (ts ? '팀 화음 · ' + (d.sharedBy ? d.sharedBy + ' · ' : '') + ts + ' — 여기서 고친 것은 이 기기에만 저장됩니다 (팀 공유는 팀장 · 인도자).' : '여기서 고친 화음은 이 기기에만 저장됩니다 (팀 공유는 팀장 · 인도자).'));
     }
     /* ---------- 연습 키 이동(P.keyShift) 연동 ---------- */
     function pShift() { return P.keyShift ? clampShift(P.keyShift()) : 0; }
@@ -211,19 +262,30 @@
       /* 1) 코드: 원래 글자를 종이 색으로 덮고 새 코드를 유리 칩으로 */
       if (sh.chords && !sh.orig) {
         var rowsSorted = (pd.chords || []).filter(function (x) { return x.parsed; }).sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+        /* V865 — 키를 바꿔도 코드 크기가 들쭉날쭉하지 않게: 한 쪽의 모든 코드를 같은 글자 크기 · 같은 칩 높이로,
+           같은 줄의 코드는 같은 높이(줄 가운데)에 맞춥니다. 길어진 코드는 줄이지 않고 칩을 옆으로 늘립니다 */
+        var fsAll = rowsSorted.map(function (cd) { return Math.max(9, (cd.fs || cd.h) * Hh); }).sort(function (a, b) { return a - b; });
+        var F = fsAll.length ? fsAll[Math.floor(fsAll.length / 2)] : 12; F = Math.max(10, Math.min(F, 26));
+        var CHH = Math.round(F * 1.34), FONT = '800 ' + F + 'px -apple-system,"Helvetica Neue",Arial,sans-serif';
+        var rowMid = {}, rowOf = [], ri = -1, lastY = -1e9;
+        rowsSorted.forEach(function (cd, i) { var cy = (cd.y + cd.h / 2) * Hh; if (Math.abs(cy - lastY) > F * 0.8) { ri++; rowMid[ri] = []; } rowMid[ri].push(cy); rowOf[i] = ri; lastY = cy; });
+        Object.keys(rowMid).forEach(function (k) { var a = rowMid[k].slice().sort(function (x, y) { return x - y; }); rowMid[k] = a[Math.floor(a.length / 2)]; });
+        c.font = FONT;
+        rowsSorted.forEach(function (cd, i) {
+          var user = cd.src === 'user'; if (S.semis === 0 && !user) return;
+          var x = cd.x * W, y = cd.y * Hh, w = cd.w * W, hh = cd.h * Hh, pad = Math.max(2, hh * 0.14);
+          if (!user) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2); }
+        });
         rowsSorted.forEach(function (cd, i) {
           var user = cd.src === 'user'; if (S.semis === 0 && !user) return;
           var txt = cd.pre + HC.formatChord(cd.parsed, S.semis, S.flats) + cd.post;
-          var x = cd.x * W, y = cd.y * Hh, w = cd.w * W, hh = cd.h * Hh, pad = Math.max(2, hh * 0.14), fs = Math.max(9, (cd.fs || cd.h) * Hh);
-          if (!user) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2); }
-          var nextX = 1e9, k; for (k = i + 1; k < rowsSorted.length; k++) { var nb = rowsSorted[k]; if (Math.abs(nb.y - cd.y) < cd.h * 0.7) { nextX = nb.x * W; break; } }
-          var f = fs; c.font = '800 ' + f + 'px -apple-system,"Helvetica Neue",Arial,sans-serif'; var tw = c.measureText(txt).width;
-          var avail = Math.max(w + 6, nextX - x - 4); if (tw + 12 > avail) { f = Math.max(fs * 0.62, f * (avail - 12) / tw); c.font = '800 ' + f + 'px -apple-system,"Helvetica Neue",Arial,sans-serif'; tw = c.measureText(txt).width; }
-          var cw = Math.max(w + 6, tw + 12), chh = Math.max(hh + pad, f * 1.2);
-          roundRect(c, x - 4, y + hh / 2 - chh / 2, cw, chh, Math.min(8, chh * 0.3)); c.fillStyle = COL.chip; c.fill();
+          var x = cd.x * W, w = cd.w * W, cy = rowMid[rowOf[i]];
+          c.font = FONT; var tw = c.measureText(txt).width;
+          var cw = Math.max(w + 6, tw + 12);
+          roundRect(c, x - 4, cy - CHH / 2, cw, CHH, Math.min(8, CHH * 0.3)); c.fillStyle = COL.chip; c.fill();
           c.lineWidth = 1.6; c.strokeStyle = COL.chipLn; if (cd.conf != null && cd.conf < 60 && cd.src === 'ocr') c.setLineDash([4, 3]); c.stroke(); c.setLineDash([]);
-          c.fillStyle = COL.chipTx; c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillText(txt, x + 2, y + hh / 2 + f * 0.03);
-          if (hits) hits.push({ kind: 'chord', id: cd.id, x: x - 4 + cw / 2, y: y + hh / 2, w: cw, h: chh });
+          c.fillStyle = COL.chipTx; c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillText(txt, x + 2, cy + F * 0.03);
+          if (hits) hits.push({ kind: 'chord', id: cd.id, x: x - 4 + cw / 2, y: cy, w: cw, h: CHH });
         });
       }
       /* 2) 화음 머리 */
@@ -934,7 +996,7 @@
       '<div class="pv-sec"><h4>① 악보 분석 — 코드 · 오선 · 멜로디</h4>' +
         '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="an-page">' + YI('search') + ' 이 페이지 분석</button><button type="button" class="pv-btn2" data-a="an-all">전체 페이지 분석</button></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="ocr"><span></span><b>PDF 글자 대신 OCR 로 읽기</b></label>' +
-        '<div class="hm-stat" role="status" aria-live="polite"></div>' +
+        '<div class="hm-stat" role="status" aria-live="polite"></div><div class="hm-share"></div>' +
         '<p class="pv-help">PDF 는 글자층에서 코드와 위치를 정확히 읽습니다. 글자가 없는 스캔 · 사진 악보는 OCR(처음 한 번 도구를 내려받음)로 읽습니다. 오선이 반듯한 악보일수록 멜로디 인식이 잘 됩니다.</p></div>' +
       '<div class="pv-sec"><h4>② 키 바꾸기</h4>' +
         '<div class="hm-keys"><label>원래 조<select class="pv-sel" data-o="orig" aria-label="원래 조"></select></label><span class="hm-arrow" aria-hidden="true">➔</span><label>목표 조<select class="pv-sel" data-o="target" aria-label="목표 조"></select></label></div>' +
@@ -948,7 +1010,7 @@
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="tap"><span></span><b>악보의 코드를 누르면 피아노로 들려주기</b></label>' +
         '<p class="pv-help">분석한 페이지에서 이동(손바닥) 도구로 코드 글자를 톡 치면 그 코드를 피아노로 칩니다 — 7 · 9 · 11 · 13 · sus · add · b9 · #11 · alt · 슬래시 베이스까지. 키를 바꿨으면 바뀐 코드로.</p>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="reset-all">수정 모두 자동값으로</button></div>' +
-        '<p class="pv-help">알토는 멜로디 3도 아래(높으면 위 6도), 테너는 아래 6도 · 옥타브 · 안쪽 화음음을 코드음 안에서 골라, 앞뒤 도약과 병행 5도/8도를 피하도록 곡 전체를 함께 계산합니다. 표시는 인쇄된 악보의 조(원래 조) 기준입니다.</p></div>' +
+        '<p class="pv-help">알토는 멜로디 3도 아래(높으면 위 6도), 테너는 멜로디 <b>위로</b> 3도 · 4도(또는 5도)를 코드음 안에서 골라, 앞뒤 도약과 병행 5도/8도를 피하도록 곡 전체를 함께 계산합니다. 표시는 인쇄된 악보의 조(원래 조) 기준입니다.</p></div>' +
       '<div class="pv-sec"><h4>④ 손으로 고치기</h4>' +
         '<div class="hm-seg" role="group" aria-label="고치기 방식"><button type="button" data-mode="view">보기</button><button type="button" data-mode="harmony">화음</button><button type="button" data-mode="melody">멜로디</button><button type="button" data-mode="chord">코드</button></div>' +
         '<div class="hm-seg hm-sub" data-sub="melody" style="display:none" role="group" aria-label="멜로디 도구"><button type="button" data-sub="move">이동</button><button type="button" data-sub="add">＋ 추가</button><button type="button" data-sub="del">' + YI('trash') + ' 지우기</button></div>' +
@@ -988,6 +1050,7 @@
     }
     function syncPanel() {
       if (S.dead || !S.data) return;
+      try { syncShare(); } catch (e) {}
       var d = S.data, pg = pgKey(), pd = d.pages[pg], M = S.model[pg];
       fillKeys();
       var nChords = pd ? pd.chords.filter(function (c) { return c.parsed; }).length : 0;
@@ -1093,8 +1156,12 @@
     P.on('keyshift', function (n) { if (S.dead || S.reflecting) return; applyShift(n); });                    // 유튜브 카드 · 재생 카드가 연습 키를 바꿈
     P.on('song', function () { if (S.dead) return; applyShift(pShift()); });                                    // 곡이 바뀌면 그 곡의 연습 키로
     P.on('close', function () { destroy(); });
+    var pullTimer = root.setInterval ? root.setInterval(function () { if (!S.dead && (!doc || !doc.hidden)) pullShared(true); }, 90000) : 0;
+    function onVis() { if (!S.dead && doc && !doc.hidden) pullShared(true); }
+    if (doc && doc.addEventListener) doc.addEventListener('visibilitychange', onVis);
     function destroy() {
-      if (S.dead) return; S.dead = true; saveNow(); stop(true);
+      if (S.dead) return; saveNow(); if (S.pushT && P.canEdit) pushShared(); S.dead = true; stop(true);
+      try { clearInterval(pullTimer); if (doc) doc.removeEventListener('visibilitychange', onVis); } catch (e) {}
       try { if (ro) ro.disconnect(); root.removeEventListener('resize', redraw); } catch (e) {}
       try { cv.remove(); } catch (e) {} try { if (S.editor) S.editor.inp.remove(); } catch (e) {}
       try { if (au.ctx && au.ctx.close) au.ctx.close(); } catch (e) {}
