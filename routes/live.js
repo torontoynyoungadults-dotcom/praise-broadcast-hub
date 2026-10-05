@@ -16,6 +16,7 @@
 const express = require('express');
 const sheetsDb = require('../lib/sheetsDb');
 const pageShell = require('../lib/pageShell');
+const { THEME_BOOT } = require('../lib/themeBoot');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
@@ -155,7 +156,7 @@ async function renderLive(req, res, o) {
 <link rel="manifest" href="/site.webmanifest">
 <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<script>(function(){try{var t=localStorage.getItem('ph.theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<script>${THEME_BOOT}</script>
 <link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
 <link rel="stylesheet" href="/worship/live-glass.css${v}">

@@ -56,11 +56,11 @@
   function themeSet(t) {
     t = t === 'light' ? 'light' : 'dark';
     root.setAttribute('data-theme', t);
-    try { localStorage.setItem('ph.theme', t); } catch (e) { /* 저장이 막힌 브라우저 */ }
+    try { if (window.PHThemeMode) window.PHThemeMode.setManual(t); else localStorage.setItem('ph.theme', t); } catch (e) { /* 저장이 막힌 브라우저 */ }   // 직접 고른 것은 다음 전환 시각까지만
     var m = doc.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#EDF4E9' : '#0A1311');
     return t;
   }
-  window.YNTheme = { get: themeNow, set: themeSet, toggle: function () { return themeSet(themeNow() === 'light' ? 'dark' : 'light'); }, isAuto: function () { return false; }, auto: function () {} };
+  window.YNTheme = { get: themeNow, set: themeSet, toggle: function () { return themeSet(themeNow() === 'light' ? 'dark' : 'light'); }, isAuto: function () { return window.PHThemeMode ? window.PHThemeMode.auto() : false; }, auto: function () { if (window.PHThemeMode) window.PHThemeMode.setAuto(); } };
 
   function fallback(msg) {
     var box = doc.getElementById('lvFallback'); if (!box) return;

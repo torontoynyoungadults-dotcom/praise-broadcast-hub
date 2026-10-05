@@ -10,8 +10,10 @@
   function put(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 저장이 막힌 브라우저 */ } }
 
   function theme() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
-  function applyTheme(t) {
-    root.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); put(THEME_KEY, theme());
+  /** 단추로 직접 바꾼 것은 다음 전환 시각(아침 7시 / 저녁 7시)까지만 — 그 뒤에는 시간 자동으로 돌아감 (lib/themeBoot.js) */
+  function applyTheme(t, auto) {
+    root.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    if (!auto) { if (window.PHThemeMode) window.PHThemeMode.setManual(theme()); else put(THEME_KEY, theme()); }
     var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#D6EDE3' : '#0D1A19');
     paint();
   }
@@ -47,7 +49,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-ph-act="theme"]'), function (b) {
       b.setAttribute('aria-checked', light ? 'true' : 'false');
       b.setAttribute('aria-label', light ? '어두운 화면으로' : '밝은 화면으로');
-      b.title = light ? '어두운 화면으로' : '밝은 화면으로';
+      b.title = (light ? '어두운 화면으로' : '밝은 화면으로') + ' (아침 7시 · 저녁 7시에 다시 시간 자동)';
     });
     Array.prototype.forEach.call(document.querySelectorAll('.ph-fs'), function (g) {
       g.setAttribute('data-step', String(fs));
@@ -57,7 +59,8 @@
     });
   }
 
-  applyTheme(get(THEME_KEY) || 'dark');
+  applyTheme(window.PHThemeMode ? (window.PHThemeMode.light() ? 'light' : 'dark') : (get(THEME_KEY) || 'dark'), true);
+  window.addEventListener('ph-theme-auto', function (e) { applyTheme(e.detail && e.detail.theme, true); });   // 열어 둔 채 시간이 바뀌면
   applyFs(fs);
 
   document.addEventListener('click', function (e) {
