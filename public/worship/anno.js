@@ -623,7 +623,7 @@
     /* V848 — 길게 누르기 (1초)
        · 펜 · 형광펜을 화면에 대고 움직이지 않은 채 1초 → 지우개 (누르고 있는 그대로 문질러 지우기 · 떼면 원래 펜으로)
        · 형광펜으로 줄을 긋고 끝에서 1초 멈춤 → 반듯한 직선(평평한 끝)으로 바뀜 · 그대로 움직이면 끝점만 따라감 */
-    var HOLD_MS = 1000, HOLD_PX = 9;
+    var HOLD_MS = 900, HOLD_PX = 9;                                                       // V859 — 0.9초
     function holdArm(c, x, y) {
       clearTimeout(S.holdT); S.holdT = 0;
       if (!S.penTap || !c) return;
@@ -753,7 +753,7 @@
         c.pred = [];                                                                                              // 펜이 곧 갈 곳 (브라우저가 알려 줄 때만) — 화면에만 잇고 저장하지 않음 → 펜 끝 쪽 지연이 줄어듦
         if (!c.straight && e.pointerType === 'pen' && e.getPredictedEvents) { try { (e.getPredictedEvents() || []).slice(0, 3).forEach(function (pe) { var pq = norm(pe); c.pred.push(pq.x, pq.y); }); } catch (x) { /* 지원하지 않음 */ } }
         sendLive(c); invalidate(true);
-      } else if (c.kind === 'erase') { list.forEach(function (ev) { var q = norm(ev); eraseAt(q.x * S.W, q.y * S.H); }); }
+      } else if (c.kind === 'erase') { list.forEach(function (ev) { var q = norm(ev); if (c.hold && !c.hmoved && Math.hypot((q.x - c.x0) * S.W, (q.y - c.y0) * S.H) > HOLD_PX) c.hmoved = true; eraseAt(q.x * S.W, q.y * S.H); }); }
       else if (c.kind === 'fbox') {                                                            // 누른 채 끌면 글자가 손가락을 따라 다닙니다 (떼는 자리에 놓임)
         var q3 = norm(e), it3 = c.item;
         it3.x = r4(clamp(q3.x, 0.005, 0.995)); it3.y = r4(clamp(q3.y, 0.005, 0.995)); c.moved = true; invalidate(true);
@@ -819,8 +819,17 @@
       } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; adopt(S.layer, addLocal(S.layer, s)); S.placed = true; }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
       /* V844 — 애플 펜슬로 지우개를 쓰다가 펜슬을 떼면 (실제로 무언가를 지웠을 때만) 원래 쓰던 펜 · 형광펜으로 — 두 번 톡 전환과 겹치지 않게 지운 것이 없으면 그대로 */
+      /* V859 — 길게 눌러 지우개로 바꾼 뒤 그냥 뗐다면: 지우개를 그대로 두고, 다음에 화면에 대고 지운 뒤 떼면 원래 펜 · 형광펜으로 */
+      if (c.kind === 'erase' && !c.hold && S.holdArmed && (e.type === 'pointerup' || e.type === 'pointercancel')) {
+        var back2 = S.holdArmed; S.holdArmed = null;
+        if (o.onHoldEraseEnd) { try { o.onHoldEraseEnd(back2); } catch (x) { /* 무시 */ } } else api.setTool(back2);
+        S.tool = back2; refreshTouch(); invalidate(); return;
+      }
       if (c.kind === 'erase' && !c.hold && c.pen && e.type === 'pointerup' && S.seq !== c.seq0 && o.onEraseDone) { try { o.onEraseDone(); } catch (x) { /* 무시 */ } }
-      if (c.kind === 'erase' && c.hold) {                                                                               // V848 — 1초 눌러 쓴 지우개: 떼면 원래 펜 · 형광펜으로
+      if (c.kind === 'erase' && c.hold && !c.hmoved) {                                                                  // V859 — 바뀐 뒤 움직이지 않고 뗌 → 지우개 그대로 (다음 획 뒤 원래 도구로)
+        S.holdArmed = c.hold;
+        if (o.onMessage) { try { o.onMessage('지우개 — 지우고 떼면 원래 ' + (c.hold === 'hl' ? '형광펜' : '펜') + '으로 돌아갑니다'); } catch (x) { /* 무시 */ } }
+      } else if (c.kind === 'erase' && c.hold) {                                                                               // V848 — 1초 눌러 쓴 지우개: 떼면 원래 펜 · 형광펜으로
         var back = c.hold;
         if (o.onHoldEraseEnd) { try { o.onHoldEraseEnd(back); } catch (x) { /* 무시 */ } } else api.setTool(back);
         S.tool = back; refreshTouch();
@@ -926,7 +935,7 @@
         rectC = null; invalidate();
       },
       setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
-      setTool: function (t) { closeEditor(true); S.placed = false; S.tool = ['none', 'pen', 'hl', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.fresh) { S.sel = null; S.fresh = null; }      /* 방금 만들어서 자동 선택된 것은 도구를 바꾸면 선택을 풀어 예전처럼 */
+      setTool: function (t) { closeEditor(true); S.placed = false; if (t !== 'eraser') S.holdArmed = null; S.tool = ['none', 'pen', 'hl', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.fresh) { S.sel = null; S.fresh = null; }      /* 방금 만들어서 자동 선택된 것은 도구를 바꾸면 선택을 풀어 예전처럼 */
       if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.tool !== 'sym' && S.tool !== 'fbox') { S.sel = null; S.fresh = null; } changed(); refreshTouch(); invalidate(); },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;

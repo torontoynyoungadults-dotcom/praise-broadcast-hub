@@ -185,7 +185,7 @@
     el.innerHTML =
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
-        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn pv-splitbtn" style="display:none" title="이 악보의 쪽 ↔ 곡 연결을 곡별 악보로 저장 — 다음에 그 곡을 쓸 때 그대로 따라옵니다" aria-label="곡별 악보로 저장">💾 곡별 저장</button><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
+        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)" aria-label="다음 쪽">' + I('next') + '</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + ' 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">' + I('spread') + ' 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
@@ -902,18 +902,20 @@
     /* 유튜브 참고 영상 — 리더가 곡 정보에 넣어 둔 링크를 앱 안의 작은 창으로 재생 (악보 화면을 떠나지 않음, 필기 · 실시간 동기화와 무관) */
     function ytIdOf(url) { var m = /(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/.exec(String(url || '')); return m ? m[1] : ''; }
     var ytBtn = $('.pv-ytbtn'), ytBox = null, ytCtl = null;
-    function closeYt() { if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } }
+    function closeYt() { if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } ytBtn.classList.remove('on'); ytBtn.setAttribute('aria-pressed', 'false'); }
     function setYt(s) { var id = s ? ytIdOf(s.link) : ''; if (ytBox && ytBtn.getAttribute('data-id') !== id) closeYt(); ytBtn.style.display = id ? '' : 'none'; ytBtn.setAttribute('data-id', id); if (!id) closeYt(); }
     ytBtn.onclick = function () {
       var id = ytBtn.getAttribute('data-id'); if (!id) return;
       if (ytBox) { closeYt(); return; }
       try { root.YNAudioShift && root.YNAudioShift.closeDialog && root.YNAudioShift.closeDialog(); } catch (e) {}          // 키 바꿔 듣기 카드가 열려 있으면 닫음 (소리가 겹치지 않게)
-      ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog'); ytBox.setAttribute('aria-label', '유튜브 참고 영상');
-      ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="pv-ytbody"></div>';
+      ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog');      // V859 — 떠 있는 창: 위 줄(제목)을 끌어 옮김 · 자리는 이 기기에 기억 ytBox.setAttribute('aria-label', '유튜브 참고 영상');
+      ytBox.innerHTML = '<div class="pv-yth" data-drag title="끌어서 옮기기"><span class="pv-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="pv-ytbody"></div>';
       ytBox.querySelector('.pv-yth button').onclick = closeYt;
-      el.appendChild(ytBox);
+      ytBox.style.right = 'auto'; ytBox.style.bottom = 'auto';
+      if (P.floatWin) P.floatWin('yt', ytBox, function () { return S.compact ? { x: 0.5, y: 0.98 } : { x: 0.98, y: 0.9 }; }); else el.appendChild(ytBox);
+      ytBtn.classList.add('on'); ytBtn.setAttribute('aria-pressed', 'true');
       var body = ytBox.querySelector('.pv-ytbody');
-      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: root.YNAudioShift && root.YNAudioShift.keyBinding ? root.YNAudioShift.keyBinding(P) : null });        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
+      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
       else body.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
     };
 
@@ -1751,7 +1753,7 @@
       var tag = t.tagName; if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
       return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
     }
-    var CUE_KEYS = { i: 'intro', c: 'c', p: 'pc', b: 'b', t: 'tag', r: 'repc', k: 'keyup', u: 'build', d: 'die' };   // V843 — K 키 업 · U 빌드 업 · D 다이 다운
+    var CUE_KEYS = { i: 'intro', c: 'c', p: 'pc', b: 'b', t: 'tag', r: 'repc', k: 'keyup', u: 'build', d: 'die', m: 'inst', e: 'end' };   // V859 — M 인스트루멘탈 · E 엔딩   // V843 — K 키 업 · U 빌드 업 · D 다이 다운
     var VERSE_IDS = ['v1', 'v2', 'v3'], verseN = 0, verseSong = -2;
     /* V836 — Enter 를 누르면 이 곡의 송폼(예: Int V1 C V2 C B C) 순서를 따라 한 칸씩 콜아웃합니다. 끝까지 가면 처음으로, 곡을 바꾸면 첫 칸부터 다시.
        송폼이 없는 곡이면 아무 일도 하지 않습니다 (기본 동작 그대로). 마지막 칸에서 한 번 더 누르면 처음으로 돌아가요. */
@@ -1770,7 +1772,7 @@
       var k = e.key; if (!k || e.ctrlKey || e.metaKey || e.altKey) return null;
       if (S.songIdx !== verseSong) { verseSong = S.songIdx; verseN = 0; }                 // 곡이 바뀌면 절 세기를 처음부터
       if (k === 'P') return 'prayer'; if (k === 'R') return 'once';
-      if (k === '1' || k === '2' || k === '3') { verseN = +k % 3; return VERSE_IDS[+k - 1]; }
+      if (k === '2' || k === '3') { verseN = +k % 3; return VERSE_IDS[+k - 1]; }        // V859 — 1 은 "1박 다시 맞추기" (1절은 V)
       var lk = k.length === 1 ? k.toLowerCase() : ''; if (e.shiftKey && lk !== 'p' && lk !== 'r') return null;
       if (lk === 'v') { var id = VERSE_IDS[verseN % 3]; verseN++; return id; }          // v 를 누를 때마다 1절 → 2절 → 3절
       return CUE_KEYS[lk] || null;
@@ -1823,6 +1825,7 @@
         var nf = nextFormCue(e.shiftKey);
         if (nf && nf.id && P.cueKey) { e.preventDefault(); var cr2 = P.cueKey(nf.id); try { P.flashForm && P.flashForm(nf.i); } catch (x) {} if (cr2) { toast('송폼 ' + (nf.i + 1) + '번째 — ' + ((root.YNMetro && root.YNMetro.CUE_BY[nf.id] ? (P.lang() === 'ko' ? root.YNMetro.CUE_BY[nf.id].ko : root.YNMetro.CUE_BY[nf.id].en) : nf.id)), false, 900); } return; }
       }
+      if (k === '1' && !e.shiftKey && !e.repeat && P.metroKey) { var r1 = P.metroKey('re'); if (r1) { e.preventDefault(); return; } }   // V859 — 1 = 1박 다시 맞추기 (누른 그 박이 새 1박)
       if ((k === 'n' || k === 'N') && !e.shiftKey && !e.repeat && P.metroKey) { var rn = P.metroKey('count'); if (rn) { e.preventDefault(); return; } }   // V842 — N = 숫자로 세기 (누르는 순간이 1박)
       var cue = cueFromKey(e);                                                         // 콜아웃 단축키 (i v c p b r t · Shift+P 기도 · Shift+R 한 번 더 · 1 2 3 = 1·2·3절)
       if (cue) { if (P.cueKey) { var cr = e.repeat ? { ok: true } : P.cueKey(cue); if (cr) { e.preventDefault(); return; } } return; }
@@ -1883,6 +1886,7 @@
       node.addEventListener('pointerdown', function (e) {
         var g = e.target.closest ? e.target.closest('[data-drag]') : null;
         if (!g || !node.contains(g) || (opt.whole && e.target.closest('button,select,input,a') && e.target.closest('button,select,input,a') !== node)) return;
+        if (!opt.whole && e.target.closest('button,select,input,a') && g.contains(e.target.closest('button,select,input,a'))) return;   // V859 — 손잡이 줄 안의 단추(유튜브 창 닫기 · ↗)는 누르기로
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         e.preventDefault(); e.stopPropagation();
         var r = node.getBoundingClientRect(), m = mainEl.getBoundingClientRect();

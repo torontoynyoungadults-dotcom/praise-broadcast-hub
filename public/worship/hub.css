@@ -2095,3 +2095,5 @@ html[data-theme="light"] .pv-bs-c:has(input:checked) { color: #7a3d00; }
 html[data-theme="light"] .pv-bs-dots i.d1.on { background: #FF8A2A; }
 .pv.pv-compact .pv-bs .pv-bs-b, .pv.pv-compact .pv-bs-c { height: 34px; }
 .pv .pv-form .pv-bs-save, .pv .pv-form .pv-bs-b, .pv .pv-form .pv-bs-c { pointer-events: auto; }
+.pv .pv-form .pv-bs-dots i[data-b], .pv .pv-bs-dots i[data-b] { pointer-events: auto; cursor: pointer; }      /* V859 — 박 동그라미를 눌러 강세 · 소리 끔 */
+.pv .pv-yt.pv-float { right: auto; bottom: auto; }      /* V859 — 유튜브 떠 있는 창 */

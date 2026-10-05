@@ -190,6 +190,8 @@
         if (cn.checked !== !!c.countAll) cn.checked = !!c.countAll; if (cd.checked !== !!c.countdown) cd.checked = !!c.countdown;
         var cr = el.querySelector('[data-bs="cdr"]'); if (cr) { if (cr.checked !== (c.cdReset !== false)) cr.checked = c.cdReset !== false; cr.disabled = !c.countdown; cr.parentNode.classList.toggle('off', !c.countdown); }
         el.querySelector('[data-bs="re"]').disabled = !(st && st.running);
+        var mk = st ? st.marks : [];                                                   // V859 — 박 동그라미: 강세(>) · 끈 박 표시
+        Array.prototype.forEach.call(dots.querySelectorAll('[data-b]'), function (d) { var v = mk[+d.getAttribute('data-b')]; d.classList.toggle('acc', !!v && v !== 3); d.classList.toggle('mute', v === 3); });
         if (!(st && st.running)) Array.prototype.forEach.call(dots.children, function (d) { d.classList.remove('on'); });
         if (saveB) {
           var cur = P.curBpm ? P.curBpm() : null, sv = P.savedBpm(), dirty = !!(cur && sv && cur !== sv);
@@ -206,7 +208,10 @@
         if (st && st.cfg.sub === 2) { var hd = dots.querySelector('[data-h="' + e.beat + '"]'); if (hd) subT = setTimeout(function () { if (d) d.classList.remove('on'); hd.classList.add('on'); }, 30000 / st.bpm); }
       }
       el.addEventListener('pointerdown', function (e) { if (e.target.closest && e.target.closest('button,input,label')) e.stopPropagation(); });   // 창 끌기 · 악보 톡과 겹치지 않게
+      dots.removeAttribute('aria-hidden'); dots.title = '박 동그라미를 누를 때마다 보통 → 강세(>) → 소리 끔';
       el.addEventListener('click', function (e) {
+        var dt = e.target.closest ? e.target.closest('.pv-bs-dots [data-b]') : null;        // V859 — 박 동그라미를 눌러 강세 · 소리 끔
+        if (dt) { e.stopPropagation(); if (P.metroKey) { var rm = P.metroKey('mark', +dt.getAttribute('data-b')); if (rm && rm.ok !== false) P.toast(rm.on === 'mute' ? (+dt.getAttribute('data-b') + 1) + '박 소리 끔' : rm.on ? (+dt.getAttribute('data-b') + 1) + '박 강세 (>)' : (+dt.getAttribute('data-b') + 1) + '박 보통', false, 900); } syncAllStrips(); return; }
         var b = e.target.closest ? e.target.closest('[data-bs]') : null; if (!b) return;
         e.stopPropagation();
         var a = b.getAttribute('data-bs'); if (b.tagName === 'INPUT') return;           // 체크칸은 change 에서
@@ -591,6 +596,11 @@
         var rc = m.countNow(); if (rc && rc.ok === false) { P.toast(rc.error || '소리를 낼 수 없습니다.', true); return rc; }
         P.toast('One · Two · Three · Four', false, 900); return { ok: true };
       }
+      if (act2 === 'mark') { var rk = act('mark', d); if (rk && rk.ok !== false && P._saveMetroSoon) P._saveMetroSoon(); return rk; }   // V859 — 박 흐름 막대(메트로놈 · 송폼 창)의 동그라미
+      if (act2 === 're') {                                               // V859 — 1 키: 1박 다시 맞추기
+        if (ctl() === 'locked') { P.toast(lockedMsg(), true); return { ok: false, locked: true }; }
+        var rr = m.markNow(); P.toast(rr != null ? '지금 박을 1박으로 다시 맞췄습니다' : '먼저 메트로놈을 시작하세요', rr == null, 1100); return { ok: rr != null };
+      }
       if (act2 === 'bpm') {
         var v = Math.max(30, Math.min(300, Math.round(m.state().bpm) + (d || 0)));
         var r = act('bpm', v); if (r.locked) return { ok: false, locked: true };
@@ -615,16 +625,16 @@
         '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
           '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 · 형광펜을 화면에 1초 대고 있으면 지우개 (떼면 원래대로) · 형광펜 줄 끝에서 1초 멈추면 반듯하게</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 · 형광펜을 화면에 0.9초 대고 있으면 지우개 — 그대로 문지르면 지우고 떼면 원래대로, 바뀐 뒤 바로 떼면 지우개가 남아 다음에 지우고 떼면 원래 펜으로 · 형광펜 줄 끝에서 0.9초 멈추면 반듯하게</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="eraseback" checked> 펜슬로 지우개를 쓰고 떼면 원래 펜으로 돌아가기</label>' +
           '<p class="pv-help">굵기 3칸: 고른 칸을 한 번 더 누르면 조절 막대가 나와요. 바꾼 굵기는 그 칸에 저장됩니다 (펜 · 형광펜 따로).</p>' +
-          '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜슬을 1초 대고 있기(또는 펜 옆 버튼)로 지우개를 씁니다. 펜으로 다른 필기를 톡 치면 누가 썼는지 잠깐 보입니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
+          '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜슬을 0.9초 대고 있기(또는 펜 옆 버튼)로 지우개를 씁니다. 펜으로 다른 필기를 톡 치면 누가 썼는지 잠깐 보입니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
         '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
         '<div class="pv-sec"><h4>화면 설정</h4><div class="pv-radio" data-g="layout"><button data-v="tablet">' + I('tablet') + '태블릿</button><button data-v="computer">' + I('laptop') + '컴퓨터</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="lefty"> 왼손잡이 (도구 막대를 왼쪽에)</label>' +
-          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 1 2 3) · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더 · K 키 업 · U 빌드 업 · D 다이 다운 · N 숫자로 세기 · Enter 송폼 순서대로.</p></div>';
+          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 2 3) · 1 1박 다시 맞추기 · M 인스트루멘탈 · E 엔딩 · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더 · K 키 업 · U 빌드 업 · D 다이 다운 · N 숫자로 세기 · Enter 송폼 순서대로.</p></div>';
       var an = function () { return P.anno(); };
       function paint() {
         [['scope', P.getScope()], ['layout', P.layout()]].forEach(function (x) {
@@ -808,7 +818,7 @@
           '<label class="pv-chk"><input type="checkbox" data-o="countall"> 딸깍 대신 숫자로 세기 <small>(One · Two · Three · Four 를 계속)</small></label>' +
           '<p class="pv-help">"×2 쪼개기" — 박 사이에 작은 딸깍을 하나 더 (4/4 면 한 마디에 8번 · 화면 깜빡임은 4번). 연주 중에 바꾼 BPM 은 저장되지 않습니다 — "이 곡 BPM 저장"(또는 송폼 창의 "저장")을 눌러야 다음에도 그 BPM 으로 열립니다.</p>' +
           '<p class="pv-help">"1박 다시 맞추기" — 밴드가 실제로 들어간 순간에 누르면, 딸깍 간격은 그대로 두고 그 박을 "1박"으로 다시 정합니다 (강세 · 음성 큐 기준이 그 박으로 옮겨갑니다).<br>"숫자로 세기" — 다음 마디를 딸깍 대신 One · Two · Three · Four 로 세어 줍니다(한 번만, 실제 박자 그대로).</p>' +
-          '<p class="pv-help pv-dotshelp">원(박)을 누르면 ">" 강세가 켜지고 꺼집니다 — 강세 박은 더 높고 크게 울립니다.</p>' +
+          '<p class="pv-help pv-dotshelp">원(박)을 누를 때마다 보통 → ">" 강세 → 소리 끔(✕) → 보통 — 강세 박은 더 높고 크게, 끈 박은 딸깍이 나지 않습니다. 송폼 · 메트로놈 창의 작은 동그라미도 같아요.</p>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> ' + I('bulb') + '전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
           '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ' + I('timer') + '악보 화면 위에 메트로놈 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
@@ -849,14 +859,14 @@
       /** 박 원 — 박자 수만큼, 칸 너비를 꽉 채워 크게 (9박 이상은 두 줄). 눌러서 ">" 강세 켜고 끄기 */
       function drawDots(num, marks) {
         var s = '';
-        for (var i = 0; i < num; i++) s += '<button type="button" class="pv-beat' + (marks && marks[i] ? ' acc' : '') + '" data-beat="' + i + '" aria-pressed="' + (marks && marks[i] ? 'true' : 'false') + '" aria-label="' + (i + 1) + '박 강세"></button>';
+        for (var i = 0; i < num; i++) s += '<button type="button" class="pv-beat' + (marks && marks[i] === 3 ? ' mute' : marks && marks[i] ? ' acc' : '') + '" data-beat="' + i + '" aria-pressed="' + (marks && marks[i] && marks[i] !== 3 ? 'true' : 'false') + '" aria-label="' + (i + 1) + '박 — 누를 때마다 보통 → 강세 → 소리 끔" title="누를 때마다 보통 → 강세(>) → 소리 끔"></button>';
         dotsEl.style.setProperty('--n', num > 8 ? Math.ceil(num / 2) : num);
         dotsEl.className = 'pv-dots n' + num;
         dotsEl.innerHTML = s;
       }
       function paintMarks(marks) {
         var ds = dotsEl.children;
-        for (var i = 0; i < ds.length; i++) { var on = !!(marks && marks[i]); ds[i].classList.toggle('acc', on); ds[i].setAttribute('aria-pressed', on ? 'true' : 'false'); }
+        for (var i = 0; i < ds.length; i++) { var mu = !!(marks && marks[i] === 3), on = !!(marks && marks[i]) && !mu; ds[i].classList.toggle('acc', on); ds[i].classList.toggle('mute', mu); ds[i].setAttribute('aria-pressed', on ? 'true' : 'false'); }
       }
       /** 음성 목록 — 녹음 목소리(남 · 여) 와 기기 음성. 녹음 목록은 manifest 를 불러온 뒤에 채워집니다 */
       var vsKey = '';
@@ -948,7 +958,7 @@
         clearTimeout(saveT); saveT = 0;
         var key = saveKey; saveKey = ''; if (!key) return false;
         var st = m.state(), prev = P.cfgGet('metro', key) || {};
-        var body = { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0 };
+        var body = { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x === 3 ? 3 : x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0 };
         if (prev.bpm >= 30 && prev.bpm <= 300) body.bpm = prev.bpm;                // V848 — BPM 은 저장된 값 그대로 (박자 · 강세만 자동 저장)
         P.cfgSet('metro', key, body);
         return true;
@@ -959,7 +969,7 @@
         if (!curSongKey) { P.toast('곡을 먼저 고르세요.', true); return false; }
         clearTimeout(saveT); saveT = 0; saveKey = '';
         var st = m.state(), b = Math.round(st.bpm);
-        P.cfgSet('metro', curSongKey, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: b });
+        P.cfgSet('metro', curSongKey, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x === 3 ? 3 : x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: b });
         P.toast('BPM ' + b + ' 저장 — ' + curSongKey, false, 1300); say('BPM ' + b + ' 를 이 곡에 저장했습니다.');
         setTimeout(syncAllStrips, 0); return true;
       };
@@ -968,7 +978,7 @@
         saveKey = curSongKey; clearTimeout(saveT);
         saveT = setTimeout(flushMetroSave, 700);
       }
-      flushMetroCfg = flushMetroSave;
+      flushMetroCfg = flushMetroSave; P._saveMetroSoon = saveMetroSoon;        // V859 — 박 흐름 막대의 동그라미에서도 곡별 저장
       function applyMetroCfg(fromRemote, keepBpm) {
         var mc = curSongKey ? P.cfgGet('metro', curSongKey) : null; if (!mc) return false;
         if (ctl() === 'locked') return false;                                       // 클릭 컨트롤의 박자를 따르는 중

@@ -165,10 +165,13 @@
    */
   Sched.prototype.accent = function (beat) {
     var eb = this.effBeat(beat);                      // v8.39 — 강세는 "표시 박" 기준(다시 맞춘 1박에 맞춰 ">" 가 따라옵니다)
+    if (this.marks[eb] === 3) return 0;               // V859 — 3 = 이 박은 소리 끔 (muted 로 따로 확인)
     if (this.marks[eb]) return 2;
     if (eb !== 0 && this.den === 8 && this.num % 3 === 0 && eb % 3 === 0) return 1;
     return 0;
   };
+  /** V859 — 이 박을 소리 없이 (박 동그라미를 눌러 고름: 보통 → ">" 강세 → 끔 → 보통) */
+  Sched.prototype.muted = function (beat) { return this.marks[this.effBeat(beat)] === 3; };
   Sched.prototype.setMark = function (i, on) {
     i = Math.round(Number(i));
     if (!(i >= 0 && i < this.num)) return false;
@@ -177,13 +180,15 @@
   Sched.prototype.toggleMark = function (i) {
     i = Math.round(Number(i));
     if (!(i >= 0 && i < this.num)) return null;
-    this.marks[i] = this.marks[i] ? 0 : 1; return !!this.marks[i];
+    var v = this.marks[i];
+    this.marks[i] = v === 3 ? 0 : v ? 3 : 1;          // V859 — 보통 → 강세 → 끔 → 보통
+    return this.marks[i] === 3 ? 'mute' : !!this.marks[i];
   };
   /** 통째로 바꾸기 (다른 기기에서 받은 강세) — 박 수에 맞게 자르거나 채웁니다 */
   Sched.prototype.setMarks = function (arr) {
     if (!Array.isArray(arr)) return false;
     var a = [];
-    for (var i = 0; i < this.num; i++) a.push(arr[i] ? 1 : 0);
+    for (var i = 0; i < this.num; i++) a.push(arr[i] === 3 ? 3 : arr[i] ? 1 : 0);      // V859 — 3 = 끈 박
     this.marks = a; return true;
   };
   /**
@@ -210,7 +215,7 @@
     var until = this.now() + this.lookahead;
     var guard = 0;
     while (this.nextTime < until && guard++ < 64) {
-      out.push({ time: this.nextTime, beat: this.effBeat(this.beat), bar: this.bar, count: this.count, accent: this.accent(this.beat),
+      out.push({ time: this.nextTime, beat: this.effBeat(this.beat), bar: this.bar, count: this.count, accent: this.accent(this.beat), mute: this.muted(this.beat),
         countIn: this.bar < this.countInBars });
       this.nextTime += this.interval();               // 템포를 바꿔도 이미 정해진 박은 그대로, 다음 박부터 새 간격
       this.count++; this.beat++;
@@ -742,7 +747,7 @@
         if (countRemain > 0) { speakCountBeat(e, e.beat + 1); countRemain--; }
         else if (cdN) { if (!cfg.countAll) click(e.time, e.accent, e.countIn); speakCountBeat(e, cdN); }
         else if (cfg.countAll) speakCountBeat(e, e.beat + 1);                        // V848 — 늘 숫자로 (딸깍 대신)
-        else click(e.time, e.accent, e.countIn);
+        else if (!(e.mute && !e.countIn)) click(e.time, e.accent, e.countIn);          // V859 — 끈 박은 딸깍 없음 (예비 박은 그대로)
         if (cfg.sub === 2) subClick(e.time + sched.interval() / 2);                  // V848 — 엇박 (화면 깜빡임 · 박 표시는 하지 않음)
         q.push(e);
       }
@@ -778,7 +783,7 @@
     }
 
     function state() {
-      cfg.first = !!sched.marks[0];
+      cfg.first = sched.marks[0] === 1 || sched.marks[0] === 2;
       return { running: sched.running, bpm: sched.bpm, num: sched.num, den: sched.den, marks: sched.marks.slice(), gain: gainOf(), pitch: cfg.pitch, flash: cfg.flash, cfg: cfg, speech: speechOk, audio: !!AC, media: Media.on,
         pending: pending.map(function (p) { return { label: p.text, landAt: p.plan.landAt, speakAt: p.plan.speakAt }; }) };
     }
@@ -960,13 +965,13 @@
       start: start, stop: stop, toggle: function (n) { return sched.running ? (stop(), { ok: true }) : start(n); },
       cue: cue, cancelCues: cancelCues,
       setSpeak: function (on) { cfg.speak = !!on; store('speak', cfg.speak); if (!on) cancelCues(); else emitState(); },
-      setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); cfg.first = !!sched.marks[0]; emitState(); },
+      setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); cfg.first = sched.marks[0] === 1 || sched.marks[0] === 2; emitState(); },
       setClickVolume: function (v) { set('click', clamp(v, 0, 1)); applyGain(); },
       setPitch: function (st) { set('pitch', Math.round(clamp(st, LIMITS.minPitch, LIMITS.maxPitch) * 2) / 2); },
       setFlash: function (on) { set('flash', !!on); }, setFlashAll: function (on) { cfg.flashAll = !!on; store('flashall', !!on); emitState(); },
       /** 박 ">" 강세 — 원을 눌러 켜고 끕니다 (높은 음 · 더 크게) */
-      toggleMark: function (i) { var r = sched.toggleMark(i); if (r === null) return null; cfg.first = !!sched.marks[0]; store('first', cfg.first); emitState(); return r; },
-      setMarks: function (arr) { var r = sched.setMarks(arr); if (r) { cfg.first = !!sched.marks[0]; store('first', cfg.first); emitState(); } return r; },
+      toggleMark: function (i) { var r = sched.toggleMark(i); if (r === null) return null; cfg.first = sched.marks[0] === 1 || sched.marks[0] === 2; store('first', cfg.first); emitState(); return r; },
+      setMarks: function (arr) { var r = sched.setMarks(arr); if (r) { cfg.first = sched.marks[0] === 1 || sched.marks[0] === 2; store('first', cfg.first); emitState(); } return r; },
       startIn: startIn,
       /** 사용자가 화면을 누른 순간에 소리 장치를 미리 깨워 둡니다 (아이폰 · 크롬은 눌러야 소리가 나옵니다) — 원격 시작에 필요 */
       hold: function (on) { try { return Media.setHold(on); } catch (e) { return false; } },

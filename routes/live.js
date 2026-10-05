@@ -31,7 +31,7 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca857-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+const LIVE_V = 'ca859-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
@@ -181,7 +181,6 @@ window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n}
 <script defer src="/worship/harmony-core.js${v}"></script>
 <script defer src="/worship/omr.js${v}"></script>
 <script defer src="/worship/harmony-ui.js${v}"></script>
-<script defer src="/worship/audio-shift.js${v}"></script>
 <script defer src="/worship/ytplayer.js${v}"></script>
 <script defer src="/worship/rt.js${v}"></script>
 <script defer src="/worship/timer.js${v}"></script>
