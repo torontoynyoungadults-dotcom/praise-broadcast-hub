@@ -90,7 +90,7 @@ async function teamRoster(team) {
 }
 
 function lineupCell(scope, team, posKey, names, roster, infoMap) {
-  const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할 }));
+  const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할, 객원: !!infoMap[n].객원 }));   // 객원은 팀원 선택에서 추천에 안 넣고 따로 모음
   const isP = (n) => honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
   const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !isP(n)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
   const chipName = (n) => (isP(n) ? String(n) + honorific.SUFFIX : shortOf(n));       // 목회자는 항상 "윤정환 목사"(줄이지 않음)

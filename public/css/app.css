@@ -481,7 +481,8 @@ a { color: var(--accent-ink); text-decoration: none; }
 .ph-posbody { width: 100%; padding: 0 10px 12px; border-top: 1px dashed var(--line); margin-top: 2px; padding-top: 10px; }
 .ph-posassigned { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .ph-assignedrow { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; }
-.ph-assignedrow span { flex: 1; min-width: 0; }
+.ph-assignedrow > span:not(.ph-avatar) { flex: 1; min-width: 0; }   /* 이름 칸만 늘림 — 아바타(.ph-avatar)와 그 안의 글자 · 배지까지 늘어나 타원이 되던 버그 */
+.ph-assignedrow .ph-avatar { flex: none; }
 .ph-assignedrow form { flex: none; }
 .ph-assignedrow button {
   border: 1px solid var(--line); background: var(--glass-2); color: var(--dim); cursor: pointer;
