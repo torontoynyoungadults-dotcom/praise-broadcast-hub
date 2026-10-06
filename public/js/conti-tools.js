@@ -412,8 +412,106 @@
     $$('[data-cn-import]', root).forEach(function (box) { importCount(box); });
   }
 
+
+  /* ---------- 5) 콘티 순서 바꾸기 — [data-cn-reorder] 를 누르면 곡 카드가 한 줄로 접히고 손잡이(.cn-grip)가 나옵니다.
+   *   손잡이를 끌어서(마우스 · 터치 — pointer 이벤트) 또는 손잡이에서 위·아래 방향키로 옮기고, "순서 저장"(폼 제출)을 누르면
+   *   서버(/conti/songs/reorder)가 곡 ID 순서를 저장합니다. 폼은 spa.js 가 받아 제자리에서 화면을 다시 불러옴(보던 자리 유지). */
+  function bindReorder() {
+    if (window.__cnReorderBound) return; window.__cnReorderBound = true;
+    var drag = null, scrollTimer = null;
+    function boxOf(el) { var c = el.closest('.ph-card'); return c ? c.querySelector('[data-cn-sortable]') : null; }
+    function barOf(box) { var c = box.closest('.ph-card'); return c ? c.querySelector('[data-cn-rbar]') : null; }
+    function openBtnOf(box) { var c = box.closest('.ph-card'); return c ? c.querySelector('[data-cn-reorder]') : null; }
+    function songs(box) { return [].slice.call(box.children).filter(function (c) { return c.classList && c.classList.contains('cn-song'); }); }
+    function ids(box) { return songs(box).map(function (c) { return c.getAttribute('data-song') || ''; }); }
+    function renumber(box) { songs(box).forEach(function (c, i) { var n = c.querySelector('.cn-no'); if (n) n.textContent = String(i + 1); }); }
+    function enter(box) {
+      box.__orig = ids(box); box.classList.add('cn-reorder');
+      var bar = barOf(box), btn = openBtnOf(box); if (bar) bar.hidden = false; if (btn) btn.hidden = true;
+    }
+    function leave(box) {
+      box.classList.remove('cn-reorder', 'cn-sorting');
+      var bar = barOf(box), btn = openBtnOf(box); if (bar) bar.hidden = true; if (btn) btn.hidden = false;
+    }
+    function restore(box) {
+      var by = {}; songs(box).forEach(function (c) { by[c.getAttribute('data-song')] = c; });
+      (box.__orig || []).forEach(function (id) { if (by[id]) box.appendChild(by[id]); });
+      renumber(box);
+    }
+    // 끌고 있는 카드를, 포인터가 이웃 카드의 가운데 선을 넘을 때마다 한 칸씩 옮깁니다 (빠르게 끌어도 따라가도록 안정될 때까지 반복)
+    function place() {
+      if (!drag) return;
+      var card = drag.card, box = drag.box, moved = false, guard = 0;
+      while (guard++ < 60) {
+        var sibs = songs(box), i = sibs.indexOf(card), prev = sibs[i - 1], next = sibs[i + 1], r;
+        if (prev && (r = prev.getBoundingClientRect()) && drag.y < r.top + r.height / 2) { box.insertBefore(card, prev); moved = true; continue; }
+        if (next && (r = next.getBoundingClientRect()) && drag.y > r.top + r.height / 2) { box.insertBefore(card, next.nextSibling); moved = true; continue; }
+        break;
+      }
+      if (moved) renumber(box);
+    }
+    function stopDrag() {
+      if (!drag) return;
+      clearInterval(scrollTimer); scrollTimer = null;
+      drag.card.classList.remove('cn-dragging'); drag.box.classList.remove('cn-sorting');
+      try { drag.grip.releasePointerCapture(drag.id); } catch (e) {}
+      drag = null;
+    }
+    document.addEventListener('click', function (e) {
+      var t = e.target; if (!t || !t.closest) return;
+      var b;
+      if ((b = t.closest('[data-cn-reorder]'))) { e.preventDefault(); var box = boxOf(b); if (box) enter(box); return; }
+      if ((b = t.closest('[data-cn-rcancel]'))) { e.preventDefault(); var bx = boxOf(b); if (bx) { stopDrag(); restore(bx); leave(bx); } return; }
+    });
+    document.addEventListener('pointerdown', function (e) {
+      var g = e.target && e.target.closest ? e.target.closest('[data-cn-grip]') : null; if (!g) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      var card = g.closest('.cn-song'), box = card && card.parentNode;
+      if (!box || !box.classList.contains('cn-reorder')) return;
+      e.preventDefault();
+      try { g.setPointerCapture(e.pointerId); } catch (x) {}
+      drag = { card: card, box: box, grip: g, id: e.pointerId, y: e.clientY };
+      card.classList.add('cn-dragging'); box.classList.add('cn-sorting');
+      clearInterval(scrollTimer);
+      scrollTimer = setInterval(function () {                       // 화면 위 · 아래 끝에 가까이 가면 같이 스크롤 (곡이 많은 긴 목록)
+        if (!drag) return;
+        var h = window.innerHeight || document.documentElement.clientHeight, edge = 70, dy = 0;
+        if (drag.y < edge) dy = -Math.ceil((edge - drag.y) / 5); else if (drag.y > h - edge) dy = Math.ceil((drag.y - (h - edge)) / 5);
+        if (dy) { window.scrollBy(0, dy); place(); }
+      }, 16);
+    });
+    document.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      e.preventDefault(); drag.y = e.clientY; place();
+    }, { passive: false });
+    ['pointerup', 'pointercancel'].forEach(function (n) {
+      document.addEventListener(n, function (e) { if (drag && e.pointerId === drag.id) stopDrag(); });
+    });
+    document.addEventListener('keydown', function (e) {           // 손잡이에서 ↑ ↓ — 마우스 · 터치 없이도 옮길 수 있게
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      var g = e.target && e.target.closest ? e.target.closest('[data-cn-grip]') : null; if (!g) return;
+      var card = g.closest('.cn-song'), box = card && card.parentNode;
+      if (!box || !box.classList.contains('cn-reorder')) return;
+      e.preventDefault();
+      var sibs = songs(box), i = sibs.indexOf(card);
+      if (e.key === 'ArrowUp' && sibs[i - 1]) box.insertBefore(card, sibs[i - 1]);
+      else if (e.key === 'ArrowDown' && sibs[i + 1]) box.insertBefore(card, sibs[i + 1].nextSibling);
+      else return;
+      renumber(box); g.focus();
+    });
+    // 저장 — spa.js 의 제출 처리보다 먼저(capture) 곡 ID 순서를 폼에 담음. 바뀐 게 없으면 보내지 않고 그냥 닫음
+    document.addEventListener('submit', function (e) {
+      var f = e.target; if (!f || !f.matches || !f.matches('[data-cn-rbar]')) return;
+      var box = boxOf(f); if (!box) return;
+      var now = ids(box);
+      if (now.join(',') === (box.__orig || []).join(',')) { e.preventDefault(); e.stopPropagation(); leave(box); return; }
+      var inp = f.querySelector('[data-cn-rids]'); if (inp) inp.value = now.join(',');
+    }, true);
+  }
+
   function mountAll() {
     bindDelegated();
+    bindReorder();
     var root = document;
     mountFormBuilders(root);
     mountConti(root);

@@ -1378,3 +1378,26 @@ body.pkp-open{overflow:hidden}
 .hdr-t{left:50%;top:0}.hdr-b{left:50%;top:100%}.hdr-l{left:0;top:50%}.hdr-r{left:100%;top:50%}
 .hdr-tl{left:0;top:0}.hdr-tr{left:100%;top:0}.hdr-bl{left:0;top:100%}.hdr-br{left:100%;top:100%}
 .hdr-act{display:flex;gap:8px;align-items:center}
+
+/* ---------- 콘티 순서 바꾸기 — "순서 바꾸기"를 누르면 곡 카드가 한 줄로 접히고, 손잡이를 끌어서(마우스 · 터치) 옮김 ---------- */
+.cn-cardhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; }
+.cn-cardhead .ph-h2 { margin: 0; }
+.cn-cardhead .cn-mini { min-height: 34px; padding: 0 12px; font-size: 13px; font-weight: 750; white-space: nowrap; gap: 5px; }
+.cn-cardhead .cn-mini .yi { width: 14px; height: 14px; }
+.cn-cardhead .cn-mini[hidden] { display: none; }
+.cn-rbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; padding: 9px 12px; border-radius: 12px; border: 1px dashed var(--accent); background: var(--glass-2); }
+.cn-rbar[hidden] { display: none; }
+.cn-rhint { flex: 1 1 190px; margin: 0; font-size: 13px; font-weight: 650; color: var(--sub); }
+.cn-rhint b { color: var(--ink); }
+.cn-rbtns { display: flex; gap: 6px; margin-left: auto; }
+.cn-rbtns .cn-mini { min-height: 34px; padding: 0 14px; font-size: 13px; font-weight: 750; }
+.cn-grip { display: none; flex: none; align-items: center; justify-content: center; width: 40px; height: 36px; margin-left: auto; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--glass-2); color: var(--sub); cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.cn-grip svg { width: 16px; height: 16px; fill: currentColor; pointer-events: none; }
+.cn-grip:active, .cn-dragging .cn-grip { cursor: grabbing; }
+.cn-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cn-reorder .cn-grip { display: inline-flex; }
+.cn-reorder .cn-song { user-select: none; -webkit-user-select: none; }
+.cn-reorder .cn-song > *:not(.cn-shead) { display: none; }
+.cn-reorder .cn-ytlink { display: none; }
+.cn-song.cn-dragging { z-index: 5; border-color: var(--accent); box-shadow: 0 12px 30px rgba(0, 0, 0, .38); transform: scale(1.015); }
+.cn-sorting, .cn-sorting * { cursor: grabbing !important; }

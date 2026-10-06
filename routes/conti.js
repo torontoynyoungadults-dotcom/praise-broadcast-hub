@@ -377,6 +377,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
       <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
       <span class="cn-badges">${s['Key'] ? `<span class="cn-kb key" title="Key">${esc(s['Key'])}</span>` : ''}${bpm ? `<span class="cn-kb bpm" title="BPM">${esc(bpm)}<small>BPM</small></span>` : ''}${ytBtn}</span>
+      ${editable && !isFinal && !isClosing ? `<button type="button" class="cn-grip" data-cn-grip aria-label="끌어서 순서 바꾸기 (위·아래 방향키로도 옮겨요)" title="끌어서 순서 바꾸기"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>` : ''}
     </div>
     ${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
@@ -712,8 +713,13 @@ router.get('/conti', requireTeam, async (req, res) => {
   ${(() => { const y = ytPlayAllHtml(w); return y ? `<div class="ph-card cn-ycard"><h2 class="ph-h2">유튜브 이어 듣기</h2><p class="ph-sub" style="margin:-4px 0 10px;">곡마다 올린 유튜브 링크를 콘티 순서대로 이어서 들어요.</p>${y}</div>` : ''; })()}
 
   <div class="ph-card top-accent">
-    <h2 class="ph-h2">콘티</h2>
-    <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
+    <div class="cn-cardhead"><h2 class="ph-h2">콘티</h2>${w.conti.length > 1 ? `<button type="button" class="cn-mini" data-cn-reorder>${ui.icon('pencil')} 순서 바꾸기</button>` : ''}</div>
+    ${w.conti.length > 1 ? `<form method="post" action="/conti/songs/reorder" class="cn-rbar" data-cn-rbar hidden>
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="ids" value="" data-cn-rids>
+      <p class="cn-rhint">손잡이를 끌어서 순서를 바꾼 뒤 <b>순서 저장</b>을 눌러 주세요.</p>
+      <div class="cn-rbtns"><button type="button" class="cn-mini" data-cn-rcancel>취소</button><button type="submit" class="cn-mini pri">순서 저장</button></div>
+    </form>` : ''}
+    <div class="cn-songs" data-cn-sortable>${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
     ${songForm('콘티', team, scope, roster, byPos, hist)}
   </div>
 
@@ -1008,6 +1014,34 @@ router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.a
     await saveSheetsFrom(req, team, scope, sid, { 'Key': b['Key'] || '', 'BPM': b['BPM'] || '' }, true);
   } catch (e) { console.error('[곡 악보 저장 실패]', e.message); }
   liveNotify(team, scope, 'saveWorshipSong');
+  backTo(req, res, team, scope);
+});
+
+/** 콘티 곡 순서 바꾸기 — 화면에서 끌어 옮긴 곡 ID 순서(ids, 쉼표로 이음)를 받아 "순서" 칸만 1..n 으로 다시 씁니다.
+ *  · 설교 후 찬양 · 폐회송은 곡이 하나뿐이라 대상이 아님 · 그 사이 다른 사람이 추가해서 화면에 없던 곡은 원래 순서대로 뒤에 붙임
+ *  · 예전에 곡을 지웠다 추가해서 순서 번호가 겹쳤던 것도 이때 깔끔하게 정리됩니다 */
+router.post('/conti/songs/reorder', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const scope = scopeFrom(b);
+  if (!req.ctx.teams.includes(team)) return backTo(req, res, req.ctx.current, scope);
+  const ids = String(b.ids || '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (ids.length) {
+    try {
+      const rows = (await sheetsDb.readAll('찬양콘티', { fresh: true }))
+        .filter((r) => r['팀ID'] === team && inScope(r, scope) && r['구분'] !== '결단' && r['구분'] !== '폐회송');
+      const byId = new Map(rows.map((r) => [String(r['ID']), r]));
+      const seen = new Set();
+      const ordered = [];
+      ids.forEach((id) => { const r = byId.get(id); if (r && !seen.has(id)) { seen.add(id); ordered.push(r); } });
+      rows.slice().sort((a, c) => Number(a['순서'] || 0) - Number(c['순서'] || 0))
+        .forEach((r) => { if (!seen.has(String(r['ID']))) ordered.push(r); });
+      const cells = [];
+      ordered.forEach((r, i) => { if (Number(r['순서']) !== i + 1) cells.push({ row: r.__row, header: '순서', value: i + 1 }); });
+      if (cells.length) await sheetsDb.updateCells('찬양콘티', cells);
+      liveNotify(team, scope, 'saveWorshipSong');
+    } catch (e) { console.error('[콘티 순서 저장 실패]', e.message); }
+  }
   backTo(req, res, team, scope);
 });
 
