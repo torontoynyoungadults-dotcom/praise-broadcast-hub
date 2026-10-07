@@ -25,6 +25,7 @@ const pageSpec = require('../lib/pageSpec');
 const pdfPart = require('../lib/pdfPart');
 const guestAccess = require('../lib/guestAccess');
 const liveAuth = require('../lib/liveAuth');
+const sheetHeaders = require('../lib/sheetHeaders');
 const session = require('../lib/session');
 const guestLink = require('../lib/guestLink');
 const hubApi = require('../lib/hubApi');
@@ -422,6 +423,7 @@ const FNS = {
     if (!u.canEdit) throw new Error('곡 정보는 팀장 · 인도자만 바꿀 수 있습니다.');
     const r = await liveStore.songPatch(u.team, room, kind, seq, patch);
     if (rt) rt.broadcast(room, 'song', { kind: r.song.kind, seq: r.song.seq, patch: r.patch, by: u.name, cid: String(cid || '').slice(0, 40) }, u.team);
+    sheetHeaders.queue(u.team, liveStore.scopeOfRoom(room), songsChanged);   // BPM · 송폼이 바뀌면 머리말 악보도 뒤에서 새로 (끝나면 열린 화면에 알림)
     return { ok: true, song: r.song, patch: r.patch, by: u.name };
   },
 };

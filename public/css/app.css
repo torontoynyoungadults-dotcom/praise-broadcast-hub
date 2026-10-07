@@ -1365,8 +1365,9 @@ body.pkp-open{overflow:hidden}
 .ss-card.bad{opacity:.55;border-color:#ff8a7a;cursor:default}
 
 /* 악보 올리기 — 헤더 자동 추가 · 자르기 조정 */
-.ph-hdrchk{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:flex-start;font-size:13px;color:var(--text,#fff);cursor:pointer}
-.ph-hdrchk small{display:block;opacity:.65;font-size:11.5px;margin-top:2px;flex:1 1 100%;min-width:0}
+.ph-hdrchk{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:flex-start;font-size:13px;font-weight:700;color:var(--ink,inherit);cursor:pointer}   /* 예전엔 color:var(--text,#fff) — --text 가 없어 밝은 테마에서 흰 글씨(안 보임) */
+[data-sheet-hdr-crop][hidden]{display:none!important}   /* .ph-btn 의 display 가 hidden 을 덮어써서 파일을 고르기 전에도 보이던 것 */
+.ph-hdrchk small{display:block;opacity:.75;font-size:11.5px;font-weight:500;margin-top:2px;flex:1 1 100%;min-width:0}
 .ph-hdrchk input{margin-top:3px;accent-color:#ff8a1f;flex:none}
 .hdr-box{width:min(720px,100%)}
 .hdr-top{display:flex;flex-direction:column;gap:2px;font-size:12px;opacity:.85}
@@ -1417,6 +1418,8 @@ body.pkp-open{overflow:hidden}
   .hdr-nav [data-a=prev], .hdr-nav [data-a=next] { padding: 4px 9px; }
   .hdr-act { flex-wrap: wrap; }
   .hdr-act .ph-btn { padding: 6px 10px; font-size: 13px; }
+  .hdr-act > span { flex: 1 1 100% !important; height: 0; }      /* 취소 · 저장은 다음 줄 오른쪽에 함께 */
+  .hdr-act [data-a=x] { margin-left: auto; }
 }
 
 /* ---------- 저장된 악보 옆 "필기" — 라이브 악보 화면에서 그 악보를 바로 열어 필기 ---------- */
@@ -1428,3 +1431,8 @@ body.pkp-open{overflow:hidden}
 /* ---------- 곡별로 나누기 — 헤더 달기 옵션 ---------- */
 .cn-splithdr { display: block; margin: 4px 0 10px; font-size: 13.5px; font-weight: 700; }
 .cn-splithdr small { display: block; margin-top: 2px; font-weight: 500; color: var(--dim); }
+
+/* ---------- 이미 올린 악보 — 자르기 · 헤더 창 안의 헤더 달기 체크 ---------- */
+.hdr-headchk { margin: 2px 2px 0; }
+button.ph-annolink { cursor: pointer; font-family: inherit; }
+button.ph-annolink:disabled { opacity: .6; cursor: progress; }

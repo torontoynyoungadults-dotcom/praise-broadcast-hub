@@ -35,6 +35,7 @@ const sheetSearch = require('../lib/sheetSearch');
 const pkgPdf = require('../lib/pkgPdf');
 const fileBytes = require('../lib/fileBytes');
 const pageSpec = require('../lib/pageSpec');
+const sheetHeaders = require('../lib/sheetHeaders');
 const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
 const timeSettings = require('../lib/timeSettings');
@@ -303,6 +304,16 @@ function annoHref(f) {
   qs.set('sheet', liveStore.sheetIdOf(f['팀ID'], f['파일링크']));
   return `/conti/practice?${qs.toString()}`;
 }
+/** 이미 올린 곡 악보 — 자르기 · 머리말 다시 적용 단추 (public/js/sheethdr.js 가 자르기 창을 엶) */
+function reformatBtn(f) {
+  if (!f || !f['파일링크'] || !f['곡ID']) return '';
+  const src = reformatSource(f);
+  const qs = new URLSearchParams({ team: f['팀ID'], row: String(f.__row) });
+  if (f['행사ID']) qs.set('event', f['행사ID']); else qs.set('date', f['날짜']);
+  return `<button type="button" class="ph-annolink" data-sheet-reformat data-team="${esc(f['팀ID'])}" data-date="${esc(f['날짜'])}" data-event="${esc(f['행사ID'] || '')}" data-row="${f.__row}"
+    data-src="/conti/sheets/source?${esc(qs.toString())}" data-crop="${esc(src.crop)}" data-header="${src.header ? 1 : 0}" data-headed="${src.headed ? 1 : 0}" data-name="${esc(f['제목'] || '악보')}"
+    title="이 악보의 가장자리를 쪽마다 자르고, 인쇄용 PDF처럼 머리말을 달아요">${ui.icon('page')} 자르기·헤더</button>`;
+}
 function annoLink(f) {
   if (!f || !f['파일링크']) return '';
   return `<a class="ph-annolink" href="${esc(annoHref(f))}" title="라이브 악보에서 이 악보에 필기">${ui.icon('pencil')} 필기</a>`;
@@ -311,7 +322,7 @@ function annoLink(f) {
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable, extra) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable ? annoLink(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable ? annoLink(f) + reformatBtn(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
     <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
     <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
   </form>` : ''}</span>`).join('');
@@ -538,16 +549,11 @@ function sheetItem(s, editable) {
 
 /** 패키지 악보 한 개를 곡별로 나누는 칸 — PDF 의 쪽을 곡마다 정해 두면 그 쪽 범위가 곡(곡ID)에 묶여 저장돼, 다른 주 콘티에 그 곡을 넣을 때 악보가 따라와요.
  *  (쪽을 자동으로 찾는 일은 public/js/conti-tools.js [data-cn-split] 가 PDF 글자에서 곡 제목을 찾아 채워 줌 — 고칠 수 있음) */
-/** "곡별로 나누기 + 헤더 달기" 로 만든 곡 악보 줄 — 메모에 "나누기|<쪽>|<원본 패키지 링크>" 를 남겨 둠.
- *  (화면의 "저장됨" 표시 · 다시 나누기 · 인쇄용 PDF 가 원본 쪽을 그대로 쓰는 데 씀) → { spec, link } | null */
-const SPLIT_TAG = '나누기|';
+/** 머리말 · 자르기를 적용해 다시 만든 곡 악보 줄 — 메모에 원본 링크 · 쪽 · 자르기 · 머리말 여부를 남겨 둠 (lib/sheetHeaders.js).
+ *  (화면의 "저장됨" 표시 · 다시 나누기 · 인쇄용 PDF 가 원본을 그대로 쓰는 데 씀) → { spec, link(원본), crop, header } | null */
 function splitOrigin(row) {
-  const m = String((row && row['메모']) || '');
-  if (m.indexOf(SPLIT_TAG) !== 0) return null;
-  const rest = m.slice(SPLIT_TAG.length), i = rest.indexOf('|');
-  if (i < 0) return null;
-  const spec = pageSpec.cleanSpec(rest.slice(0, i)), link = rest.slice(i + 1).trim();
-  return spec && link ? { spec, link } : null;
+  const h = sheetHeaders.parse(row);
+  return h ? { spec: h.spec, link: h.src, crop: h.crop, header: h.header } : null;
 }
 
 function splitPanel(team, scope, s, songs, allSheets) {
@@ -838,7 +844,7 @@ async function makePackage(req, onProgress) {
       const sheets = [];
       for (const f of mine) {
         const o = splitOrigin(f);            // 곡별로 나누기 + 헤더 달기 로 만든 악보 — 인쇄용 PDF 는 자기 머리말을 다니까 원본 패키지의 그 쪽을 씀
-        if (o) { used.add(f['파일링크']); used.add(o.link); const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: '' }); continue; } }
+        if (o) { used.add(f['파일링크']); used.add(o.link); const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: o.crop || '' }); continue; } }
         used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || '') });
       }
       songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
@@ -1076,6 +1082,7 @@ router.post('/conti/songs/reorder', requireTeam, async (req, res) => {
       ordered.forEach((r, i) => { if (Number(r['순서']) !== i + 1) cells.push({ row: r.__row, header: '순서', value: i + 1 }); });
       if (cells.length) await sheetsDb.updateCells('찬양콘티', cells);
       liveNotify(team, scope, 'saveWorshipSong');
+      if (cells.length) await sheetHeaders.settle(sheetHeaders.queue(team, scope, liveNotify), 8000);   // 머리말의 곡 번호도 새 순서로
     } catch (e) { console.error('[콘티 순서 저장 실패]', e.message); }
   }
   backTo(req, res, team, scope);
@@ -1101,6 +1108,7 @@ router.post('/conti/songs/edit', requireTeam, async (req, res) => {
     } catch (e) { console.error('[콘티 수정 실패]', e.message); }
   }
   liveNotify(team, scope, 'saveWorshipSong');
+  await sheetHeaders.settle(sheetHeaders.queue(team, scope, liveNotify), 8000);   // 제목 · Key · BPM · 송폼이 바뀌었으면 머리말 악보도 새로
   backTo(req, res, team, scope);
 });
 
@@ -1137,6 +1145,7 @@ router.post('/conti/songs/delete', requireTeam, async (req, res) => {
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('찬양콘티', row); } catch (e) { console.error('[콘티 삭제 실패]', e.message); } }
   liveNotify(b.team, scopeFrom(b), 'removeWorshipSong');
+  if (row && b.team) await sheetHeaders.settle(sheetHeaders.queue(String(b.team).trim(), scopeFrom(b), liveNotify), 8000);   // 뒤 곡들의 번호가 당겨짐
   backTo(req, res, b.team, scopeFrom(b));
 });
 
@@ -1165,7 +1174,7 @@ async function saveSheetsFrom(req, team, scope, songId, extra, ignoreTyped) {
   const files = (req.files || []).filter((f) => f && f.buffer && f.buffer.length);
   const jobs = [];
   for (const f of files) {
-    try { jobs.push({ title: (files.length === 1 && typed) || titleFromFile(f.originalname) || typed || '악보', link: await driveStore.uploadPublic('악보', f) }); }
+    try { jobs.push({ title: (files.length === 1 && typed) || titleFromFile(f.originalname) || typed || '악보', link: await driveStore.uploadPublic('악보', f), memo: f.__memo || '' }); }
     catch (e) { console.error('[악보 업로드 실패]', e.message); }
   }
   const link = String(b['링크'] || '').trim();
@@ -1175,7 +1184,7 @@ async function saveSheetsFrom(req, team, scope, songId, extra, ignoreTyped) {
       'ID': 'F' + Date.now().toString(36) + k + Math.random().toString(36).slice(2, 4), '팀ID': team, ...scopeFields(scope), '제목': jobs[k].title,
       '파일링크': jobs[k].link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
       '곡ID': String(songId || '').trim(),
-    }, extra || {}));
+    }, jobs[k].memo ? { '메모': jobs[k].memo } : {}, extra || {}));
   }
   return jobs.length;
 }
@@ -1197,13 +1206,18 @@ async function headerizeFiles(req, team, scope, songId) {
   const rows = (await sheetsDb.readAll('찬양콘티')).filter((r) => r['팀ID'] === team && inScope(r, scope));
   const row = rows.find((r) => r['ID'] === String(songId || '').trim());
   if (!row) return;
-  const same = rows.filter((r) => r['구분'] === row['구분']).sort((a, b) => Number(a['순서'] || 0) - Number(b['순서'] || 0));
-  const s = { kind: row['구분'], no: Math.max(1, same.findIndex((r) => r['ID'] === row['ID']) + 1), title: row['제목'], team: row['팀'], key: row['Key'], bpm: row['BPM'], form: row['송폼'], note: '' };
+  const s = sheetHeaders.songInfo(rows, row);
   const crops = String((req.body || {}).crop || '').split('|');
   for (let i = 0; i < files.length; i++) {
     try {
       const pdf = await pkgPdf.buildSongSheet(s, { buf: files[i].buffer, crop: crops[i] || '' }, sheetSearch.imagesToPdf);
-      if (pdf) { files[i].buffer = pdf; files[i].mimetype = 'application/pdf'; files[i].originalname = String(files[i].originalname || '악보').replace(/\.[^.]*$/, '') + '.pdf'; files[i].size = pdf.length; }
+      if (pdf) {
+        // 원본은 비공개로 따로 보관 — 나중에 곡 정보(BPM 등)가 바뀌면 머리말을 다시 만들고, 올린 뒤에도 자르기를 다시 할 수 있게
+        let src = '';
+        try { src = await driveStore.uploadPrivate('악보원본', { buffer: files[i].buffer, mimetype: files[i].mimetype, originalname: files[i].originalname || '악보' }); } catch (e) { console.error('[악보 원본 보관 실패]', e.message); }
+        if (src) files[i].__memo = sheetHeaders.encode({ src, spec: '', crop: crops[i] || '', header: true, sig: sheetHeaders.sigOf(s), priv: true });
+        files[i].buffer = pdf; files[i].mimetype = 'application/pdf'; files[i].originalname = String(files[i].originalname || '악보').replace(/\.[^.]*$/, '') + '.pdf'; files[i].size = pdf.length;
+      }
     } catch (e) { console.error('[악보 헤더 추가 실패]', files[i].originalname, e.message); }
   }
 }
@@ -1224,6 +1238,81 @@ router.post('/conti/sheets/detect', requireTeam, upload.single('파일'), async 
     const boxes = want.map((no) => toBox(det.find((d) => d.pageNo === no)));
     res.json({ box: boxes[0], boxes });
   } catch (e) { res.json({ box: null, boxes: [] }); }
+});
+
+/* ---------- 이미 올린 곡 악보에 자르기 · 머리말 다시 적용 ---------- */
+/** 이 줄을 고칠 때 쓸 원본 — 이미 머리말 · 자르기를 적용한 악보면 보관해 둔 원본(+ 그 쪽), 아니면 지금 파일(+ 쪽 범위) */
+function reformatSource(row) {
+  const h = sheetHeaders.parse(row);
+  return h ? { src: h.src, spec: h.spec, crop: h.crop, header: h.header, headed: true, priv: h.priv } : { src: row['파일링크'], spec: pageSpec.cleanSpec(row['쪽'] || ''), crop: '', header: true, headed: false, priv: false };
+}
+async function sheetRowOf(req, team, rowNo) {
+  if (!team || !req.ctx.teams.includes(team)) return null;
+  const rows = await sheetsDb.readAll('악보저장소', { fresh: true });
+  return rows.find((r) => r.__row === Number(rowNo) && r['팀ID'] === team && r['파일링크']) || null;
+}
+const kindOfBytes = (buf) => (buf.slice(0, 5).toString('latin1') === '%PDF-' ? 'application/pdf'
+  : buf[0] === 0xFF && buf[1] === 0xD8 ? 'image/jpeg' : buf.slice(0, 4).toString('hex') === '89504e47' ? 'image/png' : buf.slice(0, 4).toString('latin1') === 'RIFF' ? 'image/webp' : '');
+
+/** 자르기 창에 띄울 원본 바이트 — 쪽 범위가 있으면 그 쪽만 (창의 쪽 번호 = 저장할 자르기 값의 순서) */
+router.get('/conti/sheets/source', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const row = await sheetRowOf(req, String(req.query.team || '').trim(), req.query.row);
+    if (!row) return res.status(404).type('text').send('악보를 찾지 못했어요.');
+    const src = reformatSource(row);
+    let buf = await fileBytes.get(src.src);
+    if (!buf) return res.status(502).type('text').send('원본 악보를 받지 못했어요.');
+    let type = kindOfBytes(buf);
+    if (!type) return res.status(415).type('text').send('PDF · 사진 악보만 자를 수 있어요.');
+    if (src.spec && type === 'application/pdf') { const part = await require('../lib/pdfPart').extract(buf, src.spec); if (part) buf = part; }
+    res.set({ 'Content-Type': type, 'Content-Length': String(buf.length) });
+    res.send(buf);
+  } catch (e) { console.error('[악보 원본 열기 실패]', e.message); res.status(500).type('text').send('원본 악보를 열지 못했어요.'); }
+});
+
+/** 자르기 · 머리말 적용 저장 — crop("l,t,r,b;…" 쪽마다), header('1' 이면 인쇄용 PDF 와 같은 머리말), revert('1' 이면 원본으로 되돌림).
+ *  원본은 그대로 두고 새 PDF 를 만들어 이 줄에 끼우며, 메모에 만든 방법을 남겨 곡 정보가 바뀌면 머리말을 자동으로 다시 만듦 */
+router.post('/conti/sheets/reformat', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const scope = scopeFrom(b);
+  try {
+    const row = await sheetRowOf(req, team, b.__row);
+    if (!row || !row['곡ID'] || !inScope(row, scope)) return backTo(req, res, team, scope);
+    const src = reformatSource(row);
+    if (b.revert === '1') {
+      if (src.headed) {
+        let link = src.src, spec = src.spec;
+        if (src.priv) {                                       // 비공개로 보관한 원본 — 공개 사본을 만들어 끼움
+          const ob = await fileBytes.get(link);
+          if (!ob) return backTo(req, res, team, scope);
+          link = await driveStore.uploadPublic('악보', { buffer: ob, mimetype: kindOfBytes(ob) || 'application/octet-stream', originalname: String(row['제목'] || '악보') + (kindOfBytes(ob) === 'application/pdf' ? '.pdf' : '') });
+        }
+        await sheetsDb.updateCells('악보저장소', [{ row: row.__row, header: '파일링크', value: link }, { row: row.__row, header: '쪽', value: spec }, { row: row.__row, header: '메모', value: '' }]);
+        liveNotify(team, scope, 'saveSheetSplit');
+      }
+      return backTo(req, res, team, scope);
+    }
+    const songs = (await sheetsDb.readAll('찬양콘티', { fresh: true })).filter((r) => r['팀ID'] === team && inScope(r, scope));
+    const song = songs.find((r) => r['ID'] === row['곡ID']);
+    if (!song) return backTo(req, res, team, scope);
+    const buf = await fileBytes.get(src.src);
+    if (!buf) { console.error('[자르기 · 머리말 — 원본을 받지 못함]', src.src); return backTo(req, res, team, scope); }
+    const header = b.header === '1';
+    const crop = String(b.crop || '').slice(0, 4000);
+    const info = sheetHeaders.songInfo(songs, song);
+    const pdf = await sheetHeaders.render(info, buf, { spec: src.spec, crop, header });
+    if (!pdf) return backTo(req, res, team, scope);
+    const link = await sheetHeaders.uploadPdf(song['제목'] || row['제목'], pdf);
+    await sheetsDb.updateCells('악보저장소', [
+      { row: row.__row, header: '파일링크', value: link }, { row: row.__row, header: '쪽', value: '' },
+      { row: row.__row, header: '쪽수', value: '' },
+      { row: row.__row, header: '메모', value: sheetHeaders.encode({ src: src.src, spec: src.spec, crop, header, sig: header ? sheetHeaders.sigOf(info) : '', priv: src.priv }) },
+    ]);
+    liveNotify(team, scope, 'saveSheetSplit');
+  } catch (e) { console.error('[자르기 · 머리말 적용 실패]', e.message); }
+  backTo(req, res, team, scope);
 });
 
 /** 웹에서 악보 이미지 찾기 — 검색 결과(JSON). 키가 없으면 configured:false 로 알려 줘서 화면이 설정 안내를 보여 줌 */
@@ -1286,7 +1375,6 @@ router.post('/conti/sheets/split', requireTeam, async (req, res) => {
       const withHeader = b.header === '1' && plan.some((p) => p.spec);
       const pkgBuf = withHeader ? await fileBytes.get(link) : null;
       if (withHeader && !pkgBuf) console.error('[곡별로 나누기 — 원본을 받지 못해 헤더 없이 저장]', link);
-      const kindRows = (kind) => Array.from(songs.values()).filter((r) => r['구분'] === kind).sort((a, c) => Number(a['순서'] || 0) - Number(c['순서'] || 0));
       const base = Date.now().toString(36);
       let n = 0;
       for (const p of plan) {
@@ -1298,13 +1386,13 @@ router.post('/conti/sheets/split', requireTeam, async (req, res) => {
         };
         if (pkgBuf) {
           try {
-            const g = p.song, same = kindRows(g['구분']);
-            const info = { kind: g['구분'], no: Math.max(1, same.findIndex((r) => r['ID'] === g['ID']) + 1), title: g['제목'], team: g['팀'], key: g['Key'], bpm: g['BPM'], form: g['송폼'], note: '' };
+            const g = p.song;
+            const info = sheetHeaders.songInfo(Array.from(songs.values()), g);
             const pdf = await pkgPdf.buildSongSheet(info, { buf: pkgBuf, spec: p.spec }, sheetSearch.imagesToPdf);
             if (pdf) {
               const title = String(g['제목'] || '').trim() || String(pkg['제목'] || '악보');
               const flink = await driveStore.uploadPublic('악보', { buffer: pdf, mimetype: 'application/pdf', originalname: title.replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60) + '.pdf', size: pdf.length });
-              Object.assign(row, { '제목': title, '파일링크': flink, '쪽': '', '메모': SPLIT_TAG + p.spec + '|' + link });
+              Object.assign(row, { '제목': title, '파일링크': flink, '쪽': '', '메모': sheetHeaders.encode({ src: link, spec: p.spec, crop: '', header: true, sig: sheetHeaders.sigOf(info) }) });
             }
           } catch (e) { console.error('[곡별로 나누기 — 헤더 달기 실패, 원본 쪽 그대로 저장]', p.song['제목'], e.message); }
         }

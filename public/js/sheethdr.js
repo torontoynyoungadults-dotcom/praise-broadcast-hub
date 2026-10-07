@@ -61,8 +61,11 @@
   function fmt(c) { return [c.l, c.t, c.r, c.b].map(function (v) { return v.toFixed(4); }).join(','); }
 
   function close() { if (root) { root.remove(); root = null; } }
-  /* 파일 하나의 자르기 편집 — 완료되면 "l,t,r,b;…"(쪽마다, 손대지 않은 쪽은 빈칸) 로 resolve, 취소하면 null */
-  function edit(file, idx, total) {
+  /* 파일 하나의 자르기 편집 — 완료되면 "l,t,r,b;…"(쪽마다, 손대지 않은 쪽은 빈칸) 로 resolve, 취소하면 null.
+     opts(이미 올린 악보를 고칠 때): { init: 예전 자르기 값, header: 헤더 체크 처음 값, headerToggle: 헤더 달기 체크를 보임, revert: "원본으로 되돌리기" 보임 }
+       → { crop, header } 또는 { revert: true } 로 resolve */
+  function edit(file, idx, total, opts) {
+    opts = opts || {};
     return new Promise(function (done) {
       root = document.createElement('div'); root.className = 'ss-back on';
       root.innerHTML = '<div class="ss-box hdr-box"><div class="hdr-top"><b></b><span data-hint>모서리·변을 끌어 악보 영역을 맞추세요 (이 안만 남아요)</span></div>' +
@@ -71,8 +74,11 @@
         '<button type="button" class="ph-btn" data-a="next" aria-label="다음 쪽">다음 쪽 ›</button>' +
         '<button type="button" class="ph-btn hdr-same" data-a="same">모든 쪽에 같게</button></div>' +
         '<div class="hdr-stage"><div class="hdr-wrap"><div class="hdr-box-area"></div></div></div>' +
+        (opts.headerToggle ? '<label class="ph-hdrchk hdr-headchk"><input type="checkbox" data-hdr-head' + (opts.header === false ? '' : ' checked') + '> 헤더 달기' +
+          '<small>인쇄용 PDF처럼 번호 · 제목 – 원곡팀 · KEY · BPM · 송폼 머리말을 달아요. 끄면 자르기만 해요. 곡 정보가 바뀌면 머리말도 자동으로 바뀌어요.</small></label>' : '') +
         '<div class="hdr-act"><button type="button" class="ph-btn" data-a="auto">자동 영역</button><button type="button" class="ph-btn" data-a="all">전체 쪽</button>' +
-        '<span style="flex:1"></span><button type="button" class="ph-btn" data-a="x">취소</button><button type="button" class="ph-btn pri" data-a="ok">적용</button></div></div>';
+        (opts.revert ? '<button type="button" class="ph-btn" data-a="revert">원본으로 되돌리기</button>' : '') +
+        '<span style="flex:1"></span><button type="button" class="ph-btn" data-a="x">취소</button><button type="button" class="ph-btn pri" data-a="ok">' + (opts.headerToggle ? '저장' : '적용') + '</button></div></div>';
       document.body.appendChild(root);
       var onResize = function () { fit(); };
       window.addEventListener('resize', onResize);
@@ -127,6 +133,7 @@
       root.addEventListener('click', function (e) {
         var a = e.target.closest && e.target.closest('[data-a]'); a = a && a.dataset.a; if (!a) return;
         if (a === 'x') finish(null);
+        else if (a === 'revert') { if (window.confirm('자르기 · 머리말을 없애고 처음 올린 원본으로 되돌릴까요?')) finish({ revert: true }); }
         else if (a === 'prev') show(k - 1);
         else if (a === 'next') show(k + 1);
         else if (a === 'all') { cur = copy(FULL); paint(); mark(); }
@@ -141,18 +148,26 @@
           crops[k] = copy(cur);
           var n = Math.max(1, pages.length), parts = [];
           for (var j = 0; j < n; j++) parts.push(touched[j] ? fmt(isFull(crops[j]) ? FULL : crops[j]) : '');
-          finish(parts.join(';') + (n === 1 ? ';' : ''));           // 한 쪽이어도 ';' 를 붙여 새 형식으로 (서버가 "전체 쪽" 을 그대로 지킴)
+          var out = parts.join(';') + (n === 1 ? ';' : '');            // 한 쪽이어도 ';' 를 붙여 새 형식으로 (서버가 "전체 쪽" 을 그대로 지킴)
+          if (opts.headerToggle) { var hc = root.querySelector('[data-hdr-head]'); finish({ crop: out, header: !!(hc && hc.checked) }); }
+          else finish(out);
         }
       });
       paint();
       filePages(file).then(function (r) {
         pages = r.canvases;
         crops = pages.map(function () { return copy(FULL); }); touched = pages.map(function () { return false; });
+        if (opts.init) {                                             // 예전에 저장한 자르기 — 쪽마다 그 값에서 시작 (빈칸 = 자동)
+          String(opts.init).split(';').forEach(function (v, i) {
+            var a = v.split(',').map(parseFloat);
+            if (i < pages.length && a.length === 4 && a.every(function (x) { return x >= 0 && x <= 1; })) { crops[i] = { l: a[0], t: a[1], r: a[2], b: a[3] }; touched[i] = true; }
+          });
+        }
         if (pages.length > 1) {
           nav.hidden = false;
           root.querySelector('[data-hint]').textContent = '쪽마다 따로 맞출 수 있어요. 모서리·변을 끌어 악보 영역을 맞추세요 (이 안만 남아요)' + (r.total > pages.length ? ' — 앞의 ' + pages.length + '쪽만 조정할 수 있어요' : '');
         }
-        k = 0; show(0);
+        k = 0; cur = copy(crops[0]); show(0);                         // show() 는 먼저 지금 영역을 그 쪽에 저장하므로, 불러온 값으로 맞춰 둔 뒤 엶
         return autoBoxes(file, pages.length);
       }).then(function (bs) {
         autos = bs || [];
@@ -161,6 +176,39 @@
       }).catch(function () { root && (root.querySelector('[data-hint]').textContent = '미리보기를 만들지 못했어요 — 그대로 올리면 자동으로 잘라요'); });
     });
   }
+
+  /* 이미 올린 곡 악보 — [data-sheet-reformat] : 원본을 받아 자르기 창을 열고, 저장하면 /conti/sheets/reformat 으로 보냄
+     (spa.js 가 폼 제출을 받아 보던 자리에서 화면을 다시 불러옴) */
+  function postForm(action, fields) {
+    var f = document.createElement('form'); f.method = 'post'; f.action = action; f.hidden = true;
+    Object.keys(fields).forEach(function (k) { if (fields[k] == null || fields[k] === '') return; var i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = String(fields[k]); f.appendChild(i); });
+    document.body.appendChild(f);
+    if (f.requestSubmit) f.requestSubmit(); else f.submit();
+    setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 30000);
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-sheet-reformat]'); if (!b || b.disabled) return;
+    e.preventDefault();
+    var label = b.innerHTML; b.disabled = true; b.textContent = '여는 중…';
+    fetch(b.getAttribute('data-src'), { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error(t || '원본 악보를 열지 못했어요.'); });
+      return r.blob();
+    }).then(function (blob) {
+      b.disabled = false; b.innerHTML = label;
+      var type = blob.type || 'application/pdf', name = (b.getAttribute('data-name') || '악보') + (/pdf/.test(type) ? '.pdf' : '');
+      var file = new File([blob], name, { type: type });
+      return edit(file, 0, 1, { init: b.getAttribute('data-crop') || '', header: b.getAttribute('data-header') !== '0', headerToggle: true, revert: b.getAttribute('data-headed') === '1' });
+    }).then(function (v) {
+      if (!v) return;
+      var base = { team: b.getAttribute('data-team'), date: b.getAttribute('data-date'), event: b.getAttribute('data-event'), __row: b.getAttribute('data-row') };
+      b.disabled = true; b.textContent = '저장하는 중…';
+      if (v.revert) postForm('/conti/sheets/reformat', Object.assign(base, { revert: '1' }));
+      else postForm('/conti/sheets/reformat', Object.assign(base, { crop: v.crop, header: v.header ? '1' : '' }));
+    }).catch(function (err) {
+      b.disabled = false; b.innerHTML = label;
+      window.alert((err && err.message) || '원본 악보를 열지 못했어요.');
+    });
+  });
 
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-sheet-hdr-crop]'); if (!b) return;
