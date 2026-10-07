@@ -30,7 +30,7 @@ VOICES = [
 DEFAULT = 'am_eric'
 # 기본 표기 순서 (영어 이름 + 느낌표 → 마침표 → 쉼표). 아래 CANDIDATES 에 있는 낱말은 그 표기를 먼저 시도
 NOSHIFT = {'Bridge', 'Key Up', 'Prayer', 'Break', 'Build up', 'Tag'}   # V856 — 음높이를 올리면 발음이 뭉개지는 낱말은 올리지 않음 (Eric)
-SLOW = {'Tag': 0.9, 'Prayer': 0.9}   # V856 — 이 낱말은 천천히 읽어야 첫 자음(T · P)이 또렷함
+SLOW = {'Tag': 0.9, 'Prayer': 0.9, 'Four': 0.88, 'Five': 0.88, 'Eight': 0.88}   # 숫자 Four · Five(f) · Eight(모음) 도 천천히 읽어야 첫소리가 또렷함 (Eric · Sky)   # V856 — 이 낱말은 천천히 읽어야 첫 자음(T · P)이 또렷함
 DEFAULT_TRY = ['{t}!', '{t}.', '{t},']
 CANDIDATES = {
     'Fermata': ['ipa:fɝmˈɑɾə', 'Fur-mah-ta!', 'Fer-mah-tah!', 'Fermahta!'],     # ipa: 로 시작하면 발음기호로 직접 읽힘
@@ -50,6 +50,16 @@ CANDIDATES = {
     'Session in': ['Session, in!', 'Session in!', 'Session. In!'],
     'Key Up': ['Key-up.', 'Key up', 'ipa:kˈi ˈʌp', 'Key up!'],
     'Die down': ['Die down!', 'Die, down!'],
+    # 숫자 · Interlude — 어떤 목소리(Eric · Sky …)는 첫 자음을 흐리게 읽어서(Two → "Do") 센 자음 발음기호를 먼저 시도
+    'One': ['ipa:wˈʌn', 'One!', 'One.', 'Won!'],
+    'Two': ['ipa:tʰˈu', 'ipa:tʰˈuː', 'Two!', 'Two.'],
+    'Four': ['ipa:fˈɔɹ', 'Four!', 'Four.', 'Fore!', 'ipa:fˈoʊɹ'],
+    'Five': ['ipa:fˈaɪv', 'Five!', 'Five.', 'ipa:fˈaɪːv'],
+    'Eight': ['ipa:ʔˈeɪt', 'ipa:ˈeɪt', 'Eight!', 'Eight.', 'Ate!', 'Eight, ', 'Ayt!'],
+    'Interlude': ['ipa:ˈɪntɚlˌud', 'Interlude!', 'Interlude.', 'Inter-lude!'],
+    'Chorus Voice only': ['Chorus, voice only!', 'Chorus. Voice only!', 'Chorus voice only!'],
+    'measures': ['measures.', 'measures,', 'measures!'],     # "Interlude" · "Two" 뒤에 이어 붙는 말 — 억양을 올리지 않게 마침표 먼저
+    'measure': ['measure.', 'measure,', 'measure!'],
 }
 
 
@@ -95,7 +105,9 @@ def polish(a, sr):
 class Asr:
     def __init__(self, d):
         import sherpa_onnx
-        self.rec = sherpa_onnx.OfflineRecognizer.from_whisper(encoder=d + '/tiny.en-encoder.int8.onnx', decoder=d + '/tiny.en-decoder.int8.onnx', tokens=d + '/tiny.en-tokens.txt', num_threads=4, language='en', task='transcribe')
+        # 폴더 안 모델 이름을 찾아 씀 — tiny.en 외에 더 정확한 base.en 도 됨 (sherpa-onnx-whisper-base.en)
+        pre = next((f[:-len('-encoder.int8.onnx')] for f in sorted(os.listdir(d)) if f.endswith('-encoder.int8.onnx')), 'tiny.en')
+        self.rec = sherpa_onnx.OfflineRecognizer.from_whisper(encoder=d + '/' + pre + '-encoder.int8.onnx', decoder=d + '/' + pre + '-decoder.int8.onnx', tokens=d + '/' + pre + '-tokens.txt', num_threads=4, language='en', task='transcribe')
 
     def text(self, a, sr):
         if sr != 16000:
@@ -115,6 +127,15 @@ def norm(t):
     return re.sub(r'[^a-z0-9]', '', t)
 
 
+def words_from_metro():
+    """콜아웃에 덧붙이는 낱말 (예: "measures") — metro.js 의 WORD_EN 에서 그대로 읽음"""
+    src = open(os.path.join(ROOT, 'public/worship/metro.js'), encoding='utf-8').read()
+    i = src.find('var WORD_EN = [')
+    if i < 0: return []
+    block = src[i:src.index('];', i)]
+    return [(m.group(1), m.group(2)) for m in re.finditer(r"\{\s*id:\s*'([^']+)',\s*en:\s*'([^']+)'", block)]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', default='kokoro-v1.0.onnx'); ap.add_argument('--voices', default='voices-v1.0.bin')
@@ -126,7 +147,7 @@ def main():
     from kokoro_onnx import Kokoro
     k = Kokoro(args.model, args.voices)
     asr = Asr(args.asr) if args.asr else None
-    cues = cues_from_metro() + nums_from_metro()
+    cues = cues_from_metro() + nums_from_metro() + words_from_metro()
     want_ids = set(x for x in args.ids.split(',') if x)
     if want_ids: cues = [c for c in cues if c[0] in want_ids]
     only = set(x for x in args.only.split(',') if x)

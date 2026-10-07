@@ -570,7 +570,8 @@
     function remoteCueFlash(label, by) {
       var now = Date.now(); if (lastRemoteCue.k === label && now - lastRemoteCue.t < 1500) return;      // 같은 콜아웃이 두 길(큐 · 리드 상태)로 와도 한 번만
       lastRemoteCue = { k: label, t: now };
-      var cb = root.YNMetro && root.YNMetro.CUE_BY[label], name = cb ? (P.lang() === 'ko' ? cb.ko : cb.en) : label;
+      var mm = /~m(\d+)$/.exec(label), base = mm ? label.slice(0, mm.index) : label;
+      var cb = root.YNMetro && root.YNMetro.CUE_BY[base], name = cb ? (P.lang() === 'ko' ? cb.ko + (mm ? ' ' + mm[1] + '마디' : '') : cb.en + (mm ? ' ' + mm[1] + (mm[1] === '1' ? ' measure' : ' measures') : '')) : label;
       try { P.flashCue && P.flashCue(label); } catch (e) { /* 깜빡임은 덤 */ }
       P.toast('🔇 ' + (by ? by + ' — ' : '') + name, false, 1500);
     }
@@ -786,7 +787,7 @@
         fillInfo(true); eMsg.textContent = '';
       }
       function pick(tok, i, num) {
-        cur = i; var id = P.cueIdFor(num && num.cueKey || tok.k);
+        cur = i; var id = P.cueIdFor(num && num.cueKey || tok.k, tok && tok.bars);
         if (host.querySelector('[data-o="cue"]').checked) { if (id) doCue(id); else if (tok && tok.custom && tok.k) doCue(tok.k); }      // 직접 입력한 글은 그 글 그대로 음성 안내
       }
       player = root.YNForm.mountPlayer(host.querySelector('[data-role="player"]'), { value: (P.song() || {}).form || '', lang: P.lang(), onPick: pick });
@@ -797,7 +798,7 @@
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a]') : null; if (!b) return;
         var list = player.list(); if (!list.length) { P.toast('이 곡에는 송폼이 없습니다.', true); return; }
-        if (b.dataset.a === 'next') { var t = player.next(); cur = Math.min(list.length - 1, cur + 1); var num = root.YNForm.numbered(list)[cur]; if (host.querySelector('[data-o="cue"]').checked && num) { var id = P.cueIdFor(num.cueKey); if (id) doCue(id); else if (num.custom && num.k) doCue(num.k); } }
+        if (b.dataset.a === 'next') { var t = player.next(); cur = Math.min(list.length - 1, cur + 1); var num = root.YNForm.numbered(list)[cur]; if (host.querySelector('[data-o="cue"]').checked && num) { var id = P.cueIdFor(num.cueKey, num.bars); if (id) doCue(id); else if (num.custom && num.k) doCue(num.k); } }
         else { cur = Math.max(0, cur - 1); player.setCurrent(cur); }
       });
       P.on('song', song); P.on('songedit', function () { song(); }); P.on('songs', function () { song(); }); P.on('layer', infoWhere); song();

@@ -37,17 +37,21 @@
     return (coarse && root.innerWidth < 1400) || root.innerWidth < 900 ? 'tablet' : 'computer';
   }
   /** 송폼 칸(V1, C2 …)에서 메트로놈 큐 이름으로 */
-  var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', C: 'c', C2: 'c2', C3: 'c3', PC: 'pc', PC2: 'pc2', B: 'b', B1: 'b', B2: 'b2', Intro: 'intro',   // V842 — C2 → Chorus 2 · Inst → Instrumental
+  var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', V4: 'v4', 'C(Voice)': 'cvoice', C: 'c', C2: 'c2', C3: 'c3', PC: 'pc', PC2: 'pc2', B: 'b', B1: 'b', B2: 'b2', Intro: 'intro',   // V842 — C2 → Chorus 2 · Inst → Instrumental
     Itld: 'itld', Inst: 'inst', Out: 'end', End: 'end', Coda: 'end', Vamp: 'vamp', Turn: 'vamp', Solo: 'solo', Break: 'break', Prayer: 'prayer', KeyUp: 'keyup', Tag: 'tag',
     RepC: 'repc', HalfC: 'halfc', LastL: 'lastl', Once: 'once', OneBar: 'onebar', LastC: 'lastc', VOnly: 'vonly', Drums: 'drums', Build: 'build', Down: 'die', Ferm: 'ferm', Slow: 'slow', Hold: 'hold', BigEnd: 'bigend' };   // V838 — 송폼에 넣은 콜아웃 칸 (formb.js)
-  function cueIdFor(k) { return CUE_MAP[k] || null; }
+  /* 마디 수를 콜아웃에 붙이는 칸 — 간주 · 연주 ("Interlude 2 measures"). 메트로놈이 큐 id 뒤 "~m2" 를 읽어 이어서 부름 */
+  var MEAS_CUES = { itld: 1, inst: 1 };
+  function withBars(id, bars) { bars = Math.round(Number(bars)); return id && MEAS_CUES[id] && bars >= 1 && bars <= 16 ? id + '~m' + bars : id; }
+  function cueIdFor(k, bars) { return withBars(CUE_MAP[k] || null, bars); }
   /** v7.3 — 송폼 창에서 칸을 눌렀을 때의 큐: V1 → v1(Verse 1) · V2 → v2 · 그냥 "V" 는 앞에서 몇 번째 V 인지로 (1절 → 2절 → 3절). 대소문자 무시 */
   function cueForToken(tokens, i) {
     var k = String((tokens[i] || {}).k || '').trim(); if (!k) return null;
-    if (/^v$/i.test(k)) { var n = 1; for (var j = 0; j < i; j++) if (/^v$/i.test(String((tokens[j] || {}).k || '').trim())) n++; return 'v' + Math.min(n, 3); }
-    var m = k.match(/^v(\d)$/i); if (m) return +m[1] >= 1 && +m[1] <= 3 ? 'v' + m[1] : 'v3';
-    if (CUE_MAP[k]) return CUE_MAP[k];
-    var low = k.toLowerCase(); for (var key in CUE_MAP) if (key.toLowerCase() === low) return CUE_MAP[key];
+    if (/^v$/i.test(k)) { var n = 1; for (var j = 0; j < i; j++) if (/^v$/i.test(String((tokens[j] || {}).k || '').trim())) n++; return 'v' + Math.min(n, 4); }   // 4절까지 (Verse 4)
+    var m = k.match(/^v(\d)$/i); if (m) return +m[1] >= 1 && +m[1] <= 4 ? 'v' + m[1] : 'v4';
+    var bars = (tokens[i] || {}).bars;                            // 반복(×2 · ×3 …)은 콜아웃에 넣지 않음 — 그 칸 이름만. 마디 수는 간주 · 연주에만
+    if (CUE_MAP[k]) return withBars(CUE_MAP[k], bars);
+    var low = k.toLowerCase(); for (var key in CUE_MAP) if (key.toLowerCase() === low) return withBars(CUE_MAP[key], bars);
     return null;
   }
   function normName(s) { return String(s || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[\s_\-\.\(\)\[\]·,]/g, ''); }
@@ -1766,7 +1770,7 @@
       return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
     }
     var CUE_KEYS = { i: 'intro', c: 'c', p: 'pc', b: 'b', t: 'tag', r: 'repc', k: 'keyup', u: 'build', d: 'die', m: 'inst', e: 'end' };   // V859 — M 인스트루멘탈 · E 엔딩   // V843 — K 키 업 · U 빌드 업 · D 다이 다운
-    var VERSE_IDS = ['v1', 'v2', 'v3'], verseN = 0, verseSong = -2;
+    var VERSE_IDS = ['v1', 'v2', 'v3', 'v4'], verseN = 0, verseSong = -2;
     /* V836 — Enter 를 누르면 이 곡의 송폼(예: Int V1 C V2 C B C) 순서를 따라 한 칸씩 콜아웃합니다. 끝까지 가면 처음으로, 곡을 바꾸면 첫 칸부터 다시.
        송폼이 없는 곡이면 아무 일도 하지 않습니다 (기본 동작 그대로). 마지막 칸에서 한 번 더 누르면 처음으로 돌아가요. */
     var formPos = -1, formPosSong = -2;
@@ -1784,13 +1788,13 @@
       var k = e.key; if (!k || e.ctrlKey || e.metaKey || e.altKey) return null;
       if (S.songIdx !== verseSong) { verseSong = S.songIdx; verseN = 0; }                 // 곡이 바뀌면 절 세기를 처음부터
       if (k === 'P') return 'prayer'; if (k === 'R') return 'once';
-      if (k === '2' || k === '3') { verseN = +k % 3; return VERSE_IDS[+k - 1]; }        // V859 — 1 은 "1박 다시 맞추기" (1절은 V)
+      if (k === '2' || k === '3') { verseN = +k; return VERSE_IDS[+k - 1]; }        // V859 — 1 은 "1박 다시 맞추기" (1절은 V)
       var lk = k.length === 1 ? k.toLowerCase() : ''; if (e.shiftKey && lk !== 'p' && lk !== 'r') return null;
-      if (lk === 'v') { var id = VERSE_IDS[verseN % 3]; verseN++; return id; }          // v 를 누를 때마다 1절 → 2절 → 3절
+      if (lk === 'v') { var id = VERSE_IDS[verseN % 4]; verseN++; return id; }          // v 를 누를 때마다 1절 → 2절 → 3절 → 4절
       return CUE_KEYS[lk] || null;
     }
     /** 콜아웃한 자리(악보의 V · C · B … 송폼 라벨)를 1~2초 깜빡여 알려줍니다 */
-    var CUE_TAGS = { intro: ['Int', 'Intro'], v1: ['V1', 'V'], v2: ['V2', 'V'], v3: ['V3', 'V'], c: ['C', 'C1'], c2: ['C2'], c3: ['C3'], pc: ['P', 'PC'], pc2: ['PC2', 'P'], b: ['B'], b2: ['B2', 'B'], itld: ['Itld'], inst: ['Inst'], vamp: ['Turn', 'Vamp'], end: ['End', 'Out', 'Coda'],
+    var CUE_TAGS = { intro: ['Int', 'Intro'], v1: ['V1', 'V'], v2: ['V2', 'V'], v3: ['V3', 'V'], v4: ['V4', 'V'], cvoice: ['C(Voice)', 'C', 'C1'], c: ['C', 'C1'], c2: ['C2'], c3: ['C3'], pc: ['P', 'PC'], pc2: ['PC2', 'P'], b: ['B'], b2: ['B2', 'B'], itld: ['Itld'], inst: ['Inst'], vamp: ['Turn', 'Vamp'], end: ['End', 'Out', 'Coda'],
       solo: ['Solo'], tag: ['Tag'], repc: ['C', 'C1', 'C2'], halfc: ['C', 'C1'], lastl: [], prayer: ['Prayer', 'Pray'] };
     /** 송폼 칸(i번째)을 지금 위치로 표시 — 송폼 창 · 악보 위 배지에서 밝게 (Enter 로 순서대로 부를 때 어디까지 왔는지 보이게) */
     function flashForm(i) {
@@ -1820,7 +1824,7 @@
       Array.prototype.forEach.call(el.querySelectorAll('.pv-form-bpm'), function (n) { if (n.textContent !== t) n.textContent = t; });
     }
     P.on('bpmview', paintBpm);
-    function flashCue(id) { var t = CUE_TAGS[id]; if (!t || !t.length || !an || !an.flashTags) return 0; return an.flashTags(t, 1800); }
+    function flashCue(id) { var t = CUE_TAGS[String(id || '').replace(/~m\d+$/, '')]; if (!t || !t.length || !an || !an.flashTags) return 0; return an.flashTags(t, 1800); }
     var spaceEaten = false;
     function onKey(e) {
       if (S.dead || isTyping(e.target)) return;

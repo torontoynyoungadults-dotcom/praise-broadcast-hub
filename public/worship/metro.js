@@ -21,7 +21,7 @@
 
   /* 음성 큐 — 영어(기본) · 한국어 */
   var CUES = [
-    { id: 'v1', en: 'Verse 1', ko: '1절', g: 'sec' }, { id: 'v2', en: 'Verse 2', ko: '2절', g: 'sec' }, { id: 'v3', en: 'Verse 3', ko: '3절', g: 'sec' },
+    { id: 'v1', en: 'Verse 1', ko: '1절', g: 'sec' }, { id: 'v2', en: 'Verse 2', ko: '2절', g: 'sec' }, { id: 'v3', en: 'Verse 3', ko: '3절', g: 'sec' }, { id: 'v4', en: 'Verse 4', ko: '4절', g: 'sec' },
     { id: 'c', en: 'Chorus', ko: '후렴', g: 'sec' }, { id: 'pc', en: 'Pre-chorus', ko: '프리코러스', g: 'sec' }, { id: 'b', en: 'Bridge', ko: '브릿지', g: 'sec' },
     { id: 'intro', en: 'Intro', ko: '인트로', g: 'sec' }, { id: 'itld', en: 'Interlude', ko: '간주', g: 'sec' }, { id: 'vamp', en: 'Vamp', ko: '뱀프', g: 'sec' },
     { id: 'end', en: 'Ending', ko: '엔딩', g: 'sec' },
@@ -35,13 +35,17 @@
     { id: 'vonly', en: 'Voice only', ko: '보이스만', g: 'dyn' }, { id: 'drums', en: 'Drums only', ko: '드럼만', g: 'dyn' }, { id: 'build', en: 'Build up', ko: '빌드 업', g: 'dyn' },
     { id: 'lastc', en: 'Last Chorus', ko: '마지막 후렴', g: 'rep' }, { id: 'bigend', en: 'Big ending', ko: '크게 마무리', g: 'dyn' }, { id: 'slow', en: 'Slow down', ko: '느리게', g: 'dyn' }, { id: 'hold', en: 'Hold', ko: '멈춰 끌기', g: 'dyn' },      // V836 — 콜아웃 확장 창용      // v8.34 — Step 2.11 — 배열 끝에 추가 (기존 큐의 소리 번호는 그대로)
     { id: 'c2', en: 'Chorus 2', ko: '후렴 2', g: 'sec' }, { id: 'c3', en: 'Chorus 3', ko: '후렴 3', g: 'sec' }, { id: 'pc2', en: 'Pre-chorus 2', ko: '프리코러스 2', g: 'sec' },   // V842 — C2 는 "Chorus 2"
-    { id: 'b2', en: 'Bridge 2', ko: '브릿지 2', g: 'sec' }, { id: 'inst', en: 'Instrumental', ko: '연주', g: 'sec' }
+    { id: 'b2', en: 'Bridge 2', ko: '브릿지 2', g: 'sec' }, { id: 'inst', en: 'Instrumental', ko: '연주', g: 'sec' },
+    { id: 'cvoice', en: 'Chorus Voice only', ko: '후렴 보컬만', g: 'sec' }   // 송폼 C(Voice) — 악기 없이 목소리로만 부르는 후렴
   ];
   var CUE_BY = {};
   CUES.forEach(function (c) { CUE_BY[c.id] = c; });
 
   /* v8.39 — 숫자로 세기(1·2·3·4) · 콜아웃 뒤 카운트다운(Three·Two·One) 에 쓰는 숫자 말 — CUES 와는 별도(패널에 버튼으로 뜨지 않음) */
   var NUM_EN = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen'];
+  /* 콜아웃에 덧붙이는 낱말 — "Interlude" + "Two" + "measures" 처럼 이어서 부를 때 (패널에 버튼으로 뜨지 않음, tools/gen-cues.py 가 녹음) */
+  var WORD_EN = [{ id: 'meas', en: 'measures' }, { id: 'meas1', en: 'measure' }];
+  var MEAS_RE = /~m(\d{1,2})$/;                    // 큐 id 뒤 "~m2" = 2마디 (예: 'itld~m2' → "Interlude 2 measures")
   var NUM_KO = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열하나', '열둘', '열셋', '열넷', '열다섯', '열여섯'];
 
   var LIMITS = { minBpm: 30, maxBpm: 300, minPitch: -12, maxPitch: 12, maxGain: 6 };
@@ -651,10 +655,18 @@
     function clipFor(c) {
       if (cfg.lang !== 'en' || !c || !c.id || c.id === 'custom') return null;
       var vid = clipVoiceFor(); if (!vid) return null;
+      if (c.meas) {                                               // 이 큐 + 숫자 + measures — 한 목소리로 셋 다 있을 때만 (하나라도 없으면 음성 합성으로 문장 전체)
+        var ids = [c.id, 'num' + c.meas, c.meas === 1 ? 'meas1' : 'meas'];
+        var pickV = function (v) { var a = ids.map(function (id) { return clips[v] && clips[v][id]; }); return a.every(Boolean) ? a : null; };
+        var seq = pickV(vid) || (vid !== clipDefault ? (wantVoices(), pickV(clipDefault)) : null);
+        if (!seq) return null;
+        return { seq: seq, duration: seq.reduce(function (t, x) { return t + Math.max(0.2, x.duration - SEQ_GAP); }, 0) };
+      }
       var b = clips[vid] && clips[vid][c.id];
       if (!b && vid !== clipDefault) { wantVoices(); b = clips[clipDefault] && clips[clipDefault][c.id]; }
       return b || null;
     }
+    var SEQ_GAP = 0.12;                                           // 녹음 끝의 숨 고르는 무음(0.14초) 일부를 겹쳐서 낱말 사이가 뜨지 않게
     function bus() {
       if (!voiceBus) { voiceBus = ctx.createGain(); voiceBus.gain.value = clamp(cfg.voice, 0, 2); voiceBus.connect(limiter || ctx.destination); }
       return voiceBus;
@@ -662,6 +674,11 @@
     function applyVoiceGain() { if (voiceBus && ctx) { try { voiceBus.gain.setTargetAtTime(clamp(cfg.voice, 0, 2), ctx.currentTime, 0.01); } catch (e) { voiceBus.gain.value = clamp(cfg.voice, 0, 2); } } }
     /** 녹음 소리를 오디오 시계 when 에 시작하도록 예약 (딸깍 소리와 같은 길) */
     function playClip(buf, when) {
+      if (buf && buf.seq) {                                       // 여러 조각을 이어서 — 첫 조각의 소스를 돌려줌 (멈추기는 cancelCues 가 첫 조각만, 나머지는 짧아서 그대로)
+        var t = Math.max(when, ctx.currentTime), first = null;
+        buf.seq.forEach(function (b) { var s0 = playClip(b, t); if (!first) first = s0; t += Math.max(0.2, b.duration - SEQ_GAP); });
+        return first;
+      }
       try {
         var src = ctx.createBufferSource(); src.buffer = buf; src.connect(bus());
         src.onended = function () { src.onended = null; try { src.disconnect(); } catch (e) { /* 이미 끊김 */ } };
@@ -869,6 +886,10 @@
     /* ---------- 큐 ---------- */
     function resolveCue(c) {
       if (typeof c === 'string') {
+        var mm = MEAS_RE.exec(c), base = mm ? c.slice(0, mm.index) : c, n = mm ? +mm[1] : 0;
+        if (n && CUE_BY[base]) {                                  // "Interlude 2 measures" — 녹음은 이 큐 + 숫자 + measures 를 이어서
+          return { id: base, en: CUE_BY[base].en + ' ' + n + (n === 1 ? ' measure' : ' measures'), ko: CUE_BY[base].ko + ' ' + n + '마디', g: CUE_BY[base].g, meas: n };
+        }
         if (CUE_BY[c]) return { id: c, en: CUE_BY[c].en, ko: CUE_BY[c].ko, g: CUE_BY[c].g };
         return { id: 'custom', en: c, ko: c, g: 'sec' };
       }
@@ -1016,5 +1037,5 @@
     };
   }
 
-  return { langOfText: langOfText, CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, pickVoiceMix: pickVoiceMix, mixPool: mixPool, voiceScore: voiceScore, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
+  return { langOfText: langOfText, CUES: CUES, CUE_BY: CUE_BY, WORD_EN: WORD_EN, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, pickVoiceMix: pickVoiceMix, mixPool: mixPool, voiceScore: voiceScore, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
 }));

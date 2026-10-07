@@ -25,9 +25,11 @@
     { k: 'V1', ko: '1절', cue: 'Verse 1', cueKo: '1절', g: 'num' },
     { k: 'V2', ko: '2절', cue: 'Verse 2', cueKo: '2절', g: 'num' },
     { k: 'V3', ko: '3절', cue: 'Verse 3', cueKo: '3절', g: 'num' },
+    { k: 'V4', ko: '4절', cue: 'Verse 4', cueKo: '4절', g: 'num' },
     { k: 'PC2', ko: '프리코러스 2', cue: 'Pre-chorus 2', cueKo: '프리코러스 2', g: 'num' },
     { k: 'C2', ko: '후렴 2', cue: 'Chorus 2', cueKo: '후렴 2', g: 'num' },
     { k: 'C3', ko: '후렴 3', cue: 'Chorus 3', cueKo: '후렴 3', g: 'num' },
+    { k: 'C(Voice)', ko: '후렴 (보컬만)', cue: 'Chorus Voice only', cueKo: '후렴 보컬만', g: 'num' },   // 악기 없이 목소리로만 부르는 후렴 — 콜아웃 "Chorus Voice only"
     { k: 'B1', ko: '브릿지 1', cue: 'Bridge 1', cueKo: '브릿지 1', g: 'num' },
     { k: 'B2', ko: '브릿지 2', cue: 'Bridge 2', cueKo: '브릿지 2', g: 'num' },
     { k: 'Vamp', ko: '뱀프', cue: 'Vamp', cueKo: '뱀프', g: 'etc' },
@@ -46,7 +48,7 @@
 
   /* 자주 쓰는 다른 표기 → 표준 표기 */
   var ALIAS = {
-    verse: 'V', 'verse1': 'V1', 'verse2': 'V2', 'verse3': 'V3', chorus: 'C', 'chorus2': 'C2', 'chorus3': 'C3',
+    verse: 'V', 'verse1': 'V1', 'verse2': 'V2', 'verse3': 'V3', 'verse4': 'V4', 'chorusvoice': 'C(Voice)', 'chorus(voice)': 'C(Voice)', 'cvoice': 'C(Voice)', 'c(v)': 'C(Voice)', 'c(보컬)': 'C(Voice)', 'c(보이스)': 'C(Voice)', chorus: 'C', 'chorus2': 'C2', 'chorus3': 'C3',
     bridge: 'B', 'bridge1': 'B1', 'bridge2': 'B2', prechorus: 'PC', 'pre': 'PC', 'pre-chorus': 'PC', 'prechorus2': 'PC2',
     interlude: 'Itld', inter: 'Itld', 'int': 'Itld', outro: 'Out', ending: 'Out', 'instrumental': 'Inst',
     'turnaround': 'Turn', '기도': 'Prayer', 'pray': 'Prayer', '키업': 'KeyUp', 'keyup': 'KeyUp', 'keychange': 'KeyUp', '인트로': 'Intro', '후렴': 'C', '브릿지': 'B', '간주': 'Itld', '엔딩': 'Out', '뱀프': 'Vamp', '솔로': 'Solo'
@@ -116,7 +118,7 @@
       var out = { k: t.k, rep: t.rep, bars: t.bars || 0, custom: t.custom, cueKey: t.k };
       if (t.k === 'V' || t.k === 'C' || t.k === 'B' || t.k === 'PC') {
         seen[t.k] = (seen[t.k] || 0) + 1;
-        if (t.k === 'V' && seen.V <= 3) out.cueKey = 'V' + seen.V;
+        if (t.k === 'V' && seen.V <= 4) out.cueKey = 'V' + seen.V;
         if (t.k === 'C' && seen.C >= 2 && seen.C <= 3) out.cueKey = 'C' + seen.C;
         if (t.k === 'B' && seen.B >= 2 && seen.B <= 2) out.cueKey = 'B' + seen.B;
       }
@@ -161,6 +163,7 @@
       if (clampBars(bars)) t.bars = clampBars(bars);
       var at = sel >= 0 ? sel + 1 : list.length; list.splice(at, 0, t); sel = at; changed(); return true;
     }
+    function setRep(n) { if (sel < 0) return; n = Math.round(Number(n)); if (!(n >= 1)) n = 1; n = Math.min(9, n); push(); list[sel].rep = n; changed(); }   // 반복 ×2 · ×3 · ×4 … (콜아웃은 횟수 없이 그 칸 이름만)
     function setBars(n) { if (sel < 0) return; push(); if (clampBars(n)) list[sel].bars = clampBars(n); else delete list[sel].bars; changed(); }
     var busy = false;                                                   // 다시 그리는 도중(입력칸이 사라지며 blur → change)에 또 그리지 않도록
     function draw() {
@@ -184,7 +187,6 @@
           '<div class="fb-tools">' +
             '<button type="button" class="fb-t" data-act="left"' + (sel > 0 ? '' : ' disabled') + ' aria-label="앞으로">‹ 앞으로</button>' +
             '<button type="button" class="fb-t" data-act="right"' + (sel >= 0 && sel < list.length - 1 ? '' : ' disabled') + ' aria-label="뒤로">뒤로 ›</button>' +
-            '<button type="button" class="fb-t" data-act="rep"' + (sel >= 0 ? '' : ' disabled') + '>×2 반복</button>' +
             '<button type="button" class="fb-t" data-act="del"' + (sel >= 0 ? '' : ' disabled') + '>지우기</button>' +
             '<button type="button" class="fb-t" data-act="undo"' + (undo.length ? '' : ' disabled') + '>되돌리기</button>' +
             '<button type="button" class="fb-t" data-act="clear"' + (list.length ? '' : ' disabled') + '>모두 지우기</button>' +
@@ -192,17 +194,21 @@
           (sel >= 0 ? '<div class="fb-bars" role="group" aria-label="선택한 칸의 마디 수"><span>마디 수</span>' +
             [0, 2, 4, 8, 12, 16].map(function (n) { return '<button type="button" class="fb-t' + ((list[sel].bars || 0) === n ? ' on' : '') + '" data-bars="' + n + '">' + (n ? n : '없음') + '</button>'; }).join('') +
             '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="barsin" placeholder="직접" value="' + ([0, 2, 4, 8, 12, 16].indexOf(list[sel].bars || 0) < 0 ? list[sel].bars : '') + '" aria-label="마디 수 직접 입력"></div>' : '') +
+          (sel >= 0 ? '<div class="fb-bars fb-reps" role="group" aria-label="선택한 칸의 반복 횟수"><span>반복</span>' +
+            [1, 2, 3, 4].map(function (n) { return '<button type="button" class="fb-t' + ((list[sel].rep || 1) === n ? ' on' : '') + '" data-rep="' + n + '">' + (n > 1 ? '×' + n : '없음') + '</button>'; }).join('') +
+            '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="1" autocomplete="off" data-role="repin" placeholder="직접" aria-label="반복 횟수 직접 (2~9)" value="' + ((list[sel].rep || 1) > 4 ? list[sel].rep : '') + '"></div>' : '') +
           '<div class="fb-pal">' + pal + '</div>' +
           '<div class="fb-custom"><span>직접 입력</span><input type="text" class="fb-cin" maxlength="' + CUSTOM_MAX + '" autocomplete="off" data-role="cin" placeholder="예: 키 업 · 기도 · 마지막 줄 한 번 더">' +
             '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="cbars" placeholder="마디" aria-label="마디 수 (선택)">' +
             '<button type="button" class="fb-t primary" data-act="addcustom">＋ 넣기</button></div>' +
-          '<p class="fb-hint">칩을 누르면 선택됩니다. 선택한 칩 뒤에 새 칸이 들어가고, 선택이 없으면 맨 끝에 붙습니다. 칩을 선택하면 "마디 수"(예: 4 · 8마디)를 붙일 수 있고, "직접 입력"에는 어떤 글이든 한 칸으로 넣을 수 있습니다.</p>' +
+          '<p class="fb-hint">칩을 누르면 선택됩니다. 선택한 칩 뒤에 새 칸이 들어가고, 선택이 없으면 맨 끝에 붙습니다. 칩을 선택하면 "마디 수"(예: 4 · 8마디)와 "반복"(×2 · ×3 · ×4 … 직접 9까지)을 붙일 수 있고, "직접 입력"에는 어떤 글이든 한 칸으로 넣을 수 있습니다.</p>' +
         '</div>';
     }
     function onClick(ev) {
-      var t = ev.target.closest ? ev.target.closest('[data-i],[data-add],[data-act],[data-bars]') : null;
+      var t = ev.target.closest ? ev.target.closest('[data-i],[data-add],[data-act],[data-bars],[data-rep]') : null;
       if (!t || !el.contains(t)) return;
       if (t.hasAttribute('data-bars')) { setBars(Number(t.getAttribute('data-bars'))); return; }
+      if (t.hasAttribute('data-rep')) { setRep(Number(t.getAttribute('data-rep'))); return; }
       if (t.getAttribute('data-act') === 'addcustom') { var ci = el.querySelector('[data-role="cin"]'), cb = el.querySelector('[data-role="cbars"]'); if (!addCustom(ci && ci.value, cb && cb.value)) { if (ci) ci.focus(); } return; }
       if (t.hasAttribute('data-add')) { add(t.getAttribute('data-add')); return; }
       if (t.hasAttribute('data-i')) { var i = Number(t.getAttribute('data-i')); sel = (sel === i ? -1 : i); draw(); return; }
@@ -212,7 +218,6 @@
       push();
       if (a === 'left' && sel > 0) { var x = list[sel]; list[sel] = list[sel - 1]; list[sel - 1] = x; sel--; }
       else if (a === 'right' && sel >= 0 && sel < list.length - 1) { var y = list[sel]; list[sel] = list[sel + 1]; list[sel + 1] = y; sel++; }
-      else if (a === 'rep' && sel >= 0) list[sel].rep = list[sel].rep >= 2 ? 1 : 2;
       else if (a === 'del' && sel >= 0) { list.splice(sel, 1); sel = Math.min(sel, list.length - 1); }
       else if (a === 'clear') { list = []; sel = -1; }
       changed();
@@ -221,11 +226,12 @@
       var tg = ev.target, role = tg && tg.getAttribute && tg.getAttribute('data-role');
       if (ev.key === 'Enter' && (role === 'cin' || role === 'cbars')) { ev.preventDefault(); var ci = el.querySelector('[data-role="cin"]'), cb = el.querySelector('[data-role="cbars"]'); addCustom(ci && ci.value, cb && cb.value); return; }
       if (ev.key === 'Enter' && role === 'barsin') { ev.preventDefault(); setBars(tg.value); return; }
+      if (ev.key === 'Enter' && role === 'repin') { ev.preventDefault(); if (String(tg.value).trim()) setRep(tg.value); return; }
       if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute && ev.target.getAttribute('data-i') != null) { ev.preventDefault(); onClick(ev); }
     }
     el.addEventListener('click', onClick);
     el.addEventListener('keydown', onKey);
-    function onChange(ev) { if (busy) return; var tg = ev.target; if (tg && tg.getAttribute && tg.getAttribute('data-role') === 'barsin') setBars(tg.value); }
+    function onChange(ev) { if (busy) return; var tg = ev.target; if (tg && tg.getAttribute && tg.getAttribute('data-role') === 'barsin') setBars(tg.value); if (tg && tg.getAttribute && tg.getAttribute('data-role') === 'repin' && String(tg.value).trim()) setRep(tg.value); }
     el.addEventListener('change', onChange);
     draw();
     return {
