@@ -1401,3 +1401,26 @@ body.pkp-open{overflow:hidden}
 .cn-reorder .cn-ytlink { display: none; }
 .cn-song.cn-dragging { z-index: 5; border-color: var(--accent); box-shadow: 0 12px 30px rgba(0, 0, 0, .38); transform: scale(1.015); }
 .cn-sorting, .cn-sorting * { cursor: grabbing !important; }
+
+/* ---------- 악보 자르기 조정 — 여러 쪽 넘기기 ---------- */
+.hdr-nav { display: flex; align-items: center; gap: 6px; }
+.hdr-nav[hidden] { display: none; }
+.hdr-nav .ph-btn { flex: none; width: auto; min-height: 34px; padding: 4px 11px; font-size: 13px; white-space: nowrap; }   /* .ph-btn 기본 width:100% — 그대로면 한 줄에 하나씩 쌓여 악보가 화면 밖으로 밀림 */
+.hdr-nav .ph-btn:disabled { opacity: .4; cursor: default; }
+.hdr-pg { flex: 1 1 auto; min-width: 0; text-align: center; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-nav .hdr-same { margin-left: 4px; }
+.hdr-act .ph-btn { flex: none; width: auto; white-space: nowrap; }
+.hdr-wrap { margin: 0 auto; }   /* 악보 한 쪽 전체가 늘 보이도록 JS 가 너비를 맞춤 (가운데 정렬) */
+@media (max-width: 480px) {
+  .hdr-nav { flex-wrap: wrap; }
+  .hdr-nav .hdr-same { flex: 1 1 100%; margin-left: 0; }
+  .hdr-nav [data-a=prev], .hdr-nav [data-a=next] { padding: 4px 9px; }
+  .hdr-act { flex-wrap: wrap; }
+  .hdr-act .ph-btn { padding: 6px 10px; font-size: 13px; }
+}
+
+/* ---------- 저장된 악보 옆 "필기" — 라이브 악보 화면에서 그 악보를 바로 열어 필기 ---------- */
+.ph-annolink { display: inline-flex; align-items: center; gap: 4px; margin: 0 4px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass-2); color: var(--accent-ink, var(--accent)); font-size: 12.5px; font-weight: 750; text-decoration: none; white-space: nowrap; }
+.ph-annolink .yi { width: 13px; height: 13px; }
+.ph-annolink:hover { border-color: var(--accent); }
+.ph-list-item > .ph-annolink { align-self: center; flex: none; }

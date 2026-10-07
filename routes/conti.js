@@ -295,10 +295,23 @@ function formBig(form) {
   }).join('')}</ol>`;
 }
 
+/** 이 악보를 라이브 악보 화면에서 바로 열어 필기 — 라이브 악보와 똑같은 필기 도구 · 저장(팀 공유 / 나만 보기)을 그대로 씀.
+ *  필기는 (팀 · 악보 파일 · 예배) 마다 저장되므로 콘티 화면에서 연 필기와 라이브 악보에서 연 필기는 같은 것 */
+function annoHref(f) {
+  const qs = new URLSearchParams({ team: f['팀ID'] });
+  if (f['행사ID']) qs.set('event', f['행사ID']); else qs.set('date', f['날짜']);
+  qs.set('sheet', liveStore.sheetIdOf(f['팀ID'], f['파일링크']));
+  return `/conti/practice?${qs.toString()}`;
+}
+function annoLink(f) {
+  if (!f || !f['파일링크']) return '';
+  return `<a class="ph-annolink" href="${esc(annoHref(f))}" title="라이브 악보에서 이 악보에 필기">${ui.icon('pencil')} 필기</a>`;
+}
+
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable, extra) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${f['쪽'] ? ` <small class="ph-pr">${esc(f['쪽'])}쪽</small>` : ''}</a>${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${f['쪽'] ? ` <small class="ph-pr">${esc(f['쪽'])}쪽</small>` : ''}</a>${editable ? annoLink(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
     <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
     <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
   </form>` : ''}</span>`).join('');
@@ -514,6 +527,7 @@ function sheetItem(s, editable) {
   return `<div class="ph-list-item">
     <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(s['파일링크'])}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(s['제목'] || '악보')}</a>
       <div class="ph-li-sub">${esc(honorific.forTeam(s['팀ID'], s['올린사람'] || ''))}</div></div>
+    ${editable ? annoLink(s) : ''}
     ${editable ? `<form method="post" action="/conti/sheets/delete" onsubmit="return confirm('이 악보를 지울까요?')">
       <input type="hidden" name="__row" value="${s.__row}">
       <input type="hidden" name="team" value="${esc(s['팀ID'])}">${rowHidden(s)}
@@ -1172,16 +1186,22 @@ async function headerizeFiles(req, team, scope, songId) {
   }
 }
 
-/** 헤더 자동 추가 미리보기 — 올릴 파일의 첫 쪽에서 자동으로 찾은 악보 영역(0~1)을 알려 줌 (화면의 자르기 조정이 이 값에서 시작) */
+/** 헤더 자동 추가 미리보기 — 올릴 파일에서 자동으로 찾은 악보 영역(0~1)을 알려 줌 (화면의 자르기 조정이 이 값에서 시작).
+ *  pages=N 이면 1~N 쪽(최대 SHEET_CROP_MAX_PAGES) 모두 → boxes:[...] (못 찾은 쪽은 null). box 는 늘 첫 쪽 (예전 화면과 호환) */
+const SHEET_CROP_MAX_PAGES = 20;
 router.post('/conti/sheets/detect', requireTeam, upload.single('파일'), async (req, res) => {
   res.set('Cache-Control', 'no-store');
+  const toBox = (d) => (d && d.box ? { l: d.box.left, t: d.box.top, r: d.box.right, b: d.box.bottom } : null);
   try {
     let buf = req.file && req.file.buffer;
-    if (!buf) return res.json({ box: null });
+    if (!buf) return res.json({ box: null, boxes: [] });
     if (buf.slice(0, 5).toString('latin1') !== '%PDF-') buf = await sheetSearch.imagesToPdf([buf]);
-    const d = (await require('../lib/sheetCrop').detect(buf, [1], 8000))[0];
-    res.json({ box: d && d.box ? { l: d.box.left, t: d.box.top, r: d.box.right, b: d.box.bottom } : null });
-  } catch (e) { res.json({ box: null }); }
+    const n = Math.max(1, Math.min(SHEET_CROP_MAX_PAGES, parseInt((req.body || {}).pages, 10) || 1));
+    const want = Array.from({ length: n }, (_, i) => i + 1);
+    const det = await require('../lib/sheetCrop').detect(buf, want, n > 1 ? 15000 : 8000);
+    const boxes = want.map((no) => toBox(det.find((d) => d.pageNo === no)));
+    res.json({ box: boxes[0], boxes });
+  } catch (e) { res.json({ box: null, boxes: [] }); }
 });
 
 /** 웹에서 악보 이미지 찾기 — 검색 결과(JSON). 키가 없으면 configured:false 로 알려 줘서 화면이 설정 안내를 보여 줌 */
