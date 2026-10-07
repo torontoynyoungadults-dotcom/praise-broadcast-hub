@@ -16,6 +16,7 @@ const pkgPdf = require('../lib/pkgPdf');
 const sheetSearch = require('../lib/sheetSearch');
 const ui = require('../lib/uiIcons');
 const conti = require('./conti');
+const pkgDrive = require('../lib/pkgDrive');
 const S = () => conti.shared;
 
 const router = express.Router();
@@ -47,6 +48,25 @@ router.get('/admin', requireAdmin, async (req, res) => {
     sheetsDb.getSetting('태그라인', '소망이 넘치는 교회'),
   ]);
   const activeTeams = teams.filter((t) => String(t['활성여부']).toUpperCase() !== 'FALSE');
+  // 인쇄용 PDF 구글 드라이브 폴더 — 팀마다 (lib/pkgDrive.js)
+  const [pdFolders, appAcct] = await Promise.all([
+    Promise.all(activeTeams.map((t) => pkgDrive.getFolder(t['팀명']).catch(() => null))),
+    Promise.race([pkgDrive.appAccount(), new Promise((ok) => setTimeout(() => ok(''), 4000))]),
+  ]);
+  const pdTeam = String(req.query.pd || ''), pdErr = String(req.query.pde || ''), pdOk = req.query.pdok === '1';
+  const pdRows = activeTeams.map((t, i) => {
+    const f = pdFolders[i], me = pdTeam === t['팀명'];
+    return `<div class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div class="ph-li-title">${esc(t['팀명'])} ${f ? `<small class="rg-st on">${esc(f.name || '폴더')}</small>` : '<small class="rg-st off">정하지 않음</small>'}</div>
+      <form method="post" action="/admin/pkg-drive" class="cn-glrow" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="hidden" name="team" value="${esc(t['팀명'])}">
+        <input type="text" name="link" value="${esc(pkgDrive.folderUrl(f && f.id))}" placeholder="https://drive.google.com/drive/folders/…" aria-label="${esc(t['팀명'])} 인쇄용 PDF 폴더 링크" style="flex:1;min-width:200px;">
+        <button class="ph-btn pri" type="submit">저장</button>
+      </form>
+      ${f ? `<a class="ph-li-link" href="${esc(pkgDrive.folderUrl(f.id))}" target="_blank" rel="noopener">${ui.icon('link')} 폴더 열기</a>` : ''}
+      ${me && pdErr ? `<p class="ph-msg err">${esc(pdErr)}</p>` : ''}${me && pdOk ? `<p class="ph-msg ok">저장했어요${f ? ` — "${esc(f.name || '폴더')}"에 올라가요` : ' (폴더를 해제했어요)'}.</p>` : ''}
+    </div>`;
+  }).join('');
   const tokens = await Promise.all(activeTeams.map((t) => guestLink.tokenFor(t['팀명']).catch(() => '')));
   const glRows = activeTeams.map((t, i) => {
     const token = tokens[i], url = token ? `${req.protocol}://${req.get('host')}${prefixOf(req)}/b/${token}` : '';
@@ -147,6 +167,13 @@ router.get('/admin', requireAdmin, async (req, res) => {
     <div class="ph-list">${chCards || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
   </div>
 
+  <div class="ph-card" id="pkg-drive">
+    <h2 class="ph-h2">인쇄용 PDF 구글 드라이브</h2>
+    <p class="ph-sub">인쇄용 PDF 미리보기의 <b>구글 드라이브에 올리기</b>를 누르면 여기서 정한 폴더에 올라가요. 같은 날(같은 예배) 콘티는 새로 만들어 올릴 때마다 같은 파일을 덮어써요.
+      구글 드라이브에서 폴더를 열고 주소창의 링크를 붙여 넣으세요.${appAcct ? ` 그 폴더를 <b>${esc(appAcct)}</b> 계정에 <b>편집자</b>로 공유해야 올릴 수 있어요.` : ' 앱이 쓰는 구글 계정이 그 폴더의 <b>편집자</b>여야 올릴 수 있어요.'} 비우고 저장하면 해제돼요.</p>
+    <div class="ph-list">${pdRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
+  </div>
+
   <div class="ph-card">
     <h2 class="ph-h2">방송팀 보기 링크</h2>
     <p class="ph-sub">로그인 없이 <b>예배 콘티 · 라이브 악보 · 스케줄표</b>를 볼 수 있는 링크예요 (고칠 수 없고 댓글만 가능). 방송팀에 전달해 주세요.</p>
@@ -229,6 +256,23 @@ router.post('/admin/closing-hymn/sheet/delete', requireAdmin, async (req, res) =
   const team = String(b.team || '').trim();
   if (team) { try { await closingHymn.removeSheet(team, b.idx); } catch (e) { console.error('[폐회송 악보 삭제 실패]', e.message); } }
   spa.redirect(req, res, '/admin');
+});
+
+/** 인쇄용 PDF 구글 드라이브 폴더 저장 — 링크에서 폴더 ID 를 꺼내 실제로 열어 보고(쓰기 권한 포함) 저장. 비우면 해제 */
+router.post('/admin/pkg-drive', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const back = (q) => spa.redirect(req, res, '/admin?pd=' + encodeURIComponent(team) + q + '#pkg-drive');
+  if (!team) return spa.redirect(req, res, '/admin');
+  const link = String(b.link || '').trim();
+  try {
+    if (!link) { await pkgDrive.saveFolder(team, null); return back('&pdok=1'); }
+    const id = pkgDrive.folderIdFrom(link);
+    if (!id) return back('&pde=' + encodeURIComponent('구글 드라이브 폴더 링크를 붙여 넣어 주세요. (예: https://drive.google.com/drive/folders/…)'));
+    const folder = await pkgDrive.checkFolder(id);
+    await pkgDrive.saveFolder(team, folder);
+    back('&pdok=1');
+  } catch (e) { back('&pde=' + encodeURIComponent(e.message || '저장하지 못했어요.')); }
 });
 
 router.post('/admin/tagline', requireAdmin, async (req, res) => {

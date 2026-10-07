@@ -1436,3 +1436,12 @@ body.pkp-open{overflow:hidden}
 .hdr-headchk { margin: 2px 2px 0; }
 button.ph-annolink { cursor: pointer; font-family: inherit; }
 button.ph-annolink:disabled { opacity: .6; cursor: progress; }
+
+/* ---------- 인쇄용 PDF — 구글 드라이브에 올리기 결과 줄 ---------- */
+/* 미리보기 창은 늘 어두운 바탕 — 위 안내 줄(.pkp-sv)과 같은 색 체계로 고정 (테마 변수를 쓰면 밝은 테마에서 흰 글씨가 밝은 바탕에 묻힘) */
+.pkp-drv { padding: 9px 14px; font-size: 13px; line-height: 1.45; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.06); color: rgba(255,255,255,.88); }
+.pkp-drv[hidden] { display: none; }
+.pkp-drv b { color: #fff; }
+.pkp-drv.ok { background: rgba(95,208,176,.14); }
+.pkp-drv.bad { background: rgba(255,123,138,.16); color: #ffc2ca; }
+.pkp-drv a { color: #8fe3c9; font-weight: 800; text-decoration: underline; }

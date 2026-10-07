@@ -29,14 +29,15 @@
       '<button type="button" class="ph-btn" data-pkp="confirm" hidden>확정하기</button>' +
       '<button type="button" class="ph-btn pri" data-pkp="dl" disabled>다운로드</button>' +
       '<button type="button" class="ph-btn" data-pkp="print" disabled>인쇄</button>' +
+      '<button type="button" class="ph-btn" data-pkp="drive" disabled>구글 드라이브에 올리기</button>' +
       '<button type="button" class="pkp-close" data-pkp="close">닫기</button></div>' +
-      '<div class="pkp-sv" hidden></div><div class="pkp-msg" role="status"></div><div class="pkp-pages"></div><div class="pkp-ed" hidden></div></div>';
+      '<div class="pkp-sv" hidden></div><div class="pkp-drv" role="status" hidden></div><div class="pkp-msg" role="status"></div><div class="pkp-pages"></div><div class="pkp-ed" hidden></div></div>';
     document.body.appendChild(root);
     root.addEventListener('click', function (e) {
       if (e.target === root) return close();
       var t = e.target.closest('[data-pkp]'); if (!t) return;
       var a = t.getAttribute('data-pkp');
-      if (a === 'close') close(); else if (a === 'areas') openAreas(); else if (a === 'edit') askEdit(); else if (a === 'confirm') askConfirm(); else if (a === 'dl') download(); else if (a === 'print') printIt();
+      if (a === 'close') close(); else if (a === 'areas') openAreas(); else if (a === 'edit') askEdit(); else if (a === 'confirm') askConfirm(); else if (a === 'dl') download(); else if (a === 'print') printIt(); else if (a === 'drive') driveUp();
     });
     $('.pkp-sv').addEventListener('click', function (e) {
       var t = e.target.closest('[data-sv]'); if (!t) return; var a = t.getAttribute('data-sv');
@@ -204,7 +205,7 @@
       if (!r.ok) throw new Error('gone'); state.name = nameFromHeaders(r); return r.blob();
     }).then(function (blob) {
       if (my !== state.token) return;
-      state.blob = blob; $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false;
+      state.blob = blob; $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false; $('[data-pkp="drive"]').disabled = false;
       msg('미리보는 중…');
       return Promise.all([loadPdfjs(), blob.arrayBuffer()]).then(function (v) { return v[0].getDocument({ data: new Uint8Array(v[1]) }).promise; }).then(function (doc) { return render(doc, my); });
     }).catch(function () { if (my !== state.token) return; state.mode = ''; state.savedInfo = null; svHide(); run(); });   // 확정본을 못 읽으면 새로 만듦
@@ -218,7 +219,7 @@
 
   function run() {
     var my = ++state.token;
-    $('[data-pkp="dl"]').disabled = true; $('[data-pkp="print"]').disabled = true;
+    $('[data-pkp="dl"]').disabled = true; $('[data-pkp="print"]').disabled = true; $('[data-pkp="drive"]').disabled = true; drvHide();
     $('.pkp-pages').innerHTML = ''; state.blob = null; state.jobId = '';
     state.mode = ''; $('[data-pkp="edit"]').hidden = true; $('[data-pkp="confirm"]').hidden = true; svHide();
     setBar(2, '시작하는 중');
@@ -254,7 +255,7 @@
       }).then(function (blob) {
         if (my !== state.token) return;
         state.blob = blob; state.mode = 'fresh'; svShow();
-        $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false;
+        $('[data-pkp="dl"]').disabled = false; $('[data-pkp="print"]').disabled = false; $('[data-pkp="drive"]').disabled = false;
         msg('미리보는 중…');
         return Promise.all([loadPdfjs(), blob.arrayBuffer()]).then(function (v) { return v[0].getDocument({ data: new Uint8Array(v[1]) }).promise; })
           .then(function (doc) { return render(doc, my); });
@@ -283,6 +284,24 @@
     return next();
   }
 
+  /* ---- 구글 드라이브에 올리기 — 관리 > 설정에서 정한 폴더로. 같은 콘티는 같은 파일을 덮어씀 ---- */
+  function drvHide() { var d = root && $('.pkp-drv'); if (d) { d.hidden = true; d.innerHTML = ''; } }
+  function driveUp() {
+    if (!state.blob || state.readonly) return;
+    var btn = $('[data-pkp="drive"]'), d = $('.pkp-drv');
+    btn.disabled = true; d.hidden = false; d.className = 'pkp-drv'; d.textContent = '구글 드라이브에 올리는 중…';
+    var body = baseQs(); if (state.mode === 'saved') body.set('saved', '1'); else body.set('job', state.jobId || '');
+    fetch(state.base + '/package/drive?' + baseQs().toString(), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j && j.ok, j: j || {} }; }); })
+      .then(function (v) {
+        btn.disabled = false;
+        if (!v.ok) { d.className = 'pkp-drv bad'; d.textContent = v.j.msg || '구글 드라이브에 올리지 못했어요.'; return; }
+        d.className = 'pkp-drv ok';
+        d.innerHTML = '구글 드라이브' + (v.j.folder ? ' <b>' + esc(v.j.folder) + '</b> 폴더' : '') + '에 올렸어요' + (v.j.replaced ? ' (같은 콘티 파일을 새 PDF로 바꿨어요)' : '') +
+          ' · <a href="' + esc(v.j.link) + '" target="_blank" rel="noopener">드라이브에서 보기</a>';
+      }).catch(function () { btn.disabled = false; d.className = 'pkp-drv bad'; d.textContent = '구글 드라이브에 올리지 못했어요. 다시 해 주세요.'; });
+  }
+
   function download() {
     if (!state.blob) return;
     var url = URL.createObjectURL(state.blob);
@@ -308,6 +327,7 @@
     state.readonly = b.getAttribute('data-readonly') === '1';
     $('[data-pkp="crop"]').checked = true;
     $('[data-pkp="areas"]').hidden = state.readonly;
+    $('[data-pkp="drive"]').hidden = state.readonly; drvHide();
     $('.pkp-ttl').textContent = b.getAttribute('data-title') || '인쇄용 PDF 패키지';
     root.classList.add('on'); document.body.classList.add('pkp-open');
     openFlow();

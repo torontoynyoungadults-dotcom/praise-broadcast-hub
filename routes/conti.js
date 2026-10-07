@@ -20,6 +20,7 @@ const avatar = require('../lib/avatar');
 const honorific = require('../lib/honorific');
 const shortNames = require('../lib/shortName');
 const guestGate = require('../lib/guestGate');
+const guestAccess = require('../lib/guestAccess');
 const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
 const { orderOf } = require('../lib/songKind');
 const { positionIconSvg } = require('../lib/positionIcons');
@@ -36,6 +37,7 @@ const pkgPdf = require('../lib/pkgPdf');
 const fileBytes = require('../lib/fileBytes');
 const pageSpec = require('../lib/pageSpec');
 const sheetHeaders = require('../lib/sheetHeaders');
+const pkgDrive = require('../lib/pkgDrive');
 const liveStore = require('../lib/liveStore');
 const guestLink = require('../lib/guestLink');
 const timeSettings = require('../lib/timeSettings');
@@ -843,9 +845,15 @@ async function makePackage(req, onProgress) {
       const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
       const sheets = [];
       for (const f of mine) {
-        const o = splitOrigin(f);            // 곡별로 나누기 + 헤더 달기 로 만든 악보 — 인쇄용 PDF 는 자기 머리말을 다니까 원본 패키지의 그 쪽을 씀
-        if (o) { used.add(f['파일링크']); used.add(o.link); const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: o.crop || '' }); continue; } }
-        used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || '') });
+        const o = splitOrigin(f);
+        if (o && o.header) {                 // 콘티에서 이미 머리말을 단 악보 — 자르거나 머리말을 또 달지 않고 그 쪽 그대로 (쪽 번호만 패키지 기준으로)
+          used.add(f['파일링크']); used.add(o.link);
+          const hb = await bytesOf(f['파일링크']);
+          if (hb) { sheets.push({ buf: hb, asIs: true }); continue; }
+        }
+        if (o) { used.add(f['파일링크']); used.add(o.link); const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: o.crop || '' }); continue; } }   // 자르기만 한 악보 — 원본 + 자르기
+        used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']);
+        if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || ''), asIs: !String(f['쪽'] || '').trim() && await pkgPdf.isHeadedSheet(buf) });   // 예전에 "헤더 자동 추가"로 올린 악보도 알아봄
       }
       songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
         form: kakaoLib.formText(x.s['송폼']), note: String(x.s['비고'] || '').trim(), sheets });
@@ -946,6 +954,31 @@ router.post('/conti/package/confirm', requireTeam, async (req, res) => {
     if (old) { await sheetsDb.updateRow('확정PDF', old.__row, row); driveStore.removeByLink(old['파일링크']); } else await sheetsDb.appendRow('확정PDF', row);
     res.json({ ok: true, by: row['확정자'], at: row['확정시각'] });
   } catch (e) { console.error('[PDF 확정 실패]', e && e.stack || e); res.status(500).json({ ok: false, msg: '확정하지 못했어요. 잠시 뒤 다시 해 주세요.' }); }
+});
+
+/** 인쇄용 PDF → 관리 > 설정에서 정한 구글 드라이브 폴더에 올리기. job(방금 만든 것) 또는 saved=1(확정본).
+ *  같은 콘티(팀 + 날짜 · 행사)는 같은 파일을 덮어씀 (lib/pkgDrive.js) */
+router.post('/conti/package/drive', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    if (guestAccess.isGuest(req.ctx.member)) return res.status(403).json({ ok: false, msg: '객원 멤버는 쓸 수 없는 기능이에요.' });
+    const { team, scope } = await pkgContext(req);
+    const b = req.body || {};
+    let pdf = null, name = '';
+    if (b.job) {
+      const j = pkgJobs.get(String(b.job));
+      if (j && j.team === team && j.result && j.result.date === scope.date && (j.result.event || '') === (scope.event || '')) { pdf = j.result.pdf; name = j.result.name; }
+    } else if (b.saved) {
+      const row = await savedRow(team, scope);
+      if (row) { pdf = await fileBytes.get(row['파일링크']); name = String(row['파일명'] || '콘티'); }
+    }
+    if (!pdf) return res.status(400).json({ ok: false, msg: '올릴 PDF를 찾지 못했어요. PDF를 다시 만든 뒤 올려 주세요.' });
+    const r = await pkgDrive.upload(team, scope, name, pdf);
+    res.json({ ok: true, link: r.link, name: r.name, replaced: r.replaced, folder: r.folder });
+  } catch (e) {
+    if (!e.setup) console.error('[인쇄용 PDF 드라이브 올리기 실패]', e && e.message);
+    res.status(e.setup ? 409 : 500).json({ ok: false, setup: !!e.setup, msg: (e && e.message) || '구글 드라이브에 올리지 못했어요.' });
+  }
 });
 
 router.get('/conti/package.pdf', requireTeam, async (req, res) => {
