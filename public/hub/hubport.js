@@ -1012,9 +1012,22 @@ function arTitle(d) {
 }
 
 function absUrl(u) { try { return new URL(u, location.href).href; } catch (e) { return u; } }
+/* 라이브러리에서 악보를 누르면 라이브 악보로 (필기 · 메트로놈 · 녹음 바로) — 서버가 준 f.live 주소 + 팀 · 돌아올 칸. 없으면 예전처럼 원본 PDF */
+function liveHref(f, v) {
+  if (!f || !f.live) return '';
+  var B = window.__HUB__ || {};
+  return f.live + '&team=' + encodeURIComponent(B.team || '') + (v ? '&v=' + v : '');
+}
+function sheetLink(f, v, inner, cls) {
+  var lv = liveHref(f, v);
+  return lv ? '<a' + (cls ? ' class="' + cls + '"' : '') + ' href="' + esc(lv) + '" title="라이브 악보로 열기">' + inner + '</a>'
+    : '<a' + (cls ? ' class="' + cls + '"' : '') + ' href="' + esc(f.href || f.url) + '" target="_blank" rel="noopener">' + inner + '</a>';
+}
+function origLink(f) { return f && f.live ? '<a class="origpdf" href="' + esc(f.href || f.url) + '" target="_blank" rel="noopener" title="원본 PDF를 새 창으로">PDF ↗</a>' : ''; }
 function fileChip(f) {
   var pdf = f.pdf != null ? !!f.pdf : /\.pdf$/i.test(f.name);
-  return '<a class="afile" href="' + esc(f.href || f.url) + '" target="_blank" rel="noopener">' +
+  var lv = liveHref(f, 'date');
+  return '<a class="afile" href="' + esc(lv || f.href || f.url) + '"' + (lv ? ' title="라이브 악보로 열기"' : ' target="_blank" rel="noopener"') + '>' +
     '<span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span><span class="fn">' + esc(f.name) + (f.range ? ' <small>' + esc(f.range) + '쪽</small>' : '') + '</span></a>';
 }
 
@@ -1138,7 +1151,7 @@ function arFiles(days) {
     rows.slice(0, AR.more * 3).map(function (r) {
       var pdf = r.f.pdf != null ? !!r.f.pdf : /\.pdf$/i.test(r.f.name);
       return '<div class="fileitem card"><span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span>' +
-        '<a href="' + esc(r.f.href || r.f.url) + '" target="_blank" rel="noopener">' + esc(r.f.name) + (r.f.range ? ' <small>' + esc(r.f.range) + '쪽</small>' : '') + '</a>' +
+        sheetLink(r.f, 'file', esc(r.f.name) + (r.f.range ? ' <small>' + esc(r.f.range) + '쪽</small>' : '')) + origLink(r.f) +
         '<button class="by linkish" onclick="goWeek(\'' + esc(jsq(r.d.key)) + '\')">' +
           (r.d.event ? esc(r.d.event.name) : md(r.d.date)) + (r.f.kind === '결단' ? ' · 결단' : '') + '</button></div>';
     }).join('') +
@@ -1277,7 +1290,7 @@ function rpDetail(s) {
           '<label class="w2">메모<input type="text" data-f="note" maxlength="200" value="' + esc(x.note) + '"></label></div>' +
           '<div class="sv-btns"><button class="btn mini" onclick="rpSheetSave(this)">저장</button><button class="btn mini" onclick="RP.editSheet=\'\';rpRedraw();">취소</button></div><p class="msg"></p></div>';
       }
-      return '<div class="rp-sh" data-sid="' + esc(x.id) + '"><a target="_blank" rel="noopener" href="' + esc(x.href || x.url) + '">📄 ' + esc(x.name || x.title) + '</a>' +
+      return '<div class="rp-sh" data-sid="' + esc(x.id) + '">' + sheetLink(x, 'repo', '📄 ' + esc(x.name || x.title)) + origLink(x) +
         '<small>' + [x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.date && rpDay(x.date), dispList(x.leader), x.range ? x.range + '쪽' : (x.pages && x.pages + '쪽'), x.note].filter(Boolean).map(esc).join(' · ') + '</small>' +
         (D.canEdit ? '<button class="btn mini" onclick="rpEditSheet(this)">정보 고치기</button>' : '') + '</div>';
     }).join('');

@@ -82,6 +82,7 @@ var YNPlayer = (function () {
     b.textContent = A === null ? 'A–B 반복' : (B === null ? 'A ' + t(A) + ' → 끝 지점 찍기' : 'A ' + t(A) + ' – B ' + t(B) + ' ✕');
   }
   function mark() {
+    if (ph()) { markPH(ph().current(), ph().playing()); return; }
     var src = cur && cur.src;
     Array.prototype.forEach.call(document.querySelectorAll('.rec[data-src]'), function (n) {
       var on = !!src && n.getAttribute('data-src') === src;
@@ -115,8 +116,25 @@ var YNPlayer = (function () {
   function itemOf(n) {
     return { src: n.getAttribute('data-src'), title: n.getAttribute('data-title'), sub: n.getAttribute('data-sub'), open: n.getAttribute('data-open') };
   }
+  /* 앱의 떠 있는 플레이어(public/js/recplayer.js · window.PHRec)가 있으면 그걸로 — 끌어서 옮기고, 다른 화면으로 가도 이어서 들음 */
+  function ph() { return window.PHRec || null; }
+  function markPH(src, playing) {
+    Array.prototype.forEach.call(document.querySelectorAll('.rec[data-src]'), function (n) {
+      var on = !!src && n.getAttribute('data-src') === src;
+      n.classList.toggle('playing', on && playing); n.classList.toggle('cued', on);
+      var pb = n.querySelector('.rec-play'); if (pb) pb.innerHTML = (on && playing ? ICO.pause + '<span>멈춤</span>' : ICO.play + '<span>' + (on ? '이어서' : '재생') + '</span>');
+    });
+  }
+  document.addEventListener('ph:rec', function (e) { if (ph()) markPH(e.detail && e.detail.src, e.detail && e.detail.playing); });
   function playFrom(btn) {
     var card = btn.closest('.rec'); if (!card) return;
+    if (ph()) {
+      var s0 = card.getAttribute('data-src');
+      if (ph().current() === s0) { ph().toggle(); return; }
+      var sc = card.closest('.panel') || document, ns = Array.prototype.slice.call(sc.querySelectorAll('.rec[data-src]'));
+      ph().play(ns.map(function (n) { return { src: n.getAttribute('data-src'), title: n.getAttribute('data-title') || '녹음', by: n.getAttribute('data-sub') || '' }; }), ns.indexOf(card));
+      return;
+    }
     var src = card.getAttribute('data-src');
     if (cur && cur.src === src) { toggle(); return; }
     var scope = card.closest('.panel') || document;

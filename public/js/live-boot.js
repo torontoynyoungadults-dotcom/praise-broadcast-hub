@@ -71,7 +71,7 @@
   function boot() {
     if (!window.YNPractice) { fallback('라이브 악보 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
     var api = window.YNPractice.open({
-      token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: B.start,
+      token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: B.start, startPage: B.startPage || 1,
       canEdit: !B.ro, readOnly: !!B.ro, callServer: callServer, recs: B.recs || [],
       onClose: function () { location.href = B.back || '/conti'; }
     });

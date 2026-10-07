@@ -1446,12 +1446,16 @@ button.ph-annolink:disabled { opacity: .6; cursor: progress; }
 .pkp-drv.bad { background: rgba(255,123,138,.16); color: #ffc2ca; }
 .pkp-drv a { color: #8fe3c9; font-weight: 800; text-decoration: underline; }
 
-/* ---------- 교회 로고 — 화면 맨 위 (작고 단정하게: 배너 위 가운데, 아래에 양끝이 흐려지는 가는 선) ---------- */
-.ph-brand { display: flex; justify-content: center; align-items: center; padding: 6px 0 12px; margin: 0 0 12px; position: relative; }
-.ph-brand::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--line-hi, rgba(255,255,255,.22)), transparent); }
-.ph-brand-logo { display: block; height: 28px; width: auto; opacity: .92; user-select: none; -webkit-user-drag: none; }
-.ph-brand-b { display: none; }                                     /* 기본(어두운 테마) = 흰 로고 */
-:root[data-theme="light"] .ph-brand-w { display: none; }
-:root[data-theme="light"] .ph-brand-b { display: block; opacity: .86; }
-@media (min-width: 700px) { .ph-brand-logo { height: 32px; } .ph-brand { padding: 10px 0 14px; } }
-@media print { .ph-brand { display: none; } }
+/* ---------- 교회 로고 — 화면 맨 아래 바닥글 위쪽 (작고 단정하게, 누르면 교회 홈페이지) ---------- */
+.ph-foot-logo { display: inline-block; margin: 0 auto 12px; padding: 4px 6px; border-radius: 8px; line-height: 0; }
+.ph-foot-logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ph-flogo { display: block; height: 34px; width: auto; opacity: .82; transition: opacity .2s; user-select: none; -webkit-user-drag: none; }
+.ph-foot-logo:hover .ph-flogo { opacity: 1; }
+.ph-flogo-b { display: none; }                                    /* 기본(어두운 테마) = 흰 로고 */
+:root[data-theme="light"] .ph-flogo-w { display: none; }
+:root[data-theme="light"] .ph-flogo-b { display: block; opacity: .78; }
+@media (min-width: 700px) { .ph-flogo { height: 38px; } }
+
+/* ---------- 라이브러리 — 악보를 누르면 라이브 악보로, 옆의 작은 "PDF ↗" 는 원본 ---------- */
+.yn .origpdf { margin-left: 8px; font-size: 11.5px; font-weight: 700; opacity: .7; white-space: nowrap; text-decoration: none; }
+.yn .origpdf:hover { opacity: 1; text-decoration: underline; }

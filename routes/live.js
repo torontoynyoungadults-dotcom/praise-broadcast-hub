@@ -70,7 +70,7 @@ function sheetName(s, songTitle) {
 }
 
 /** 이 예배(범위)의 악보 · 곡 · 녹음 — church-app 허브의 openPractice() 가 만들던 것과 같은 모양 */
-async function liveData(team, scope) {
+async function liveData(team, scope, extraId) {
   const [songRows, sheetRows, recRows] = await Promise.all([sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('악보저장소'), sheetsDb.readAll('녹음')]);
   const room = liveStore.roomOf(scope);
   const songs = await liveStore.songsOf(team, room);
@@ -98,6 +98,12 @@ async function liveData(team, scope) {
     if (Object.keys(map).length) item.map = map;
     list.push(item);
   });
+  // 라이브러리에서 연 악보 — 이 예배에 걸려 있지 않은 악보(라이브러리에만 올린 것 · 다른 주의 것)도 맨 앞에 끼워 넣음
+  if (extraId) {
+    const xr = sheetRows.find((s) => s['팀ID'] === team && String(s['ID'] || '') === String(extraId) && s['파일링크']);
+    const xid = xr ? liveStore.sheetIdOf(team, xr['파일링크']) : '';
+    if (xr && !list.some((x) => x.id === xid)) list.unshift({ id: xid, name: sheetName(xr, '') });
+  }
   const recs = recRows.filter((r) => r['팀ID'] === team && liveStore.inScope(r, scope))
     .map((r) => ({ id: liveStore.driveIdOf(r['링크']), r })).filter((x) => x.id)
     .map(({ id, r }) => ({ title: String(r['제목'] || '녹음'), play: '/audio/' + id, kind: String(r['구분'] || ''), by: String(r['올린사람'] || '') }));
@@ -110,22 +116,46 @@ async function eventFor(team, id) {
   return rows.find((r) => r['팀ID'] === team && r['ID'] === id) || null;
 }
 
+/** 라이브러리(곡 · 악보 / 악보 파일)에서 악보를 열 때 — 그 악보가 걸린 예배의 라이브 악보로, 그 악보 · 그 쪽부터.
+ *  라이브러리에만 올린 악보(날짜 없음)는 저장소 날짜(없으면 이번 주)의 라이브 악보에 끼워 넣어 엶 (lib=). 닫으면 라이브러리로 */
+router.get('/library/live', requireTeam, async (req, res) => {
+  const team = req.ctx.current;
+  const id = String(req.query.id || '').trim();
+  const row = id ? (await sheetsDb.readAll('악보저장소')).find((r) => r['팀ID'] === team && String(r['ID'] || '') === id && r['파일링크']) : null;
+  const v = /^(repo|date|file|rec|song|stats)$/.test(String(req.query.v || '')) ? String(req.query.v) : '';
+  if (!row) return res.redirect(`/library?team=${encodeURIComponent(team)}${v ? '&v=' + v : ''}`);
+  const qs = new URLSearchParams({ team });
+  const isDate = (x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x || ''));
+  if (row['행사ID'] && await eventFor(team, row['행사ID'])) qs.set('event', row['행사ID']);
+  else qs.set('date', isDate(row['날짜']) ? row['날짜'] : (isDate(row['저장소날짜']) ? row['저장소날짜'] : week.normalizeDate('')));
+  qs.set('sheet', liveStore.sheetIdOf(team, row['파일링크']));
+  qs.set('lib', id);                                                       // 그 예배에 없는 악보여도 목록에 끼워 넣도록
+  const first = pageSpec.specPages(pageSpec.cleanSpec(row['쪽']))[0];
+  if (first > 1) qs.set('page', String(first));
+  qs.set('from', 'library'); if (v) qs.set('v', v);
+  res.redirect('/conti/practice?' + qs.toString());
+});
+
 router.get(['/conti/practice', '/conti/live'], requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
   if (!team) return res.redirect('/conti');
   const ev = await eventFor(team, String(req.query.event || '').trim());
   const date = ev ? ev['날짜'] : week.normalizeDate(req.query.date);
-  const back = ev ? `/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(ev['ID'])}` : `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
+  let back = ev ? `/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(ev['ID'])}` : `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
+  if (req.query.from === 'library') {                                     // 라이브러리에서 열었으면 닫을 때 라이브러리(보던 칸)로
+    const v = String(req.query.v || '');
+    back = `/library?team=${encodeURIComponent(team)}${/^(repo|date|file|rec|song|stats)$/.test(v) ? '&v=' + v : ''}`;
+  }
   if (guestAccess.isGuest(ctx.member)) await guestAccess.prime(ctx.member, team);     // 객원 멤버 — 이 방(서는 날)을 소켓이 알도록
-  return renderLive(req, res, { team, ev, date, back, member: ctx.member, isAdmin: ctx.isAdmin, ro: false });
+  return renderLive(req, res, { team, ev, date, back, member: ctx.member, isAdmin: ctx.isAdmin, ro: false, extraId: String(req.query.lib || '').trim() });
 });
 
 /** 라이브 악보 화면 — 로그인한 팀원(고칠 수 있음)과 방송팀 보기 링크(읽기 전용, routes/guest.js)가 함께 씀 */
 async function renderLive(req, res, o) {
   const { team, ev, date, back } = o;
   const scope = { event: ev ? ev['ID'] : '', date };
-  const d = await liveData(team, scope);
+  const d = await liveData(team, scope, o.extraId);
 
   if (!d.sheets.length) {
     const content = `<div class="ph-card"><h2 class="ph-h2">라이브 악보</h2>
@@ -139,6 +169,7 @@ async function renderLive(req, res, o) {
     token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
     pastors: Array.from(await honorific.pastorSet(team)),
     sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
+    startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 쪽부터
   };
   const v = `?v=${LIVE_V}`;
   const title = `${team} · ${ev ? ev['이름'] : week.labelKo(date)} 라이브 악보`;

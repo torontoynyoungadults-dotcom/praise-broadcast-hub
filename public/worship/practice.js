@@ -2213,7 +2213,7 @@
     } catch (e) { /* 타이머 막대가 없어도 세션 화면은 그대로 */ }
     try { setupFloats(); } catch (e) { /* 떠 있는 창을 못 만들어도 악보 · 필기는 그대로 */ }
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
-    loadSheet(S.sheetIdx, 1, false);
+    loadSheet(S.sheetIdx, Math.max(1, opts.startPage | 0) || 1, false);   // 라이브러리에서 곡별로 나눈 악보를 열면 그 곡 첫 쪽부터
     if (S.layout === 'computer' && ls('side') === '1' && P.tabs.length) showTab(P.tabs[0].id);
     return api;
   }

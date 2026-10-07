@@ -4,10 +4,15 @@
  *  · 접힌 모양: 재생/멈춤 · 제목 · 시간 · 진행 막대 · 펼치기 · 닫기.  펼치면: ±10초 · 이전/다음 · 빠르기(0.5~2배, 음높이 유지) · A-B 구간 반복 · 한 곡 반복 · 이어서 재생 · 소리.
  *  · 손잡이(⠿)를 끌어 원하는 곳으로 옮길 수 있고, 위치 · 빠르기 · 소리 · 펼침 상태는 이 기기에 기억합니다.
  *  · 목록은 누른 순간 화면에 있던 [data-rp-src] 들의 복사본 — 다른 탭으로 가도 이전/다음/이어서 재생이 그대로 됩니다.
+ *  · 라이브러리(페이지째 여는 화면)도 같은 플레이어를 씁니다 (window.PHRec). 페이지를 새로 여는 이동(라이브러리 · 스케줄표 ↔ 다른 탭)이면
+ *    이동 직전 상태(목록 · 곡 · 위치 · 재생 중)를 기억했다가 새 페이지에서 그 자리부터 이어서 틀어 줍니다 (브라우저가 막으면 멈춘 채로 그 자리에).
+ *  · 재생 상태가 바뀔 때마다 document 에 'ph:rec' 이벤트 { src, playing } — 목록의 "재생 중" 표시용
  * 올릴 때 제목 자동 입력([data-rec-form])도 여기서 붙입니다.
  */
 (function () {
   var KEY = 'ph_rp_v2';
+  var RESUME = 'ph_rp_resume';                         // 페이지를 새로 열 때 이어 듣기 (sessionStorage — 이 탭에서만)
+  function emit(src, playing) { try { document.dispatchEvent(new CustomEvent('ph:rec', { detail: { src: src || '', playing: !!playing } })); } catch (e) { /* 표시는 덤 */ } }
   var I = {
     play: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>',
     pause: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
@@ -86,6 +91,7 @@
     function markList() {                              // 지금 화면에 있는 목록에서 재생 중인 줄 표시
       var src = idx >= 0 && list[idx] ? list[idx].src : '';
       document.querySelectorAll('[data-rp-src]').forEach(function (el) { el.classList.toggle('rp-on', !!src && el.getAttribute('data-rp-src') === src); });
+      emit(src, src && !au.paused);
     }
     function meta() {
       if (!('mediaSession' in navigator) || idx < 0 || !list[idx]) return;
@@ -95,19 +101,29 @@
     function select(i, play) {
       if (!list.length) return;
       if (i < 0) i = 0; if (i >= list.length) i = list.length - 1;
-      var it = list[i]; idx = i; A = B = null; paintAB(); say('');
+      var it = list[i]; idx = i; A = B = null; pendT = 0; paintAB(); say('');
       ttl.textContent = it.title || '녹음'; by.textContent = it.by || '';
       au.src = it.src; applyRate(); au.load(); markList(); meta(); show();
       if (play) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생을 시작하지 못했어요. 재생 버튼을 한 번 더 눌러 주세요.', true); });
     }
+    // 이어 듣기 위치 — 자동 재생이 막혀 버퍼가 없으면 seek가 안 먹으므로, 준비되거나 ▶ 누를 때 다시 맞춤
+    var pendT = 0;
+    function applyPend() {
+      if (!pendT) return;
+      try { if (isFinite(au.duration) && au.duration > 0) au.currentTime = Math.min(pendT, Math.max(0, au.duration - 0.5)); } catch (e) { return; }
+      if (Math.abs(au.currentTime - pendT) < 1) pendT = 0;
+    }
+    au.addEventListener('canplay', applyPend);
+    au.addEventListener('playing', function () { if (pendT) applyPend(); });
     function toggle() {
       if (idx < 0) return;
+      if (au.paused) applyPend();
       if (au.paused) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생하지 못했어요.', true); }); else au.pause();
     }
     function seekBy(d) { if (idx < 0) return; var t = au.currentTime + d, end = au.duration || 0; au.currentTime = Math.max(0, end ? Math.min(end, t) : t); }
     function step(dir) { var n = list.length; if (n) select((idx + dir + n) % n, true); }
     function setExpanded(on) { root.classList.toggle('open', on); exp.setAttribute('aria-expanded', on ? 'true' : 'false'); exp.setAttribute('aria-label', on ? '접기' : '자세히 펼치기'); st.open = on; save(st); place(); }
-    function close() { au.pause(); au.removeAttribute('src'); au.load(); idx = -1; A = B = null; root.classList.remove('on', 'playing'); document.body.classList.remove('rpf-on'); markList(); say(''); go.innerHTML = I.play; }
+    function close() { au.pause(); au.removeAttribute('src'); au.load(); idx = -1; A = B = null; root.classList.remove('on', 'playing'); document.body.classList.remove('rpf-on'); markList(); say(''); go.innerHTML = I.play; try { sessionStorage.removeItem(RESUME); } catch (e) { /* 없어도 됨 */ } }
 
     var actions = {
       toggle: toggle, back: function () { seekBy(-10); }, fwd: function () { seekBy(10); },
@@ -137,8 +153,8 @@
     au.addEventListener('timeupdate', function () { if (A != null && B != null && B > A && au.currentTime >= B) au.currentTime = A; paintBar(); });
     au.addEventListener('loadedmetadata', function () { applyRate(); paintBar(); });
     au.addEventListener('durationchange', paintBar);
-    au.addEventListener('play', function () { go.innerHTML = I.pause; root.classList.add('playing'); });
-    au.addEventListener('pause', function () { go.innerHTML = I.play; root.classList.remove('playing'); });
+    au.addEventListener('play', function () { go.innerHTML = I.pause; root.classList.add('playing'); markList(); });
+    au.addEventListener('pause', function () { go.innerHTML = I.play; root.classList.remove('playing'); markList(); });
     au.addEventListener('waiting', function () { say('불러오는 중…'); });
     au.addEventListener('playing', function () { say(A != null && B != null ? '구간 반복 중' : ''); });
     au.addEventListener('ended', function () {
@@ -179,10 +195,31 @@
     applyRate(); paintAB();
     if (st.open) { root.classList.add('open'); exp.setAttribute('aria-expanded', 'true'); }
     place();
+    /* ---- 페이지를 새로 여는 이동 — 떠나기 직전 상태를 기억 ---- */
+    function remember() {
+      try {
+        if (idx < 0 || !list[idx]) { sessionStorage.removeItem(RESUME); return; }
+        sessionStorage.setItem(RESUME, JSON.stringify({ list: list.slice(0, 200), idx: idx, t: au.currentTime || 0, playing: !au.paused, at: Date.now() }));
+      } catch (e) { /* 저장 못 하면 이어 듣기만 안 됨 */ }
+    }
+    window.addEventListener('pagehide', remember);
+    /** 기억해 둔 상태로 — 바로 이어진 이동(15초 안)이고 재생 중이었으면 이어서 재생, 아니면 그 자리에서 멈춘 채로 */
+    function restore(r) {
+      if (!r || !r.list || !r.list.length) return;
+      list = r.list; select(Math.max(0, Math.min(list.length - 1, r.idx | 0)), false);
+      var t = Math.max(0, Number(r.t) || 0), go2 = r.playing && Date.now() - (r.at || 0) < 15000;
+      var seekThen = function () {
+        au.removeEventListener('loadedmetadata', seekThen);
+        pendT = t; applyPend();
+        if (go2) au.play().then(function () { say(''); }).catch(function () { say('이어 들으려면 ▶ 를 눌러 주세요 (' + fmt(t) + ' 부터).'); });
+      };
+      if (au.readyState >= 1) seekThen(); else au.addEventListener('loadedmetadata', seekThen);
+    }
     return {
-      root: root, au: au,
+      root: root, au: au, restore: restore,
       play: function (items, i) { list = items; select(i, true); },
       current: function () { return idx >= 0 && list[idx] ? list[idx].src : ''; },
+      playing: function () { return idx >= 0 && !au.paused; },
       mark: markList, toggle: toggle,
     };
   }
@@ -202,6 +239,21 @@
     var items = snapshot(), i = items.findIndex(function (x) { return x.src === src; });
     F.play(items, i < 0 ? 0 : i);
   });
+
+  /* ---- 다른 화면(라이브러리 등)에서 쓰는 API — 목록 [{src, title, by}] 과 순서 ---- */
+  window.PHRec = {
+    play: function (items, i) { if (!F) F = create(); F.play(items, i < 0 ? 0 : i); },
+    toggle: function () { if (F) F.toggle(); },
+    current: function () { return F ? F.current() : ''; },
+    playing: function () { return F ? F.playing() : false; },
+  };
+  (function resumeOnLoad() {                          // 페이지를 새로 열었을 때 — 직전 페이지에서 듣던 녹음을 이어서
+    var r = null;
+    try { r = JSON.parse(sessionStorage.getItem(RESUME) || 'null'); sessionStorage.removeItem(RESUME); } catch (e) { r = null; }
+    if (!r || !r.list || !r.list.length || Date.now() - (r.at || 0) > 30 * 60 * 1000) return;      // 30분이 지났으면 잊음
+    var go = function () { if (!F) F = create(); F.restore(r); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  })();
 
   /* ---- 올릴 때 제목 자동 입력 ---- */
   function wireForm(form) {
