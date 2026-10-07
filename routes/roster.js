@@ -48,6 +48,8 @@ async function guestCard(team, infoMap) {
         <div class="ph-li-sub">${esc(m['이메일'])} · ${up.length ? `서는 날 ${up.length}번 · 다음 ${esc(up[0].label)}` : '앞으로 서는 날 없음 (스케줄에 넣어 주세요)'}</div>
       </div>
       <div class="ph-row-actions rg-acts">
+        <form method="post" action="/roster/guest/promote" onsubmit="return confirm('${esc(m['이름'])}님을 정멤버로 전환할까요?\\n\\n다시 가입하지 않아도 지금 계정 그대로 정식 팀원이 되고, 라이브러리 · 행사 · 장비 등 팀원 메뉴를 모두 쓸 수 있어요.')"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="__row" value="${m.__row}">
+          <button class="ph-btn pri" type="submit">정멤버로 전환</button></form>
         <form method="post" action="/roster/guest/pause"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="__row" value="${m.__row}"><input type="hidden" name="to" value="${susp ? '' : 'TRUE'}">
           <button class="ph-btn" type="submit">${susp ? '다시 허용' : '일시 중지'}</button></form>
         <form method="post" action="/roster/guest/delete" onsubmit="return confirm('${esc(m['이름'])} 객원 멤버를 삭제할까요? 삭제하면 로그인할 수 없고, 다시 가입해야 해요.')"><input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="__row" value="${m.__row}">
@@ -57,7 +59,7 @@ async function guestCard(team, infoMap) {
   }
   return `<div class="ph-card">
     <h2 class="ph-h2">객원 멤버 (${items.length}명)</h2>
-    <p class="ph-sub">가입할 때 "객원 멤버"로 체크한 사람이에요. 스케줄에 서는 날에만 콘티 · 라이브 악보를 볼 수 있어요. 접속을 잠시 막거나 삭제할 수 있어요.</p>
+    <p class="ph-sub">가입할 때 "객원 멤버"로 체크한 사람이에요. 스케줄에 서는 날에만 콘티 · 라이브 악보를 볼 수 있어요. 팀원이 되면 <b>정멤버로 전환</b>을 눌러 주세요 (다시 가입할 필요 없어요). 접속을 잠시 막거나 삭제할 수도 있어요.</p>
     ${items.length ? items.join('') : '<p class="ph-sub">아직 객원 멤버가 없어요.</p>'}
   </div>`;
 }
@@ -235,6 +237,31 @@ router.post('/roster/guest/pause', requireTeam, async (req, res) => {
   if (!req.ctx.isAdmin) return backTo(req, res, team);
   const found = (await sheetsDb.readAll('회원', { fresh: true })).find((r) => r.__row === Number(b.__row));
   if (found && guestAccess.isGuest(found)) await sheetsDb.updateRow('회원', found.__row, { ...found, '접속중지': b.to === 'TRUE' ? 'TRUE' : '' });
+  backTo(req, res, team);
+});
+/** 객원 멤버 → 정멤버 전환 (관리자) — 다시 가입하지 않아도 되게, 같은 계정에서 객원 표시만 풀어 줍니다.
+ *  · 회원: 객원 · 접속중지 표시를 지움 (그 뒤로는 팀원과 똑같이 모든 메뉴를 씀)
+ *  · 팀원명단: 이 팀에 명단이 이미 있으면 그 사람도 명단에 올림 (명단이 하나도 없는 팀은 그대로 둠 — 한 명만 넣으면
+ *    "명단에 있는 이름만 가입" 규칙이 갑자기 켜져서 다른 사람이 가입하지 못하게 되기 때문) */
+router.post('/roster/guest/promote', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (!req.ctx.isAdmin || !req.ctx.teams.includes(team)) return backTo(req, res, team || req.ctx.current);
+  try {
+    const found = (await sheetsDb.readAll('회원', { fresh: true })).find((r) => r.__row === Number(b.__row));
+    const inTeam = found && String(found['소속팀'] || '').split(',').map((x) => x.trim()).includes(team);
+    if (found && inTeam && guestAccess.isGuest(found)) {
+      const name = String(found['이름'] || '').trim();
+      const roster = (await sheetsDb.readAll('팀원명단', { fresh: true })).filter((r) => r['팀ID'] === team);
+      if (roster.length && name && !roster.some((r) => String(r['이름'] || '').trim() === name)) {
+        await sheetsDb.appendRow('팀원명단', {
+          'ID': 'M' + Date.now().toString(36), '팀ID': team, '이름': name, '성별': found['성별'] || '', '사진': found['프로필사진'] || '',
+          '등록시각': new Date().toISOString(), '역할': found['역할'] || '',
+        });
+      }
+      await sheetsDb.updateRow('회원', found.__row, { ...found, '객원': '', '접속중지': '' });
+    }
+  } catch (e) { console.error('[정멤버 전환 실패]', e.message); }
   backTo(req, res, team);
 });
 /** 객원 멤버 삭제 (관리자) — 회원 줄을 지움 */
