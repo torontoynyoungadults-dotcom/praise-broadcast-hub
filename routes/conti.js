@@ -311,7 +311,7 @@ function annoLink(f) {
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable, extra) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${f['쪽'] ? ` <small class="ph-pr">${esc(f['쪽'])}쪽</small>` : ''}</a>${editable ? annoLink(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable ? annoLink(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
     <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
     <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
   </form>` : ''}</span>`).join('');
@@ -538,12 +538,29 @@ function sheetItem(s, editable) {
 
 /** 패키지 악보 한 개를 곡별로 나누는 칸 — PDF 의 쪽을 곡마다 정해 두면 그 쪽 범위가 곡(곡ID)에 묶여 저장돼, 다른 주 콘티에 그 곡을 넣을 때 악보가 따라와요.
  *  (쪽을 자동으로 찾는 일은 public/js/conti-tools.js [data-cn-split] 가 PDF 글자에서 곡 제목을 찾아 채워 줌 — 고칠 수 있음) */
+/** "곡별로 나누기 + 헤더 달기" 로 만든 곡 악보 줄 — 메모에 "나누기|<쪽>|<원본 패키지 링크>" 를 남겨 둠.
+ *  (화면의 "저장됨" 표시 · 다시 나누기 · 인쇄용 PDF 가 원본 쪽을 그대로 쓰는 데 씀) → { spec, link } | null */
+const SPLIT_TAG = '나누기|';
+function splitOrigin(row) {
+  const m = String((row && row['메모']) || '');
+  if (m.indexOf(SPLIT_TAG) !== 0) return null;
+  const rest = m.slice(SPLIT_TAG.length), i = rest.indexOf('|');
+  if (i < 0) return null;
+  const spec = pageSpec.cleanSpec(rest.slice(0, i)), link = rest.slice(i + 1).trim();
+  return spec && link ? { spec, link } : null;
+}
+
 function splitPanel(team, scope, s, songs, allSheets) {
   if (!songs || !songs.length || !s['파일링크']) return '';
   const id = liveStore.sheetIdOf(team, s['파일링크']);
   const saved = {};
   (songs || []).forEach((g) => { saved[g.id] = ''; });
-  (allSheets || []).forEach((f) => { if (f['파일링크'] === s['파일링크'] && f['곡ID'] && f['쪽'] && Object.prototype.hasOwnProperty.call(saved, f['곡ID'])) saved[f['곡ID']] = f['쪽']; });
+  (allSheets || []).forEach((f) => {
+    if (!f['곡ID'] || !Object.prototype.hasOwnProperty.call(saved, f['곡ID'])) return;
+    const o = splitOrigin(f);
+    if (o && o.link === s['파일링크']) saved[f['곡ID']] = o.spec;                       // 헤더를 달아 저장한 곡
+    else if (f['파일링크'] === s['파일링크'] && f['쪽']) saved[f['곡ID']] = f['쪽'];     // 원본 쪽 그대로 저장한 곡
+  });
   const has = Object.keys(saved).some((k) => saved[k]);
   return `<details class="ph-add cn-split" data-cn-split data-src="/sheet/${esc(id)}" data-has="${has ? 1 : 0}">
     <summary>${ui.icon('page')} 곡별로 나누기${has ? ' · 저장됨' : ''}</summary>
@@ -551,6 +568,7 @@ function splitPanel(team, scope, s, songs, allSheets) {
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="파일링크" value="${esc(s['파일링크'])}">
       <p class="ph-sub cn-splithint" data-cn-splithint>곡마다 이 악보의 몇 쪽인지 적어 주세요 (예: 1-2 · 3 · 4,6). 저장하면 곡에 묶여 다음에도 그 곡을 넣을 때 따라와요.</p>
       <div class="cn-splitrows">${songs.map((g, i) => `<label class="cn-splitrow"><span class="cn-splitn">${g.kind === '결단' ? '결단' : g.kind === '폐회송' ? '폐회송' : i + 1}</span><span class="cn-splitt">${esc(g.title)}</span><input type="text" inputmode="text" name="쪽_${esc(g.id)}" data-cn-pages="${esc(g.title)}" value="${esc(saved[g.id])}" placeholder="쪽" maxlength="40" aria-label="${esc(g.title)} 쪽"></label>`).join('')}</div>
+      <label class="ph-hdrchk cn-splithdr"><input type="checkbox" name="header" value="1" checked> 헤더 달기 <small>(인쇄용 PDF처럼 곡마다 번호 · 제목 – 원곡팀 · KEY · BPM · 송폼 머리말을 단 악보로 저장해요. 끄면 원본 쪽 그대로)</small></label>
       <div class="cn-splitbtns"><button type="button" class="cn-mini" data-cn-splitauto>제목으로 자동 찾기</button><button class="ph-btn pri" type="submit">곡별로 저장</button></div>
     </form>
   </details>`;
@@ -562,7 +580,7 @@ function packageSheetsCard(team, scope, sheets, editable, songs) {
   const canSplit = editable && songs && songs.length;
   return `<div class="ph-card">
     <h2 class="ph-h2">악보</h2>
-    ${editable ? '<p class="ph-sub">이번 주 콘티 전체를 한 패키지(PDF 한 개)로 올린 뒤 <b>곡별로 나누기</b>를 누르면, 곡마다 쪽이 정해져 그 곡에 묶여요. 곡 목록의 "+ 이 곡 악보 올리기"로 곡별로 따로 올려도 돼요.</p>' : ''}
+    ${editable ? '<p class="ph-sub">이번 주 콘티 전체를 한 패키지(PDF 한 개)로 올린 뒤 <b>곡별로 나누기</b>를 누르면, 곡마다 쪽이 정해져 그 곡에 묶여요. <b>헤더 달기</b>(기본 켜짐)를 두면 곡마다 인쇄용 PDF처럼 머리말을 단 악보로 저장돼요. 곡 목록의 "+ 이 곡 악보 올리기"로 곡별로 따로 올려도 돼요.</p>' : ''}
     <div class="ph-list">${pkg.length ? pkg.map((s) => sheetItem(s, editable) + (canSplit ? splitPanel(team, scope, s, songs, sheets) : '')).join('') : '<p class="ph-sub">아직 올라온 패키지 악보가 없어요.</p>'}</div>
     ${editable ? `<details class="ph-add">
       <summary>+ 전체 콘티 악보(패키지) 올리기</summary>
@@ -818,7 +836,11 @@ async function makePackage(req, onProgress) {
     for (const x of all) {
       const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
       const sheets = [];
-      for (const f of mine) { used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || '') }); }
+      for (const f of mine) {
+        const o = splitOrigin(f);            // 곡별로 나누기 + 헤더 달기 로 만든 악보 — 인쇄용 PDF 는 자기 머리말을 다니까 원본 패키지의 그 쪽을 씀
+        if (o) { used.add(f['파일링크']); used.add(o.link); const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: '' }); continue; } }
+        used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']); if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || '') });
+      }
       songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
         form: kakaoLib.formText(x.s['송폼']), note: String(x.s['비고'] || '').trim(), sheets });
     }
@@ -1256,17 +1278,37 @@ router.post('/conti/sheets/split', requireTeam, async (req, res) => {
         plan.push({ song, spec: pageSpec.cleanSpec(b[k]) });
       });
       const ids = new Set(plan.map((p) => p.song['ID']));
-      const olds = sheetRows.filter((r) => r['팀ID'] === team && inScope(r, scope) && r['파일링크'] === link && r['곡ID'] && ids.has(r['곡ID']) && String(r['쪽'] || '').trim()).map((r) => r.__row);
+      // 이 패키지에서 나눠 둔 예전 줄(원본 쪽 그대로 · 헤더 단 것 모두)을 지우고 새로 씀
+      const olds = sheetRows.filter((r) => r['팀ID'] === team && inScope(r, scope) && r['곡ID'] && ids.has(r['곡ID'])
+        && ((r['파일링크'] === link && String(r['쪽'] || '').trim()) || ((splitOrigin(r) || {}).link === link))).map((r) => r.__row);
       if (olds.length) await sheetsDb.deleteRows('악보저장소', olds);
+      // 헤더 달기 — 곡마다 인쇄용 PDF 와 같은 머리말(번호 · 제목 – 원곡팀 · KEY · BPM · 송폼)을 단 PDF 를 새로 만들어 그 곡에 붙임
+      const withHeader = b.header === '1' && plan.some((p) => p.spec);
+      const pkgBuf = withHeader ? await fileBytes.get(link) : null;
+      if (withHeader && !pkgBuf) console.error('[곡별로 나누기 — 원본을 받지 못해 헤더 없이 저장]', link);
+      const kindRows = (kind) => Array.from(songs.values()).filter((r) => r['구분'] === kind).sort((a, c) => Number(a['순서'] || 0) - Number(c['순서'] || 0));
       const base = Date.now().toString(36);
       let n = 0;
       for (const p of plan) {
         if (!p.spec) continue;
-        await sheetsDb.appendRow('악보저장소', {
+        const row = {
           'ID': 'F' + base + n++ + Math.random().toString(36).slice(2, 4), '팀ID': team, ...scopeFields(scope), '제목': String(pkg['제목'] || '악보'),
           '파일링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(), '곡ID': p.song['ID'],
           'Key': String(p.song['Key'] || ''), 'BPM': String(p.song['BPM'] || ''), '인도자': '', '쪽수': pageSpec.specPages(p.spec).length, '메모': '', '저장소날짜': '', '쪽': p.spec,
-        });
+        };
+        if (pkgBuf) {
+          try {
+            const g = p.song, same = kindRows(g['구분']);
+            const info = { kind: g['구분'], no: Math.max(1, same.findIndex((r) => r['ID'] === g['ID']) + 1), title: g['제목'], team: g['팀'], key: g['Key'], bpm: g['BPM'], form: g['송폼'], note: '' };
+            const pdf = await pkgPdf.buildSongSheet(info, { buf: pkgBuf, spec: p.spec }, sheetSearch.imagesToPdf);
+            if (pdf) {
+              const title = String(g['제목'] || '').trim() || String(pkg['제목'] || '악보');
+              const flink = await driveStore.uploadPublic('악보', { buffer: pdf, mimetype: 'application/pdf', originalname: title.replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60) + '.pdf', size: pdf.length });
+              Object.assign(row, { '제목': title, '파일링크': flink, '쪽': '', '메모': SPLIT_TAG + p.spec + '|' + link });
+            }
+          } catch (e) { console.error('[곡별로 나누기 — 헤더 달기 실패, 원본 쪽 그대로 저장]', p.song['제목'], e.message); }
+        }
+        await sheetsDb.appendRow('악보저장소', row);
       }
       liveNotify(team, scope, 'saveSheetSplit');
     }

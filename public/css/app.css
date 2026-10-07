@@ -1424,3 +1424,7 @@ body.pkp-open{overflow:hidden}
 .ph-annolink .yi { width: 13px; height: 13px; }
 .ph-annolink:hover { border-color: var(--accent); }
 .ph-list-item > .ph-annolink { align-self: center; flex: none; }
+
+/* ---------- 곡별로 나누기 — 헤더 달기 옵션 ---------- */
+.cn-splithdr { display: block; margin: 4px 0 10px; font-size: 13.5px; font-weight: 700; }
+.cn-splithdr small { display: block; margin-top: 2px; font-weight: 500; color: var(--dim); }
