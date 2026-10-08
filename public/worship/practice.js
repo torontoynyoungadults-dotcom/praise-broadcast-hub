@@ -64,7 +64,7 @@
 
   var TOOLS = [
     { t: 'none', ic: 'hand', n: '이동' }, { t: 'pen', ic: 'pen', n: '펜' }, { t: 'hl', ic: 'hl', n: '형광펜' }, { t: 'select', ic: 'select', n: '선택·이동' }, { t: 'text', ic: 'text', n: '글자' },
-    { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }
+    { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'note', ic: 'note', n: '음표' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }
   ];
   var current = null;
 
@@ -1379,8 +1379,17 @@
       if (via === 'hold') { toast('지우개 — 문질러 지우세요 · 떼면 ' + (S.prevDraw === 'hl' ? '형광펜' : '펜') + '으로 돌아갑니다', false, 1300); return; }
       toast(to === 'eraser' ? '지우개로 전환 — 펜 옆 버튼을 다시 누르면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
     }
+    /* 음표 도구 = 기호 도구에 음표 · 쉼표 팔레트 (필기 저장 형식은 기호와 같음) */
+    function toolOn(t) { return t === 'note' ? (S.tool === 'sym' && S.symGrp === 'note') : t === 'sym' ? (S.tool === 'sym' && S.symGrp !== 'note') : S.tool === t; }
     function setTool(t, fromAnno, quiet) {
       if (opts.readOnly && t !== 'none') return;
+      if (t === 'note' || t === 'sym') {
+        var grp = t === 'note' ? 'note' : 'sym', grpChanged = S.symGrp !== grp; S.symGrp = grp; t = 'sym';
+        var inGrp = function (k) { return YA.SYMBOLS.some(function (x) { return x.k === k && (x.grp === 'note') === (grp === 'note'); }); };
+        if (!inGrp(S.sym)) { S.sym = grp === 'note' ? 'n:4' : 'sharp'; an.setSymbol(S.sym); }
+        if (grpChanged) { var pp = $('.pv-sympop'); if (pp) { pp.innerHTML = ''; pp._wired = false; } }
+        if (S.tool === 'sym' && grpChanged && !fromAnno) { S.symOpen = true; renderTools(); renderSymPop(); if (!quiet) toast(grp === 'note' ? '음표: 위에서 음표 · 쉼표를 고르고 악보를 눌러 찍습니다.' : '기호: 고른 기호를 악보에 눌러 찍습니다.', false, 2400); return; }
+      }
       if (t === 'eraser' && (S.tool === 'pen' || S.tool === 'hl')) S.prevDraw = S.tool;      // V844 — 지우개를 쓰고 펜슬을 떼면 돌아갈 도구
       if (t !== S.tool) S.szEdit = -1;
       S.tool = t; if (!fromAnno) an.setTool(t);
@@ -1388,7 +1397,7 @@
       if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
-      var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
+      var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: S.symGrp === 'note' ? '음표: 위에서 온음표 · 2분 · 4분 · 8분 · 16분음표나 쉼표를 고르고 악보를 눌러 찍습니다. (크기는 아래 숫자칸, 옮기기는 선택·이동)' : '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
       if (hint && !quiet) toast(hint, false, 2600);
     }
     function renderTools() {
@@ -1416,7 +1425,7 @@
         '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
         '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
-        '<div class="pv-tg">' + TOOLS.map(function (t) { return '<button class="pv-tool' + (S.tool === t.t ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + (S.tool === t.t) + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
+        '<div class="pv-tg">' + TOOLS.map(function (t) { var on = toolOn(t.t); return '<button class="pv-tool' + (on ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + on + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         colRow +
         fontRow +
         fbRow +
@@ -1433,7 +1442,7 @@
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
       if (b.dataset.fbtag) { S.fboxTag = b.dataset.fbtag; an.setFboxTag(S.fboxTag); ls('fbtag', S.fboxTag); renderTools(); return; }
-      if (b.dataset.tool) { setTool(b.dataset.tool === S.tool && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
+      if (b.dataset.tool) { setTool(toolOn(b.dataset.tool) && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
       if (b.dataset.step != null) { if (e.detail === 0) stepFsz(+b.dataset.step); return; }               // 마우스 · 터치는 pointerdown (꾹 누르면 반복), 키보드(Enter · Space)만 여기서
       if (b.dataset.color && S.tool === 'select') { if (an.editSelected({ c: b.dataset.color })) renderTools(); return; }
       if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); if (S.tool === 'chord' || S.tool === 'fbox') (S.toolCol = S.toolCol || {})[S.tool] = S.curColor; else S.penSel = S.curColor; } memoSave(); renderTools(); an.focusEditor && an.focusEditor(); return; }
@@ -1509,12 +1518,14 @@
       var pop = $('.pv-sympop'); pop.style.display = S.symOpen ? 'block' : 'none';
       if (!S.symOpen) return;
       if (!pop.firstChild) {
-        pop.innerHTML = '<div class="pv-symgrid">' + YA.SYMBOLS.map(function (s) { return '<button class="pv-sym" data-k="' + s.k + '" title="' + h(s.n) + '"><canvas width="44" height="44"></canvas><span>' + h(s.n) + '</span></button>'; }).join('') + '</div>';
+        var noteGrp = S.symGrp === 'note';
+        pop.innerHTML = '<div class="pv-symgrid">' + YA.SYMBOLS.filter(function (s) { return (s.grp === 'note') === noteGrp; }).map(function (s) { return '<button class="pv-sym' + (s.k === S.sym ? ' on' : '') + '" data-k="' + s.k + '" title="' + h(s.n) + '"><canvas width="44" height="44"></canvas><span>' + h(s.n) + '</span></button>'; }).join('') + '</div>';
         Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (b) {
           var c = b.querySelector('canvas').getContext('2d'), k = b.dataset.k;
-          YA.drawItem(c, { t: 'sym', k: k, c: '#ffb066', x: YA.STRETCH[k] ? 0.15 : 0.5, y: 0.5, sz: 0.42, w2: 0.7 }, 44, 44);
+          YA.drawItem(c, { t: 'sym', k: k, c: '#ffb066', x: YA.STRETCH[k] ? 0.15 : 0.5, y: 0.5, sz: k === 'n:16b' ? 0.26 : k === 'n:3' ? 0.34 : 0.42, w2: 0.7 }, 44, 44);
         });
-        pop.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.pv-sym') : null; if (!b) return; an.setSymbol(b.dataset.k); S.sym = b.dataset.k; Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (x) { x.classList.toggle('on', x === b); }); toast(b.title + ' — 악보를 눌러 찍으세요.', false, 1800); });
+        if (!pop._wired) pop.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.pv-sym') : null; if (!b) return; an.setSymbol(b.dataset.k); S.sym = b.dataset.k; Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (x) { x.classList.toggle('on', x === b); }); toast(b.title + ' — 악보를 눌러 찍으세요.', false, 1800); });
+        pop._wired = true;
       }
     }
 
@@ -1833,7 +1844,7 @@
       if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); an.redo(); renderTools(); return; }
       if (mod) return;
       if (e.altKey) {                                                                  // 필기 도구 단축키는 Alt+글자 (글자만 누르는 키는 콜아웃에 씁니다)
-        var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyC: 'chord', KeyS: 'sym', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
+        var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyC: 'chord', KeyS: 'sym', KeyN: 'note', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
         if (tm) { e.preventDefault(); setTool(tm); }
         return;
       }

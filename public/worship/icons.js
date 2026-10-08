@@ -41,6 +41,7 @@
     select: '<rect x="3.8" y="3.8" width="11.4" height="11.4" rx="2.2" stroke-dasharray="2.4 2.6"/><path class="f" d="M12.6 12.4l7.6 2.7-3.3 1.5-1.5 3.4z"/>',
     text: '<path d="M5.5 7V5.2h13V7M12 5.2v13.6M9 18.8h6"/>',
     chord: '<rect class="f" x="6" y="4" width="12" height="15" rx="1.2" stroke="none"/><path d="M6 4h12M6 9h12M6 14h12M6 19h12M6 4v15M10 4v15M14 4v15M18 4v15" stroke-width="1.15"/><circle class="k" cx="10" cy="11.5" r="1.7"/><circle class="k" cx="14" cy="16.5" r="1.7"/>',
+    note: '<ellipse class="f" cx="8.6" cy="17.4" rx="3.3" ry="2.4" transform="rotate(-20 8.6 17.4)"/><path d="M11.6 16.6V4.6c2.6 1.4 5.6 2.8 5.2 7"/>',
     sharp: '<path d="M9.2 4.5v15M14.8 4v15"/><path d="M6.5 9.4l11-2.8M6.5 17.2l11-2.8" stroke-width="2.3"/>',
     tag: '<path class="f" d="M4 6.5A2.5 2.5 0 0 1 6.5 4h5.6a2.5 2.5 0 0 1 1.8.7l5.4 5.4a2.5 2.5 0 0 1 0 3.5l-5.7 5.7a2.5 2.5 0 0 1-3.5 0l-5.4-5.4a2.5 2.5 0 0 1-.7-1.8z"/><circle class="k" cx="8.4" cy="8.4" r="1.3"/>',
     eraser: '<path class="f" d="M5.2 15.4l8.6-8.6a2 2 0 0 1 2.8 0l2.6 2.6a2 2 0 0 1 0 2.8l-6.2 6.2H8.4l-3.2-3.2a1.4 1.4 0 0 1 0-1.8z"/><path d="M9.6 11.6l5.2 5.2M11.6 19.8H20"/>',

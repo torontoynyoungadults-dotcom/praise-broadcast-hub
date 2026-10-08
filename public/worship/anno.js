@@ -65,7 +65,12 @@
     { k: 'arrowUp', n: '↑ 화살표' }, { k: 'star', n: '별' }, { k: 'check', n: '체크' }, { k: 'circle', n: '동그라미' }, { k: 'box', n: '네모' },
     { k: 'dyn:pp', n: 'pp' }, { k: 'dyn:p', n: 'p' }, { k: 'dyn:mp', n: 'mp' }, { k: 'dyn:mf', n: 'mf' }, { k: 'dyn:f', n: 'f' }, { k: 'dyn:ff', n: 'ff' },
     { k: 'dyn:dc', n: 'D.C.' }, { k: 'dyn:ds', n: 'D.S.' }, { k: 'dyn:tocoda', n: 'To Coda' }, { k: 'dyn:fine', n: 'Fine' },
-    { k: 'g:quarter', n: '♩ 4분음표' }, { k: 'g:eighth', n: '♪ 8분음표' }, { k: 'g:sharp', n: '♯ 샵 (글자)' }, { k: 'g:flat', n: '♭ 플랫 (글자)' }
+    { k: 'g:quarter', n: '♩ 4분음표' }, { k: 'g:eighth', n: '♪ 8분음표' }, { k: 'g:sharp', n: '♯ 샵 (글자)' }, { k: 'g:flat', n: '♭ 플랫 (글자)' },
+    /* 음표 · 쉼표 (도구 막대의 "음표") — grp: 'note' 는 음표 팔레트에만 나옵니다 */
+    { k: 'n:1', n: '온음표', grp: 'note' }, { k: 'n:2', n: '2분음표', grp: 'note' }, { k: 'n:2d', n: '점2분음표', grp: 'note' }, { k: 'n:4', n: '4분음표', grp: 'note' },
+    { k: 'n:4d', n: '점4분음표', grp: 'note' }, { k: 'n:8', n: '8분음표', grp: 'note' }, { k: 'n:8d', n: '점8분음표', grp: 'note' }, { k: 'n:16', n: '16분음표', grp: 'note' },
+    { k: 'n:8b', n: '8분음표 2개', grp: 'note' }, { k: 'n:16b', n: '16분음표 4개', grp: 'note' }, { k: 'n:3', n: '셋잇단 (8분)', grp: 'note' },
+    { k: 'n:r1', n: '온쉼표', grp: 'note' }, { k: 'n:r2', n: '2분쉼표', grp: 'note' }, { k: 'n:r4', n: '4분쉼표', grp: 'note' }, { k: 'n:r8', n: '8분쉼표', grp: 'note' }, { k: 'n:r16', n: '16분쉼표', grp: 'note' }
   ];
   var DYN_TEXT = { pp: 'pp', p: 'p', mp: 'mp', mf: 'mf', f: 'f', ff: 'ff', dc: 'D.C.', ds: 'D.S.', tocoda: 'To Coda', fine: 'Fine' };
 
@@ -131,10 +136,60 @@
     circle: function (c, s) { c.lineWidth = Math.max(1.8, s * 0.07); c.beginPath(); c.ellipse(0, 0, .55 * s, .42 * s, 0, 0, 7); c.stroke(); },
     box: function (c, s) { c.lineWidth = Math.max(1.8, s * 0.07); c.strokeRect(-.6 * s, -.4 * s, 1.2 * s, .8 * s); }
   };
+  /* 음표 · 쉼표 — 머리(기울인 타원) 중심이 (hx, .34s), 기둥은 오른쪽에서 위로 */
+  function nHead(c, s, x, y, open) {
+    c.save(); c.translate(x, y); c.rotate(-0.36); c.beginPath(); c.ellipse(0, 0, .2 * s, .135 * s, 0, 0, 7);
+    if (open) { c.lineWidth = Math.max(1.6, s * .075); c.stroke(); } else c.fill(); c.restore();
+  }
+  function nStem(c, s, x, y) { c.lineWidth = Math.max(1.3, s * .05); ln(c, x + .185 * s, y - .04 * s, x + .185 * s, y - .86 * s); return x + .185 * s; }
+  function nFlag(c, s, sx, top, i) {
+    var y = top + i * .26 * s; c.lineWidth = Math.max(1.5, s * .07); c.beginPath(); c.moveTo(sx, y);
+    c.bezierCurveTo(sx + .05 * s, y + .2 * s, sx + .34 * s, y + .22 * s, sx + .24 * s, y + .5 * s); c.stroke();
+  }
+  function nDot(c, s, x, y) { c.beginPath(); c.arc(x + .36 * s, y - .04 * s, Math.max(1.6, .055 * s), 0, 7); c.fill(); }
+  function nNote(c, s, open, stem, flags, dot) {
+    var hx = stem ? -.1 * s : 0, hy = .34 * s; nHead(c, s, hx, hy, open);
+    if (stem) { var sx = nStem(c, s, hx, hy); for (var i = 0; i < flags; i++) nFlag(c, s, sx, hy - .86 * s, i); }
+    if (dot) nDot(c, s, hx + (flags ? .14 * s : 0), hy);
+  }
+  function nBeam(c, s, n, beams) {
+    var gap = n === 2 ? .5 * s : .44 * s, x0 = -gap * (n - 1) / 2 - .1 * s, hy = .34 * s, top = hy - .86 * s, xs = [];
+    for (var i = 0; i < n; i++) { nHead(c, s, x0 + i * gap, hy, false); xs.push(nStem(c, s, x0 + i * gap, hy)); }
+    for (var b = 0; b < beams; b++) c.fillRect(xs[0] - .02 * s, top + b * .17 * s, xs[n - 1] - xs[0] + .04 * s, .1 * s);
+  }
+  function rFlags(c, s, n) {
+    c.lineWidth = Math.max(1.4, s * .06);
+    var x0 = .12 * s, y0 = -.36 * s; ln(c, x0 + .04 * s, y0, x0 - .2 * s - (n - 1) * .08 * s, y0 + (.5 + n * .2) * s);
+    for (var i = 0; i < n; i++) { var x = x0 - i * .08 * s, y = y0 + i * .24 * s; c.beginPath(); c.arc(x - .2 * s, y + .02 * s, .075 * s, 0, 7); c.fill(); c.beginPath(); c.moveTo(x - .2 * s, y + .08 * s); c.quadraticCurveTo(x - .05 * s, y + .1 * s, x + .04 * s, y); c.stroke(); }
+  }
+  var NOTE = {
+    '1': function (c, s) { nHead(c, s * 1.25, 0, 0, true); },
+    '2': function (c, s) { nNote(c, s, true, true, 0, false); },
+    '2d': function (c, s) { nNote(c, s, true, true, 0, true); },
+    '4': function (c, s) { nNote(c, s, false, true, 0, false); },
+    '4d': function (c, s) { nNote(c, s, false, true, 0, true); },
+    '8': function (c, s) { nNote(c, s, false, true, 1, false); },
+    '8d': function (c, s) { nNote(c, s, false, true, 1, true); },
+    '16': function (c, s) { nNote(c, s, false, true, 2, false); },
+    '8b': function (c, s) { nBeam(c, s, 2, 1); },
+    '16b': function (c, s) { nBeam(c, s, 4, 2); },
+    '3': function (c, s) { nBeam(c, s, 3, 1); c.font = 'italic 700 ' + (.34 * s) + 'px "Times New Roman",Georgia,serif'; c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillText('3', -.1 * s + .185 * s, -.62 * s); },
+    r1: function (c, s) { c.lineWidth = Math.max(1.4, s * .05); ln(c, -.4 * s, -.12 * s, .4 * s, -.12 * s); c.fillRect(-.22 * s, -.12 * s, .44 * s, .18 * s); },
+    r2: function (c, s) { c.lineWidth = Math.max(1.4, s * .05); ln(c, -.4 * s, .12 * s, .4 * s, .12 * s); c.fillRect(-.22 * s, -.06 * s, .44 * s, .18 * s); },
+    r4: function (c, s) {
+      c.lineWidth = Math.max(2, s * .11); c.lineJoin = 'round'; c.lineCap = 'round'; c.beginPath();
+      c.moveTo(-.08 * s, -.52 * s); c.lineTo(.12 * s, -.24 * s); c.lineTo(-.1 * s, .02 * s); c.lineTo(.12 * s, .26 * s);
+      c.quadraticCurveTo(-.22 * s, .14 * s, -.02 * s, .5 * s); c.stroke();
+    },
+    r8: function (c, s) { rFlags(c, s, 1); },
+    r16: function (c, s) { rFlags(c, s, 2); }
+  };
+  Object.keys(NOTE).forEach(function (k) { SYM['n:' + k] = NOTE[k]; });
   function symBox(k, it, W, H) {              // 기호가 차지하는 사각형(px) — 판정 · 지우개용
     var s = (it.sz || 0.03) * W, x = it.x * W, y = it.y * H;
     if (STRETCH[k]) { var len = (it.w2 || 0.08) * W; return { x1: x - 4, y1: y - s * .5, x2: x + len + 4, y2: y + s * .6 }; }
     if (k.indexOf('g:') === 0) return { x1: x - s * .38, y1: y - s * .55, x2: x + s * .38, y2: y + s * .55 };
+    if (k.indexOf('n:') === 0) { var wide = k === 'n:16b' ? .9 : k === 'n:3' ? .66 : k === 'n:8b' ? .5 : .36; return { x1: x - s * wide, y1: y - s * .62, x2: x + s * wide, y2: y + s * .52 }; }
     var half = k.indexOf('dyn:') === 0 ? { w: s * (DYN_TEXT[k.slice(4)].length * .3 + .2), h: s * .5 } : { w: s * .62, h: s * .55 };
     return { x1: x - half.w, y1: y - half.h, x2: x + half.w, y2: y + half.h };
   }
