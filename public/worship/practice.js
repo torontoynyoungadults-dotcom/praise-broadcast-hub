@@ -1526,14 +1526,59 @@
       if (!S.symOpen) return;
       if (!pop.firstChild) {
         var noteGrp = S.symGrp === 'note';
-        pop.innerHTML = '<div class="pv-symgrid">' + YA.SYMBOLS.filter(function (s) { return (s.grp === 'note') === noteGrp; }).map(function (s) { return '<button class="pv-sym' + (s.k === S.sym ? ' on' : '') + '" data-k="' + s.k + '" title="' + h(s.n) + '"><canvas width="44" height="44"></canvas><span>' + h(s.n) + '</span></button>'; }).join('') + '</div>';
+        pop.innerHTML = '<div class="pv-symbar" title="끌어서 옮기기 · 두 번 누르면 처음 자리로"><span class="pv-symgrip" aria-hidden="true">⋮⋮</span><b>' + (noteGrp ? '음표 · 쉼표' : '기호') + '</b><small>끌어서 옮기기</small>' +
+          '<button type="button" class="pv-symfold" aria-label="접기 / 펼치기" title="접기 / 펼치기">▾</button></div><div class="pv-symgrid">' + YA.SYMBOLS.filter(function (s) { return (s.grp === 'note') === noteGrp; }).map(function (s) { return '<button class="pv-sym' + (s.k === S.sym ? ' on' : '') + '" data-k="' + s.k + '" title="' + h(s.n) + '"><canvas width="44" height="44"></canvas><span>' + h(s.n) + '</span></button>'; }).join('') + '</div>';
         Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (b) {
           var c = b.querySelector('canvas').getContext('2d'), k = b.dataset.k;
-          YA.drawItem(c, { t: 'sym', k: k, c: '#ffb066', x: YA.STRETCH[k] ? 0.15 : 0.5, y: 0.5, sz: k === 'n:16b' ? 0.26 : k === 'n:3' ? 0.34 : 0.42, w2: 0.7 }, 44, 44);
+          YA.drawItem(c, { t: 'sym', k: k, c: '#ffb066', x: YA.STRETCH[k] ? 0.15 : 0.5, y: 0.5, sz: k === 'n:16b' ? 0.26 : k === 'n:3' ? 0.34 : (k === 'n:hd' || k === 'n:ho') ? 0.9 : 0.42, w2: 0.7 }, 44, 44);
         });
+        if (!pop._drag) wireSymDrag(pop);
         if (!pop._wired) pop.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.pv-sym') : null; if (!b) return; an.setSymbol(b.dataset.k); S.sym = b.dataset.k; Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (x) { x.classList.toggle('on', x === b); }); toast(b.title + ' — 악보를 눌러 찍으세요.', false, 1800); });
         pop._wired = true;
       }
+      pop.classList.toggle('folded', ls('symfold') === '1');
+      symPlace(pop);
+    }
+    /* 기호 · 음표 팔레트 옮기기 — 위쪽 막대를 끌면 화면 어디로든 (기기에 기억), 두 번 누르면 처음 자리 · ▾ 로 접기 */
+    function symPos() { try { var p = JSON.parse(ls('sympos') || 'null'); return p && isFinite(p.x) && isFinite(p.y) ? p : null; } catch (e) { return null; } }
+    function symBox(pop) { var cb = pop.offsetParent || pop.parentNode; var r = cb.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width || root.innerWidth, h: r.height || root.innerHeight }; }   // 팔레트가 들어 있는 칸 (악보 화면) 기준
+    function symPlace(pop) {
+      var p = symPos();
+      if (!p) { pop.classList.remove('moved'); pop.style.left = pop.style.top = ''; return; }
+      pop.classList.add('moved');
+      var B = symBox(pop), w = pop.offsetWidth || 320;
+      pop.style.left = Math.round(Math.max(4, Math.min(B.w - w - 4, p.x * B.w))) + 'px';
+      pop.style.top = Math.round(Math.max(4, Math.min(B.h - 48, p.y * B.h))) + 'px';
+    }
+    function wireSymDrag(pop) {
+      pop._drag = true;
+      var d = null;
+      pop.addEventListener('pointerdown', function (e) {
+        var bar = e.target.closest ? e.target.closest('.pv-symbar') : null;
+        if (!bar || e.target.closest('.pv-symfold') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        var r = pop.getBoundingClientRect();
+        d = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false, x0: e.clientX, y0: e.clientY };
+        try { bar.setPointerCapture(e.pointerId); } catch (x) { /* 무시 */ }
+        e.preventDefault(); e.stopPropagation();
+      });
+      pop.addEventListener('pointermove', function (e) {
+        if (!d || e.pointerId !== d.id) return;
+        if (!d.moved && Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 4) return;
+        d.moved = true; pop.classList.add('moved', 'dragging');
+        var B = symBox(pop), w = pop.offsetWidth;
+        var L = Math.max(4, Math.min(B.w - w - 4, e.clientX - d.dx - B.l)), T = Math.max(4, Math.min(B.h - 48, e.clientY - d.dy - B.t));
+        pop.style.left = L + 'px'; pop.style.top = T + 'px';
+        e.preventDefault();
+      });
+      function end(e) {
+        if (!d || (e && e.pointerId !== d.id)) return;
+        if (d.moved) { var B = symBox(pop); ls('sympos', JSON.stringify({ x: +((parseFloat(pop.style.left) || 0) / B.w).toFixed(4), y: +((parseFloat(pop.style.top) || 0) / B.h).toFixed(4) })); }
+        pop.classList.remove('dragging'); d = null;
+      }
+      pop.addEventListener('pointerup', end); pop.addEventListener('pointercancel', end);
+      pop.addEventListener('dblclick', function (e) { if (!(e.target.closest && e.target.closest('.pv-symbar')) || e.target.closest('.pv-symfold')) return; ls('sympos', ''); symPlace(pop); toast('팔레트를 처음 자리로 옮겼습니다.', false, 1400); });
+      pop.addEventListener('click', function (e) { if (!(e.target.closest && e.target.closest('.pv-symfold'))) return; var f = !pop.classList.contains('folded'); pop.classList.toggle('folded', f); ls('symfold', f ? '1' : '0'); symPlace(pop); });
+      root.addEventListener('resize', function () { if (pop.style.display !== 'none') symPlace(pop); });
     }
 
     /* ------------------------------------------------------------ 패널(탭) */

@@ -87,6 +87,18 @@ button.pv-chip { cursor: pointer; }
 }
 .pv-toast.show { opacity: 1; transform: translate(-50%, 0); } .pv-toast.bad { border-color: var(--g-bad); color: #fad0c6; }
 .pv-sympop { display: none; position: absolute; left: 12px; right: 12px; top: 10px; z-index: 6; max-width: 620px; margin: 0 auto; padding: 10px; border-radius: 16px; background: var(--g-bg); backdrop-filter: var(--g-blur); border: 1px solid var(--g-line2); box-shadow: 0 14px 44px rgba(0, 0, 0, .55); }
+/* 팔레트 옮기기 — 위쪽 막대를 끌어 화면 어디로든 (practice.js wireSymDrag) */
+.pv-symbar { display: flex; align-items: center; gap: 8px; margin: -4px -2px 8px; padding: 4px 6px; border-radius: 10px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; color: var(--g-sub, #c9d3d0); font-size: 12.5px; }
+.pv-symbar b { font-size: 13px; color: var(--g-ink, #fff); }
+.pv-symbar small { opacity: .7; }
+.pv-symgrip { letter-spacing: -2px; font-weight: 900; opacity: .8; }
+.pv-symfold { margin-left: auto; min-width: 36px; height: 30px; border-radius: 8px; border: 1px solid var(--g-line2); background: transparent; color: inherit; cursor: pointer; transition: transform .15s; }
+.pv-sympop.folded .pv-symfold { transform: rotate(-90deg); }
+.pv-sympop.folded .pv-symgrid { display: none; }
+.pv-sympop.folded .pv-symbar { margin-bottom: -4px; }
+.pv .pv-sympop.moved { right: auto; margin: 0; width: min(620px, calc(100% - 16px)); z-index: 60; }
+.pv-sympop.dragging { opacity: .92; }
+.pv-sympop.dragging .pv-symbar { cursor: grabbing; }
 .pv-symgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; max-height: 38vh; overflow: auto; }
 .pv-sym { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px; border-radius: 10px; border: 1px solid var(--g-line); background: rgba(255, 255, 255, .06); color: var(--g-sub); font-size: 10.5px; font-weight: 700; cursor: pointer; }
 .pv-sym:hover { background: rgba(255, 255, 255, .14); } .pv-sym.on { border-color: var(--g-a); background: rgba(var(--g-a-rgb), .22); color: #fff; }

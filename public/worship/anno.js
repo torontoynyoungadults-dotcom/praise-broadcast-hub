@@ -70,6 +70,7 @@
     { k: 'n:1', n: '온음표', grp: 'note' }, { k: 'n:2', n: '2분음표', grp: 'note' }, { k: 'n:2d', n: '점2분음표', grp: 'note' }, { k: 'n:4', n: '4분음표', grp: 'note' },
     { k: 'n:4d', n: '점4분음표', grp: 'note' }, { k: 'n:8', n: '8분음표', grp: 'note' }, { k: 'n:8d', n: '점8분음표', grp: 'note' }, { k: 'n:16', n: '16분음표', grp: 'note' },
     { k: 'n:8b', n: '8분음표 2개', grp: 'note' }, { k: 'n:16b', n: '16분음표 4개', grp: 'note' }, { k: 'n:3', n: '셋잇단 (8분)', grp: 'note' },
+    { k: 'n:hd', n: '음표 머리 (검은)', grp: 'note' }, { k: 'n:ho', n: '음표 머리 (흰)', grp: 'note' },     // 화음 표시용 — 기둥 없이 머리만, 누른 자리가 머리 가운데
     { k: 'n:r1', n: '온쉼표', grp: 'note' }, { k: 'n:r2', n: '2분쉼표', grp: 'note' }, { k: 'n:r4', n: '4분쉼표', grp: 'note' }, { k: 'n:r8', n: '8분쉼표', grp: 'note' }, { k: 'n:r16', n: '16분쉼표', grp: 'note' }
   ];
   var DYN_TEXT = { pp: 'pp', p: 'p', mp: 'mp', mf: 'mf', f: 'f', ff: 'ff', dc: 'D.C.', ds: 'D.S.', tocoda: 'To Coda', fine: 'Fine' };
@@ -163,8 +164,11 @@
     var x0 = .12 * s, y0 = -.36 * s; ln(c, x0 + .04 * s, y0, x0 - .2 * s - (n - 1) * .08 * s, y0 + (.5 + n * .2) * s);
     for (var i = 0; i < n; i++) { var x = x0 - i * .08 * s, y = y0 + i * .24 * s; c.beginPath(); c.arc(x - .2 * s, y + .02 * s, .075 * s, 0, 7); c.fill(); c.beginPath(); c.moveTo(x - .2 * s, y + .08 * s); c.quadraticCurveTo(x - .05 * s, y + .1 * s, x + .04 * s, y); c.stroke(); }
   }
+  var HEADS = { 'n:hd': 1, 'n:ho': 1 };       // 음표 머리만 (화음 표시) — 찍은 뒤 선택하지 않고 계속 찍음
   var NOTE = {
     '1': function (c, s) { nHead(c, s * 1.25, 0, 0, true); },
+    hd: function (c, s) { nHead(c, s, 0, 0, false); },
+    ho: function (c, s) { nHead(c, s, 0, 0, true); },
     '2': function (c, s) { nNote(c, s, true, true, 0, false); },
     '2d': function (c, s) { nNote(c, s, true, true, 0, true); },
     '4': function (c, s) { nNote(c, s, false, true, 0, false); },
@@ -190,6 +194,7 @@
     var s = (it.sz || 0.03) * W, x = it.x * W, y = it.y * H;
     if (STRETCH[k]) { var len = (it.w2 || 0.08) * W; return { x1: x - 4, y1: y - s * .5, x2: x + len + 4, y2: y + s * .6 }; }
     if (k.indexOf('g:') === 0) return { x1: x - s * .38, y1: y - s * .55, x2: x + s * .38, y2: y + s * .55 };
+    if (k === 'n:hd' || k === 'n:ho') return { x1: x - s * .24, y1: y - s * .18, x2: x + s * .24, y2: y + s * .18 };
     if (k.indexOf('n:') === 0) { var wide = k === 'n:16b' ? .9 : k === 'n:3' ? .66 : k === 'n:8b' ? .5 : .36; return { x1: x - s * wide, y1: y - s * .62, x2: x + s * wide, y2: y + s * .52 }; }
     var half = k.indexOf('dyn:') === 0 ? { w: s * (DYN_TEXT[k.slice(4)].length * .3 + .2), h: s * .5 } : { w: s * .62, h: s * .55 };
     return { x1: x - half.w, y1: y - half.h, x2: x + half.w, y2: y + half.h };
@@ -901,7 +906,11 @@
       } else if (c.kind === 'fbox') {
         var fb = c.item; fb.w = 0.01; fb.h = 0.01;
         adopt(S.layer, addLocal(S.layer, fb)); S.placed = true;
-      } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; adopt(S.layer, addLocal(S.layer, s)); S.placed = true; }
+      } else if (c.kind === 'sym') {
+        var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f;
+        if (HEADS[s.k]) { addLocal(S.layer, s); S.sel = null; S.fresh = null; S.placed = false; }       // 음표 머리(화음 표시) — 바로 옆을 또 눌러 쌓아 찍을 수 있게 선택하지 않음 (옮기기는 선택·이동으로)
+        else { adopt(S.layer, addLocal(S.layer, s)); S.placed = true; }
+      }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
       /* V844 — 애플 펜슬로 지우개를 쓰다가 펜슬을 떼면 (실제로 무언가를 지웠을 때만) 원래 쓰던 펜 · 형광펜으로 — 두 번 톡 전환과 겹치지 않게 지운 것이 없으면 그대로 */
       /* V859 — 길게 눌러 지우개로 바꾼 뒤 그냥 뗐다면: 지우개를 그대로 두고, 다음에 화면에 대고 지운 뒤 떼면 원래 펜 · 형광펜으로 */
