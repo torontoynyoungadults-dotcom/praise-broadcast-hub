@@ -75,6 +75,7 @@
   var DYN_TEXT = { pp: 'pp', p: 'p', mp: 'mp', mf: 'mf', f: 'f', ff: 'ff', dc: 'D.C.', ds: 'D.S.', tocoda: 'To Coda', fine: 'Fine' };
 
   var _seq = 0;
+  var CLIP = { item: null, n: 0, pg: 0, text: '' };          // 필기 복사 · 붙여넣기 — 열린 악보가 바뀌어도 남음 (같은 페이지 안)
   function newId() {
     var r = ''; for (var i = 0; i < 5; i++) r += Math.floor(Math.random() * 36).toString(36);
     return 'a' + Date.now().toString(36) + (++_seq).toString(36) + r;
@@ -359,14 +360,16 @@
       S.dirty = true; invalidate(); return n;
     }
     function drawPage(c, W, H, pg, vis, skip) {                                   // skip: 그리지 않을 항목 번호 (손가락으로 옮기는 중인 항목 — 따로 위에 그림)
+      // 고치는 중인 글자는 입력칸만 보이게 (밑에 원래 글자가 겹쳐 보이지 않게) — 화면에만, 내보내기에는 그대로
+      var editId = !vis && S.editor && S.editor.existing ? S.editor.existing.id : null;
       vis = vis || S.vis;
       ['team', 'mine'].forEach(function (ly) {
         if (!vis[ly]) return;
         var list = pageItems(ly, pg);
         if (S.byFilter) list = list.filter(function (i) { return (i.by || '') === S.byFilter; });   // V842 — "이 사람 필기만 보기" (화면에서만 · 저장 · 내보내기는 그대로)
-        list.filter(function (i) { return i.t === 'hl' && i.id !== skip; }).forEach(function (i) { drawItem(c, i, W, H); });
+        list.filter(function (i) { return i.t === 'hl' && i.id !== skip && i.id !== editId; }).forEach(function (i) { drawItem(c, i, W, H); });
         var fl = flashOn();
-        list.filter(function (i) { return i.t !== 'hl' && i.id !== skip; }).forEach(function (i) { drawItem(c, i, W, H, fl && i.t === 'fbox' && fl.keys[String(i.k || '').toLowerCase()] ? { flash: true } : null); });
+        list.filter(function (i) { return i.t !== 'hl' && i.id !== skip && i.id !== editId; }).forEach(function (i) { drawItem(c, i, W, H, fl && i.t === 'fbox' && fl.keys[String(i.k || '').toLowerCase()] ? { flash: true } : null); });
       });
     }
     /** 옮기기 · 크기 바꾸기 중인 항목 번호 (없으면 null) */
@@ -940,7 +943,8 @@
       host.appendChild(box);
       S.editor = { box: box, inp: inp, x: x, y: y, chord: !!chord, existing: existing || null, layer: layerOf || S.layer, done: false,
         color: existing ? existing.c : S.color, font: existing ? fontOf(existing) : S.font, sz: existing ? existing.sz : S.textSize, colorSet: false, fontSet: false, szSet: false };
-      paintEditor();
+      paintEditor(); fitEditor(); invalidate();
+      inp.addEventListener('input', fitEditor);
       inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); closeEditor(true); } else if (ev.key === 'Escape') { ev.preventDefault(); closeEditor(false); } ev.stopPropagation(); });
       inp.addEventListener('blur', function () {
         setTimeout(function () {
@@ -951,8 +955,13 @@
           closeEditor(true);
         }, 120);
       });
-      try { inp.focus(); } catch (e) {}
+      try { inp.focus(); var L0 = inp.value.length; inp.setSelectionRange(L0, L0); } catch (e) {}
       setTimeout(function () { try { if (S.editor && S.editor.inp === inp && doc0().activeElement !== inp) inp.focus(); } catch (e) {} }, 0);
+    }
+    /** 입력칸 너비를 글자 길이에 맞춤 — 긴 글자를 고칠 때 잘리거나, 짧은데 칸만 커서 악보를 가리지 않게 */
+    function fitEditor() {
+      var ed = S.editor; if (!ed) return; var n = Math.max(4, Array.from(ed.inp.value || ed.inp.placeholder || '').reduce(function (a, ch) { return a + (ch.charCodeAt(0) > 0x2e80 ? 2 : 1); }, 0) + 2);
+      try { ed.inp.size = Math.min(60, n); } catch (e) { /* 무시 */ }
     }
     /** 입력칸 미리보기 — 지금 고른 색 · 글꼴 · 크기 그대로 (확정된 글자와 같은 모양). 흰색은 흰 바탕에서 안 보이므로 칸 배경을 어둡게 */
     function isLight(c) { var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c || ''); return !!m && (parseInt(m[1], 16) * 0.3 + parseInt(m[2], 16) * 0.59 + parseInt(m[3], 16) * 0.11) > 200; }
@@ -964,7 +973,7 @@
     }
     function closeEditor(commit) {
       var ed = S.editor; if (!ed || ed.done) return; ed.done = true; S.editor = null;
-      var txt = ed.inp.value.replace(/\s+$/, ''); try { ed.box.remove(); } catch (e) {}
+      var txt = ed.inp.value.replace(/\s+$/, ''); try { ed.box.remove(); } catch (e) {} invalidate();
       if (!commit || !txt.trim()) { if (commit && ed.existing && !txt.trim()) { var t = take(ed.layer, ed.existing.id); if (t) record({ op: 'del', layer: ed.layer, item: t }); } return; }
       if (ed.existing) {
         if (ed.existing.s === txt && !ed.colorSet && !ed.fontSet && !ed.szSet) return;
@@ -1062,6 +1071,39 @@
       selected: function () { var it = selItem(); return it ? { layer: S.sel.layer, id: it.id, t: it.t, by: it.by || '', ts: it.ts || 0, sz: it.sz, f: it.f, c: it.c, s: it.s, chord: it.chord, canModify: canModify(S.sel.layer, it) } : null; },
       select: function (layer, id) { if (S.layers[layer] && S.layers[layer].get(id)) { S.sel = { layer: layer, id: id }; invalidate(); changed(); return true; } return false; },
       deselect: function () { if (S.sel) { S.sel = null; S.fresh = null; invalidate(); changed(); } },
+      /** 복사 — 선택한 글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 기억 (다른 쪽 · 다른 악보에도 붙일 수 있게 모듈 전체에서 하나). 붙일 때 쓰는 글(있으면)을 돌려줌 */
+      copySelected: function () {
+        var it = selItem(); if (!it) return null;
+        CLIP.item = JSON.parse(JSON.stringify(it)); CLIP.n = 0; CLIP.pg = it.pg;
+        delete CLIP.item.by; delete CLIP.item.ts;
+        CLIP.text = it.t === 'text' ? String(it.s || '') : '';
+        return CLIP.text;
+      },
+      hasClip: function () { return !!CLIP.item; },
+      /** 바깥 글을 붙일 자리 = 악보에서 마지막으로 누른 곳 (화면 좌표) — practice.js 가 악보 칸의 pointerdown 에서 알려줌 */
+      markPoint: function (cx, cy) { var r = cv.getBoundingClientRect(); if (!r.width || cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return; S.lastPt = { x: (cx - r.left) / r.width, y: (cy - r.top) / r.height, pg: S.page, n: 0 }; },
+      clipText: function () { return CLIP.item ? CLIP.text : ''; },
+      /** 붙여넣기 — 기억한 항목을 지금 쪽 · 지금 칸(팀 공유 / 나만 보기)에 새로 만듦. 같은 자리에 겹치지 않게 조금씩 비켜 놓음. 만든 항목을 바로 선택 */
+      paste: function () {
+        if (!CLIP.item) return null;
+        var src = CLIP.item, it = JSON.parse(JSON.stringify(src));
+        CLIP.n++; var d = (S.page === CLIP.pg ? 0.02 * CLIP.n : 0.02 * (CLIP.n - 1));
+        it.id = newId(); it.pg = S.page;
+        if (isStroke(it)) { it.p = it.p.map(function (v, i) { return r4(clamp(v + d, 0, 1)); }); }
+        else { it.x = r4(clamp((it.x || 0) + d, 0.005, 0.97)); it.y = r4(clamp((it.y || 0) + d, 0.02, 0.995)); }
+        var ly = S.layer; addLocal(ly, it); S.sel = { layer: ly, id: it.id }; S.fresh = null; invalidate(); changed();
+        return it;
+      },
+      /** 바깥(다른 앱 · 메모)에서 복사해 온 글을 글자로 붙임 — 화면 가운데쯤(또는 at {x,y}) */
+      pasteText: function (txt, at) {
+        txt = String(txt || '').replace(/\r/g, '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).join(' ').slice(0, 200); if (!txt) return null;
+        var lp = S.lastPt && S.lastPt.pg === S.page ? S.lastPt : null;
+        if (!at && lp) { lp.n = (lp.n || 0) + 1; }
+        var p = at || (lp ? { x: lp.x + 0.02 * (lp.n - 1), y: lp.y + 0.025 * (lp.n - 1) } : { x: 0.35, y: 0.3 }), it = { id: newId(), t: 'text', pg: S.page, c: S.color, x: r4(clamp(p.x, 0.005, 0.95)), y: r4(clamp(p.y, 0.03, 0.99)), sz: S.textSize, s: txt };
+        if (S.font !== 'sans') it.f = S.font;
+        var ly = S.layer; addLocal(ly, it); S.sel = { layer: ly, id: it.id }; S.fresh = null; invalidate(); changed();
+        return it;
+      },
       deleteSelected: function () {
         var it = selItem(); if (!it) return false;
         if (!canModify(S.sel.layer, it)) { say('다른 사람이 쓴 필기는 지울 수 없습니다.', true); return false; }

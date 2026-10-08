@@ -1419,6 +1419,11 @@
           '<span class="pv-numbtns"><button type="button" class="pv-nb" data-step="1" aria-label="크기 키우기" title="크기 키우기"' + lock + '>▲</button><button type="button" class="pv-nb" data-step="-1" aria-label="크기 줄이기" title="크기 줄이기"' + lock + '>▼</button></span></span></div>' +
         (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + '</div>';
       if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 눌러 선택하세요. 선택한 뒤 끌면 옮겨지고, 쓴 사람이 보입니다.</div>';
+      /* 복사 · 붙여넣기 — 선택한 것을 복사하고, 복사해 둔 것이 있으면 어느 쪽에서든 붙여넣기 (키보드: Ctrl/⌘+C · V · D) */
+      var canClip = !opts.readOnly && an.copySelected, hasClip = canClip && an.hasClip();
+      var clipRow = !canClip || (!sel && !(hasClip && S.tool !== 'none')) ? '' : '<div class="pv-tg pv-cliprow">' +
+        (sel ? '<button type="button" class="pv-tool sm" data-a="copysel" title="선택한 것 복사 (Ctrl/⌘+C)"><span class="ic">' + I('copy') + '</span><span class="nm">복사</span></button>' : '') +
+        (hasClip ? '<button type="button" class="pv-tool sm" data-a="paste" title="붙여넣기 (Ctrl/⌘+V)"><span class="ic">' + I('paste') + '</span><span class="nm">붙여넣기</span></button>' : '') + '</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
       var colRow = S.tool === 'select' && !sel ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' :
@@ -1427,7 +1432,7 @@
         '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
         '<div class="pv-tg">' + TOOLS.map(function (t) { var on = toolOn(t.t); return '<button class="pv-tool' + (on ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + on + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         colRow +
-        fontRow +
+        fontRow + clipRow +
         fbRow +
         (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { var k = sizeKey(), sv = slotSizes(k); return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[k] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + (SZ_RANGE[k] ? ' — 한 번 더 누르면 굵기 조절' : '') + '"><i style="--s:' + slotDot(k, sv[i], i) + 'px"></i></button>'; }).join('') +
           (SZ_RANGE[sizeKey()] && S.szEdit >= 0 ? (function () { var k = sizeKey(), r = SZ_RANGE[k], v = slotSizes(k)[S.szEdit]; return '<div class="pv-szpop" role="group" aria-label="굵기 ' + (S.szEdit + 1) + ' 조절"><span>굵기 ' + (S.szEdit + 1) + '</span><input type="range" data-szr min="' + r[0] + '" max="' + r[1] + '" step="' + (k === 'pen' ? 0.0002 : 0.001) + '" value="' + v + '" aria-label="굵기"><i class="pv-szprev" style="--s:' + slotDot(k, v, S.szEdit) + 'px"></i><button type="button" class="pv-szok" data-a="szok">완료</button></div>'; })() : '') + '</div>') +
@@ -1458,6 +1463,8 @@
       if (a === 'dockmore') { setDockMore(!S.dockMore, true); return; }
       if (a === 'undo') { an.undo(); renderTools(); } else if (a === 'redo') { an.redo(); renderTools(); }
       else if (a === 'clearpg') { var n = an.clearPage(S.layer, false); if (n) toast(n + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.'); renderTools(); }
+      else if (a === 'copysel') { doCopy(); }
+      else if (a === 'paste') { doPaste(); }
       else if (a === 'delsel') { if (an.deleteSelected()) { toast('지웠습니다. ↶ 로 되돌릴 수 있어요.', false, 1600); } renderTools(); }
       else if (a === 'scope') { if (!S.room) toast('이 곡에만 붙일 수 있습니다.'); else setScope(S.scope === 'song' ? 'date' : 'song'); }
     });
@@ -1842,6 +1849,7 @@
       var k = e.key, mod = e.ctrlKey || e.metaKey;
       if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); e.shiftKey ? an.redo() : an.undo(); renderTools(); return; }
       if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); an.redo(); renderTools(); return; }
+      if (mod && (k === 'd' || k === 'D') && an.selected && an.selected() && !opts.readOnly) { e.preventDefault(); if (doCopy()) doPaste(); return; }   // Ctrl/⌘+D = 바로 복제
       if (mod) return;
       if (e.altKey) {                                                                  // 필기 도구 단축키는 Alt+글자 (글자만 누르는 키는 콜아웃에 씁니다)
         var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyC: 'chord', KeyS: 'sym', KeyN: 'note', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
@@ -1869,6 +1877,34 @@
       else if (m === 'zf') { S.zoom = 1; renderPage(); sendNav(); }
       else if (m === 'esc') { if (S.fs) setFs(false); else if (an.selected && an.selected()) { an.deselect(); renderTools(); } else if (el.classList.contains('pv-drawopen')) setDrawer(false); else if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
     }
+    /* 필기 복사 · 붙여넣기 — 앱 안에서 기억한 항목(모양 · 색 그대로) + 시스템 클립보드에도 글을 넣어 둠.
+       붙여넣을 때 클립보드 글이 방금 복사한 것이면 그 항목을, 다른 앱에서 복사한 글이면 새 글자로 붙임 */
+    var lastClipTxt = null;
+    function doCopy(evt) {
+      var sel = an.selected && an.selected(); if (!sel) { toast('복사할 필기를 먼저 선택하세요 (선택·이동 도구).', true, 1800); return false; }
+      var t = an.copySelected(); lastClipTxt = t || '[악보 필기]';
+      if (evt && evt.clipboardData) { try { evt.clipboardData.setData('text/plain', lastClipTxt); evt.preventDefault(); } catch (x) { /* 무시 */ } }
+      else if (root.navigator && navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(lastClipTxt).catch(function () {}); }
+      toast('복사했습니다 — 붙여넣기(Ctrl/⌘+V)로 이 쪽이나 다른 쪽 · 다른 악보에 붙일 수 있어요.', false, 2000); renderTools(); return true;
+    }
+    function doPaste(text) {
+      if (opts.readOnly) return false;
+      var useClip = an.hasClip() && (text == null || text === '' || text === lastClipTxt);
+      var it = useClip ? an.paste() : (text ? an.pasteText(text) : null);
+      if (!it) return false;
+      if (S.tool !== 'select') setTool('select', false, true);
+      an.select && an.select(S.layer, it.id);
+      toast(useClip ? '붙여넣었습니다 — 끌어서 자리를 맞추세요.' : '글자로 붙여넣었습니다 — 끌어서 자리를 맞추세요.', false, 1600); renderTools(); return true;
+    }
+    function onCopy(e) { if (S.dead || isTyping(e.target) || !(an.selected && an.selected())) return; doCopy(e); }
+    function onPaste(e) {
+      if (S.dead || opts.readOnly || isTyping(e.target) || !el.isConnected) return;
+      var txt = ''; try { txt = (e.clipboardData && e.clipboardData.getData('text/plain')) || ''; } catch (x) { /* 무시 */ }
+      if (!an.hasClip() && !txt.trim()) return;
+      if (doPaste(txt)) e.preventDefault();
+    }
+    doc.addEventListener('copy', onCopy); doc.addEventListener('paste', onPaste);
+    box.addEventListener('pointerdown', function (e) { if (an && an.markPoint) an.markPoint(e.clientX, e.clientY); }, true);
     function onKeyUp(e) { if ((e.key === ' ' || e.key === 'Spacebar') && spaceEaten) { spaceEaten = false; e.preventDefault(); } }   // 버튼에 초점이 있어도 Space 가 그 버튼을 또 누르지 않게
     doc.addEventListener('keyup', onKeyUp);
     el.addEventListener('change', function (e) { var t = e.target; if (t && t.tagName === 'SELECT') { try { t.blur(); } catch (x) {} } });   // 목록을 고른 뒤에도 단축키가 바로 먹도록
@@ -2198,7 +2234,7 @@
         P.tabs.forEach(function (t) { try { t.api && t.api.destroy && t.api.destroy(); } catch (e) {} });
         try { rt && rt.close(); } catch (e) {} try { an.destroy(); } catch (e) {}
         try { timerBar && timerBar.destroy(); } catch (e) {}
-        doc.removeEventListener('pointerdown', rtOutside, true); doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); root.removeEventListener('pagehide', onBeforeUnload);
+        doc.removeEventListener('pointerdown', rtOutside, true); doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); doc.removeEventListener('copy', onCopy); doc.removeEventListener('paste', onPaste); root.removeEventListener('pagehide', onBeforeUnload);
         doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient); doc.removeEventListener('fullscreenchange', onFsChange); clearTimeout(S.fsT);
         if (ro) ro.disconnect(); root.removeEventListener('resize', onResize);
         /* 남아 있는 예약(타이머) · 반복 · 그림 저장소를 모두 정리 — 화면을 여닫아도 메모리가 쌓이지 않게 (내 필기 저장 재시도 S.mineT 만 남겨 둡니다) */
