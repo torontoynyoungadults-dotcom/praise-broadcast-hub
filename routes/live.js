@@ -30,6 +30,7 @@ const session = require('../lib/session');
 const guestLink = require('../lib/guestLink');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
+const { canonicalPosition } = require('../lib/positions');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -176,7 +177,7 @@ async function renderLive(req, res, o) {
   const boot = {
     token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
     pastors: Array.from(await honorific.pastorSet(team)),
-    sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
+    lineup: await lineupOf(team, scope), sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
     startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 쪽부터
   };
   const v = `?v=${LIVE_V}`;
@@ -228,10 +229,81 @@ window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n}
 <script defer src="/worship/anno.js${v}"></script>
 <script defer src="/worship/mainstage.js${v}"></script>
 <script defer src="/worship/practice-panels.js${v}"></script>
+<script defer src="/worship/livemsg.js${v}"></script>
 <script defer src="/worship/practice.js${v}"></script>
 <script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>
 ${pageShell.BUILD_HTML}
+</body>
+</html>`);
+}
+
+/** 이 예배의 편성 (포지션 · 이름) — 요청 메시지의 "싱어 이름" · 받는 사람 고르기에 씀 */
+async function lineupOf(team, scope) {
+  const rows = await sheetsDb.readAll('찬양편성');
+  const out = [], seen = new Set();
+  rows.filter((r) => r['팀ID'] === team && liveStore.inScope(r, scope)).forEach((r) => {
+    const pos = canonicalPosition(String(r['포지션'] || '').trim()), name = String(r['이름'] || '').trim();
+    if (!pos || !name || seen.has(pos + '|' + name)) return;
+    seen.add(pos + '|' + name); out.push({ pos, name });
+  });
+  return out;
+}
+
+/* ================================================================ 방송팀 화면
+ * 악보 없이 "지금 곡 (제목 · Key · BPM · 버전) + 송폼 전체 순서 + 콘티 순서 + 요청 메시지" 만 아주 크게.
+ * 지금 곡 · 송폼 위치는 라이브 악보의 페이지 컨트롤(nav) · 리드 상태(lead: 콜아웃한 송폼 칸)를 실시간으로 따라가고, 화면에서 직접 바꿀 수도 있습니다.
+ * 로그인한 팀원(/conti/stage)과 방송팀 보기 링크(/b/<열쇠>/stage, 읽기 전용 토큰)가 함께 씁니다. */
+router.get('/conti/stage', requireTeam, async (req, res) => {
+  const ctx = req.ctx;
+  const team = ctx.current;
+  if (!team) return res.redirect('/conti');
+  const ev = await eventFor(team, String(req.query.event || '').trim());
+  const date = ev ? ev['날짜'] : week.normalizeDate(req.query.date);
+  const back = ev ? `/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(ev['ID'])}` : `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
+  if (guestAccess.isGuest(ctx.member)) await guestAccess.prime(ctx.member, team);
+  return renderStage(req, res, { team, ev, date, back, member: ctx.member, isAdmin: ctx.isAdmin, ro: false });
+});
+
+async function renderStage(req, res, o) {
+  const { team, ev, date, back } = o;
+  const scope = { event: ev ? ev['ID'] : '', date };
+  const room = liveStore.roomOf(scope);
+  const [songs, lineup] = await Promise.all([liveStore.songsOf(team, room), lineupOf(team, scope)]);
+  const label = ev ? String(ev['이름'] || '주일 외 찬양') : week.labelKo(date);
+  const boot = {
+    token: o.ro ? liveAuth.mintView(team, room) : liveAuth.mint(o.member, team, o.isAdmin), room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
+    team, label, date, songs, lineup, back, live: o.liveHref || '',
+  };
+  const v = `?v=${LIVE_V}`;
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#060B0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="YN찬양팀Hub">
+<meta name="apple-mobile-web-app-title" content="YN찬양팀Hub">
+<meta name="robots" content="noindex">
+<title>${esc(team)} · ${esc(label)} 방송팀 화면</title>
+<link rel="manifest" href="/site.webmanifest">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="/worship/stage.css${v}">
+</head>
+<body class="st-body">
+<div class="st-fallback" id="stFallback"><p>방송팀 화면을 여는 중…</p><p><a href="${esc(back)}">← 예배콘티로 돌아가기</a></p></div>
+<script>window.__STAGE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};</script>
+<script defer src="/socket.io/socket.io.js"></script>
+<script defer src="/worship/formb.js${v}"></script>
+<script defer src="/worship/wakelock.js${v}"></script>
+<script defer src="/worship/rt.js${v}"></script>
+<script defer src="/worship/stage.js${v}"></script>
 </body>
 </html>`);
 }
@@ -508,5 +580,6 @@ module.exports.setRealtime = setRealtime;
 module.exports.songsChanged = songsChanged;
 module.exports.FNS = FNS;
 module.exports.renderLive = renderLive;
+module.exports.renderStage = renderStage;
 module.exports.grantView = grantView;
 module.exports.liveData = liveData;

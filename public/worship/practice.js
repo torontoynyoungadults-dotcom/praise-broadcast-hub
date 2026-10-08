@@ -1335,6 +1335,7 @@
       });
       rt.on('cue', function (c) { P.emit('cue', c); });
       rt.on('lead', function (st) { P.emit('lead', st); });                          // V842 — 리드의 BPM · 송폼 위치 (화면만)
+      rt.on('msg', function (m) { P.emit('msg', m); }); rt.on('msg:ack', function (a) { P.emit('msg:ack', a); });   // 요청 메시지 (livemsg.js)
       rt.on('cfg', onRemoteCfg);
       rt.on('song', function (m) { if (m && m.cid !== S.cid) applySongPatch(m.kind, m.seq, m.patch, m.by, true); });
       rt.on('songs:changed', function () { refetchSongs(); });
@@ -2296,6 +2297,7 @@
     current = api;
     S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font); if (an.setFboxTag) an.setFboxTag(S.fboxTag);
     setCompact(calcCompact()); setNarrow(); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); loadCfg(); requestWake();
+    try { if (root.YNLiveMsg) root.YNLiveMsg.attach(P); } catch (e) { if (root.console) root.console.warn('[livemsg]', e); }   // 요청 메시지 — 방송팀에 보내기 · 받은 메시지 띄우기
     /* 예배 타이머 막대 (Feature 1 · timer.js) — 헤더 바로 아래에 붙어 전체 화면에서도 보입니다. timer.js 가 없거나 opts.timer === false 면 아무것도 하지 않음 */
     var timerBar = null;
     try {

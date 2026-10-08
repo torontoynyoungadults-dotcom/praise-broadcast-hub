@@ -19,7 +19,7 @@ var BASE = ''; try { BASE = new URL(self.registration.scope).pathname.replace(/\
 function rel(p) { return BASE && p.indexOf(BASE) === 0 ? (p.slice(BASE.length) || '/') : p; }
 
 /** 보관할 수 있는 페이지 — 로그인 · 관리자 · 업로드/저장 같은 것은 제외 */
-var PAGE_OK = /^\/($|conti(\/practice)?$|schedule(\/.*)?$|library(\/.*)?$|notices(\/.*)?$|events(\/.*)?$|roster(\/.*)?$|equipment(\/.*)?$|b\/[A-Za-z0-9_-]+(\/(conti|schedule))?$)/;
+var PAGE_OK = /^\/($|conti(\/(practice|stage))?$|schedule(\/.*)?$|library(\/.*)?$|notices(\/.*)?$|events(\/.*)?$|roster(\/.*)?$|equipment(\/.*)?$|b\/[A-Za-z0-9_-]+(\/(conti|schedule|stage))?$)/;
 
 self.addEventListener('install', function (e) { e.waitUntil(self.skipWaiting()); });
 self.addEventListener('activate', function (e) {

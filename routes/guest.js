@@ -68,6 +68,17 @@ router.get('/b/:token/live', gate, async (req, res) => {
   return live.renderLive(req, res, { team, ev: eventRow, date, back, ro: true });
 });
 
+/* 방송팀 화면 (읽기 전용) — 지금 곡 · 송폼 · 콘티 순서 · 찬양팀 요청 메시지를 크게 (routes/live.js renderStage) */
+router.get('/b/:token/stage', gate, async (req, res) => {
+  const { team, base, token } = req.guest;
+  const sh = S();
+  const eventRow = await sh.specialServiceById(team, String(req.query.event || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+  const back = `${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}`;
+  live.grantView(res, token);
+  return live.renderStage(req, res, { team, ev: eventRow, date, back, ro: true });
+});
+
 /* ---------------------------------------------------------------- 예배 콘티 */
 function lineupReadonly(rows, scope, team) {
   const by = {};
@@ -123,6 +134,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
     ${evBox ? `<div class="ph-card">${evBox}</div>` : ''}
     ${practice}
     <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>악보 · 송폼 · 메트로놈을 실시간으로 봅니다 (보기 전용)</small></span></a>
+    <a class="gs-livebtn gs-stagebtn" href="${base}/stage?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('media')}<span><b>방송팀 화면</b><small>지금 곡 · 송폼 · 찬양팀 요청을 크게 봅니다</small></span></a>
     <div class="cn-toolrow">${pkgBtn}</div>
     ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope, team)}
     <div class="ph-card top-accent"><h2 class="ph-h2">콘티</h2>

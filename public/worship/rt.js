@@ -15,7 +15,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer', 'msg', 'msg:ack'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {
@@ -99,6 +99,9 @@
       /** V842 — 리드 상태(BPM · 박자 · 송폼 위치) 보내기 — 받는 쪽은 숫자 · 위치만 맞추고 소리는 내지 않음 */
       sendLead: function (st) { return api.call('lead', st || {}); },
       sendTimer: function (cmd) { return api.call('timer:cmd', cmd || {}); },
+      /** 요청 메시지 — { to:'bc'|'team'|이름, text, kind } · 확인 { id } */
+      sendMsg: function (m) { return api.call('msg', m || {}); },
+      ackMsg: function (id) { return api.call('msg:ack', { id: id }); },
       close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; S.clicker = null; S.metro = null; S.timer = null; if (S.state !== 'unavailable') setState('idle'); },
       pending: function () { return S.outbox.length; }
     };
@@ -113,7 +116,7 @@
     function join() {
       var sock = S.socket; if (!sock) return;
       var t0 = Date.now();
-      sock.emit('join', opt.light ? { token: opt.token, room: opt.room, light: true } : { token: opt.token, room: opt.room }, function (r) {
+      sock.emit('join', opt.light ? { token: opt.token, room: opt.room, light: true } : { token: opt.token, room: opt.room, stage: !!opt.stage }, function (r) {
         if (!r || r.ok === false) {
           var denied = r && (r.code === 'auth' || r.code === 'room');
           S.joined = false;
