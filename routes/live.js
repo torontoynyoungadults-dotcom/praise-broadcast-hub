@@ -265,12 +265,10 @@ router.get('/conti/stage', requireTeam, async (req, res) => {
   return renderStage(req, res, { team, ev, date, back, member: ctx.member, isAdmin: ctx.isAdmin, ro: false });
 });
 
-async function renderStage(req, res, o) {
-  const { team, ev, date, back } = o;
-  const scope = { event: ev ? ev['ID'] : '', date };
+/** 방송팀 화면의 곡 목록 — 곡마다 연결된 악보(곡별로 저장한 쪽 범위 포함) + 이 예배에 올린 악보 전체 (악보 보기 · 새 악보 알림에 씀) */
+async function stageSongs(team, scope) {
   const room = liveStore.roomOf(scope);
-  const [songs, lineup, songRows, sheetRows] = await Promise.all([liveStore.songsOf(team, room), lineupOf(team, scope), sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('악보저장소')]);
-  // 곡마다 연결된 악보 (곡별로 저장한 쪽 범위 포함) — 방송팀 화면의 "악보 보기"
+  const [songs, songRows, sheetRows] = await Promise.all([liveStore.songsOf(team, room), sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('악보저장소')]);
   const { conti, fin, closing } = liveStore.orderedSongs(songRows, team, scope);
   const ordered = conti.concat(fin).concat(closing);
   const files = sheetRows.filter((x) => x['팀ID'] === team && liveStore.inScope(x, scope) && x['파일링크']);
@@ -280,8 +278,17 @@ async function renderStage(req, res, o) {
     songs[i].sheets = files.filter((x) => x['곡ID'] && x['곡ID'] === r['ID']).map((x) => ({ id: liveStore.sheetIdOf(team, x['파일링크']), pages: pageSpec.specPages(pageSpec.cleanSpec(x['쪽'])), name: String(x['제목'] || '') }))
       .filter((x) => { const k = x.id + '|' + x.pages.join(','); if (!x.id || seen.has(k)) return false; seen.add(k); return true; });
   });
-  const allSheets = [];
-  files.forEach((x) => { const id = liveStore.sheetIdOf(team, x['파일링크']); if (id && !allSheets.some((y) => y.id === id)) allSheets.push({ id, name: String(x['제목'] || '악보') }); });
+  const all = [];
+  files.forEach((x) => { const id = liveStore.sheetIdOf(team, x['파일링크']); if (id && !all.some((y) => y.id === id)) all.push({ id, name: String(x['제목'] || '악보') }); });
+  return { songs, all };
+}
+
+async function renderStage(req, res, o) {
+  const { team, ev, date, back } = o;
+  const scope = { event: ev ? ev['ID'] : '', date };
+  const room = liveStore.roomOf(scope);
+  const [st, lineup] = await Promise.all([stageSongs(team, scope), lineupOf(team, scope)]);
+  const songs = st.songs, allSheets = st.all;
   const label = ev ? String(ev['이름'] || '주일 외 찬양') : week.labelKo(date);
   const boot = {
     token: o.ro ? liveAuth.mintView(team, room) : liveAuth.mint(o.member, team, o.isAdmin), room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
@@ -527,6 +534,12 @@ const FNS = {
     });
   },
   async worshipSongsOf(u, room) { return { songs: await liveStore.songsOf(u.team, room) }; },
+  /** 예배 중에 악보를 올리거나 지웠을 때 — 열린 라이브 악보(악보 목록) · 방송팀 화면(곡별 악보)이 다시 받아 감 (songs:changed 알림 뒤) */
+  async worshipLiveSheets(u, room) {
+    const scope = liveStore.scopeOfRoom(String(room || ''));
+    const [d, st] = await Promise.all([liveData(u.team, scope), stageSongs(u.team, scope)]);
+    return { sheets: d.sheets, stage: st };
+  },
   /** V865 — 화음 탭 팀 공유: 악보 파일마다 한 층(범위 'song' · 소유 '#화음')에 { data, at, by } (church-app worship2.js 와 같은 약속) */
   async worshipHarmLoad(u, file) {
     await liveStore.loadAnnos();
@@ -563,13 +576,13 @@ router.post('/api/:fn', async (req, res) => {
     const u = liveAuth.verify(args[0]);
     const rest = args.slice(1);
     if (u.ro) {                                           // 방송팀 보기 링크 — 그 예배의 악보 · 필기 · 곡 정보 읽기만
-      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1 };
+      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1, worshipLiveSheets: 0 };
       if (!own(RO_OK, fn)) throw new Error('방송팀 보기 링크는 읽기 전용입니다.');
       if (RO_OK[fn] >= 0 && String(rest[RO_OK[fn]] || '') !== u.room) throw new Error('이 링크로는 해당 예배의 라이브 악보만 볼 수 있습니다.');
     }
     if (u.guest) {                                        // 객원 멤버 — 서는 날의 라이브 악보 · 필기 · 설정과 스케줄 보기만
       await guestAccess.ensure(u);
-      const ROOM_AT = { worshipAnnoLoad: 1, worshipAnnoSaveMine: 1, worshipCfgLoad: 0, worshipCfgSave: 0, worshipSongsOf: 0, worshipSongPatch: 0, worshipSheetSplit: 0 };
+      const ROOM_AT = { worshipAnnoLoad: 1, worshipAnnoSaveMine: 1, worshipCfgLoad: 0, worshipCfgSave: 0, worshipSongsOf: 0, worshipLiveSheets: 0, worshipSongPatch: 0, worshipSheetSplit: 0 };
       if (own(ROOM_AT, fn)) { if (!guestAccess.roomOk(u, rest[ROOM_AT[fn]])) throw new Error('객원 멤버는 스케줄에 서는 날만 열 수 있습니다.'); }
       else if (!['worshipSchedule', 'setMyUnavailableMany', 'removeMyUnavailable', 'worshipHarmLoad'].includes(fn)) throw new Error('객원 멤버는 쓸 수 없는 기능입니다.');
     }

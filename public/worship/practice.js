@@ -229,7 +229,8 @@
       clearTimeout(S.msgT); if (t) S.msgT = setTimeout(function () { toastEl.className = 'pv-toast'; }, ms || (bad ? 5000 : 2200));
     }
 
-    sheetSel.innerHTML = sheets.map(function (s, i) { return '<option value="' + i + '">' + h(s.name || ('악보 ' + (i + 1))) + '</option>'; }).join('');
+    function paintSheetSel() { sheetSel.innerHTML = sheets.map(function (s, i) { return '<option value="' + i + '">' + h(s.name || ('악보 ' + (i + 1))) + '</option>'; }).join(''); sheetSel.value = String(S.sheetIdx); }
+    paintSheetSel();
     sheetSel.onchange = function () { loadSheet(+sheetSel.value, 1, true); };
 
     /* ------------------------------------------------------------ 레이아웃 */
@@ -751,7 +752,51 @@
           if (songsSig(r.songs) === songsSig(songs)) return;                        // 실제로 달라진 게 없으면 다시 그리지도, 알림을 띄우지도 않음
           replaceSongs(r.songs); toast('허브에서 곡 목록이 바뀌어 새로 불러왔습니다.', false, 2200);
         }, function () {});
+        refetchSheets();
       }, 400);
+    }
+    /* 예배 중에 콘티에 악보를 올리거나 지우면(songs:changed) — 악보 목록을 다시 받아, 새 악보는 목록에 넣고 "새 악보 열기" 안내를 띄웁니다.
+       지금 보고 있는 악보는 그대로 두고(지워졌어도 화면은 유지), 쪽 ↔ 곡 연결이 바뀐 악보만 다시 계산합니다. */
+    function refetchSheets() {
+      if (!opts.callServer || !S.room || S.dead) return;
+      opts.callServer('worshipLiveSheets', [opts.token, S.room], function (r) { if (!S.dead && r && Array.isArray(r.sheets)) replaceSheets(r.sheets); }, function () {});
+    }
+    function sheetSig(a) { return a.map(function (x) { return x.id + ':' + (x.name || '') + ':' + JSON.stringify(x.map || {}); }).join('|'); }
+    function replaceSheets(list) {
+      if (!list.length) return;
+      var cur = sheets[S.sheetIdx], had = {}, mapChanged = false;
+      sheets.forEach(function (x) { had[x.id] = x; });
+      var added = list.filter(function (x) { return x && x.id && !had[x.id]; });
+      var next = list.filter(function (x) { return x && x.id; }).map(function (x) {
+        var o = had[x.id]; if (!o) return x;
+        if (JSON.stringify(o.map || {}) !== JSON.stringify(x.map || {})) { if (x.map) o.map = x.map; else delete o.map; delete S.maps[o.id]; if (o === cur) mapChanged = true; }
+        o.name = x.name || o.name; return o;
+      });
+      if (cur && next.indexOf(cur) < 0) next.push(cur);                                   // 지워진 악보라도 보고 있는 동안은 남겨 둠
+      if (sheetSig(next) === sheetSig(sheets)) return;
+      sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
+      S.sheetIdx = Math.max(0, sheets.indexOf(cur));
+      paintSheetSel();
+      if (mapChanged && S.doc) { scanTitles(S.doc, sheets[S.sheetIdx]); syncSongForPage(); renderSongSel(); }
+      P.emit('sheets', sheets.slice(), added);
+      if (added.length) newSheetNotice(added);
+    }
+    var nsEl = null, nsT = 0;
+    function newSheetNotice(added) {
+      if (!nsEl) {
+        nsEl = doc.createElement('div'); nsEl.className = 'pv-newsheet'; nsEl.setAttribute('role', 'status');
+        nsEl.addEventListener('click', function (e) {
+          var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+          var id = b.getAttribute('data-open'); nsEl.classList.remove('show');
+          if (id) { var i = -1; sheets.forEach(function (x, k) { if (x.id === id) i = k; }); if (i >= 0) loadSheet(i, 1, true); }
+        });
+        el.appendChild(nsEl);
+      }
+      var host = el.querySelector('.lm-inbox'); if (host && nsEl.parentNode !== host) host.appendChild(nsEl);   // 받은 메시지 카드와 겹치지 않게 같은 줄에 쌓음
+      var f = added[added.length - 1];
+      nsEl.innerHTML = '<span>🎼 새 악보가 올라왔어요: <b>' + h(f.name || '악보') + '</b>' + (added.length > 1 ? ' 외 ' + (added.length - 1) + '개' : '') + '</span>' +
+        '<button type="button" class="pv-ns-open" data-open="' + h(f.id) + '">열기</button><button type="button" class="pv-ns-x" aria-label="닫기">✕</button>';
+      nsEl.classList.add('show'); clearTimeout(nsT); nsT = setTimeout(function () { if (nsEl) nsEl.classList.remove('show'); }, 20000);
     }
     /** 곡 정보(BPM · 송폼 · 유튜브 링크) 저장 — 팀 층이면 '찬양콘티' 줄을 고쳐 팀에 실시간 전달, 나만 보기면 내 설정으로 */
     function saveSongInfo(idx, patch, done) {

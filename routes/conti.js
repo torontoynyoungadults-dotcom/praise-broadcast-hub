@@ -1250,7 +1250,8 @@ router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
   if (b.header === '1') { try { await headerizeFiles(req, team, scope, b['곡ID']); } catch (e) { console.error('[악보 헤더 추가 실패 — 원본 그대로 올림]', e.message); } }
-  await saveSheetsFrom(req, team, scope, b['곡ID']);
+  const n = await saveSheetsFrom(req, team, scope, b['곡ID']);
+  if (n) liveNotify(team, scope, 'saveSheets');                       // 열린 라이브 악보 · 방송팀 화면이 새 악보를 받아 가게
   backTo(req, res, team, scope);
 });
 
@@ -1398,7 +1399,7 @@ router.post('/conti/sheets/fromweb', requireTeam, async (req, res) => {
   const scope = scopeFrom(b);
   try {
     const f = await webSheetFile(b.url, b['제목']);
-    if (f) { req.files = [f]; await saveSheetsFrom(req, team, scope, b['곡ID'], null, false); }
+    if (f) { req.files = [f]; if (await saveSheetsFrom(req, team, scope, b['곡ID'], null, false)) liveNotify(team, scope, 'saveSheets'); }
   } catch (e) { console.error('[웹 악보 저장 실패]', e.message); }
   backTo(req, res, team, scope);
 });
@@ -1540,7 +1541,7 @@ router.get('/conti/youtube/info', requireTeam, async (req, res) => {
 router.post('/conti/sheets/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
-  if (row) { try { await sheetsDb.deleteRow('악보저장소', row); } catch (e) { console.error('[악보 삭제 실패]', e.message); } }
+  if (row) { try { await sheetsDb.deleteRow('악보저장소', row); liveNotify(String(b.team || '').trim(), scopeFrom(b), 'removeSheet'); } catch (e) { console.error('[악보 삭제 실패]', e.message); } }
   backTo(req, res, b.team, scopeFrom(b));
 });
 

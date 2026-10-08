@@ -407,16 +407,27 @@
     c.textContent = txt; c.className = 'st-conn ' + (s === 'online' ? 'ok' : s === 'connecting' || s === 'offline' ? 'warn' : 'bad');
     paintNow();
   }
+  var refT = 0;
   function refetch() {
-    callServer('worshipSongsOf', [B.token, B.room]).then(function (r) {
-      var cur = songAt(S.cur), title = cur && cur.title;
-      var keep = {}; S.songs.forEach(function (x) { if (x.sheets) keep[x.title] = x.sheets; });
-      S.songs = (r && r.songs) || [];
-      S.songs.forEach(function (x) { if (!x.sheets && keep[x.title]) x.sheets = keep[x.title]; });
-      var k = -1; if (title) S.songs.forEach(function (s, i) { if (k < 0 && s.title === title) k = i; });
-      if (k >= 0) S.cur = k; else if (S.cur >= S.songs.length) S.cur = Math.max(0, S.songs.length - 1);
-      paint();
-    }).catch(function () {});
+    clearTimeout(refT);
+    refT = setTimeout(function () {
+      callServer('worshipLiveSheets', [B.token, B.room]).then(function (r) {
+        var st = r && r.stage; if (!st || !Array.isArray(st.songs)) return;
+        var cur = songAt(S.cur), title = cur && cur.title, had = {};
+        (B.sheets || []).forEach(function (x) { had[x.id] = 1; });
+        var added = (st.all || []).filter(function (x) { return !had[x.id]; });
+        S.songs = st.songs; B.sheets = st.all || [];
+        var k = -1; if (title) S.songs.forEach(function (s, i) { if (k < 0 && s.title === title) k = i; });
+        if (k >= 0) S.cur = k; else if (S.cur >= S.songs.length) S.cur = Math.max(0, S.songs.length - 1);
+        paint();
+        if (added.length) toast('🎼 새 악보가 올라왔어요: ' + (added[added.length - 1].name || '악보') + (added.length > 1 ? ' 외 ' + (added.length - 1) + '개' : '') + ' — 🎼 악보 보기로 열 수 있어요');
+      }).catch(function () {});
+    }, 400);
+  }
+  var toastT = 0;
+  function toast(t) {
+    var e = $('.st-toast'); if (!e) { e = doc.createElement('div'); e.className = 'st-toast'; e.setAttribute('role', 'status'); el.appendChild(e); }
+    e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { e.classList.remove('show'); }, 8000);
   }
   function connect() {
     if (!root.YNRT || !B.room) { paintConn(); return; }
