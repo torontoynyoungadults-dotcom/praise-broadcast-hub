@@ -102,6 +102,7 @@ const rt = realtime.attach(server, {
   loadAnno: (file, scope, team) => liveStore.readLayer(team, file, scope, '*'),
   saveAnno: (file, scope, items, by, team) => liveStore.writeLayer(team, file, scope, '*', items, by),
 });
+app.set('rtFlush', () => rt.flushAll());                 // 인쇄용 PDF 에 필기를 넣기 전에 실시간 필기를 먼저 저장
 live.setRealtime(rt);
 conti.setLiveNotify(live.songsChanged);
 liveStore.loadAnnos().catch((e) => console.error('[찬양주석 불러오기 실패 — 필기를 열 때 다시 시도합니다]', e && e.message));

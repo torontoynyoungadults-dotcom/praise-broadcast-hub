@@ -819,6 +819,17 @@ async function timesFor(team, eventRow) {
   const ts = await timeSettings.get(team);
   return { worship: timeSettings.fmt(ts.worship), rehearsal: timeSettings.fmt(ts.rehearsal) };
 }
+/** 라이브 악보에 쓴 팀 필기(「곡에 계속」 + 「이 날짜만」, 나만 보기는 빼고) → { 쪽번호: [항목] } · 없으면 null */
+function teamAnnos(team, scope, link) {
+  try {
+    const id = liveStore.sheetIdOf(team, link);
+    const items = liveStore.readLayer(team, id, 'song', '*').concat(liveStore.readLayer(team, id, liveStore.roomOf(scope), '*'));
+    if (!items.length) return null;
+    const by = {};
+    items.forEach((it) => { const pg = Number(it.pg) || 1; (by[pg] = by[pg] || []).push(it); });
+    return by;
+  } catch (e) { return null; }
+}
 async function makePackage(req, onProgress) {
   {
     const t0 = Date.now();
@@ -832,6 +843,9 @@ async function makePackage(req, onProgress) {
     const pinfo = await practiceInfo(team, scope, date);
     const honor = (n) => (honorific.isPastorRoles((infoMap[n] || {}).역할) ? n + honorific.SUFFIX : n);
     const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
+    const annoOn = String(req.query.anno) !== '0';                // 라이브 악보 필기도 넣기 (기본) — ?anno=0 이면 악보만
+    if (annoOn) { try { const fl = req.app.get('rtFlush'); if (fl) fl(); } catch (e) { /* 실시간 필기 먼저 저장 — 안 되면 저장된 것까지만 */ } try { await liveStore.loadAnnos(); } catch (e) { /* 필기 없이 */ } }
+    const annosOf = (link) => (annoOn ? teamAnnos(team, scope, link) : null);
     const used = new Set();
     const cache = new Map();
     const bytesOf = (link) => { if (!cache.has(link)) cache.set(link, fileBytes.get(link)); return cache.get(link); };   // 한 번만, 동시에 받음
@@ -849,11 +863,16 @@ async function makePackage(req, onProgress) {
         if (o && o.header) {                 // 콘티에서 이미 머리말을 단 악보 — 자르거나 머리말을 또 달지 않고 그 쪽 그대로 (쪽 번호만 패키지 기준으로)
           used.add(f['파일링크']); used.add(o.link);
           const hb = await bytesOf(f['파일링크']);
-          if (hb) { sheets.push({ buf: hb, asIs: true }); continue; }
+          if (hb) { sheets.push({ buf: hb, asIs: true, annos: annosOf(f['파일링크']) }); continue; }
         }
-        if (o) { used.add(f['파일링크']); used.add(o.link); const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: o.crop || '' }); continue; } }   // 자르기만 한 악보 — 원본 + 자르기
+        if (o) {
+          used.add(f['파일링크']); used.add(o.link);
+          const fa = annosOf(f['파일링크']);                            // 자른 악보에 필기가 있으면 — 필기 좌표가 그 자른 악보 기준이라 그 파일로
+          if (fa) { const fb = await bytesOf(f['파일링크']); if (fb) { sheets.push({ buf: fb, spec: '', crop: '', annos: fa }); continue; } }
+          const ob = await bytesOf(o.link); if (ob) { sheets.push({ buf: ob, spec: o.spec, crop: o.crop || '' }); continue; }   // 자르기만 한 악보 — 원본 + 자르기
+        }
         used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']);
-        if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || ''), asIs: !String(f['쪽'] || '').trim() && await pkgPdf.isHeadedSheet(buf) });   // 예전에 "헤더 자동 추가"로 올린 악보도 알아봄
+        if (buf) sheets.push({ buf, spec: String(f['쪽'] || ''), crop: String(f['자르기'] || ''), asIs: !String(f['쪽'] || '').trim() && await pkgPdf.isHeadedSheet(buf), annos: annosOf(f['파일링크']) });   // 예전에 "헤더 자동 추가"로 올린 악보도 알아봄
       }
       songs.push({ no: x.no, kind: x.kind, title: String(x.s['제목'] || '').trim(), team: String(x.s['팀'] || '').trim(), key: String(x.s['Key'] || '').trim(), bpm: String(x.s['BPM'] || '').trim(),
         form: kakaoLib.formText(x.s['송폼']), note: String(x.s['비고'] || '').trim(), sheets });
@@ -861,7 +880,7 @@ async function makePackage(req, onProgress) {
     const extra = [];
     for (const f of w.sheets.filter((r) => !r['곡ID'] && r['파일링크'] && !used.has(r['파일링크']))) {
       used.add(f['파일링크']); const buf = await bytesOf(f['파일링크']);
-      if (buf) extra.push({ title: String(f['제목'] || '악보'), sheets: [{ buf, spec: String(f['쪽'] || '') }] });
+      if (buf) extra.push({ title: String(f['제목'] || '악보'), sheets: [{ buf, spec: String(f['쪽'] || ''), annos: annosOf(f['파일링크']) }] });
     }
     const ids = []; all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && ids.indexOf(id) === -1) ids.push(id); });
     const qrUrl = ids.length === 1 ? 'https://youtu.be/' + ids[0] : ids.length ? 'https://www.youtube.com/watch_videos?video_ids=' + ids.slice(0, 50).join(',') : '';
@@ -871,23 +890,25 @@ async function makePackage(req, onProgress) {
     const pdf = await pkgPdf.build({
       church: process.env.CHURCH_NAME || '토론토영락교회', team, date, eventName: eventRow ? String(eventRow['이름'] || '') : '',
       title: eventRow ? String(eventRow['이름'] || '') + ' 찬양 콘티' : '주일예배 찬양 콘티',
-      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, times, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0', onProgress,
+      practice: pr ? { date: pr.date, note: pr.note, none: pr.none } : null, times, members, songs, extra, qrUrl, qrCount: ids.length, crop: String(req.query.crop) !== '0', annos: annoOn, onProgress,
     }, sheetSearch.imagesToPdf);
     console.log(`[PDF 패키지] ${team} ${date} — 악보 받기 ${tFetched - t0}ms · 만들기 ${Date.now() - tFetched}ms · ${(pdf.length / 1024) | 0}KB`);
     const name = `${team} 콘티 ${date}${eventRow ? ' ' + eventRow['이름'] : ''}`.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim();
-    const sig = pkgSig({ w, members, pr, times, title: eventRow ? String(eventRow['이름'] || '') : '', date });
+    const sig = pkgSig({ w, members, pr, times, title: eventRow ? String(eventRow['이름'] || '') : '', date, team, scope });
     return { pdf, name, sig, date, event: scope.event };
   }
 }
 
 /** 지금 콘티 · 악보 · 편성 · 연습 상태의 지문 — 확정한 PDF 를 만들 때와 같은지 비교해서 "확정 이후 바뀜"을 알려 줌 */
-function pkgSig({ w, members, pr, times, title, date }) {
+function pkgSig({ w, members, pr, times, title, date, team, scope }) {
   const meta = (f) => [f['파일링크'], f['쪽'] || '', f['자르기'] || ''].join('|');
   const all = [].concat(w.conti, w.final, w.closing);
   const songs = all.map((s) => [s['ID'], s['제목'], s['팀'], s['Key'], s['BPM'], kakaoLib.formText(s['송폼']), s['비고'], s['유튜브'],
     w.sheets.filter((f) => f['곡ID'] === s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각']))).map(meta)]);
   const extra = w.sheets.filter((r) => !r['곡ID'] && r['파일링크']).map(meta);
-  return require('crypto').createHash('sha1').update(JSON.stringify([pkgPdf.LAYOUT_V, title, date, pr && [pr.date, pr.note, pr.none], times || null, members, songs, extra])).digest('hex');
+  // 라이브 악보 팀 필기도 지문에 — 확정한 뒤 필기를 고치면 "확정 이후 바뀜"
+  const annos = team ? w.sheets.filter((f) => f['파일링크']).map((f) => { const a = teamAnnos(team, scope, f['파일링크']); return a ? [f['파일링크'], Object.keys(a).map((k) => a[k].map((it) => it.id + ':' + (it.ts || '')).join(',')).join('|')] : null; }).filter(Boolean) : [];
+  return require('crypto').createHash('sha1').update(JSON.stringify([pkgPdf.LAYOUT_V, title, date, pr && [pr.date, pr.note, pr.none], times || null, members, songs, extra, annos])).digest('hex');
 }
 async function pkgContext(req) {
   const team = req.ctx.current;
@@ -937,7 +958,8 @@ router.get('/conti/package/saved', requireTeam, async (req, res) => {
     const pinfo = await practiceInfo(team, scope, date);
     const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
     const times = await timesFor(team, eventRow);
-    const sig = pkgSig({ w, members, pr: pr && { date: pr.date, note: pr.note, none: pr.none }, times, title: eventRow ? String(eventRow['이름'] || '') : '', date });
+    try { await liveStore.loadAnnos(); } catch (e) { /* 필기 없이 비교 */ }
+    const sig = pkgSig({ w, members, pr: pr && { date: pr.date, note: pr.note, none: pr.none }, times, title: eventRow ? String(eventRow['이름'] || '') : '', date, team, scope });
     res.json({ saved: true, by: row['확정자'], at: row['확정시각'], stale: sig !== row['시그니처'] });
   } catch (e) { console.error('[확정 PDF 확인 실패]', e.message); res.json({ saved: false }); }
 });

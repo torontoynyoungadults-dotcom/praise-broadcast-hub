@@ -2,7 +2,7 @@
    (새 탭에 PDF 를 바로 열면 휴대폰 · 앱 브라우저에서 하얀 화면만 나오는 경우가 있어서 pdf.js 로 직접 그립니다.) */
 (function () {
   if (window.__phPkgPreview) return; window.__phPkgPreview = true;
-  var root = null, state = { href: '', crop: true, blob: null, name: 'worship-package.pdf', token: 0, base: '/conti', readonly: false };
+  var root = null, state = { href: '', crop: true, anno: true, blob: null, name: 'worship-package.pdf', token: 0, base: '/conti', readonly: false };
   var pdfLoad = null;
 
   function loadPdfjs() {
@@ -24,6 +24,7 @@
     root.innerHTML = '<div class="pkp-box" role="dialog" aria-modal="true" aria-label="인쇄용 PDF 패키지">' +
       '<div class="pkp-bar"><b class="pkp-ttl">인쇄용 PDF 패키지</b>' +
       '<label class="pkp-crop"><input type="checkbox" data-pkp="crop" checked> 악보 위 제목 자르기</label>' +
+      '<label class="pkp-crop" title="라이브 악보에 팀이 쓴 필기(나만 보기는 빼고)를 악보 위에 그대로 넣습니다"><input type="checkbox" data-pkp="anno" checked> 필기 넣기</label>' +
       '<button type="button" class="ph-btn" data-pkp="areas">악보 영역 조정</button>' +
       '<button type="button" class="ph-btn" data-pkp="edit" hidden>수정하기</button>' +
       '<button type="button" class="ph-btn" data-pkp="confirm" hidden>확정하기</button>' +
@@ -44,6 +45,7 @@
       if (a === 'regen') { state.mode = 'fresh'; run(); } else if (a === 'ok') doConfirm(); else if (a === 'no') svShow();
     });
     $('[data-pkp="crop"]').addEventListener('change', function () { state.crop = this.checked; run(); });
+    $('[data-pkp="anno"]').addEventListener('change', function () { state.anno = this.checked; run(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && root && root.classList.contains('on')) close(); });
   }
   function msg(t, bad) { var m = $('.pkp-msg'); m.textContent = t || ''; m.classList.toggle('bad', !!bad); m.hidden = !t; }
@@ -223,7 +225,7 @@
     $('.pkp-pages').innerHTML = ''; state.blob = null; state.jobId = '';
     state.mode = ''; $('[data-pkp="edit"]').hidden = true; $('[data-pkp="confirm"]').hidden = true; svHide();
     setBar(2, '시작하는 중');
-    var qs = state.href.replace(/^[^?]*\?/, '') + (state.crop ? '' : '&crop=0');
+    var qs = state.href.replace(/^[^?]*\?/, '') + (state.crop ? '' : '&crop=0') + (state.anno ? '' : '&anno=0');
     var t0 = Date.now(), shown = 2;
     // 서버가 진행률을 알려 줘요. 화면의 숫자는 서버 값과 시간 경과 중 큰 쪽(작업 구간 사이에도 멈춘 것처럼 보이지 않게 조금씩 올라감)
     fetch(state.base + '/package/start?' + qs, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('start'); return r.json(); }).then(function (j) {
@@ -322,7 +324,7 @@
     if (!b) return;
     e.preventDefault();
     if (!root) build();
-    state.href = b.getAttribute('data-href'); state.crop = true;
+    state.href = b.getAttribute('data-href'); state.crop = true; state.anno = true; try { var ac = root && root.querySelector('[data-pkp="anno"]'); if (ac) ac.checked = true; } catch (e) { /* 무시 */ }
     state.base = b.getAttribute('data-base') || '/conti';
     state.readonly = b.getAttribute('data-readonly') === '1';
     $('[data-pkp="crop"]').checked = true;
