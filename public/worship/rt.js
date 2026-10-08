@@ -15,7 +15,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer', 'msg', 'msg:ack'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer', 'msg', 'msg:ack', 'msg:clear'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {
@@ -102,6 +102,7 @@
       /** 요청 메시지 — { to:'bc'|'team'|이름, text, kind } · 확인 { id } */
       sendMsg: function (m) { return api.call('msg', m || {}); },
       ackMsg: function (id) { return api.call('msg:ack', { id: id }); },
+      clearMsgs: function () { return api.call('msg:clear', {}); },
       close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; S.clicker = null; S.metro = null; S.timer = null; if (S.state !== 'unavailable') setState('idle'); },
       pending: function () { return S.outbox.length; }
     };

@@ -131,7 +131,7 @@
           ppl.map(function (p) { return opt(p.name, hon(p.name) + (p.on ? '' : ' — 접속 안 함'), !p.on); }).join('') + '</select></div>' +
         '<textarea class="lm-in lm-text" rows="3" maxlength="200" placeholder="예) 2절부터 인도자 마이크가 작아요"></textarea>' +
         '<div class="lm-acts"><button type="button" class="lm-go wide" data-m="free">보내기</button></div>' +
-        (recent.length ? '<div class="lm-grp"><h5>최근 보낸 글 (누르면 다시 보냄)</h5><div class="lm-chips">' + recent.map(function (r, i) { return chip('data-recent="' + i + '"', r.text + (r.to !== 'bc' ? ' → ' + (r.to === 'team' ? '찬양팀' : r.to) : ''), false, ' lm-rc'); }).join('') + '</div></div>' : '');
+        (recent.length ? '<div class="lm-grp"><h5>최근 보낸 글 (누르면 다시 보냄) <button type="button" class="lm-rclear" data-m="rclear">지우기</button></h5><div class="lm-chips">' + recent.map(function (r, i) { return chip('data-recent="' + i + '"', r.text + (r.to !== 'bc' ? ' → ' + (r.to === 'team' ? '찬양팀' : r.to) : ''), false, ' lm-rc'); }).join('') + '</div></div>' : '');
     }
     var TABS = [['mon', '싱어 모니터'], ['p16', '악기 P16'], ['sub', '자막'], ['free', '직접 입력']];
     function draw() {
@@ -179,6 +179,7 @@
       var rc = t.getAttribute('data-recent'); if (rc != null) { var list = []; try { list = JSON.parse(ls('recent') || '[]'); } catch (x) {} var it = list[+rc]; if (it) send(it.to, it.text, 'free'); return; }
       var m = t.getAttribute('data-m'); if (!m) return;
       if (m === 'close') return open(false);
+      if (m === 'rclear') { ls('recent', null); st.status = ''; draw(); P.toast('최근 보낸 글을 지웠어요.', false, 1400); return; }
       if (m === 'mon-' || m === 'mon+') { var cur = n(ls('mon')) || 0; cur = Math.max(1, Math.min(99, cur + (m === 'mon+' ? 1 : -1))); ls('mon', cur); draw(); return; }
       if (m === 'ch-' || m === 'ch+') { if (!st.p16) return; var c = n(ls('p16.' + st.p16)) || 0; c = Math.max(1, Math.min(99, c + (m === 'ch+' ? 1 : -1))); ls('p16.' + st.p16, c); draw(); return; }
       if (m === 'mon-up' || m === 'mon-down') { send('bc', compose.mon(ls('mon'), st.target, m === 'mon-up'), 'mon'); return; }

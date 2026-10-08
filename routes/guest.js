@@ -43,7 +43,7 @@ async function gate(req, res, next) {
 }
 
 function nav(g, active) {
-  const tabs = [['conti', `${g.base}/conti`, '예배 콘티'], ['live', `${g.base}/live`, '라이브 악보'], ['schedule', `${g.base}/schedule`, '스케줄표']];
+  const tabs = [['conti', `${g.base}/conti`, '예배 콘티'], ['live', `${g.base}/live`, '라이브 악보'], ['schedule', `${g.base}/schedule`, '스케줄표'], ['guide', `${g.base}/guide`, '사용설명서']];
   return `<nav class="ph-hubnav" id="ph-hubnav" aria-label="메뉴"><div class="ph-hubnav-in">${tabs.map(([k, href, label]) =>
     `<a class="ph-hubtab${active === k ? ' on' : ''}" href="${href}"${active === k ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</div></nav>`;
 }
@@ -68,6 +68,12 @@ router.get('/b/:token/live', gate, async (req, res) => {
   return live.renderLive(req, res, { team, ev: eventRow, date, back, ro: true });
 });
 
+/* 사용설명서 (방송팀 보기 링크용) — routes/guide.js guestGuideHtml */
+router.get('/b/:token/guide', gate, async (req, res) => {
+  const { team, base } = req.guest;
+  await send(req, res, 'guide', { eyebrow: `${team} · 방송팀`, title: '사용설명서', sub: '방송팀 보기 링크로 할 수 있는 것과 방송팀 화면 쓰는 법' }, require('./guide').guestGuideHtml(base), `${team} 사용설명서 (방송팀)`);
+});
+
 /* 방송팀 화면 (읽기 전용) — 지금 곡 · 송폼 · 콘티 순서 · 찬양팀 요청 메시지를 크게 (routes/live.js renderStage) */
 router.get('/b/:token/stage', gate, async (req, res) => {
   const { team, base, token } = req.guest;
@@ -76,7 +82,7 @@ router.get('/b/:token/stage', gate, async (req, res) => {
   const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
   const back = `${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}`;
   live.grantView(res, token);
-  return live.renderStage(req, res, { team, ev: eventRow, date, back, ro: true });
+  return live.renderStage(req, res, { team, ev: eventRow, date, back, ro: true, guide: `${base}/guide#stage` });
 });
 
 /* ---------------------------------------------------------------- 예배 콘티 */

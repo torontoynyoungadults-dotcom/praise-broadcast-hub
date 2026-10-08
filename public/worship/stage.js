@@ -83,11 +83,12 @@
         '<button type="button" class="st-tb" data-a="log" title="받은 요청 기록"><span aria-hidden="true">☰</span><em> 기록</em><i class="st-badge" hidden></i></button>' +
         '<button type="button" class="st-tb" data-a="sound" aria-pressed="false" title="요청이 올 때 소리"></button>' +
         '<button type="button" class="st-tb st-fsb" data-a="fs" title="전체 화면" aria-label="전체 화면">⛶</button>' +
+        '<a class="st-tb st-help" href="' + h(B.guide || '/guide#stage') + '" target="_blank" rel="noopener" title="사용설명서" aria-label="사용설명서">?</a>' +
       '</div>' +
     '</header>' +
     '<main class="st-main">' +
       '<section class="st-now" aria-live="polite">' +
-        '<div class="st-pos"><span class="st-kind"></span><span class="st-follow"></span></div>' +
+        '<div class="st-pos"><span class="st-kind"></span><span class="st-follow"></span><button type="button" class="st-sheetbtn" data-a="sheet" hidden>🎼 악보 보기</button></div>' +
         '<h1 class="st-title"></h1>' +
         '<div class="st-meta"></div>' +
         '<div class="st-formwrap"><div class="st-formhd"><b>송폼</b><small class="st-formhint"></small></div><ol class="st-form"></ol></div>' +
@@ -97,6 +98,7 @@
     '</main>' +
     '<div class="st-msgs" aria-live="assertive"></div>' +
     '<div class="st-sheet" hidden></div>' +
+    '<div class="st-sv" hidden role="dialog" aria-label="악보 보기"></div>' +
     '<div class="st-tap" hidden>화면을 한 번 눌러 주세요 — 요청이 올 때 소리가 나고, 화면이 꺼지지 않아요</div>';
   function $(s) { return el.querySelector(s); }
 
@@ -118,6 +120,7 @@
       return '<li class="st-fc' + (i === S.fi ? ' cur' : i < S.fi ? ' done' : '') + (call ? ' call' : '') + '" data-i="' + i + '"><span class="st-fn">' + (i + 1) + '</span><b>' + h(disp(x.k)) + '</b>' +
         (x.rep > 1 ? '<em>×' + x.rep + '</em>' : '') + (x.bars ? '<i>' + x.bars + '마디</i>' : '') + (ko ? '<small>' + h(ko) + '</small>' : '') + '</li>';
     }).join('') : '<li class="st-noform">' + (s ? '송폼이 없는 곡이에요' : '') + '</li>';
+    var sb = $('.st-sheetbtn'); sb.hidden = !s || !(sheetsOf(s).length || (B.sheets || []).length);
     $('.st-navs [data-a="prev"]').disabled = S.cur <= 0;
     $('.st-navs [data-a="next"]').disabled = S.cur >= S.songs.length - 1;
   }
@@ -125,7 +128,8 @@
     $('.st-songs').innerHTML = S.songs.map(function (s, i) {
       var head = s.kind === '결단' ? '설교 후' : s.kind === '폐회송' ? '폐회송' : String(s.seq || i + 1);
       return '<li><button type="button" class="st-song' + (i === S.cur ? ' on' : i < S.cur ? ' done' : '') + '" data-song="' + i + '"><span class="st-sn">' + h(head) + '</span><span class="st-st"><b>' + h(s.title || '제목 없음') + '</b>' +
-        '<small>' + h([s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ')) + '</small></span></button></li>';
+        '<small>' + h([s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ')) + '</small></span></button>' +
+        (sheetsOf(s).length ? '<button type="button" class="st-lsheet" data-sheet="' + i + '" aria-label="' + h(s.title || '') + ' 악보 보기" title="악보 보기">🎼</button>' : '') + '</li>';
     }).join('') || '<li class="st-noform">아직 곡이 없어요</li>';
   }
   function paint() { paintNow(); paintList(); }
@@ -246,7 +250,9 @@
         '<button type="button" class="st-send" data-a="dosend">보내기</button><p class="st-sres" role="status"></p></div>';
       var ta = sh.querySelector('.st-text'); if (ta) setTimeout(function () { ta.focus(); }, 30);
     } else {
-      sh.innerHTML = '<div class="st-card"><div class="st-chd"><b>받은 요청 · 메시지</b><button type="button" class="st-x" data-a="close" aria-label="닫기">✕</button></div>' +
+      sh.innerHTML = '<div class="st-card"><div class="st-chd"><b>받은 요청 · 메시지</b>' +
+          (S.log.length ? '<button type="button" class="st-clear' + (S.clearArm ? ' arm' : '') + '" data-a="clear">' + (S.clearArm ? '한 번 더 누르면 지워져요' : '기록 지우기') + '</button>' : '') +
+          '<button type="button" class="st-x" data-a="close" aria-label="닫기">✕</button></div>' +
         (S.log.length ? '<ul class="st-log">' + S.log.map(function (m) {
           var dir = m.to === 'bc' ? '→ 방송팀' : m.to === 'team' ? '→ 찬양팀' : '→ ' + m.to;
           return '<li class="' + (m.ack ? 'ok' : m.to === 'bc' ? 'wait' : '') + '"><div><b>' + h(m.from) + '</b> <small>' + h(dir) + ' · ' + hhmm(m.t) + '</small></div><p>' + h(m.text) + '</p>' +
@@ -264,7 +270,9 @@
 
   el.addEventListener('click', function (e) {
     unlock();
-    var t = e.target.closest ? e.target.closest('[data-a],[data-song],[data-ack],.st-fc') : null; if (!t) return;
+    var t = e.target.closest ? e.target.closest('[data-a],[data-song],[data-sheet],[data-ack],[data-svopen],.st-fc') : null; if (!t) return;
+    if (t.hasAttribute('data-sheet')) { openSheet(+t.getAttribute('data-sheet')); return; }
+    if (t.hasAttribute('data-svopen')) { var o = t.getAttribute('data-svopen').split('|'); showSheet({ id: o[0], pages: o[1] ? o[1].split(',').map(Number) : [], name: t.textContent }); return; }
     if (t.hasAttribute('data-ack')) { ack(t.getAttribute('data-ack')); return; }
     if (t.hasAttribute('data-song')) { setCur(+t.getAttribute('data-song'), 'manual'); return; }
     if (t.classList.contains('st-fc')) { S.fi = +t.getAttribute('data-i'); paintNow(); flash(S.fi); return; }   // 방송팀이 직접 위치를 맞출 때 (이 화면에서만)
@@ -276,16 +284,120 @@
     else if (a === 'send' || a === 'log') { S.panel = S.panel === a ? '' : a; drawSheet(); }
     else if (a === 'close') { S.panel = ''; drawSheet(); }
     else if (a === 'dosend') doSend();
+    else if (a === 'sheet') openSheet(S.cur);
+    else if (a === 'sv-close') closeSheet();
+    else if (a === 'sv-in' || a === 'sv-out' || a === 'sv-fit') svZoom(a);
+    else if (a === 'clear') {
+      if (!S.clearArm) { S.clearArm = true; drawSheet(); setTimeout(function () { if (S.clearArm) { S.clearArm = false; if (S.panel === 'log') drawSheet(); } }, 4000); return; }
+      S.clearArm = false; clearLog(true);
+    }
   });
   el.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.classList.contains('st-text')) doSend(); });
   doc.addEventListener('keydown', function (e) {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.key === 'Escape' && SV.open) { closeSheet(); return; }
+    if (SV.open) return;
     if (e.key === 'Escape' && S.panel) { S.panel = ''; drawSheet(); }
     else if (e.key === 'ArrowRight' || e.key === 'PageDown') setCur(S.cur + 1, 'manual');
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') setCur(S.cur - 1, 'manual');
     else if ((e.key === 'Enter' || e.key === ' ') && S.msgs.length) { e.preventDefault(); ack(S.msgs[0].id); }
   });
   doc.addEventListener('pointerdown', unlock, { once: true });
+
+  /* ---------- 기록 지우기 — 이 화면 + 다른 방송팀 화면 + 서버 방 메모리 (다시 열어도 안 뜨게) ---------- */
+  function clearLog(send) {
+    S.log = []; S.msgs = []; paintMsgs(); if (S.panel === 'log') drawSheet();
+    if (send && rt && rt.online && rt.clearMsgs) rt.clearMsgs().catch(function () {});
+  }
+
+  /* ---------- 악보 보기 — 곡에 연결된 악보(쪽 범위)를 화면 안에서 (PDF 는 pdf.js, 사진은 그대로) ---------- */
+  var SV = { open: false, zoom: 1, cur: null, seq: 0, pdfP: null, cache: {} };
+  function sheetsOf(s) { return s && Array.isArray(s.sheets) ? s.sheets : []; }
+  function loadPdfjs() {
+    if (root.pdfjsLib) return Promise.resolve(root.pdfjsLib);
+    if (SV.pdfP) return SV.pdfP;
+    SV.pdfP = new Promise(function (res, rej) {
+      var sc = doc.createElement('script'); sc.src = '/vendor/pdfjs/pdf.min.js'; sc.async = true;
+      sc.onload = function () { try { root.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; } catch (e) {} res(root.pdfjsLib); };
+      sc.onerror = function () { SV.pdfP = null; rej(new Error('PDF 도구를 불러오지 못했어요.')); };
+      doc.head.appendChild(sc);
+    });
+    return SV.pdfP;
+  }
+  function bytes(id) {
+    if (SV.cache[id]) return Promise.resolve(SV.cache[id]);
+    return fetch('/sheet/' + encodeURIComponent(id), { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 401 ? '악보를 볼 권한이 없어요. 화면을 다시 열어 주세요.' : '악보를 불러오지 못했어요.');
+      return r.arrayBuffer();
+    }).then(function (buf) { var k = Object.keys(SV.cache); if (k.length > 6) delete SV.cache[k[0]]; SV.cache[id] = buf; return buf; });
+  }
+  function openSheet(i) {
+    var s = songAt(i), list = sheetsOf(s);
+    if (list.length === 1) return showSheet(list[0], s);
+    var sv = $('.st-sv'); SV.open = true; sv.hidden = false; el.classList.add('sv-on');
+    var all = B.sheets || [];
+    sv.innerHTML = '<div class="st-svbar"><b class="st-svttl">' + h(s ? s.title : '악보') + '</b><button type="button" class="st-tb" data-a="sv-close" aria-label="닫기">✕</button></div>' +
+      '<div class="st-svpick">' + (list.length ? '<p>이 곡에 연결된 악보가 여러 개예요.</p>' + list.map(function (x) { return '<button type="button" class="st-svopt" data-svopen="' + h(x.id + '|' + x.pages.join(',')) + '">' + h(x.name || '악보') + (x.pages.length ? ' (' + x.pages.join(', ') + '쪽)' : '') + '</button>'; }).join('')
+        : '<p>이 곡에 따로 연결된 악보가 없어요. 이 예배에 올린 악보 중에서 골라 주세요.</p>' + (all.length ? all.map(function (x) { return '<button type="button" class="st-svopt" data-svopen="' + h(x.id + '|') + '">' + h(x.name || '악보') + '</button>'; }).join('') : '<p class="st-empty">올린 악보가 없어요.</p>')) + '</div>';
+  }
+  function showSheet(f, s) {
+    var sv = $('.st-sv'), my = ++SV.seq; SV.open = true; SV.cur = f; SV.zoom = 1; sv.hidden = false; el.classList.add('sv-on');
+    s = s || songAt(S.cur);
+    sv.innerHTML = '<div class="st-svbar"><b class="st-svttl">' + h((s && s.title) || f.name || '악보') + '</b><span class="st-svpg"></span>' +
+      '<span class="st-svz"><button type="button" class="st-tb" data-a="sv-out" aria-label="작게">−</button><button type="button" class="st-tb" data-a="sv-fit">맞춤</button><button type="button" class="st-tb" data-a="sv-in" aria-label="크게">+</button></span>' +
+      '<button type="button" class="st-tb" data-a="sv-close" aria-label="악보 닫기">✕</button></div><div class="st-svbody"><p class="st-svmsg">악보를 불러오는 중…</p></div>';
+    bytes(f.id).then(function (buf) {
+      if (my !== SV.seq) return;
+      var u8 = new Uint8Array(buf), body = sv.querySelector('.st-svbody');
+      var isPdf = u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46;
+      if (!isPdf) {
+        var url = root.URL.createObjectURL(new Blob([u8], { type: /^\x89PNG/.test(String.fromCharCode(u8[0], u8[1], u8[2], u8[3])) ? 'image/png' : 'image/jpeg' }));
+        body.innerHTML = '<div class="st-svpage"><img alt="악보" src="' + url + '"></div>'; SV.pages = null; SV.pdf = null; sv.querySelector('.st-svpg').textContent = '';
+        var im = body.querySelector('img'); im.onload = function () { fitImg(); };
+        return;
+      }
+      return loadPdfjs().then(function (lib) { return lib.getDocument({ data: u8.slice() }).promise; }).then(function (pdf) {
+        if (my !== SV.seq) return;
+        var pages = (f.pages && f.pages.length ? f.pages : null) || Array.from({ length: pdf.numPages }, function (_, k) { return k + 1; });
+        pages = pages.filter(function (p) { return p >= 1 && p <= pdf.numPages; });
+        SV.pdf = pdf; SV.pages = pages;
+        sv.querySelector('.st-svpg').textContent = pages.length > 1 ? pages.length + '쪽' : '';
+        body.innerHTML = pages.map(function (p) { return '<div class="st-svpage" data-p="' + p + '"><canvas></canvas></div>'; }).join('');
+        return renderPages(my);
+      });
+    }).catch(function (e) { if (my === SV.seq) { var b = sv.querySelector('.st-svbody'); if (b) b.innerHTML = '<p class="st-svmsg bad">' + h(e && e.message || '악보를 불러오지 못했어요.') + '</p>'; } });
+  }
+  function renderPages(my) {
+    var sv = $('.st-sv'), body = sv.querySelector('.st-svbody'); if (!SV.pdf || !body) return Promise.resolve();
+    var bw = Math.max(200, body.clientWidth - 24), bh = Math.max(200, body.clientHeight - 24), dpr = Math.min(2, root.devicePixelRatio || 1);
+    return SV.pages.reduce(function (pr, p) {
+      return pr.then(function () {
+        if (my !== SV.seq) return;
+        return SV.pdf.getPage(p).then(function (pg) {
+          if (my !== SV.seq) return;
+          var v1 = pg.getViewport({ scale: 1 }), W = Math.min(bw, bh * v1.width / v1.height) * SV.zoom;   // 맞춤 = 한 쪽이 화면에 다 보이게 (가로 화면에서도)
+          var sc = W / v1.width, vp = pg.getViewport({ scale: sc * dpr });
+          var box = body.querySelector('.st-svpage[data-p="' + p + '"]'), cv = box && box.querySelector('canvas'); if (!cv) return;
+          cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); cv.style.width = Math.round(vp.width / dpr) + 'px'; cv.style.height = Math.round(vp.height / dpr) + 'px';
+          return pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+        });
+      });
+    }, Promise.resolve());
+  }
+  function svZoom(a) {
+    if (!SV.cur) return;
+    SV.zoom = a === 'sv-fit' ? 1 : Math.max(0.5, Math.min(3, SV.zoom * (a === 'sv-in' ? 1.25 : 0.8)));
+    if ($('.st-sv img')) { fitImg(); return; }
+    renderPages(++SV.seq);
+  }
+  function fitImg() {
+    var im = $('.st-sv img'), body = $('.st-svbody'); if (!im || !im.naturalWidth || !body) return;
+    var bw = Math.max(200, body.clientWidth - 24), bh = Math.max(200, body.clientHeight - 24);
+    im.style.width = Math.round(Math.min(bw, bh * im.naturalWidth / im.naturalHeight) * SV.zoom) + 'px';
+  }
+  function closeSheet() { var sv = $('.st-sv'); SV.open = false; SV.cur = null; SV.pdf = null; SV.seq++; sv.hidden = true; sv.innerHTML = ''; el.classList.remove('sv-on'); }
+  var svT = 0;
+  root.addEventListener('resize', function () { if (SV.open && !SV.pdf) fitImg(); if (!SV.open || !SV.pdf) return; clearTimeout(svT); svT = setTimeout(function () { renderPages(++SV.seq); }, 250); });
 
   /* ---------- 연결 ---------- */
   function paintConn() {
@@ -298,7 +410,9 @@
   function refetch() {
     callServer('worshipSongsOf', [B.token, B.room]).then(function (r) {
       var cur = songAt(S.cur), title = cur && cur.title;
+      var keep = {}; S.songs.forEach(function (x) { if (x.sheets) keep[x.title] = x.sheets; });
       S.songs = (r && r.songs) || [];
+      S.songs.forEach(function (x) { if (!x.sheets && keep[x.title]) x.sheets = keep[x.title]; });
       var k = -1; if (title) S.songs.forEach(function (s, i) { if (k < 0 && s.title === title) k = i; });
       if (k >= 0) S.cur = k; else if (S.cur >= S.songs.length) S.cur = Math.max(0, S.songs.length - 1);
       paint();
@@ -320,6 +434,7 @@
     rt.on('cue', function (c) { if (c && c.label && fresh(c.t)) cueHit(c.label); });
     rt.on('msg', function (m) { onMsg(m, false); });
     rt.on('msg:ack', onAck);
+    rt.on('msg:clear', function () { clearLog(false); });
     rt.on('songs:changed', refetch);
     rt.on('song', function (m) {
       if (!m || !m.patch) return;

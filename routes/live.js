@@ -269,11 +269,23 @@ async function renderStage(req, res, o) {
   const { team, ev, date, back } = o;
   const scope = { event: ev ? ev['ID'] : '', date };
   const room = liveStore.roomOf(scope);
-  const [songs, lineup] = await Promise.all([liveStore.songsOf(team, room), lineupOf(team, scope)]);
+  const [songs, lineup, songRows, sheetRows] = await Promise.all([liveStore.songsOf(team, room), lineupOf(team, scope), sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('악보저장소')]);
+  // 곡마다 연결된 악보 (곡별로 저장한 쪽 범위 포함) — 방송팀 화면의 "악보 보기"
+  const { conti, fin, closing } = liveStore.orderedSongs(songRows, team, scope);
+  const ordered = conti.concat(fin).concat(closing);
+  const files = sheetRows.filter((x) => x['팀ID'] === team && liveStore.inScope(x, scope) && x['파일링크']);
+  ordered.forEach((r, i) => {
+    if (!songs[i]) return;
+    const seen = new Set();
+    songs[i].sheets = files.filter((x) => x['곡ID'] && x['곡ID'] === r['ID']).map((x) => ({ id: liveStore.sheetIdOf(team, x['파일링크']), pages: pageSpec.specPages(pageSpec.cleanSpec(x['쪽'])), name: String(x['제목'] || '') }))
+      .filter((x) => { const k = x.id + '|' + x.pages.join(','); if (!x.id || seen.has(k)) return false; seen.add(k); return true; });
+  });
+  const allSheets = [];
+  files.forEach((x) => { const id = liveStore.sheetIdOf(team, x['파일링크']); if (id && !allSheets.some((y) => y.id === id)) allSheets.push({ id, name: String(x['제목'] || '악보') }); });
   const label = ev ? String(ev['이름'] || '주일 외 찬양') : week.labelKo(date);
   const boot = {
     token: o.ro ? liveAuth.mintView(team, room) : liveAuth.mint(o.member, team, o.isAdmin), room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
-    team, label, date, songs, lineup, back, live: o.liveHref || '',
+    team, label, date, songs, lineup, back, sheets: allSheets, guide: o.guide || '/guide#stage',
   };
   const v = `?v=${LIVE_V}`;
   res.set('Cache-Control', 'no-store');
