@@ -23,10 +23,9 @@
   var P16 = ['드럼', '베이스', '일렉', '피아노', '야마하신디', '노드신디', '모조오르간', '어쿠', '포디움 마이크', '무선마이크', '싱어', '메트로놈', '토크백'];
   var SUBS = ['발코니 TV 가사 켜 주세요.'];
   var SINGERS = ['인도자', '남성싱어', '여성싱어', '알토'];
-  var MICS = 10;
 
   /* ---------- 보낼 글 (시험에서도 씀) ---------- */
-  function n(v) { v = parseInt(v, 10); return v >= 1 && v <= 99 ? v : 0; }
+  function n(v) { v = parseInt(v, 10); return v >= 1 && v <= 999 ? v : 0; }
   var compose = {
     /** target: { t:'mic'|'singer'|'inst', v } */
     mon: function (mon, target, up) {
@@ -97,14 +96,13 @@
     function chip(attr, label, on, extra) { return '<button type="button" class="lm-chip' + (on ? ' on' : '') + (extra || '') + '" ' + attr + '>' + h(label) + '</button>'; }
     function monBody() {
       var mon = ls('mon') || '', t = st.target, sing = singerNames();
-      var mics = ''; for (var i = 1; i <= MICS; i++) mics += chip('data-tg="mic" data-v="' + i + '"', i + '번', t && t.t === 'mic' && +t.v === i);
       var prevUp = compose.mon(mon, t, true);
       return '<div class="lm-row"><label class="lm-lab" for="lmMon">내 모니터</label><div class="lm-num"><button type="button" class="lm-step" data-m="mon-" aria-label="번호 줄이기">−</button>' +
           '<input id="lmMon" class="lm-in lm-monin" type="number" inputmode="numeric" min="1" max="99" placeholder="번호" value="' + h(mon) + '"><span class="lm-unit">번</span>' +
           '<button type="button" class="lm-step" data-m="mon+" aria-label="번호 늘리기">+</button></div><small class="lm-hint">처음 한 번만 — 이 기기에 기억해요</small></div>' +
-        '<div class="lm-grp"><h5>마이크 번호</h5><div class="lm-chips">' + mics + '</div></div>' +
-        '<div class="lm-grp"><h5>싱어</h5><div class="lm-chips">' + (sing.length ? sing.map(function (nm) { return chip('data-tg="singer" data-v="' + h(nm) + '"', hon(nm), t && t.t === 'singer' && t.v === nm); }).join('') : '<span class="lm-empty">이번 주 편성에 싱어가 없어요 — 마이크 번호나 직접 입력을 써 주세요</span>') + '</div></div>' +
+        '<div class="lm-grp"><h5>싱어</h5><div class="lm-chips">' + (sing.length ? sing.map(function (nm) { return chip('data-tg="singer" data-v="' + h(nm) + '"', hon(nm), t && t.t === 'singer' && t.v === nm); }).join('') : '<span class="lm-empty">이번 주 편성에 싱어가 없어요 — 아래 마이크 번호를 직접 넣어 주세요</span>') + '</div></div>' +
         '<div class="lm-grp"><h5>악기</h5><div class="lm-chips">' + INST.map(function (x) { return chip('data-tg="inst" data-v="' + h(x) + '"', x, t && t.t === 'inst' && t.v === x); }).join('') + '</div></div>' +
+        '<div class="lm-row lm-microw"><label class="lm-lab" for="lmMic">마이크 번호</label><input id="lmMic" class="lm-in lm-micin' + (t && t.t === 'mic' ? ' on' : '') + '" type="number" inputmode="numeric" min="1" max="999" placeholder="직접 입력" value="' + h(t && t.t === 'mic' ? t.v : '') + '"><span class="lm-unit">번 마이크</span><small class="lm-hint">(선택) 싱어 이름 대신 번호로</small></div>' +
         '<div class="lm-prev">' + (prevUp ? h(prevUp.replace(/ 올려주세요\.$/, ' …')) : (n(mon) ? '대상을 고르세요' : '먼저 내 모니터 번호를 넣어 주세요')) + '</div>' +
         '<div class="lm-acts"><button type="button" class="lm-go up" data-m="mon-up"' + (prevUp ? '' : ' disabled') + '>▲ 올려주세요</button><button type="button" class="lm-go down" data-m="mon-down"' + (prevUp ? '' : ' disabled') + '>▼ 내려주세요</button></div>';
     }
@@ -193,6 +191,12 @@
     pop.addEventListener('input', function (e) {
       var t = e.target;
       if (t.classList.contains('lm-monin')) { var v = n(t.value); ls('mon', v || null); refreshPrev(); }
+      else if (t.classList.contains('lm-micin')) {                                   // 마이크 번호 직접 입력 — 넣으면 대상이 그 마이크로 (지우면 대상 없음)
+        var mv = n(t.value);
+        if (mv) st.target = { t: 'mic', v: mv }; else if (st.target && st.target.t === 'mic') st.target = null;
+        Array.prototype.forEach.call(pop.querySelectorAll('.lm-chip[data-tg]'), function (c) { c.classList.toggle('on', false); });
+        t.classList.toggle('on', !!mv); refreshPrev();
+      }
       else if (t.classList.contains('lm-chin') && st.p16) { var c = n(t.value); ls('p16.' + st.p16, c || null); refreshPrev(); }
     });
     pop.addEventListener('change', function (e) { if (e.target.classList.contains('lm-to')) st.to = e.target.value; });
