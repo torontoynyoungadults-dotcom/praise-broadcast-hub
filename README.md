@@ -22,7 +22,7 @@ npm start
 ### ① 서버 자격 — 시트 · 드라이브 읽고 쓰기 (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REFRESH_TOKEN`)
 1. [Google Cloud Console](https://console.cloud.google.com) → 새 프로젝트 생성 (church-app과는 별개의 새 프로젝트)
 2. API 및 서비스 → 라이브러리 → **Google Sheets API**, **Google Drive API** 사용 설정
-3. API 및 서비스 → OAuth 동의 화면 → User Type "외부" → 테스트 모드로 설정 (사용할 교회 공용 계정을 테스트 사용자로 추가)
+3. API 및 서비스 → OAuth 동의 화면 → User Type "외부" → 사용할 교회 공용 계정을 테스트 사용자로 추가한 뒤, **반드시 "앱 게시(프로덕션으로 이동)"까지 누르세요.** 테스트 상태로 두면 리프레시 토큰이 **7일마다 만료**되어 `invalid_grant` 로 사이트가 멈춥니다. (게시해도 검증은 필요 없고, 로그인 때 "확인되지 않은 앱" 경고만 한 번 나옵니다)
 4. 사용자 인증 정보 → OAuth 클라이언트 ID 만들기 → 유형 **데스크톱 앱**
 5. 발급된 클라이언트 ID/시크릿으로 아래 실행 (교회 공용 구글 계정 — 아래 드라이브 폴더에 편집자 권한이 있는 계정 — 으로 로그인):
    ```bash

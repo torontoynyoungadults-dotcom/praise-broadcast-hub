@@ -85,8 +85,10 @@ app.use(require('./routes/home'));
 
 app.use((req, res) => res.status(404).type('text').send('Not found'));
 app.use((err, req, res, next) => {
-  console.error('[서버 오류]', err);
-  res.status(500).type('text').send('서버 오류가 발생했습니다.');
+  const grant = err && (err.message === 'invalid_grant' || (err.response && err.response.data && err.response.data.error === 'invalid_grant'));
+  // 로그에는 요약만 (구글 오류 객체에는 리프레시 토큰이 통째로 들어 있어 그대로 찍으면 로그에 비밀이 남음)
+  console.error('[서버 오류]', grant ? 'invalid_grant — 구글 연결(GOOGLE_REFRESH_TOKEN)이 만료 · 취소됨. npm run auth 로 새로 발급해 Render 환경변수를 바꿔주세요.' : (err && err.stack ? String(err.stack).split('\n').slice(0, 6).join('\n') : err));
+  res.status(500).type('text').send(grant ? '구글 시트 연결이 만료되었습니다. 관리자가 연결을 다시 해야 해요. (잠시 후 다시 시도해 주세요)' : '서버 오류가 발생했습니다.');
 });
 
 const server = http.createServer(app);
