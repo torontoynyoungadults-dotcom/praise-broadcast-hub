@@ -33,7 +33,15 @@ const { serviceAuth } = require('../lib/googleAuth');
 
 const router = express.Router();
 const esc = pageShell.esc;
-const LIVE_V = 'ca865-1';                 // church-app v8.3 화면 파일 — 바꾸면 브라우저가 새로 받음
+/* 라이브 악보 화면 파일(public/worship/*)의 내용 지문 — 파일이 바뀌면 주소(?v=)가 저절로 바뀌어 브라우저가 새로 받음.
+ * (예전에는 'ca865-1' 고정이라, 음표 도구 · Verse 4 콜아웃 같은 새 기능을 올려도 브라우저가 옛 파일을 계속 썼음) */
+const LIVE_V = (() => {
+  try {
+    const dir = require('path').join(__dirname, '..', 'public', 'worship'), h = require('crypto').createHash('sha1');
+    require('fs').readdirSync(dir).filter((f) => /\.(js|css)$/.test(f)).sort().forEach((f) => { h.update(f); h.update(require('fs').readFileSync(require('path').join(dir, f))); });
+    return h.digest('hex').slice(0, 10);
+  } catch (e) { return String(Date.now()); }
+})();
 
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
