@@ -446,7 +446,8 @@
       var st = M.state(), b = Math.round(st.bpm);
       if (b === leadLast.bpm && st.num === leadLast.num && st.den === leadLast.den) return;
       leadLast = { bpm: b, num: st.num, den: st.den };
-      P.sendLead({ bpm: b, num: st.num, den: st.den, song: P.songIdx ? P.songIdx() : -1 });
+      var rt0 = P.rt();
+      if (rt0 && (rt0.isLeader || rt0.isClicker)) P.sendLead({ bpm: b, num: st.num, den: st.den, song: P.songIdx ? P.songIdx() : -1 });   // BPM 은 컨트롤을 맡은 사람만 팀에 보냄
       P.emit('bpmview', b);
     }
     P.on('lead', function (st) {
@@ -454,11 +455,15 @@
       var prevLead = P.leadNow; P.leadNow = st;
       var fresh = !!(rt && rt.serverNow && st.t && Math.abs(rt.serverNow() - st.t) < 4000);
       if (st.cue && fresh) remoteCueFlash(String(st.cue), st.by);                         // V848 — 리드가 누른 콜아웃 (큐 보내기 설정과 상관없이)
-      if (st.bpm >= 30 && fresh && prevLead && prevLead.bpm && prevLead.bpm !== st.bpm) {  // V848 — 리드가 BPM 을 바꾸면 모두에게 숫자로
+      if (st.bpm >= 30 && fresh && prevLead && prevLead.bpm && prevLead.bpm !== st.bpm && st.by && rt && (st.by === rt.leader || st.by === rt.clicker) && !(rt.isLeader || rt.isClicker)) {  // V848 — 리드가 BPM 을 바꾸면 모두에게 숫자로
         P.toast('♩ ' + (st.by ? st.by + ' — ' : '') + 'BPM ' + st.bpm, false, 1300);
         Array.prototype.forEach.call(P.el.querySelectorAll('.pv-form-bpm,.pv-lv-bpm b'), function (n) { n.classList.remove('pv-bpmchg'); void n.offsetWidth; n.classList.add('pv-bpmchg'); });
       }
-      if (st.bpm >= 30) {
+      /* 리드의 BPM 을 내 메트로놈에 맞추는 것은 — 그 사람이 지금 페이지 · 클릭 컨트롤일 때만, 내가 컨트롤이 아닐 때만,
+         「따라가기」를 켜 두고 동기화를 끄지(수동) 않았을 때만. (예전에는 누가 보내든, 따라가기를 꺼도 바뀌었음) */
+      var ctlName = !!(rt && st.by && (st.by === rt.leader || st.by === rt.clicker));
+      var bpmOk = st.bpm >= 30 && ctlName && st.ctl !== false && !(rt && (rt.isLeader || rt.isClicker)) && (P.follow ? P.follow() : true) && !(P.manual && P.manual());
+      if (bpmOk) {
         var m = metro();
         if (m) {
           leadApplying = true;

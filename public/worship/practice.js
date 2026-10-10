@@ -1355,6 +1355,10 @@
       ['state', 'peers', 'leader', 'clicker', 'outbox'].forEach(function (n) { rt.on(n, function () { renderChips(); P.emit(n); }); });
       rt.on('joined', function (r) {
         renderChips(); P.emit('joined', r);
+        /* 와이파이가 잠깐 끊겼다 다시 붙으면 서버는 컨트롤을 비웁니다 — 내가 맡고 있었고 그 사이 아무도 안 가져갔으면 조용히 다시 맡습니다
+           (그대로 두면 "아무도 리드 안 함" 상태가 되어 다른 기기 설정이 퍼질 수 있었음) */
+        if (S.hadLead && !r.leader) rt.claim(false).then(function () { sendNav(); renderChips(); }, function () { S.hadLead = false; });
+        if (S.hadClick && !r.clicker) rt.claimClick(false).then(function () { renderChips(); P.emit('clicker'); }, function () { S.hadClick = false; });
         rt.call('prefs', { page: S.follow, metro: S.followM }).catch(function () {});      // 접속자 목록에 내 따라가기 상태 표시
         if (r.you) an.setPerms(r.you.name, r.you.canEdit);
         if (S.doc) loadTeam(++S.annoId, fileId());
@@ -1363,7 +1367,7 @@
       });
       rt.on('metro', function (m) { P.emit('metro', m); });
       rt.on('nav', function (n) { applyNav(n, false); });
-      rt.on('leader', function (m) {
+      rt.on('leader', function (m) { if (m && m.reason !== 'left') S.hadLead = !!(m.name && rt.me && m.name === rt.me.name);
         if (rt.isLeader) sendNav();
         else if (m && m.name && m.reason === 'takeover') toast(YNHon.say(m.name) + ' 페이지 컨트롤을 넘겨받았습니다.');
         else if (m && !m.name && m.reason === 'left') toast('페이지 컨트롤이 나갔습니다.');
@@ -1374,7 +1378,7 @@
         var m = r.msg; if (m.name === 'anno:add' && m.payload && m.payload.item) { delete S.unsent[m.payload.item.id]; an.remoteDel('team', m.payload.item.id); }
         toast('보내지 못한 필기가 있습니다: ' + r.error.message, true); P.emit('sync');
       });
-      rt.on('clicker', function (m) {
+      rt.on('clicker', function (m) { if (m && m.reason !== 'left') S.hadClick = !!(m.name && rt.me && m.name === rt.me.name);
         if (m && m.name && m.reason === 'takeover' && !rt.isClicker) toast(YNHon.say(m.name) + ' 클릭 컨트롤을 넘겨받았습니다.');
         else if (m && !m.name && m.reason === 'left') toast('클릭 컨트롤이 나갔습니다.');
       });
