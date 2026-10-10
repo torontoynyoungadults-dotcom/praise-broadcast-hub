@@ -415,8 +415,8 @@
       click: store('vol'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first'), speak: store('speak'), countdown: store('countdown'), cdskip: store('cdskip'), cdreset: store('cdreset')
     , sub: store('sub'), countall: store('countall'), freq: store('freq'), eq: store('eq') };
     var cfg = {
-      click: S.click == null ? 0.62 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : clamp(S.voice, 0, 2), mode: S.mode || 'lead', lead: S.lead || 2,
-      lang: S.lang || 'en', voiceSel: parseSel(S.gender), gender: legacyGender(parseSel(S.gender)), lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
+      click: S.click == null ? 0.55 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : clamp(S.voice, 0, 2), mode: S.mode || 'lead', lead: S.lead || 2,
+      lang: S.lang || 'en', voiceSel: parseSel(S.gender), gender: legacyGender(parseSel(S.gender)), lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'sine',
       speak: S.speak !== false,                                  // 음성 콜아웃(TTS) 켬(기본)/끔 — 끄면 큐 이름을 소리로 말하지 않습니다 (Step 2.15)
       first: S.first === true,                                   // 첫 박 강세 (기본 끔 — 4박이 모두 같은 소리) — 켜면 첫 박만 더 높고 크게
       pitch: S.pitch == null ? 0 : clamp(S.pitch, LIMITS.minPitch, LIMITS.maxPitch),   // 딸깍 음높이 (반음 단위, -12 ~ +12)
