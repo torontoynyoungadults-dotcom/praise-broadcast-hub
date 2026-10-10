@@ -74,7 +74,7 @@
      · PDF 도구(pdf.js)도 한가할 때 미리 불러 둡니다 (처음 열 때 큰 스크립트를 읽느라 멈칫하던 부분)
      · 휴대폰으로 찍은 큰 사진 악보(예: 4000×3000)는 화면에 필요한 크기(긴 변 IMG_MAX)로 한 번만 줄여 둡니다.
        필기 좌표는 쪽 전체 기준(0~1)이라 줄여도 필기 위치 · 다른 사람 화면과의 동기화는 그대로입니다. */
-  var BYTES = new Map(), BYTE_MAX = 4, IMG_MAX = 2800, PROG = {};
+  var BYTES = new Map(), BYTE_MAX = 6, IMG_MAX = 2800, PROG = {};
   function mbText(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB'; }
   function sheetBytes(id) {
     var hit = BYTES.get(id);
@@ -364,8 +364,17 @@
 
     /* ------------------------------------------------------------ 악보 불러오기 · 그리기 */
     function ensurePdfjs() { return warmPdfjs(); }
+    /* v9.5 — 열어 둔 악보 문서는 10개까지 (예전 5개) — 곡별로 나눈 악보가 많아도 앞뒤 곡으로 넘어갈 때 다시 받아 읽지 않게 */
+    var DOC_MAX = 10;
+    var docP = {};                                                                      // 같은 악보를 동시에 두 번 열지 않게 (미리 받기 · 미리 그리기 · 넘김이 겹칠 때)
     function fetchDoc(f) {
       var c = S.cache[f.id]; if (c) return Promise.resolve(c);
+      if (docP[f.id]) return docP[f.id];
+      var p = openDoc(f); docP[f.id] = p;
+      p.then(function () { delete docP[f.id]; }, function () { delete docP[f.id]; });
+      return p;
+    }
+    function openDoc(f) {
       if (/\.pdf$/i.test(f.name || '')) warmPdfjs().catch(function () { /* 아래에서 다시 시도하며 오류를 알립니다 */ });      // 악보를 받는 동안 PDF 도구도 나란히
       return sheetBytes(f.id).then(function (buf) {
         var u8 = new Uint8Array(buf), isPdf = isPdfBytes(u8);
@@ -380,7 +389,7 @@
         return new Promise(function (res, rej) { var im = new root.Image(); im.decoding = 'async'; im.onload = function () { res({ img: prescale(im), n: 1 }); root.URL.revokeObjectURL(im.src); }; im.onerror = function () { rej(new Error('사진 악보를 읽지 못했습니다.')); }; im.src = root.URL.createObjectURL(blob); });
       }).then(function (d) {
         d.fid = f.id; S.cache[f.id] = d; S.cacheOrder.push(f.id);
-        while (S.cacheOrder.length > 5) { var old = S.cacheOrder.shift(); if (S.cache[old] && S.cache[old] === S.doc && S.cacheOrder.length) { S.cacheOrder.push(old); continue; }      // 지금 보고 있는 악보는 지우지 않음
+        while (S.cacheOrder.length > DOC_MAX) { var old = S.cacheOrder.shift(); if (S.cache[old] && S.cache[old] === S.doc && S.cacheOrder.length) { S.cacheOrder.push(old); continue; }      // 지금 보고 있는 악보는 지우지 않음
           if (S.cache[old] && S.cache[old].pdf && old !== f.id) { try { S.cache[old].pdf.destroy(); } catch (e) {} } delete S.cache[old]; }
         return d;
       });
@@ -452,16 +461,32 @@
       spreadBtn.classList.toggle('on', on); spreadBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
       if (!on) box2.style.display = 'none';
     }
+    /** 두 쪽 보기 오른쪽(다음) 쪽 — 저장소에 있으면 붙이기만, 없으면 따로 그린 뒤 붙입니다.
+     *  v9.5: 예전에는 화면 canvas 에 바로 그리면서 앞 작업을 멈추지 않아, 빨리 넘기면 "같은 canvas 에 두 번 그리기" 오류로 오른쪽이 비곤 했습니다 */
+    var rightTask = null;
     function renderRight(id, pg, d, base, dpr) {
       syncSpreadUi();
+      if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
       if (!spreadOn() || pg >= d.n) { box2.style.display = 'none'; return; }
       pageInfo(d, pg + 1).then(function (info) {
         if (id !== S.rid || !spreadOn()) return;
-        var w = Math.max(50, Math.floor(info.w * base)), hh = Math.max(50, Math.floor(info.h * base));
-        box2.style.display = ''; box2.style.width = w + 'px'; box2.style.height = hh + 'px';
-        pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px'; pdf2.width = Math.round(w * dpr); pdf2.height = Math.round(hh * dpr);
-        var c = pdf2.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pdf2.width, pdf2.height);
-        try { info.draw(pdf2, base * dpr); } catch (e) { box2.style.display = 'none'; }
+        var L = sideLayout(info, base), w = L.cssW, hh = L.cssH, sig = pcSig(d, pg + 1, w, hh, L.dpr);
+        var paint = function (src) {
+          if (id !== S.rid || !spreadOn()) return;
+          box2.style.display = ''; box2.style.width = w + 'px'; box2.style.height = hh + 'px';
+          pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px';
+          if (pdf2.width !== src.width || pdf2.height !== src.height) { pdf2.width = src.width; pdf2.height = src.height; }
+          var c = pdf2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0);
+        };
+        var hit = pcGet(sig); if (hit) { paint(hit.cv); return; }
+        (S.pre.get(sig) || prerender(d, pg + 1, base)).then(function () {
+          var h2 = pcGet(sig); if (h2) { paint(h2.cv); return; }
+          if (id !== S.rid || !spreadOn()) return;                                          // 저장소에 자리가 없을 때만 — 따로 그려서 붙임
+          var off = doc.createElement('canvas'); off.width = Math.round(w * L.dpr); off.height = Math.round(hh * L.dpr);
+          var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, off.width, off.height);
+          var t = info.draw(off, base * L.dpr); rightTask = t;
+          t.promise.then(function () { if (rightTask === t) rightTask = null; paint(off); off.width = off.height = 0; }, function () { if (rightTask === t) rightTask = null; off.width = off.height = 0; });
+        });
       }, function () { box2.style.display = 'none'; });
     }
     box2.onclick = function () { if (S.page < S.pages) goPage(S.page + 1, true); toast('필기하려면 이 쪽이 왼쪽에 옵니다. 다음 쪽은 오른쪽에 보입니다.'); };
@@ -507,30 +532,84 @@
       return { base: base, cssW: cssW, cssH: cssH, dpr: dpr };
     }
     function cropFor(d, pg, info) { return S.crop && !spreadOn() ? cropOf(d, pg, info) : Promise.resolve(null); }
-    /** 지금 쪽 앞 · 뒤 한 쪽을 브라우저가 한가할 때 미리 그려 저장소에 둡니다 (화면 · 필기에는 손대지 않음) */
+    /* ------------------------------------------------------------ v9.5 미리 그리기 (예배 중 쪽 넘김이 바로 되도록)
+       · 지금 쪽을 그린 뒤 바로(한가할 때를 오래 기다리지 않고) 다음 쪽 → 그다음 쪽 → 앞 쪽 순서로 그려 둡니다
+       · 마지막 쪽 근처면 다음 악보(곡별로 나눈 악보)의 첫 쪽까지, 첫 쪽이면 앞 악보의 마지막 쪽까지 미리 그려 둡니다
+         (예전에는 파일이 바뀌는 넘김마다 처음부터 그려서 0.5초 ~ 몇 초씩 멈췄습니다)
+       · 두 쪽 나란히 보기에서도 다음 두 쪽을 미리 그려 둡니다 (예전에는 늘 새로 그림)
+       · 이미 그리고 있는 쪽으로 넘기면 같은 그림을 두 번 그리지 않고 끝나기를 기다렸다 붙입니다 (S.pre)
+       · 넘긴 뒤에 끝난 미리 그리기도 버리지 않고 저장해 둡니다 (되돌아올 때 바로) */
+    S.pre = new Map();
+    /** d 의 n 쪽을 화면 크기에 맞춰 그려 저장소에 넣습니다 → Promise(sig). base 를 주면 그 배율로 (두 쪽 보기의 오른쪽 쪽) */
+    function prerender(d, n, base) {
+      if (S.dead || !d || n < 1 || n > d.n) return Promise.resolve(null);
+      return pageInfo(d, n).then(function (info) {
+        return (base ? Promise.resolve(null) : cropFor(d, n, info)).then(function (cr) {
+          if (S.dead) return null;
+          var L = base ? sideLayout(info, base) : layoutOf(info, cr), sig = pcSig(d, n, L.cssW, L.cssH, L.dpr);
+          if (S.pcache.has(sig)) return sig;
+          if (S.pre.has(sig)) return S.pre.get(sig);
+          var pw = Math.round(L.cssW * L.dpr), ph = Math.round(L.cssH * L.dpr), pb = pw * ph * 4;
+          if (pb > PC_ONE_MAX || !pcRoom(pb)) return null;                                  // 자리가 없으면 미리 그리지 않음 (지금 쪽 그림은 지킴)
+          var off = doc.createElement('canvas'); off.width = pw; off.height = ph;
+          var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pw, ph);
+          var t; try { t = info.draw(off, L.base * L.dpr); } catch (e) { return null; }
+          var pr = t.promise.then(function () { S.pre.delete(sig); if (!S.dead) { pcAdd(sig, off); return sig; } off.width = off.height = 0; return null; },
+            function () { S.pre.delete(sig); off.width = off.height = 0; return null; });
+          S.pre.set(sig, pr);
+          return pr;
+        });
+      }).catch(function () { return null; });
+    }
+    /** 두 쪽 보기 오른쪽 쪽의 크기 (왼쪽 쪽과 같은 배율) */
+    function sideLayout(info, base) {
+      var dpr = Math.min(2, root.devicePixelRatio || 1), cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
+      while (cssW * cssH * dpr * dpr > 14e6 && dpr > 1) dpr -= 0.25;
+      return { base: base, cssW: cssW, cssH: cssH, dpr: dpr };
+    }
+    /** 다음에 볼 가능성이 큰 쪽들 — [{ d, n, pairOf }] (pairOf: 두 쪽 보기에서 그 쪽의 왼쪽 쪽 번호) */
+    function upcoming(d, pg0) {
+      var out = [], sp = spreadOn(), step = sp ? 2 : 1;
+      var add = function (dd, n, pairOf) { if (dd && n >= 1 && n <= dd.n) out.push({ d: dd, n: n, pairOf: pairOf || 0 }); };
+      if (sp) { add(d, pg0 + 1, pg0); add(d, pg0 + 2); add(d, pg0 + 3, pg0 + 2); add(d, pg0 - 2); add(d, pg0 - 1, pg0 - 2); }
+      else { add(d, pg0 + 1); add(d, pg0 + 2); add(d, pg0 - 1); }
+      out.edge = { next: pg0 + step > d.n - (sp ? 1 : 1), prev: pg0 <= step };
+      return out;
+    }
     function prefetch(d, pg0, id) {
-      if (spreadOn() || S.dead) return;
-      var run = function () {
+      if (S.dead) return;
+      var go = function () {
         if (id !== S.rid || S.dead || S.doc !== d) return;
-        [pg0 + 1, pg0 - 1].filter(function (n) { return n >= 1 && n <= d.n; }).reduce(function (p, n) {
+        var list = upcoming(d, pg0), edge = list.edge;
+        var chain = list.reduce(function (p, it) {
           return p.then(function () {
-            if (id !== S.rid || S.doc !== d) return;
-            return pageInfo(d, n).then(function (info) {
-              return cropFor(d, n, info).then(function (cr) {
-                if (id !== S.rid || S.doc !== d) return;
-                var L = layoutOf(info, cr), sig = pcSig(d, n, L.cssW, L.cssH, L.dpr);
-                var pb = Math.round(L.cssW * L.dpr) * Math.round(L.cssH * L.dpr) * 4;
-                if (S.pcache.has(sig) || pb > PC_ONE_MAX || !pcRoom(pb)) return;          // 자리가 없으면 미리 그리지 않음 (지금 쪽 그림은 지킴)
-                var off = doc.createElement('canvas'); off.width = Math.round(L.cssW * L.dpr); off.height = Math.round(L.cssH * L.dpr);
-                var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, off.width, off.height);
-                var t = info.draw(off, L.base * L.dpr);
-                return t.promise.then(function () { if (id === S.rid && S.doc === d && !S.dead) pcAdd(sig, off); else { off.width = off.height = 0; } }, function () { off.width = off.height = 0; });
+            if (id !== S.rid || S.dead) return;                                             // 그새 넘겼으면 새 쪽 기준으로 다시 시작 (이미 끝난 그림은 저장소에 남음)
+            if (!it.pairOf) return prerender(it.d, it.n);
+            return pageInfo(it.d, it.pairOf).then(function (li) { return prerender(it.d, it.n, layoutOf(li, null).base); });
+          });
+        }, Promise.resolve());
+        /* 곡별로 나눈 악보: 이 파일 끝 근처면 다음 악보 첫 쪽(두 쪽 보기면 첫 두 쪽) · 처음이면 앞 악보 마지막 쪽 */
+        chain.then(function () {
+          if (id !== S.rid || S.dead) return;
+          var jobs = [];
+          if (edge.next && S.sheetIdx < sheets.length - 1) jobs.push([S.sheetIdx + 1, 'first']);
+          if (edge.prev && S.sheetIdx > 0) jobs.push([S.sheetIdx - 1, 'last']);
+          return jobs.reduce(function (p, j) {
+            return p.then(function () {
+              if (id !== S.rid || S.dead) return;
+              return fetchDoc(sheets[j[0]]).then(function (d2) {
+                if (id !== S.rid || S.dead) return;
+                var n = j[1] === 'first' ? 1 : d2.n;
+                return prerender(d2, n).then(function () {
+                  if (!spreadOn() || j[1] !== 'first' || d2.n < 2 || id !== S.rid) return;
+                  return pageInfo(d2, 1).then(function (li) { return prerender(d2, 2, layoutOf(li, null).base); });
+                });
               });
             });
-          });
-        }, Promise.resolve()).catch(function () { /* 미리 그리기는 실패해도 화면에 영향 없음 */ });
+          }, Promise.resolve());
+        }).catch(function () { /* 미리 그리기는 실패해도 화면에 영향 없음 */ });
       };
-      if (root.requestIdleCallback) root.requestIdleCallback(run, { timeout: 1500 }); else setTimeout(run, 250);
+      setTimeout(go, 16);                                                                   // 지금 쪽이 화면에 나온 다음 프레임에 바로 (예전: 한가할 때까지 최대 1.5초)
     }
     /** 지금 쪽을 화면에 그립니다.
      *   · 같은 쪽 · 같은 크기를 이미 그려 뒀으면 아무것도 하지 않음 (리사이즈 · 패널 열고 닫기 · 도구 막대 접기가 여러 번 불러도 한 번만 그림)
@@ -546,7 +625,7 @@
       }).then(function (ic) {
         if (!ic || id !== S.rid) return; var info = ic[0], cr = ic[1], L = layoutOf(info, cr), cssW = L.cssW, cssH = L.cssH, dpr = L.dpr, base = L.base;
         var sig = pcSig(d, pg, cssW, cssH, dpr) + (spreadOn() ? '|s' : '');
-        if (!force && S.drawnOk && S.drawnSig === sig) { S.anchor = null; S.cropNow = cr || null; loading.style.display = 'none'; S.rid = S.drawnId; syncTouch(); return; }      // (번호를 되돌려, 진행 중인 미리 그리기가 취소되지 않게)
+        if (!force && S.drawnOk && S.drawnSig === sig) { S.anchor = null; S.cropNow = cr || null; loading.style.display = 'none'; S.rid = S.drawnId; syncTouch(); clearTimeout(S.ldT); turnDone('same'); return; }      // (번호를 되돌려, 진행 중인 미리 그리기가 취소되지 않게)
         if (!force && S.pending && S.pending.sig === sig) { S.rid = S.pending.id; return S.pending.p; }              // 같은 그림을 이미 그리는 중
         if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
         S.drawnOk = false; S.drawnSig = null;
@@ -569,23 +648,40 @@
             stage.scrollTop = Math.max(0, box.offsetTop + an0.fy * cssH - (an0.cy - sr.top));
           }
         }
-        var done = function () { if (id === S.rid) { S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
-        var hit = pcGet(pcSig(d, pg, cssW, cssH, dpr));
+        var done = function () { if (id === S.rid) { clearTimeout(S.ldT); turnDone(hit ? 'cache' : 'draw'); S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
+        var key = pcSig(d, pg, cssW, cssH, dpr), hit = pcGet(key);
         if (hit) {                                                                 // 이미 그려 둔 그림 — 붙이기만
           c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(hit.cv, 0, 0); renderRight(id, pg, d, base, dpr); done(); return;
         }
-        c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, pdfCv.width, pdfCv.height);
-        var t = info.draw(pdfCv, base * dpr); S.task = t;
+        var fresh = function () {
+          if (id !== S.rid) return;
+          var h2 = pcGet(key);
+          if (h2) { hit = h2; c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(h2.cv, 0, 0); done(); return; }
+          c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, pdfCv.width, pdfCv.height);
+          var t = info.draw(pdfCv, base * dpr); S.task = t;
+          return t.promise.then(function () {
+            if (id === S.rid) { pcCopy(key, pdfCv); done(); }
+          }, function (e) {
+            if (S.pending && S.pending.id === id) S.pending = null;
+            if (e && e.name === 'RenderingCancelledException') return;
+            if (id !== S.rid) return;                                                         // 이미 다른 쪽으로 넘어갔으면 알리지 않음
+            loading.style.display = 'none'; toast('이 쪽을 그리지 못했습니다.', true);
+          });
+        };
         renderRight(id, pg, d, base, dpr);
-        var pr = t.promise.then(function () {
-          if (id === S.rid) { pcCopy(pcSig(d, pg, cssW, cssH, dpr), pdfCv); done(); }
-        }, function (e) {
-          if (S.pending && S.pending.id === id) S.pending = null;
-          if (e && e.name === 'RenderingCancelledException') return; loading.style.display = 'none'; toast('이 쪽을 그리지 못했습니다.', true);
-        });
+        var inflight = S.pre.get(key);                                               // v9.5 — 미리 그리는 중인 쪽이면 같은 그림을 다시 그리지 않고 끝나기를 기다림
+        var pr = inflight ? inflight.then(fresh, fresh) : fresh();
         S.pending = { sig: sig, id: id, p: pr };
         return pr;
       }, function () { loading.style.display = 'none'; toast('이 쪽을 읽지 못했습니다.', true); });
+    }
+    /* v9.5 — 쪽 넘김 걸린 시간 기록 (누른 순간 → 그 쪽 그림이 화면에 다 그려진 순간). 최근 40번 — 시험 · 진단용 */
+    S.turns = []; S.turnAt = 0;
+    function turnStart() { S.turnAt = root.performance ? root.performance.now() : Date.now(); }
+    function turnDone(how) {
+      if (!S.turnAt) return;
+      var ms = (root.performance ? root.performance.now() : Date.now()) - S.turnAt; S.turnAt = 0;
+      S.turns.push({ sheet: S.sheetIdx, page: S.page, ms: Math.round(ms), how: how }); if (S.turns.length > 40) S.turns.shift();
     }
     /** 여러 곳에서 "다시 그려라"가 몰려 와도 한 번만 (마지막 요청 기준) — 리사이즈 · 패널 · 도구 막대 접기 */
     function renderSoon(ms) {
@@ -596,9 +692,14 @@
 
     function loadSheet(idx, page, fromUser) {
       idx = clamp(idx | 0, 0, sheets.length - 1);
-      var f = sheets[idx], lid = ++S.loadId;
+      var f = sheets[idx], lid = ++S.loadId; turnStart();
       flushMine(); an.closeEditor();
-      S.sheetIdx = idx; sheetSel.value = String(idx); loading.style.display = 'flex'; loading.textContent = '악보를 불러오는 중…';
+      S.sheetIdx = idx; sheetSel.value = String(idx); S.loadingTo = lid; S.loadWant = page || 1;
+      /* v9.5 — 이미 받아 둔 악보(미리 그려 둔 쪽)면 "불러오는 중" 가림막을 띄우지 않습니다 — 넘김이 번쩍이지 않게. 오래 걸릴 때만 보임 */
+      loading.textContent = S.cache[f.id] ? '악보를 그리는 중…' : '악보를 불러오는 중…';
+      clearTimeout(S.ldT);
+      if (S.cache[f.id]) S.ldT = setTimeout(function () { if (lid === S.loadId && !S.dead && !S.drawnOk) loading.style.display = 'flex'; }, 250);
+      else loading.style.display = 'flex';
       var g = guessSong(f.name, songs); if (g >= 0 && S.songIdx !== g && !S.applying) setSong(g, true);
       var pgT = root.setInterval(function () {                                        // 내려받는 동안 "악보를 불러오는 중… 42% (1.3MB / 3.0MB)"
         var pr = PROG[f.id];
@@ -609,13 +710,18 @@
         root.clearInterval(pgT);
         if (lid !== S.loadId || S.dead) return;
         loading.textContent = '악보를 그리는 중…';
-        S.doc = d; S.pages = d.n; S.page = clamp(page || 1, 1, d.n); pgLabel();
+        S.doc = d; S.pages = d.n; S.page = clamp(S.loadWant || page || 1, 1, d.n); pgLabel(); S.drawnOk = false;
+        var rp = renderPage();                                                              // v9.5 — 그리기를 먼저 시작 (필기 · 곡 정보 읽기는 그 뒤)
+        if (S.loadingTo === lid) S.loadingTo = 0;
         loadAnno(); P.emit('sheet', { file: f, doc: d });
-        syncSongForPage(); scanTitles(d, f);
-        return renderPage().then(function () { if (fromUser) sendNav(); preloadSheets(); });
+        syncSongForPage();
+        if (fromUser) sendNav();                                                            // 팀 화면도 바로 따라오게 (예전: 내 화면을 다 그린 뒤에야 보냄)
+        flushNavQ(fromUser);
+        return Promise.resolve(rp).then(function () { scanTitlesSoon(d, f); preloadSheets(); });
       }).catch(function (e) {
         root.clearInterval(pgT);
         if (lid !== S.loadId) return;
+        S.loadingTo = 0; S.navQ = 0; clearTimeout(S.ldT);
         S.doc = null; loading.style.display = 'flex'; loading.textContent = (e && e.message) || '악보를 불러오지 못했습니다.'; toast(loading.textContent, true, 7000);
       });
     }
@@ -633,15 +739,24 @@
       }, 1200);
     }
     function goPage(n, fromUser) {
+      if (S.loadingTo) { S.loadWant = n | 0 || 1; return; }                             // v9.5 — 악보를 불러오는 중이면 그 악보의 몇 쪽을 열지만 바꿈 (앞 악보에 넘기지 않게)
       if (!S.doc) return; n = clamp(n | 0, 1, S.pages); if (n === S.page) return;
-      S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); syncSongForPage(); renderPage(); P.emit('page', n);
+      turnStart(); S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); syncSongForPage(); renderPage(); P.emit('page', n);
       if (fromUser) sendNav();
     }
+    /* v9.5 — 다른 악보를 불러오는 동안 누른 넘김은 모아 두었다가 불러온 뒤 그대로 적용 (예전: 앞 악보 쪽 수로 계산해 쪽을 건너뛰었음) */
+    S.navQ = 0; S.loadingTo = 0;
+    function flushNavQ(user) {
+      var q = S.navQ; S.navQ = 0;
+      for (var i = 0; i < Math.abs(q); i++) { if (q > 0) nextPage(user); else prevPage(user); if (S.loadingTo) { S.navQ += (q > 0 ? 1 : -1) * (Math.abs(q) - i - 1); return; } }
+    }
     function nextPage(user) {
+      if (S.loadingTo) { S.navQ++; return; }
       if (S.page < S.pages) goPage(S.page + (spreadOn() && S.page + 1 < S.pages ? 2 : 1), user);
       else if (S.sheetIdx < sheets.length - 1) loadSheet(S.sheetIdx + 1, 1, user);
     }
     function prevPage(user) {
+      if (S.loadingTo) { S.navQ--; return; }
       if (S.page > 1) goPage(S.page - (spreadOn() && S.page > 2 ? 2 : 1), user);
       else if (S.sheetIdx > 0) { var pi = S.sheetIdx - 1; loadSheet(pi, 9999, user); }
     }
@@ -841,6 +956,12 @@
       return cur;
     }
     function autoSongAt(f, pg) { var m = mapOf(f), cur = m.base; for (var p = 1; p <= pg; p++) if (m.auto[p] != null) cur = m.auto[p]; return cur; }
+    /** v9.5 — 쪽 제목 읽기는 그리기와 같은 PDF 작업자를 씁니다. 화면을 다 그린 뒤 · 그리는 중이 아닐 때만 한 쪽씩 (넘김을 막지 않게) */
+    function scanTitlesSoon(d, f) { setTimeout(function () { if (!S.dead) scanTitles(d, f); }, 400); }
+    function pdfIdle() {
+      var t0 = Date.now();
+      return new Promise(function (res) { (function wait() { if (S.dead || (!S.pending && !S.pre.size && !S.turnAt) || Date.now() - t0 > 4000) res(); else setTimeout(wait, 120); }()); });
+    }
     function scanTitles(d, f) {
       var m = mapOf(f);
       if (m.scanned || m.scanning || !d.pdf || !songs.length) { m.scanned = true; return Promise.resolve(); }
@@ -849,7 +970,7 @@
       function step() {
         if (pg > last || S.dead) { m.scanning = false; m.scanned = true; return Promise.resolve(); }
         var p = pg++;
-        return d.pdf.getPage(p).then(function (page) {
+        return pdfIdle().then(function () { return d.pdf.getPage(p); }).then(function (page) {
           var top = page.view ? page.view[3] : 0;
           return page.getTextContent().then(function (tc) {
             var head = tc.items.filter(function (it) { return it.str && (!top || !it.transform || it.transform[5] >= top * 0.6); }).slice(0, 40).map(function (it) { return it.str; }).join('');
@@ -2326,7 +2447,8 @@
 
     /* ------------------------------------------------------------ 시작 · 닫기 */
     var api = {
-      el: el, P: P, goPage: function (n) { goPage(n, true); }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
+      el: el, P: P, goPage: function (n) { goPage(n, true); }, next: function () { nextPage(true); }, prev: function () { prevPage(true); },
+      perf: function () { return { turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
         if (S.dead) return; S.dead = true; if (S.fs) setFs(false); closeYt(); flushMine(); P.emit('close');
         try { an.closeEditor(); } catch (e) {}
@@ -2337,10 +2459,11 @@
         doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient); doc.removeEventListener('fullscreenchange', onFsChange); clearTimeout(S.fsT);
         if (ro) ro.disconnect(); root.removeEventListener('resize', onResize);
         /* 남아 있는 예약(타이머) · 반복 · 그림 저장소를 모두 정리 — 화면을 여닫아도 메모리가 쌓이지 않게 (내 필기 저장 재시도 S.mineT 만 남겨 둡니다) */
-        [rz, orT, wz.t, S.rsT, S.navT, S.preT, S.msgT, S.toolT, refetchT, scT].forEach(function (t) { if (t) clearTimeout(t); });
+        [rz, orT, wz.t, S.rsT, S.navT, S.preT, S.msgT, S.toolT, S.ldT, refetchT, scT].forEach(function (t) { if (t) clearTimeout(t); });
         holdStop(); if (pvRaf && root.cancelAnimationFrame) { try { root.cancelAnimationFrame(pvRaf); } catch (e) {} pvRaf = 0; }
         if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
-        pcClear(); S.pending = null;
+        if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
+        pcClear(); S.pending = null; S.pre.clear();
         try { wakeCtl && wakeCtl.destroy(); } catch (e) {}
         Object.keys(S.cache).forEach(function (k) { try { S.cache[k].pdf && S.cache[k].pdf.destroy(); } catch (e) {} });
         el.remove(); doc.body.classList.remove('pv-lock'); current = null;

@@ -830,14 +830,27 @@
           '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ' + I('timer') + '악보 화면 위에 메트로놈 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
           '<div class="pv-msg2" data-role="msg"></div></div>' +
+        '<div class="pv-sec pv-clicksec"><h4>딸깍 소리 · EQ</h4>' +
+          '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="sine">사인파 (주파수 직접)</option><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
+          '<div class="pv-freqrow" data-role="freqrow"><label class="pv-rng">주파수 <input type="range" min="200" max="4000" step="10" data-o="freq" aria-label="사인파 주파수"><output data-role="freqout"></output></label>' +
+            '<div class="pv-row pv-freqbtns"><input class="pv-freqin" type="number" inputmode="numeric" min="200" max="4000" step="1" data-o="freqn" aria-label="주파수 (Hz) 직접 입력"><span class="pv-unit">Hz</span>' +
+            [440, 800, 1000, 1500, 2000].map(function (f) { return '<button type="button" class="pv-btn2 mini" data-freq="' + f + '">' + f + '</button>'; }).join('') + '</div>' +
+            '<p class="pv-help">사인파는 맑은 "삐" 한 음입니다 (기본 1000Hz). 강세 박은 5도 위(×1.5), 시작 전 예비 박은 한 옥타브 위로 납니다.</p></div>' +
+          '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
+          '<label class="pv-rng pv-pitchrow">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
+          '<div class="pv-eq"><div class="pv-eqhead"><b>이퀄라이저 (EQ)</b><select data-o="eqp" aria-label="EQ 미리 정한 값"><option value="flat">평평 (기본)</option><option value="soft">부드럽게 (귀가 덜 아프게)</option><option value="clear">또렷하게 (밴드 소리 위로)</option><option value="ears">인이어 · 이어폰</option><option value="warm">따뜻하게 (저음 강조)</option><option value="">직접 조절</option></select></div>' +
+            '<label class="pv-rng">저음 <small>250Hz</small> <input type="range" min="-12" max="12" step="0.5" data-o="eqlow"><output data-role="eqlowout"></output></label>' +
+            '<label class="pv-rng">가운데 <input type="range" min="-12" max="12" step="0.5" data-o="eqmid"><output data-role="eqmidout"></output></label>' +
+            '<label class="pv-rng pv-eqf">가운데 주파수 <input type="range" min="300" max="5000" step="50" data-o="eqmidf"><output data-role="eqmidfout"></output></label>' +
+            '<label class="pv-rng">고음 <small>4kHz</small> <input type="range" min="-12" max="12" step="0.5" data-o="eqhigh"><output data-role="eqhighout"></output></label>' +
+            '<div class="pv-row"><button type="button" class="pv-btn2" data-a="clickprev">▶ 딸깍 들어보기</button><button type="button" class="pv-btn2" data-a="eqflat">EQ 평평하게</button></div></div>' +
+          '<p class="pv-help">딸깍 볼륨은 가운데가 기본 크기이고 오른쪽 끝이 약 6배입니다 — 높일수록 소리가 단단하고 길어져 실제로 더 크게 들립니다 (찢어지지 않게 자동으로 눌러 줍니다). EQ 는 딸깍 소리에만 걸리고(음성 큐는 그대로) 박이 늦어지지 않습니다. 이 기기에 기억됩니다.</p></div>' +
         '<div class="pv-sec"><h4>음성 큐 — 눌러서 알려주기</h4><p class="pv-help" data-role="cuehelp"></p>' +
           GROUPS.map(function (g) { return '<div class="pv-cuegrp"><span>' + g[1] + '</span><div class="pv-cues">' + CUES.filter(function (c) { return c.g === g[0]; }).map(function (c) { return '<button class="pv-cue" data-cue="' + c.id + '"></button>'; }).join('') + '</div></div>'; }).join('') +
           '<div class="pv-cuestat" data-role="cuestat"></div></div>' +
         '<div class="pv-sec"><h4>소리 · 큐 설정</h4>' +
-          '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
-          '<label class="pv-rng">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
           '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="2" step="0.05" data-o="voice"><output data-role="voiceout"></output></label>' +
-          '<p class="pv-help">딸깍 볼륨은 가운데가 기본 크기이고 오른쪽 끝이 약 6배입니다 — 높일수록 소리가 단단하고 길어져 실제로 더 크게 들립니다 (찢어지지 않게 자동으로 눌러 줍니다). 음성 볼륨은 최대 2배입니다. 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
+          '<p class="pv-help">음성 볼륨은 최대 2배입니다. 딸깍 소리 · 볼륨 · 이퀄라이저는 위 「딸깍 소리 · EQ」에 있습니다.</p>' +
           '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기 <small>(끄면 큐 이름을 소리로 말하지 않습니다 — 화면 위 도크에서도 켜고 끌 수 있어요)</small></label>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
@@ -849,7 +862,6 @@
           '<div class="pv-row"><button type="button" class="pv-btn2" data-a="voicetest">▶ 들어보기 (Bridge)</button></div>' +
           '<div class="pv-help" data-role="voiceinfo"></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
-          '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
         '<div class="pv-sec"><h4>팀과 함께</h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 페이지 컨트롤일 때 큐를 팀 전체에 보내기</label>' +
@@ -887,6 +899,24 @@
           '<optgroup label="이 기기의 음성 (실시간 합성)"><option value="live">기기 음성 · 남성 (미국 영어)</option><option value="female">기기 음성 · 여성</option><option value="any">기기 기본 음성</option></optgroup>';
         sel.value = cur === 'male' ? 'mix' : cur; if (sel.value !== cur && cur !== 'male') sel.value = 'mix';
       }
+      /* v9.5 — 사인파 주파수 · EQ 화면 (끌고 있는 막대는 건드리지 않음) */
+      var dbTxt = function (v) { return (v > 0 ? '+' : '') + v + ' dB'; };
+      function setIf(sel, v) { var e = q(sel); if (e && doc.activeElement !== e) e.value = v; }
+      function syncClickUi(c) {
+        var sine = c.sound === 'sine', e = c.eq || { low: 0, mid: 0, high: 0, midF: 1000 };
+        q('[data-role="freqrow"]').style.display = sine ? '' : 'none';
+        q('.pv-pitchrow').style.display = sine || c.sound === 'mute' ? 'none' : '';
+        setIf('[data-o="freq"]', c.freq); setIf('[data-o="freqn"]', c.freq); q('[data-role="freqout"]').textContent = c.freq + ' Hz';
+        Array.prototype.forEach.call(host.querySelectorAll('[data-freq]'), function (b) { b.classList.toggle('on', +b.dataset.freq === c.freq); });
+        setIf('[data-o="eqlow"]', e.low); setIf('[data-o="eqmid"]', e.mid); setIf('[data-o="eqhigh"]', e.high); setIf('[data-o="eqmidf"]', e.midF);
+        q('[data-role="eqlowout"]').textContent = dbTxt(e.low); q('[data-role="eqmidout"]').textContent = dbTxt(e.mid); q('[data-role="eqhighout"]').textContent = dbTxt(e.high);
+        q('[data-role="eqmidfout"]').textContent = (e.midF >= 1000 ? (Math.round(e.midF / 100) / 10) + 'k' : e.midF) + ' Hz';
+        setIf('[data-o="eqp"]', m.eqPreset ? m.eqPreset() : '');
+        Array.prototype.forEach.call(host.querySelectorAll('.pv-clicksec input[type=range]'), function (r) {          // 막대의 주황 채움도 값에 맞게 (미리 정한 EQ 를 고를 때)
+          var mn = parseFloat(r.min || 0), mx = parseFloat(r.max || 100), v = parseFloat(r.value);
+          r.style.setProperty('--fill', (mx > mn ? Math.max(0, Math.min(100, (v - mn) / (mx - mn) * 100)) : 0) + '%');
+        });
+      }
       function sync() {
         var st = m.state(), c = st.cfg;
         fillVoices();
@@ -896,6 +926,7 @@
         if (dotsEl.children.length !== st.num) drawDots(st.num, st.marks); else paintMarks(st.marks);
         q('[data-o="flash"]').checked = !!c.flash; q('[data-o="flashall"]').checked = c.flashAll !== false; q('[data-o="mq"]').checked = quick.on();
         q('[data-o="pitch"]').value = c.pitch; q('[data-role="pitchout"]').textContent = (c.pitch > 0 ? '+' : '') + c.pitch + ' 반음';
+        syncClickUi(c);
         q('[data-role="clickout"]').textContent = '×' + (Math.round(st.gain * 10) / 10);
         var mode = ctl(), rt = P.rt(), note = q('[data-role="syncnote"]'), lock = mode === 'locked';
         host.classList.toggle('pv-locked', lock);
@@ -1035,16 +1066,28 @@
         else if (o === 'countdown') { m.setCountdown(t.checked); syncAllStrips(); }
         else if (o === 'countall') { m.setCountAll(t.checked); syncAllStrips(); }
         else if (o === 'cdskip') m.setCountdownSkip(t.checked);
+        else if (o === 'freq' || o === 'freqn') { if (+t.value >= 1) m.setFreq(+t.value); }
+        else if (o === 'eqp') { if (t.value) m.setEqPreset(t.value); }
+        else if (o === 'eqlow') m.setEq({ low: +t.value }); else if (o === 'eqmid') m.setEq({ mid: +t.value }); else if (o === 'eqhigh') m.setEq({ high: +t.value }); else if (o === 'eqmidf') m.setEq({ midF: +t.value });
         else if (o === 'cdreset') { if (m.setCountdownReset) m.setCountdownReset(t.checked); syncAllStrips(); }
         sync();
       });
       host.addEventListener('click', function (e) {
+        var fb = e.target.closest ? e.target.closest('[data-freq]') : null;
+        if (fb) { var fin = q('[data-o="freqn"]'); if (fin && doc.activeElement === fin) fin.blur(); m.setFreq(+fb.dataset.freq); if (m.state().cfg.sound !== 'sine') m.setSound('sine'); sync(); if (!m.state().running) m.preview(); return; }
+        if (e.target.closest && e.target.closest('[data-a="clickprev"]')) { var pr = m.preview(); if (pr && pr.ok === false) say(pr.error || '소리를 낼 수 없습니다.', true); return; }
+        if (e.target.closest && e.target.closest('[data-a="eqflat"]')) { m.setEqPreset('flat'); sync(); return; }
         var b = e.target.closest ? e.target.closest('[data-a="voicetest"]') : null; if (!b) return;
         var r = m.cue('b', 'now'); if (r && r.ok === false) say(r.error || '소리를 낼 수 없습니다.', true);
       });
       host.addEventListener('input', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o;
         if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'pitch') m.setPitch(+t.value);
+        else if (o === 'freq') { m.setFreq(+t.value); var fn = q('[data-o="freqn"]'); if (fn) fn.value = t.value; q('[data-role="freqout"]').textContent = t.value + ' Hz'; }
+        else if (o === 'eqlow' || o === 'eqmid' || o === 'eqhigh' || o === 'eqmidf') {
+          var pt = {}; pt[{ eqlow: 'low', eqmid: 'mid', eqhigh: 'high', eqmidf: 'midF' }[o]] = +t.value; m.setEq(pt);
+          var out = q('[data-role="' + o + 'out"]'); if (out) out.textContent = o === 'eqmidf' ? t.value + ' Hz' : dbTxt(+t.value);
+        }
       });
       m.setLang(P.lang()); labels(); sync();
       P.on('conn', sync);

@@ -2184,3 +2184,18 @@ html[data-theme="light"] .pv-bs-dots i.d1.on { background: #FF8A2A; }
 /* 🔒 혼자 보기 (남의 정보 안 받기) — 실시간 메뉴 */
 .pv-rt-sec.pv-solo small { display: block; margin-top: 4px; }
 .pv-rt-sec.pv-solo.on { border-radius: 12px; background: rgba(242, 122, 112, .12); box-shadow: inset 0 0 0 1px rgba(242, 122, 112, .45); padding: 8px 10px; }
+
+/* v9.5 — 딸깍 소리 · 사인파 주파수 · 이퀄라이저 */
+.pv-clicksec .pv-freqrow { margin-top: 6px; }
+.pv-freqbtns { flex-wrap: wrap; gap: 6px; align-items: center; }
+.pv-freqbtns .pv-freqin { width: 86px; min-height: 38px; border-radius: 10px; border: 1px solid var(--v6-line2, rgba(255,255,255,.2)); background: var(--v6-sf2, rgba(255,255,255,.08)); color: inherit; font: inherit; font-weight: 800; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.pv-freqbtns .pv-unit { font-size: 13px; opacity: .7; margin-right: 4px; }
+.pv .pv-freqbtns .pv-btn2.mini, .pv-compact .pv-drawer .pv-freqbtns .pv-btn2 { width: auto; min-height: 38px; padding: 6px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pv .pv-freqbtns .pv-btn2.on { background: var(--v6-a, #ff8a2a); color: #1A0D02; border-color: transparent; }
+.pv-eq { margin-top: 12px; padding: 10px 12px 12px; border-radius: 12px; border: 1px solid var(--v6-line2, rgba(255,255,255,.18)); background: var(--v6-sf2, rgba(255,255,255,.05)); }
+.pv-eqhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pv-eqhead select { max-width: 100%; min-width: 0; }
+.pv-eq .pv-rng small { font-weight: 600; opacity: .65; font-size: 11.5px; }
+.pv-eq .pv-rng output { min-width: 70px; }
+.pv-compact .pv-drawer .pv-eq .pv-btn2 { width: auto; }
+html .pv .pv-freqbtns .pv-btn2.on { background: var(--lg-a-soft, rgba(255,138,61,.15)) !important; border-color: var(--lg-a-edge, rgba(255,150,80,.45)) !important; color: var(--lg-a-text, #FFC18F) !important; }

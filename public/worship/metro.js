@@ -48,7 +48,26 @@
   var MEAS_RE = /~m(\d{1,2})$/;                    // 큐 id 뒤 "~m2" = 2마디 (예: 'itld~m2' → "Interlude 2 measures")
   var NUM_KO = ['하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열하나', '열둘', '열셋', '열넷', '열다섯', '열여섯'];
 
-  var LIMITS = { minBpm: 30, maxBpm: 300, minPitch: -12, maxPitch: 12, maxGain: 6 };
+  var LIMITS = { minBpm: 30, maxBpm: 300, minPitch: -12, maxPitch: 12, maxGain: 6, minFreq: 200, maxFreq: 4000, defFreq: 1000, eqDb: 12, minMidF: 300, maxMidF: 5000 };
+  /* v9.5 — 딸깍 소리 이퀄라이저 (3밴드: 저음 셸프 250Hz · 가운데 피킹(주파수 조절) · 고음 셸프 4kHz). 값은 dB (−12 ~ +12) */
+  var EQ_FLAT = { low: 0, mid: 0, high: 0, midF: 1000 };
+  var EQ_PRESETS = {
+    flat: { label: '평평 (기본)', v: { low: 0, mid: 0, high: 0, midF: 1000 } },
+    soft: { label: '부드럽게 (귀가 덜 아프게)', v: { low: 2, mid: -2, high: -9, midF: 2500 } },
+    clear: { label: '또렷하게 (밴드 소리 위로)', v: { low: -6, mid: 5, high: 3, midF: 2000 } },
+    ears: { label: '인이어 · 이어폰', v: { low: -4, mid: 0, high: -5, midF: 1200 } },
+    warm: { label: '따뜻하게 (저음 강조)', v: { low: 6, mid: -1, high: -4, midF: 800 } }
+  };
+  function cleanEq(e) {
+    e = e && typeof e === 'object' ? e : {};
+    var r = function (v) { return Math.round(clamp(v == null ? 0 : v, -LIMITS.eqDb, LIMITS.eqDb) * 2) / 2; };
+    return { low: r(e.low), mid: r(e.mid), high: r(e.high), midF: Math.round(clamp(e.midF == null ? 1000 : e.midF, LIMITS.minMidF, LIMITS.maxMidF)) };
+  }
+  /** v9.5 — 사인파 딸깍의 실제 주파수 (강세 박은 5도 위 ×1.5 · 약한 강세 ×1.25 · 시작 전 예비 박은 한 옥타브 위 ×2) */
+  function sineFreq(base, accent, countIn) {
+    base = clamp(base == null ? LIMITS.defFreq : base, LIMITS.minFreq, LIMITS.maxFreq);
+    return base * (countIn ? 2 : accent === 2 ? 1.5 : accent === 1 ? 1.25 : 1);
+  }
   /** 박마다 ">" 강세 표시 — 기본은 마디 첫 박만 (사용자가 원 모양 박을 눌러 바꿉니다) */
   function defaultMarks(num, first) { var a = []; for (var i = 0; i < num; i++) a.push(i === 0 && first !== false ? 1 : 0); return a; }
   function clamp(v, lo, hi) { v = Number(v); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
@@ -394,7 +413,7 @@
     var countdownArmed = false, countdownActive = false, countdownAt = 0;   // V856 — countdownAt: 콜아웃이 떨어지는 1박의 오디오 시각 (그 마디에서만 셈)   // 옵션: 콜아웃이 떨어진 마디의 마지막 3박에서 Three·Two·One (딸깍과 함께)
     var S = {
       click: store('vol'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first'), speak: store('speak'), countdown: store('countdown'), cdskip: store('cdskip'), cdreset: store('cdreset')
-    , sub: store('sub'), countall: store('countall') };
+    , sub: store('sub'), countall: store('countall'), freq: store('freq'), eq: store('eq') };
     var cfg = {
       click: S.click == null ? 0.62 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : clamp(S.voice, 0, 2), mode: S.mode || 'lead', lead: S.lead || 2,
       lang: S.lang || 'en', voiceSel: parseSel(S.gender), gender: legacyGender(parseSel(S.gender)), lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
@@ -407,7 +426,9 @@
       cdReset: S.cdreset !== false,                              // V856 — 3·2·1 켜고 콜아웃을 누르면: 켬(기본) = 바로 다음 박이 새 1박 · 끔 = 박은 그대로 두고 다음 마디 첫 박에 콜아웃
       cdSkip: S.cdskip !== false,                                // V842 — 반복 · 다이내믹 콜아웃에는 Three·Two·One 을 하지 않음 (기본 켬)
       sub: S.sub === 2 ? 2 : 1,                                  // V848 — 2박으로 쪼개기: 4/4 면 한 마디에 8번 (엇박은 작게 · 화면 깜빡임은 4번만)
-      countAll: S.countall === true                              // V848 — 딸깍 대신 1 · 2 · 3 · 4 숫자로 세기 (계속)
+      countAll: S.countall === true,                             // V848 — 딸깍 대신 1 · 2 · 3 · 4 숫자로 세기 (계속)
+      freq: S.freq == null ? LIMITS.defFreq : Math.round(clamp(S.freq, LIMITS.minFreq, LIMITS.maxFreq)),   // v9.5 — 사인파 주파수 (Hz, 기본 1000)
+      eq: cleanEq(S.eq || EQ_FLAT)                               // v9.5 — 딸깍 이퀄라이저
     };
     sched.setMark(0, cfg.first);
     var voices = [], speechOk = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
@@ -435,7 +456,7 @@
      * 딸깍 소리는 전용 볼륨(master)과 리미터를 거쳐 나갑니다.
      * 볼륨 막대(0~1)가 기본 크기의 0 ~ 5 배 (LIMITS.maxGain) 이고, 리미터가 소리가 찢어지는 것을 막습니다.
      */
-    var master = null, limiter = null;
+    var master = null, limiter = null, eqLo = null, eqMid = null, eqHi = null;
     function gainOf() {                                                     // V836 — 막대 가운데(0.5)가 기본 크기(×1), 오른쪽 끝이 ×maxGain. 왼쪽 절반은 부드럽게 줄어 0 에서 무음
       var s = clamp(cfg.click, 0, 1); if (s < 0.01) return 0;
       return s <= 0.5 ? Math.pow(s / 0.5, 2) : Math.pow(LIMITS.maxGain, (s - 0.5) * 2);
@@ -460,6 +481,16 @@
           master.connect(limiter); limiter.connect(ctx.destination);
         } else master.connect(ctx.destination);
       } catch (e) { master = null; limiter = null; }
+      /* v9.5 — 딸깍 → 이퀄라이저(저음 · 가운데 · 고음) → 볼륨 → 리미터. 필터는 미리 보는 지연이 없어 박이 늦어지지 않습니다 */
+      try {
+        if (master && ctx.createBiquadFilter) {
+          eqLo = ctx.createBiquadFilter(); eqLo.type = 'lowshelf'; eqLo.frequency.value = 250;
+          eqMid = ctx.createBiquadFilter(); eqMid.type = 'peaking'; eqMid.Q.value = 1;
+          eqHi = ctx.createBiquadFilter(); eqHi.type = 'highshelf'; eqHi.frequency.value = 4000;
+          eqLo.connect(eqMid); eqMid.connect(eqHi); eqHi.connect(master);
+          applyEq(true);
+        }
+      } catch (e) { eqLo = eqMid = eqHi = null; }
       return ctx;
     }
     /** 전화 · 알림 · 화면 잠금으로 오디오가 멈춘("suspended" · iOS 는 "interrupted") 뒤 다시 살립니다 — 메트로놈이 돌고 있을 때만 */
@@ -473,6 +504,14 @@
     if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pageshow', onVisible); }
     function applyGain() {
       if (master && ctx) { try { master.gain.setTargetAtTime(gainOf(), ctx.currentTime, 0.01); } catch (e) { master.gain.value = gainOf(); } }
+    }
+    /** v9.5 — 이퀄라이저 값을 필터에 (바로 · 부드럽게 바뀌어 딸깍 중간에 바꿔도 "툭" 소리가 나지 않게) */
+    function applyEq(now) {
+      if (!eqLo || !ctx) return;
+      var e = cfg.eq, t = ctx.currentTime;
+      [[eqLo.gain, e.low], [eqMid.gain, e.mid], [eqHi.gain, e.high], [eqMid.frequency, e.midF]].forEach(function (x) {
+        try { if (now) x[0].value = x[1]; else x[0].setTargetAtTime(x[1], t, 0.015); } catch (er) { x[0].value = x[1]; }
+      });
     }
     function pitchMul() { return Math.pow(2, clamp(cfg.pitch, LIMITS.minPitch, LIMITS.maxPitch) / 12); }
 
@@ -490,7 +529,7 @@
        엇박으로 한 번 더 울리는 일이 없게 합니다. clickMul 은 숫자로 셀 때 딸깍을 작게 깔아 주는 배율 */
     var clickBus = null, clickMul = 1;
     function cbus() {
-      if (!clickBus) { clickBus = ctx.createGain(); clickBus.gain.value = 1; clickBus.connect(master || ctx.destination); }
+      if (!clickBus) { clickBus = ctx.createGain(); clickBus.gain.value = 1; clickBus.connect(eqLo || master || ctx.destination); }
       return clickBus;
     }
     function cutScheduled() {
@@ -526,9 +565,10 @@
     var EXTRA = { cowbell: 1, drum: 1, soft: 1, stick: 1, hihat: 1 };
     function click(time, accent, countIn) {
       if (EXTRA[cfg.sound]) return special(time, accent, countIn, cfg.sound);
-      var s = SOUNDS[cfg.sound] || SOUNDS.wood;
+      var sine = cfg.sound === 'sine', s = SOUNDS[cfg.sound] || SOUNDS.wood;
       var o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = s[3]; o.frequency.setValueAtTime((countIn ? 1000 : (accent === 2 ? s[0] : accent === 1 ? s[1] : s[2])) * pitchMul(), time);
+      if (sine) { o.type = 'sine'; o.frequency.setValueAtTime(sineFreq(cfg.freq, accent, countIn), time); }      // v9.5 — 사인파: 정한 주파수 그대로 (음높이 막대는 쓰지 않음)
+      else { o.type = s[3]; o.frequency.setValueAtTime((countIn ? 1000 : (accent === 2 ? s[0] : accent === 1 ? s[1] : s[2])) * pitchMul(), time); }
       var peak = (accent === 2 ? 0.9 : accent === 1 ? 0.75 : 0.6) * clickMul;               // 강세 박이 더 크게 (전체 크기는 master 볼륨)
       var L = loudL(), hold = 0.075 * L, dec = 0.055 + 0.06 * L;               // V836 — 볼륨을 높일수록 소리가 머무는 시간을 늘려 실제로 더 크게 들리게
       g.gain.setValueAtTime(0.0001, time);
@@ -1021,6 +1061,19 @@
       /** V836 — 고를 수 있는 녹음 목소리 [{ id, label, g }] (불러오기 전에는 빈 목록) */
       clipVoices: function () { return Object.keys(clipVoices).map(function (v) { return { id: v, label: clipVoices[v].label || v, g: clipVoices[v].g || 'm' }; }); },
       clipDefault: function () { return clipDefault; },
+      /** v9.5 — 사인파 주파수 (Hz) · 이퀄라이저 · 들어보기 */
+      setFreq: function (hz) { set('freq', Math.round(clamp(hz, LIMITS.minFreq, LIMITS.maxFreq))); },
+      setEq: function (e) { var cur = cfg.eq, nx = {}; ['low', 'mid', 'high', 'midF'].forEach(function (k) { nx[k] = e && e[k] != null ? e[k] : cur[k]; }); cfg.eq = cleanEq(nx); store('eq', cfg.eq); applyEq(false); emitState(); return cfg.eq; },
+      setEqPreset: function (id) { var p = EQ_PRESETS[id]; if (!p) return null; cfg.eq = cleanEq(p.v); store('eq', cfg.eq); applyEq(false); emitState(); return cfg.eq; },
+      eqPreset: function () { for (var k in EQ_PRESETS) { var v = cleanEq(EQ_PRESETS[k].v), e = cfg.eq; if (v.low === e.low && v.mid === e.mid && v.high === e.high && (v.midF === e.midF || (!e.low && !e.mid && !e.high && k === 'flat'))) return k; } return ''; },
+      /** 멈춰 있을 때 지금 소리를 한 번 들려줍니다 (보통 박 · 강세 박) — 누른 순간에만 (아이폰은 눌러야 소리가 나옴) */
+      preview: function () {
+        try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); } catch (e) { return { ok: false, error: e.message }; }
+        if (cfg.sound === 'mute') return { ok: true };
+        var t0 = ctx.currentTime + 0.05, gap = 0.32;
+        click(t0, 2, false); click(t0 + gap, 0, false); click(t0 + gap * 2, 0, false);
+        return { ok: true };
+      },
       setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); }, setFirstAccent: function (on) { sched.setMark(0, !!on); set('first', !!on); },
       tap: function () { var b = tapper.tap(Date.now()); if (b) { sched.setBpm(b); emitState(); } return b; },
       setGender: setSel, setVoice: setSel, voiceInfo: currentVoice, voiceNames: function (lang) { return mixPool(voices, lang || cfg.lang).map(function (v) { return v.name; }); }, refreshVoices: loadVoices,
@@ -1037,5 +1090,5 @@
     };
   }
 
-  return { langOfText: langOfText, CUES: CUES, CUE_BY: CUE_BY, WORD_EN: WORD_EN, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, pickVoiceMix: pickVoiceMix, mixPool: mixPool, voiceScore: voiceScore, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
+  return { EQ_PRESETS: EQ_PRESETS, cleanEq: cleanEq, sineFreq: sineFreq, langOfText: langOfText, CUES: CUES, CUE_BY: CUE_BY, WORD_EN: WORD_EN, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, pickVoiceMix: pickVoiceMix, mixPool: mixPool, voiceScore: voiceScore, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
 }));
