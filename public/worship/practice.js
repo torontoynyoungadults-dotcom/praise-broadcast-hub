@@ -64,7 +64,7 @@
 
   var TOOLS = [
     { t: 'none', ic: 'hand', n: '이동' }, { t: 'pen', ic: 'pen', n: '펜' }, { t: 'hl', ic: 'hl', n: '형광펜' }, { t: 'select', ic: 'select', n: '선택·이동' }, { t: 'text', ic: 'text', n: '글자' },
-    { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'note', ic: 'note', n: '음표' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }
+    { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'note', ic: 'note', n: '음표' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }, { t: 'white', ic: 'whiteout', n: '흰 지우개' }
   ];
   var current = null;
 
@@ -478,10 +478,16 @@
       });
     }
     function pageInfo(d, pg) {
-      if (d.img) return Promise.resolve({ w: d.img.width || d.img.naturalWidth, h: d.img.height || d.img.naturalHeight, draw: function (cv, scale) { var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(d.img, 0, 0, cv.width, cv.height); return { promise: Promise.resolve(), cancel: function () {} }; } });
+      if (d.img) {
+        var iw = d.img.width || d.img.naturalWidth, ih = d.img.height || d.img.naturalHeight;
+        return Promise.resolve({ w: iw, h: ih, draw: function (cv, scale) { var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(d.img, 0, 0, cv.width, cv.height); return { promise: Promise.resolve(), cancel: function () {} }; },
+          /* v9.7 — 확대했을 때 보이는 부분만 선명하게 (ox · oy = 그 배율에서 왼쪽 위 화소) */
+          drawRegion: function (cv, scale, ox, oy) { var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.setTransform(1, 0, 0, 1, -ox, -oy); c.drawImage(d.img, 0, 0, iw * scale, ih * scale); c.setTransform(1, 0, 0, 1, 0, 0); return { promise: Promise.resolve(), cancel: function () {} }; } });
+      }
       return d.pdf.getPage(pg).then(function (p) {
         var v1 = p.getViewport({ scale: 1 });
-        return { w: v1.width, h: v1.height, draw: function (cv, scale) { var v = p.getViewport({ scale: scale }); var t = p.render({ canvasContext: cv.getContext('2d'), viewport: v }); return t; } };
+        return { w: v1.width, h: v1.height, draw: function (cv, scale) { var v = p.getViewport({ scale: scale }); var t = p.render({ canvasContext: cv.getContext('2d'), viewport: v }); return t; },
+          drawRegion: function (cv, scale, ox, oy) { var v = p.getViewport({ scale: scale }); return p.render({ canvasContext: cv.getContext('2d'), viewport: v, transform: [1, 0, 0, 1, -ox, -oy] }); } };
       });
     }
     /** 어떤 쪽이든 canvas 에 그려 줍니다 (화면 · 내보내기 공용). scale = 원본 1 기준 배율 */
@@ -585,6 +591,7 @@
        · 지금 쪽을 그린 뒤 한가한 때 앞 · 뒤 쪽을 미리 그려 둡니다 (쪽 넘기기가 바로 됨) */
     S.pcache = new Map(); S.pcBytes = 0; S.pcCur = ''; S.drawnSig = null; S.drawnOk = false; S.pending = null;
     /* 폰 · 작은 태블릿은 화면 그림 자체가 메모리를 많이 쓰므로 저장소를 더 작게 (48MB), 컴퓨터는 96MB */
+    var TOUCHY = !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches);
     var PHONE = (root.innerWidth || 1200) < 900 || (root.matchMedia && root.matchMedia('(pointer: coarse)').matches && (root.innerWidth || 1200) < 1100);
     var PC_MAX_BYTES = (PHONE ? 48 : 96) * 1024 * 1024, PC_ONE_MAX = (PHONE ? 22 : 40) * 1024 * 1024, PC_MAX_N = 10;
     function pcSig(d, pg, w, h, dpr) { return d.fid + '|' + pg + '|' + w + 'x' + h + '@' + dpr; }
@@ -611,8 +618,15 @@
     /** 쪽 크기 · 화면 크기 · 배율에서 나오는 그림 크기 (그리기 · 미리 그리기 · 저장소 키가 같은 계산을 쓰도록 한 곳에) */
     function layoutOf(info, cr) {
       var base = fitScale(info, cr) * S.zoom, cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
-      var dpr = Math.min(2, root.devicePixelRatio || 1); while (cssW * cssH * dpr * dpr > 14e6 && dpr > 1) dpr -= 0.25;
-      return { base: base, cssW: cssW, cssH: cssH, dpr: dpr };
+      return { base: base, cssW: cssW, cssH: cssH, dpr: capDpr(cssW, cssH) };
+    }
+    /* v9.7 — 악보 그림 크기 한도. 크게 확대해도 캔버스가 아이패드 한도(약 1,670만 화소 · 메모리)를 넘지 않게 화소 배율을 1 아래로도 낮춥니다
+       (예전에는 1 에서 멈춰 4~5배 확대하면 악보가 하얗게 사라졌음). 낮춘 만큼은 "보이는 부분만 선명하게" 캔버스(hiCv)가 채웁니다 */
+    var PDF_PX = TOUCHY ? 9e6 : 14e6;
+    function capDpr(cssW, cssH) {
+      var dpr = Math.min(2, root.devicePixelRatio || 1), a = cssW * cssH;
+      if (a * dpr * dpr > PDF_PX) dpr = Math.max(0.3, Math.floor(Math.sqrt(PDF_PX / a) * 20) / 20);
+      return dpr;
     }
     function cropFor(d, pg, info) { return S.crop && !spreadOn() ? cropOf(d, pg, info) : Promise.resolve(null); }
     /* ------------------------------------------------------------ v9.5 미리 그리기 (예배 중 쪽 넘김이 바로 되도록)
@@ -623,6 +637,8 @@
        · 이미 그리고 있는 쪽으로 넘기면 같은 그림을 두 번 그리지 않고 끝나기를 기다렸다 붙입니다 (S.pre)
        · 넘긴 뒤에 끝난 미리 그리기도 버리지 않고 저장해 둡니다 (되돌아올 때 바로) */
     S.pre = new Map();
+    /** v9.7 — 지금 펜 · 지우개로 긋는 중인가 (그동안 무거운 일을 미룸) */
+    function inking() { try { return !!(an && an.busy && an.busy()); } catch (e) { return false; } }
     /** d 의 n 쪽을 화면 크기에 맞춰 그려 저장소에 넣습니다 → Promise(sig). base 를 주면 그 배율로 (두 쪽 보기의 오른쪽 쪽) */
     function prerender(d, n, base) {
       if (S.dead || !d || n < 1 || n > d.n) return Promise.resolve(null);
@@ -646,9 +662,8 @@
     }
     /** 두 쪽 보기 오른쪽 쪽의 크기 (왼쪽 쪽과 같은 배율) */
     function sideLayout(info, base) {
-      var dpr = Math.min(2, root.devicePixelRatio || 1), cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
-      while (cssW * cssH * dpr * dpr > 14e6 && dpr > 1) dpr -= 0.25;
-      return { base: base, cssW: cssW, cssH: cssH, dpr: dpr };
+      var cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
+      return { base: base, cssW: cssW, cssH: cssH, dpr: capDpr(cssW, cssH) };
     }
     /** 다음에 볼 가능성이 큰 쪽들 — [{ d, n, pairOf }] (pairOf: 두 쪽 보기에서 그 쪽의 왼쪽 쪽 번호) */
     function upcoming(d, pg0) {
@@ -663,10 +678,12 @@
       if (S.dead) return;
       var go = function () {
         if (id !== S.rid || S.dead || S.doc !== d) return;
+        if (inking()) { setTimeout(go, 300); return; }                                     // v9.7 — 필기하는 동안에는 미루기 (펜이 끊기지 않게)
         var list = upcoming(d, pg0), edge = list.edge;
         var chain = list.reduce(function (p, it) {
           return p.then(function () {
             if (id !== S.rid || S.dead) return;                                             // 그새 넘겼으면 새 쪽 기준으로 다시 시작 (이미 끝난 그림은 저장소에 남음)
+            if (inking()) return new Promise(function (r) { (function w() { if (!inking() || S.dead) r(); else setTimeout(w, 250); }()); }).then(function () { if (id !== S.rid || S.dead) return; return it.pairOf ? pageInfo(it.d, it.pairOf).then(function (li) { return prerender(it.d, it.n, layoutOf(li, null).base); }) : prerender(it.d, it.n); });
             if (!it.pairOf) return prerender(it.d, it.n);
             return pageInfo(it.d, it.pairOf).then(function (li) { return prerender(it.d, it.n, layoutOf(li, null).base); });
           });
@@ -694,6 +711,49 @@
       };
       setTimeout(go, 16);                                                                   // 지금 쪽이 화면에 나온 다음 프레임에 바로 (예전: 한가할 때까지 최대 1.5초)
     }
+    /* ------------------------------------------------------------ v9.7 확대했을 때 "보이는 부분만 선명하게"
+       쪽 전체 그림(pdfCv)은 메모리 한도 안의 해상도로 두고, 화면에 보이는 부분만 기기 화소 그대로 따로 그려 위에 덮습니다 (PDF 보기 앱 방식).
+       스크롤 · 확대가 멈춘 뒤 0.2초에 한 번 · 필기 중에는 미룸 · 실패해도 아래 그림은 그대로라 악보가 사라지지 않음 */
+    var hiCv = doc.createElement('canvas'); hiCv.className = 'pv-pdfhi'; hiCv.setAttribute('aria-hidden', 'true');
+    hiCv.style.cssText = 'display:none;pointer-events:none;z-index:1';
+    box.insertBefore(hiCv, annoCv);
+    S.hi = { t: 0, task: null, sig: '', id: 0 };
+    function hiHide() { clearTimeout(S.hi.t); if (S.hi.task) { try { S.hi.task.cancel(); } catch (e) {} S.hi.task = null; } S.hi.sig = ''; S.hi.id++; hiCv.style.display = 'none'; }
+    function hiSchedule(ms) { clearTimeout(S.hi.t); S.hi.t = setTimeout(hiRender, ms == null ? 200 : ms); }
+    function hiRender() {
+      var lay = S.lay; if (S.dead || !lay || !S.doc || lay.d !== S.doc || lay.pg !== S.page || !S.drawnOk) return;
+      var real = Math.min(2, root.devicePixelRatio || 1);
+      if (S.zoom <= 1.01 || lay.L.dpr >= real - 0.05 || spreadOn()) { if (hiCv.style.display !== 'none') hiHide(); return; }
+      if (inking() || (T && T.pinch) || box.style.transform) { hiSchedule(300); return; }
+      var sr = stage.getBoundingClientRect(), br = box.getBoundingClientRect(), L = lay.L;
+      if (!br.width) return;
+      var k = L.cssW / br.width;
+      var x0 = Math.max(0, (sr.left - br.left) * k), y0 = Math.max(0, (sr.top - br.top) * k), x1 = Math.min(L.cssW, (sr.right - br.left) * k), y1 = Math.min(L.cssH, (sr.bottom - br.top) * k);
+      var mw = 0, mh = 0;                                                                  // 딱 보이는 만큼만 (화면 합성 부담 · 메모리를 작게 — 스크롤이 멈추면 그 자리를 다시 그림)
+      x0 = Math.max(0, Math.floor(x0 - mw)); y0 = Math.max(0, Math.floor(y0 - mh)); x1 = Math.min(L.cssW, Math.ceil(x1 + mw)); y1 = Math.min(L.cssH, Math.ceil(y1 + mh));
+      var w = x1 - x0, hh = y1 - y0; if (w < 16 || hh < 16) return;
+      while (w * hh * real * real > 7e6 && real > 1) real -= 0.25;
+      if (real <= L.dpr + 0.05) { if (hiCv.style.display !== 'none') hiHide(); return; }
+      var sig = lay.sig + '|' + x0 + ',' + y0 + ',' + w + ',' + hh + '@' + real;
+      if (sig === S.hi.sig) return;
+      if (S.hi.task) { try { S.hi.task.cancel(); } catch (e) {} S.hi.task = null; }
+      var myId = ++S.hi.id;
+      pageInfo(lay.d, lay.pg).then(function (info) {
+        if (myId !== S.hi.id || S.dead || S.lay !== lay || !info.drawRegion) return;
+        hiCv.style.display = 'none';                                                       // 그리는 동안은 아래 그림(조금 흐림)이 보임
+        var pw = Math.round(w * real), ph = Math.round(hh * real);
+        if (hiCv.width !== pw || hiCv.height !== ph) { hiCv.width = pw; hiCv.height = ph; }
+        var c = hiCv.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, pw, ph);
+        var t; try { t = info.drawRegion(hiCv, L.base * real, x0 * real, y0 * real); } catch (e) { return; }
+        S.hi.task = t;
+        t.promise.then(function () {
+          if (myId !== S.hi.id || S.dead || S.lay !== lay) return;
+          S.hi.task = null; S.hi.sig = sig;
+          hiCv.style.left = x0 + 'px'; hiCv.style.top = y0 + 'px'; hiCv.style.width = w + 'px'; hiCv.style.height = hh + 'px'; hiCv.style.display = 'block';
+        }, function () { if (myId === S.hi.id) S.hi.task = null; });
+      }, function () { /* 그대로 (아래 그림) */ });
+    }
+    stage.addEventListener('scroll', function () { if (S.lay && S.zoom > 1.01) hiSchedule(220); }, { passive: true });
     /** 지금 쪽을 화면에 그립니다.
      *   · 같은 쪽 · 같은 크기를 이미 그려 뒀으면 아무것도 하지 않음 (리사이즈 · 패널 열고 닫기 · 도구 막대 접기가 여러 번 불러도 한 번만 그림)
      *   · 같은 그림을 이미 그리는 중이면 그 작업을 그대로 이어받음
@@ -708,10 +768,10 @@
       }).then(function (ic) {
         if (!ic || id !== S.rid) return; var info = ic[0], cr = ic[1], L = layoutOf(info, cr), cssW = L.cssW, cssH = L.cssH, dpr = L.dpr, base = L.base;
         var sig = pcSig(d, pg, cssW, cssH, dpr) + (spreadOn() ? '|s' : '');
-        if (!force && S.drawnOk && S.drawnSig === sig) { S.anchor = null; S.cropNow = cr || null; loading.style.display = 'none'; S.rid = S.drawnId; syncTouch(); clearTimeout(S.ldT); turnDone('same'); return; }      // (번호를 되돌려, 진행 중인 미리 그리기가 취소되지 않게)
+        if (!force && S.drawnOk && S.drawnSig === sig) { S.anchor = null; S.cropNow = cr || null; loading.style.display = 'none'; S.rid = S.drawnId; syncTouch(); clearTimeout(S.ldT); turnDone('same'); hiSchedule(160); return; }      // (번호를 되돌려, 진행 중인 미리 그리기가 취소되지 않게)
         if (!force && S.pending && S.pending.sig === sig) { S.rid = S.pending.id; return S.pending.p; }              // 같은 그림을 이미 그리는 중
         if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
-        S.drawnOk = false; S.drawnSig = null;
+        S.drawnOk = false; S.drawnSig = null; hiHide(); S.lay = null;
         var pw = Math.round(cssW * dpr), ph = Math.round(cssH * dpr);
         box.style.width = cssW + 'px'; box.style.height = cssH + 'px';
         pdfCv.style.width = cssW + 'px'; pdfCv.style.height = cssH + 'px';
@@ -731,7 +791,7 @@
             stage.scrollTop = Math.max(0, box.offsetTop + an0.fy * cssH - (an0.cy - sr.top));
           }
         }
-        var done = function () { if (id === S.rid) { clearTimeout(S.ldT); turnDone(hit ? 'cache' : 'draw'); S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
+        var done = function () { if (id === S.rid) { S.lay = { d: d, pg: pg, L: L, sig: sig }; hiSchedule(160); clearTimeout(S.ldT); turnDone(hit ? 'cache' : 'draw'); S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
         var key = pcSig(d, pg, cssW, cssH, dpr), hit = pcGet(key);
         if (hit) {                                                                 // 이미 그려 둔 그림 — 붙이기만
           c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(hit.cv, 0, 0); renderRight(id, pg, d, base, dpr); done(); return;
@@ -743,7 +803,7 @@
           c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, pdfCv.width, pdfCv.height);
           var t = info.draw(pdfCv, base * dpr); S.task = t;
           return t.promise.then(function () {
-            if (id === S.rid) { pcCopy(key, pdfCv); done(); }
+            if (id === S.rid) { if (S.zoom <= 1.01) pcCopy(key, pdfCv); done(); }               // v9.7 — 확대한 그림은 저장해 두지 않음 (크고 다시 볼 일이 드묾 · 메모리)
           }, function (e) {
             if (S.pending && S.pending.id === id) S.pending = null;
             if (e && e.name === 'RenderingCancelledException') return;
@@ -1045,7 +1105,7 @@
     function scanTitlesSoon(d, f) { setTimeout(function () { if (!S.dead) scanTitles(d, f); }, 400); }
     function pdfIdle() {
       var t0 = Date.now();
-      return new Promise(function (res) { (function wait() { if (S.dead || (!S.pending && !S.pre.size && !S.turnAt) || Date.now() - t0 > 4000) res(); else setTimeout(wait, 120); }()); });
+      return new Promise(function (res) { (function wait() { if (S.dead || (!S.pending && !S.pre.size && !S.turnAt && !inking()) || Date.now() - t0 > 4000) res(); else setTimeout(wait, 120); }()); });
     }
     function scanTitles(d, f) {
       var m = mapOf(f);
@@ -1256,12 +1316,12 @@
     var YA = root.YNAnno;
     if (!YA) { toast('필기 도구를 불러오지 못했습니다. 새로고침해 주세요.', true); }
     an = YA ? YA.create({
-      host: box, canvas: annoCv, me: opts.me || '', canEdit: !!opts.canEdit,
+      host: box, canvas: annoCv, clipEl: stage, me: opts.me || '', canEdit: !!opts.canEdit,
       sawPen: ls('sawpen') === '1', onPenSeen: function () { ls('sawpen', '1'); },                    // 이 기기에서 펜슬을 한 번 쓴 적이 있으면 처음부터 손가락 필기를 막음 (손바닥 방지) — 필기 탭의 "펜 입력"에서 바꿀 수 있음
       onToolSwap: function (to, from, via) { swapTool(to, via); },
       onEraseDone: function () {                                                        // V844 — 펜슬로 지우고 떼면 원래 펜으로
         if (S.eraseBack === false || S.tool !== 'eraser' || !S.prevDraw) return;
-        setTool(S.prevDraw, false, true); toast(S.prevDraw === 'hl' ? '형광펜으로 돌아왔습니다' : '펜으로 돌아왔습니다', false, 900);
+        setTool(S.prevDraw, false, true); toast(S.prevDraw === 'hl' ? '형광펜으로 돌아왔습니다' : S.prevDraw === 'white' ? '흰 지우개로 돌아왔습니다' : '펜으로 돌아왔습니다', false, 900);
       },
       onHoldEraseEnd: function (back) { setTool(back === 'hl' ? 'hl' : 'pen', false, true); },      // V848 — 1초 눌러 쓴 지우개를 떼면 원래 도구로
       onAutoSelect: function () { setTool('select', true); toast('선택·이동 모드 — 다시 쓰려면 도구를 누르세요', false, 1400); },
@@ -1620,15 +1680,15 @@
     }
 
     /* ------------------------------------------------------------ 도구 막대 */
-    var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05], fbox: [0.02, 0.028, 0.04] };
+    var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], white: [0.01, 0.02, 0.036], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05], fbox: [0.02, 0.028, 0.04] };
     /* V844 — 펜 · 형광펜 굵기 3칸을 각자 원하는 굵기로: 이미 고른 칸을 한 번 더 누르면 조절 막대가 나오고, 바꾼 굵기는 그 칸에 이 기기에 저장됩니다 */
-    var SZ_RANGE = { pen: [0.0008, 0.016], hl: [0.006, 0.06] };
+    var SZ_RANGE = { pen: [0.0008, 0.016], hl: [0.006, 0.06], white: [0.004, 0.06] };
     function slotSizes(k) { var d = SIZES[k].slice(); if (!SZ_RANGE[k]) return d; try { var v = JSON.parse(ls('sz.' + k) || 'null'); if (Array.isArray(v)) for (var i = 0; i < 3; i++) if (+v[i] >= SZ_RANGE[k][0] && +v[i] <= SZ_RANGE[k][1]) d[i] = +v[i]; } catch (e) { /* 기본값 */ } return d; }
     function slotSave(k, i, v) { var a = slotSizes(k); a[i] = v; ls('sz.' + k, JSON.stringify(a)); }
-    function slotDot(k, v, i) { if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(4, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
+    function slotDot(k, v, i) { if (k === 'white') return Math.max(4, Math.min(20, Math.round(v * 420))); if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(4, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
     S.szEdit = -1; S.eraseBack = ls('eraseback') !== '0';
     S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
-    function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
+    function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'white' ? 'white' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
     S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
     /* V865 — 마지막에 쓰던 색 · 굵기를 기억 (도구마다, 이 기기) */
     S.sizeOf = {};
@@ -1643,7 +1703,7 @@
     function memoSave() { try { ls('toolmemo', JSON.stringify({ pen: S.penSel || '', hl: S.hlSel || '', tc: S.toolCol || {}, sz: S.sizeOf, fsz: S.fsz })); } catch (e) { /* 저장이 막힌 브라우저 */ } }
     function applySize() {
       var v = S.fsz[sizeKey()] || slotSizes(sizeKey())[S.sizeIdx];
-      if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v); else if (S.tool === 'fbox') an.setFboxSize(v);
+      if (S.tool === 'pen' || S.tool === 'hl' || S.tool === 'white') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v); else if (S.tool === 'fbox') an.setFboxSize(v);
     }
     /** 펜 ↔ 지우개 빠른 전환 (V848: 펜 · 형광펜을 1초 누르고 있기 · 펜 옆 버튼) — 도구 막대의 단추를 누른 것과 똑같이 바꿉니다 */
     function swapTool(to, via) {
@@ -1662,14 +1722,14 @@
         if (grpChanged) { var pp = $('.pv-sympop'); if (pp) { pp.innerHTML = ''; pp._wired = false; } }
         if (S.tool === 'sym' && grpChanged && !fromAnno) { S.symOpen = true; renderTools(); renderSymPop(); if (!quiet) toast(grp === 'note' ? '음표: 위에서 음표 · 쉼표를 고르고 악보를 눌러 찍습니다.' : '기호: 고른 기호를 악보에 눌러 찍습니다.', false, 2400); return; }
       }
-      if (t === 'eraser' && (S.tool === 'pen' || S.tool === 'hl')) S.prevDraw = S.tool;      // V844 — 지우개를 쓰고 펜슬을 떼면 돌아갈 도구
+      if (t === 'eraser' && (S.tool === 'pen' || S.tool === 'hl' || S.tool === 'white')) S.prevDraw = S.tool;      // V844 — 지우개를 쓰고 펜슬을 떼면 돌아갈 도구
       if (t !== S.tool) S.szEdit = -1;
       S.tool = t; if (!fromAnno) an.setTool(t);
       if (S.sizeOf[sizeKey()] != null) S.sizeIdx = S.sizeOf[sizeKey()];                 // V865 — 그 도구에서 마지막에 고른 굵기
-      if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]);
+      if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]); else if (t === 'white') an.setWidth(slotSizes('white')[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
-      var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: S.symGrp === 'note' ? '음표: 위에서 온음표 · 2분 · 4분 · 8분 · 16분음표나 쉼표를 고르고 악보를 눌러 찍습니다. (크기는 아래 숫자칸, 옮기기는 선택·이동)' : '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
+      var hint = { white: '흰 지우개: 악보의 지우고 싶은 부분을 하얗게 칠해 가립니다. (필기라서 지우개 · 되돌리기로 다시 보이게 할 수 있어요)', pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: S.symGrp === 'note' ? '음표: 위에서 온음표 · 2분 · 4분 · 8분 · 16분음표나 쉼표를 고르고 악보를 눌러 찍습니다. (크기는 아래 숫자칸, 옮기기는 선택·이동)' : '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
       if (hint && !quiet) toast(hint, false, 2600);
     }
     function renderTools() {
@@ -1697,7 +1757,7 @@
         (sel ? '<button type="button" class="pv-tool sm" data-a="copysel" title="선택한 것 복사 (Ctrl/⌘+C)"><span class="ic">' + I('copy') + '</span><span class="nm">복사</span></button>' : '') +
         (hasClip ? '<button type="button" class="pv-tool sm" data-a="paste" title="붙여넣기 (Ctrl/⌘+V)"><span class="ic">' + I('paste') + '</span><span class="nm">붙여넣기</span></button>' : '') + '</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
-      var colRow = S.tool === 'select' && !sel ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
+      var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' :
         '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
@@ -2335,7 +2395,7 @@
       toolsBtn.addEventListener('pointerup', end); toolsBtn.addEventListener('pointercancel', end);
     })();
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
-    var SHOWS = [['timer', 'timer', '예배 타이머'], ['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];
+    var SHOWS = [['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];        // v9.7 — 예배 타이머 단추 뺌
     var SHOW_DEF = { timer: false, form: true, metro: false };            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
     function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; if (S.compact) return k === 'metro'; return SHOW_DEF[k] !== false; }     // V836 — 폰(좁은 화면)은 처음에 메트로놈 창만 떠 있음
     function paintShows() {
@@ -2560,6 +2620,7 @@
         holdStop(); if (pvRaf && root.cancelAnimationFrame) { try { root.cancelAnimationFrame(pvRaf); } catch (e) {} pvRaf = 0; }
         if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
         if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
+        try { hiHide(); hiCv.width = hiCv.height = 0; } catch (e) {}
         pcClear(); S.pending = null; S.pre.clear();
         try { wakeCtl && wakeCtl.destroy(); } catch (e) {}
         Object.keys(S.cache).forEach(function (k) { try { S.cache[k].pdf && S.cache[k].pdf.destroy(); } catch (e) {} });
@@ -2574,7 +2635,7 @@
     /* 예배 타이머 막대 (Feature 1 · timer.js) — 헤더 바로 아래에 붙어 전체 화면에서도 보입니다. timer.js 가 없거나 opts.timer === false 면 아무것도 하지 않음 */
     var timerBar = null;
     try {
-      if (root.YNTimer && opts.timer !== false && S.room) {
+      if (root.YNTimer && opts.timer === true && S.room) {                                 // v9.7 — 예배 시간 표시(지금 · 예배 경과 · 찬양 구간)는 빼고 (opts.timer === true 일 때만)
         timerBar = root.YNTimer.mountViewer(el, { token: opts.token, room: S.room, io: opts.io, getPlan: function () { return { room: S.room, songs: songs.map(function (x) { return { t: x.title }; }) }; } });
       }
     } catch (e) { /* 타이머 막대가 없어도 세션 화면은 그대로 */ }

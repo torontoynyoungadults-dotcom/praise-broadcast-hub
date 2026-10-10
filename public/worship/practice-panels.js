@@ -682,7 +682,8 @@
     } });
 
     /* ------------------------------------------------------------ V842 기록 — 누가 쓴 필기인지 */
-    tabs.push({ id: 'log', icon: 'user', label: '필기 기록', short: '기록', build: function (host) {
+    /* v9.7 — 「기록」은 따로 탭을 두지 않고 「함께」 탭 아래쪽에 함께 보입니다 */
+    var logPart = { id: 'log', icon: 'user', label: '필기 기록', short: '기록', build: function (host) {
       host.innerHTML =
         '<div class="pv-sec"><h4>누가 썼나요 <small>여러 명이 동시에 써도 실시간으로 모두에게 보입니다</small></h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="showby"> 악보 위에 쓴 사람 이름표 보이기</label>' +
@@ -722,7 +723,7 @@
       P.on('sheet', paint); P.on('close', function () { clearTimeout(tmr); });
       paint();
       return { onShow: paint };
-    } });
+    } };
 
     /* ------------------------------------------------------------ 송폼 */
     tabs.push({ id: 'form', icon: 'form', label: '송폼', build: function (host) {
@@ -1139,7 +1140,9 @@
        MainStage 는 MIDI 로만 외부 조작을 받으므로, 같은 맥의 Chrome 이 Web MIDI API 로 가상 MIDI 포트(IAC 드라이버)에
        신호를 보내고 MainStage 가 MIDI Learn 으로 외워둔 자기 컨트롤을 움직이는 구조입니다 (mainstage.js). 서버에는
        아무것도 보내지 않고, 켜짐 여부 · 출력 · 페이더/패치 목록은 이 브라우저에만 저장됩니다(팀 공유 없음). */
-    tabs.push({ id: 'mainstage', icon: 'sliders', label: '메인스테이지', short: '메인', build: function (host) {
+    /* v9.7 — 메인스테이지 탭은 잠시 숨김 (코드는 그대로 — SHOW_MAINSTAGE 를 true 로 바꾸면 다시 보임) */
+    var SHOW_MAINSTAGE = false; try { SHOW_MAINSTAGE = root.localStorage.getItem('yn.pv.showms') === '1'; } catch (e) { /* 저장이 막힌 브라우저 */ }   // 이 기기에서 다시 보려면 localStorage yn.pv.showms = '1'
+    if (SHOW_MAINSTAGE) tabs.push({ id: 'mainstage', icon: 'sliders', label: '메인스테이지', short: '메인', build: function (host) {
       if (!need('메인스테이지 컨트롤', root.YNMainStage, host)) return;
       var ms = root.YNMainStage.create(), cfg = ms.cfg, unsub;
       function chanOptions() {
@@ -1236,7 +1239,10 @@
     /* (가사 추출은 Step 2.8 에서 허브 화면의 "가사 도구"(방송팀 요청 바로 위)로 옮겼습니다 — public/worship/hubtools.js) */
 
     /* ------------------------------------------------------------ 함께 (페이지 컨트롤 · 클릭 컨트롤 · 동기화 끄기) */
-    tabs.push({ id: 'together', icon: 'together', label: '함께', build: function (host) {
+    tabs.push({ id: 'together', icon: 'together', label: '함께', build: function (host0) {
+      var host = doc.createElement('div'), logHost = doc.createElement('div'); logHost.className = 'pv-logpart';
+      host0.appendChild(host); host0.appendChild(logHost);
+      var logApi = null; try { logApi = logPart.build(logHost) || null; } catch (e) { logApi = null; }
       function paint() {
         var rt = P.rt(), st = rt ? rt.state : 'unavailable', on = st === 'online', lead = on ? rt.leader : null, mine = on && rt.isLeader;
         var clk = on ? rt.clicker : null, cmine = on && rt.isClicker, manual = P.manual(), fp = P.follow(), fm = P.followMetro();
@@ -1272,14 +1278,14 @@
       });
       ['conn', 'peers', 'leader', 'clicker', 'follow', 'followm', 'manual', 'state', 'joined'].forEach(function (n) { P.on(n, function () { if (host.offsetParent !== null) paint(); }); });
       paint();
-      return { onShow: paint };
+      return { onShow: function () { paint(); if (logApi && logApi.onShow) logApi.onShow(); } };
     } });
 
     P.on('song', function () { quick.sync(); }); ['clicker', 'conn', 'leader', 'manual', 'followm'].forEach(function (n) { P.on(n, function () { quick.sync(); }); });
     setTimeout(function () { quick.mount(); live.attach(P.el.querySelector('.pv-tools')); }, 0);
     P.on('toolsrender', function (host) { live.attach(host); });          // 화면 뼈대가 다 만들어진 다음에 붙입니다
     /* V848 — "기록" 탭은 맨 뒤 ("함께" 다음) */
-    (function () { var i = -1; tabs.forEach(function (t, k) { if (t.id === 'log') i = k; }); if (i >= 0) tabs.push(tabs.splice(i, 1)[0]); })();
+    /* (v9.7 — 「기록」은 「함께」 탭 안으로 옮김) */
     return tabs;
   }
 
