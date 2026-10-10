@@ -452,6 +452,7 @@
     }
     P.on('lead', function (st) {
       var rt = P.rt(); if (!st || (rt && rt.me && st.by === rt.me.name)) return;
+      if (P.manual && P.manual()) { P.leadNow = st; return; }                            // 🔒 혼자 보기 — 리드의 BPM · 콜아웃 깜빡임 모두 받지 않음
       var prevLead = P.leadNow; P.leadNow = st;
       var fresh = !!(rt && rt.serverNow && st.t && Math.abs(rt.serverNow() - st.t) < 4000);
       if (st.cue && fresh) remoteCueFlash(String(st.cue), st.by);                         // V848 — 리드가 누른 콜아웃 (큐 보내기 설정과 상관없이)
@@ -568,7 +569,7 @@
     P.on('cue', function (c) {
       /* V842 — 리드의 콜아웃은 받는 기기에서 절대 소리 내지 않습니다. 화면에만: 알림 · 악보의 송폼 라벨 깜빡임 · 송폼 창 위치 */
       /* V848 — 따라가기 · 큐 받기를 꺼 두었어도 리드의 콜아웃은 반드시 반짝 (소리는 여전히 안 남) */
-      if (!c || !c.label) return;
+      if (!c || !c.label || (P.manual && P.manual())) return;                           // 🔒 혼자 보기 — 콜아웃 깜빡임도 받지 않음
       remoteCueFlash(String(c.label), c.by);
     });
     var lastRemoteCue = { k: '', t: 0 };
@@ -1019,8 +1020,8 @@
         say(own ? '이 곡에서 고친 BPM ' + v + ' 를 적용했습니다.' : '곡 정보의 BPM ' + v + ' 를 자동 적용했습니다. (바꾸려면 직접 고치세요)');
       }
       /* 팀이 바꾼 설정 · 곡 정보가 오면 (메트로놈이 멈춰 있을 때) 바로 적용 */
-      P.on('cfg', function (e) { if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote, e.kind === 'all'); });   // V848 — 다른 설정이 새로 와도 지금 BPM 은 그대로
-      P.on('songedit', function (s) { if (s && String(s.title || '') === curSongKey) { bpmOver[curSongKey] = 0; applySongBpm(s, true); } });
+      P.on('cfg', function (e) { if (e && e.remote && P.manual && P.manual()) return; if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote, e.kind === 'all'); });   // V848 — 다른 설정이 새로 와도 지금 BPM 은 그대로
+      P.on('songedit', function (s, remote) { if (remote && P.manual && P.manual()) return; if (s && String(s.title || '') === curSongKey) { bpmOver[curSongKey] = 0; applySongBpm(s, true); } });
       P.on('song', applySongBpm); P.on('close', flushMetroSave);
       try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
       host.addEventListener('change', function (e) {
@@ -1206,7 +1207,8 @@
           html += '<div class="pv-sec"><h4>' + I('page') + '페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
             (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
           html += '<div class="pv-sec pv-follows"><h4>따라가기</h4>' +
-            '<label class="pv-switch"><input type="checkbox" data-a="follow"' + (fp ? ' checked' : '') + '><span></span><b>페이지 컨트롤 따라가기</b></label>' +
+            '<label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>🔒 혼자 보기 — 남의 정보 안 받기</b></label>' +
+            '<p class="pv-help">켜면 다른 사람이 넘기는 쪽 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 쪽↔곡 연결이 내 화면을 바꾸지 않아요. 팀 필기와 나에게 온 요청 메시지는 그대로 보여요 (팀 필기는 「필기」 탭에서 숨길 수 있어요).</p>' +
             '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 쪽이 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 쪽 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
             (!fp && lead && !mine ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
             '<p class="pv-help">메트로놈은 기기마다 따로 씁니다 (팀과 맞추지 않음).</p></div>';

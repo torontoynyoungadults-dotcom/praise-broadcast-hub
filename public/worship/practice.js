@@ -730,6 +730,7 @@
       if (!m || m.cid === S.cid || !m.kind) return;
       var k = ck(m.kind, m.key);
       if (m.value == null) delete S.cfg.team[k]; else S.cfg.team[k] = m.value;
+      if (m.kind === 'map' && S.manual) { P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by, solo: true }); return; }   // 혼자 보기 — 저장만, 지금 곡은 그대로
       if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast(YNHon.say(m.by || '팀') + ' 쪽 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
       P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by });
     }
@@ -737,7 +738,7 @@
       var i = -1; songs.forEach(function (x, j) { if (i < 0 && x.seq === seq && (x.kind || '콘티') === kind) i = j; });
       if (i < 0 || !patch) return;
       Object.assign(songs[i], patch); applySongCfg();
-      if (i === S.songIdx) setSong(i, true);
+      if (i === S.songIdx && !(remote && S.manual)) setSong(i, true);                   // 혼자 보기 중에는 남이 고친 곡 정보로 지금 BPM 을 바꾸지 않음
       renderSongSel(); P.emit('songedit', songs[i], !!remote);
       if (remote) toast(YNHon.say(by || '팀') + ' "' + songs[i].title + '" 곡 정보를 바꿨습니다.', false, 2400);
     }
@@ -1218,7 +1219,7 @@
       else if (S.follow && rt && rt.nav && !rt.isLeader) applyNav(rt.nav, true);
       else if (S.follow && rt && rt.isLeader) sendNav();
       renderChips(); P.emit('follow', S.follow); if (wasManual !== S.manual) P.emit('manual', S.manual);
-      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '페이지 따라가기를 껐습니다. 내 화면은 그대로 유지됩니다.')); }
+      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '🔒 혼자 보기 — 남이 넘기는 쪽 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.')); }
     }
     function setFollowM(b, quiet) {
       return;                                                             // v6 — 메트로놈 따라가기 없앰 (예전 호출은 아무 일도 하지 않음)
@@ -1237,7 +1238,7 @@
         else if (rt && rt.isLeader) sendNav();
       }
       renderChips(); P.emit('follow', S.follow); if (m0 !== S.followM) P.emit('followm', S.followM); P.emit('manual', b); pushPrefs();
-      toast(b ? '페이지 동기화를 껐습니다. 내 화면은 따로 움직이고, 내 넘김도 팀에 보내지 않습니다.' : '페이지 동기화를 켰습니다. 팀과 같은 화면으로 맞춥니다.');
+      toast(b ? '🔒 혼자 보기 — 남이 넘기는 쪽 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.' : '함께 보기 — 팀과 같은 화면으로 맞춥니다.', false, 2600);
     }
     function followNow() { var n = S.pendingNav || (rt && rt.nav); if (n) applyNav(n, true); else toast('페이지 컨트롤이 아직 화면을 넘기지 않았습니다.'); }
     function claim(force) {
@@ -1264,7 +1265,7 @@
       if (on) {
         x += '<div class="pv-rt-sec"><b>' + YI('page') + ' 페이지 리드</b><small>' + (mine ? '내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 리드 중입니다.' : '아직 리드하는 사람이 없습니다.') + '</small>' +
           (can ? (mine ? '<button type="button" class="pv-btn2" data-r="release">리드 내려놓기</button>' : lead ? '<button type="button" class="pv-btn2 warn" data-r="force">리드 넘겨받기</button>' : '<button type="button" class="pv-btn2 primary" data-r="claim">📄 내가 페이지 리드하기</button>') : '<small>팀장 · 인도자만 리드할 수 있습니다.</small>') + '</div>';
-        x += '<div class="pv-rt-sec"><label class="pv-chk"><input type="checkbox" data-r="follow"' + (S.follow ? ' checked' : '') + '> ' + (mine ? '내 페이지 넘김을 팀에 보내기' : '리드하는 화면 따라가기') + '</label>' +
+        x += '<div class="pv-rt-sec pv-solo' + (S.manual ? ' on' : '') + '"><label class="pv-chk"><input type="checkbox" data-r="solo"' + (S.manual ? ' checked' : '') + '> <b>🔒 혼자 보기 — 남의 정보 안 받기</b></label><small>켜면 다른 사람이 넘기는 쪽 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 쪽↔곡 연결이 내 화면을 바꾸지 않아요.' + (mine ? ' 내 넘김도 팀에 보내지 않아요.' : '') + ' (팀 필기와 나에게 온 요청 메시지는 그대로 보여요)</small>' +
           (!S.follow && lead && !mine ? '<button type="button" class="pv-btn2" data-r="now">리드 화면으로 한 번만 가기</button>' : '') + '</div>';
         x += '<div class="pv-rt-sec"><label class="pv-chk"><input type="checkbox" data-r="send"' + (S.sendCue ? ' checked' : '') + '> 리드일 때 콜아웃을 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-r="recv"' + (S.recvCue ? ' checked' : '') + '> 리드의 콜아웃 받기</label></div>';
       }
@@ -1283,7 +1284,7 @@
     });
     rtPop.addEventListener('change', function (e) {
       var t = e.target, a = t.getAttribute && t.getAttribute('data-r');
-      if (a === 'follow') setFollow(t.checked); else if (a === 'send') { S.sendCue = !!t.checked; ls('sendcue', t.checked ? '1' : '0'); } else if (a === 'recv') { S.recvCue = !!t.checked; ls('recvcue', t.checked ? '1' : '0'); }
+      if (a === 'follow') setFollow(t.checked); else if (a === 'solo') setManual(t.checked); else if (a === 'send') { S.sendCue = !!t.checked; ls('sendcue', t.checked ? '1' : '0'); } else if (a === 'recv') { S.recvCue = !!t.checked; ls('recvcue', t.checked ? '1' : '0'); }
       rtPaint();
     });
     function rtOutside(e) { if (rtPop.hidden) return; var tg = e.target; if (tg && tg.closest && (tg.closest('.pv-rtpop') || tg.closest('.pv-conn'))) return; rtOpen(false); }
@@ -1333,13 +1334,16 @@
         clk.title = '메트로놈(클릭)을 조절하는 사람 — 눌러서 설정 열기';
       } else { lead.style.display = 'none'; clk.style.display = 'none'; }
       if (st === 'online' && S.manual && !(rt.leader && !rt.isLeader)) {      // v6 — 수동 = 페이지 따라가기 끔. 컨트롤이 있으면 아래에서 "컨트롤 N쪽" 안내
-        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.textContent = '페이지 따라가기 꺼짐'; fol.setAttribute('aria-pressed', 'false');
-        fol.title = '눌러서 동기화 다시 켜기';
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.textContent = '🔒 혼자 보기'; fol.setAttribute('aria-pressed', 'false');
+        fol.title = '남의 페이지 · BPM · 콜아웃을 받지 않는 중 — 눌러서 다시 함께 보기';
       } else if (st === 'online' && rt.leader && !rt.isLeader) {
         fol.style.display = ''; fol.className = 'pv-chip pv-follow ' + (S.follow ? 'on' : 'off'); fol.title = '페이지 컨트롤 화면 따라가기 켜기/끄기';
         var behind = !S.follow && S.pendingNav && (S.pendingNav.page !== S.page || S.pendingNav.file !== fileId());
-        fol.textContent = S.follow ? '따라가는 중' : (behind ? '따라가기 꺼짐 · 컨트롤 ' + S.pendingNav.page + '쪽' : '따라가기 꺼짐');
+        fol.textContent = S.follow ? '따라가는 중' : (behind ? '🔒 혼자 보기 · 컨트롤 ' + S.pendingNav.page + '쪽' : '🔒 혼자 보기');
         fol.setAttribute('aria-pressed', S.follow ? 'true' : 'false');
+      } else if (st === 'online') {                                       // 컨트롤이 없거나 내가 컨트롤 — 눌러서 「혼자 보기」 켜기
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow on together'; fol.textContent = '함께 보기'; fol.setAttribute('aria-pressed', 'true');
+        fol.title = '지금은 팀과 함께 보는 중 — 눌러서 「혼자 보기」(남의 정보 안 받기)';
       } else fol.style.display = 'none';
       if (folm) {                                                         // v6 — 메트로놈 따라가기 칩은 없앰
         if (false) {
@@ -1922,7 +1926,7 @@
       Array.prototype.forEach.call(nodes, function (n) { var on = !!(lp && +n.getAttribute('data-s') === lp.s && +n.getAttribute('data-i') === lp.i); n.classList.toggle('lead', on); if (on) n.setAttribute('data-lead', lp.by || ''); else n.removeAttribute('data-lead'); });
     }
     P.on('lead', function (st) {
-      if (!st) return; var me = rt && rt.me ? rt.me.name : '';
+      if (!st || S.manual) return; var me = rt && rt.me ? rt.me.name : '';               // 혼자 보기 — 리드의 송폼 위치 표시도 받지 않음
       if (st.by === me) return;
       if (st.fi >= 0 && st.song >= 0) {
         var changed = !S.leadPos || S.leadPos.s !== st.song || S.leadPos.i !== st.fi;
