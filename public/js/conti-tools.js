@@ -543,7 +543,36 @@
       var items = []; try { items = JSON.parse(box.getAttribute('data-items') || '[]'); } catch (e) {}
       var panel = box.querySelector('[data-cn-yplayer]'), btn = box.querySelector('[data-cn-yplay-open]');
       if (!items.length || !panel || !btn) return;
-      var player = null, cur = 0, built = false, bad = {};
+      var player = null, cur = 0, built = false, bad = {}, form = null;
+      /* v9.6 — 송폼 태그 (Intro · V1 · C · B …): 들으면서 표시해 두면 팀 모두가 그 부분부터 바로 · 구간 반복 (public/worship/ytform.js) */
+      var team = box.getAttribute('data-team') || '', ytv = box.getAttribute('data-ytv') || '';
+      function ytfReq(method, body, vid) {
+        var url = '/conti/ytform?team=' + encodeURIComponent(team) + (vid ? '&vid=' + encodeURIComponent(vid) : '');
+        return fetch(url, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+          .then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || '실패했어요.'); return j.result; });
+      }
+      function loadYtForm(cb) {
+        if (window.YNYtForm) return cb();
+        var s = document.createElement('script'); s.src = '/worship/ytform.js?v=' + encodeURIComponent(ytv); s.onload = function () { cb(); }; s.onerror = function () { /* 태그 없이도 재생은 그대로 */ };
+        document.head.appendChild(s);
+      }
+      function mountForm() {
+        var host = panel.querySelector('[data-cn-yform]'); if (!host || !items[cur]) return;
+        loadYtForm(function () {
+          if (form || !window.YNYtForm) return;
+          var pl = function () { return player && player.getCurrentTime ? player : null; };
+          form = window.YNYtForm.mount(host, {
+            vid: items[cur].id, title: items[cur].t,
+            api: { load: function (v) { return ytfReq('GET', null, v); }, save: function (v, t, tags, at) { return ytfReq('POST', { vid: v, title: t, tags: tags, baseAt: at }); } },
+            player: {
+              time: function () { var p = pl(); try { return p ? +p.getCurrentTime() : null; } catch (e) { return null; } },
+              seek: function (t) { var p = pl(); try { if (p) p.seekTo(t, true); } catch (e) {} },
+              play: function () { var p = pl(); try { if (p) p.playVideo(); } catch (e) {} },
+              duration: function () { var p = pl(); try { return p ? +p.getDuration() || 0 : 0; } catch (e) { return 0; } }
+            }
+          });
+        });
+      }
       function label(it) { return ((it.k === '설교 후' || it.k === '폐회송') ? it.k + ' · ' : '') + it.t; }
       function paint() {
         var now = panel.querySelector('[data-cn-ynow]'); if (now) now.textContent = label(items[cur]);
@@ -553,6 +582,7 @@
         if (i < 0 || i >= items.length) return;
         cur = i; paint();
         if (player && player.loadVideoById) { if (auto === false) player.cueVideoById(items[i].id); else player.loadVideoById(items[i].id); }
+        if (form) form.setVid(items[i].id, items[i].t);
       }
       function next(from) { for (var i = (from == null ? cur : from) + 1; i < items.length; i++) if (!bad[i]) return play(i); }
       function prev() { for (var i = cur - 1; i >= 0; i--) if (!bad[i]) return play(i); }
@@ -560,9 +590,10 @@
         built = true;
         panel.innerHTML = '<div class="cn-yframe"><div data-cn-yslot></div></div>' +
           '<div class="cn-ynow"><b data-cn-ynow></b><button type="button" class="cn-mini" data-cn-yprev>이전 곡</button><button type="button" class="cn-mini" data-cn-ynext>다음 곡</button></div>' +
+          '<div data-cn-yform></div>' +
           '<ul class="cn-yq">' + items.map(function (it, i) { return '<li><button type="button" data-cn-yi="' + i + '"><span class="n">' + (it.n || it.k || '결단') + '</span><span class="t">' + escH(it.t) + '</span><span class="x"></span></button></li>'; }).join('') + '</ul>' +
           '<p class="ph-sub" data-cn-ymsg hidden></p>';
-        paint();
+        paint(); mountForm();
         loadYtApi(function (ok) {
           var msg = panel.querySelector('[data-cn-ymsg]');
           if (ok === null || !window.YT || !window.YT.Player) { msg.hidden = false; msg.textContent = '유튜브 플레이어를 불러오지 못했어요. "유튜브에서 한 번에 열기"를 눌러 주세요.'; return; }

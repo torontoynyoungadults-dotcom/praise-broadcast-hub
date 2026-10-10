@@ -10,7 +10,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "auth": "node scripts/get-refresh-token.js"
+    "auth": "node scripts/get-refresh-token.js",
+    "test:ytform": "node scripts/test-ytform.js && node scripts/e2e-ytform-conti.js"
   },
   "dependencies": {
     "@hyzyla/pdfium": "^2.1.13",

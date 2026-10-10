@@ -2199,3 +2199,19 @@ html[data-theme="light"] .pv-bs-dots i.d1.on { background: #FF8A2A; }
 .pv-eq .pv-rng output { min-width: 70px; }
 .pv-compact .pv-drawer .pv-eq .pv-btn2 { width: auto; }
 html .pv .pv-freqbtns .pv-btn2.on { background: var(--lg-a-soft, rgba(255,138,61,.15)) !important; border-color: var(--lg-a-edge, rgba(255,150,80,.45)) !important; color: var(--lg-a-text, #FFC18F) !important; }
+
+/* v9.6 — 라이브 악보 「나만 보는 악보」 창 */
+.pv-minepanel { position: absolute; inset: 0; z-index: 260; display: flex; align-items: flex-start; justify-content: center; padding: 70px 12px 12px; background: rgba(0, 0, 0, .35); }
+.pv-minepanel[hidden] { display: none; }
+.pv-mp-in { width: min(440px, 100%); max-height: calc(100% - 20px); overflow-y: auto; padding: 14px 16px 16px; border-radius: 16px; background: var(--g-solid, #101f1c); color: var(--g-ink, #f8f5f0); border: 1px solid var(--g-line2, rgba(255,255,255,.18)); box-shadow: 0 16px 48px rgba(0, 0, 0, .5); font-size: 14px; }
+.pv-mp-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15.5px; }
+.pv-mp-x { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--g-line2, rgba(255,255,255,.2)); background: transparent; color: inherit; font-size: 15px; cursor: pointer; }
+.pv-mp-p { margin: 8px 0 10px; font-size: 12.5px; line-height: 1.55; opacity: .85; }
+.pv .pv-mp-pick { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; cursor: pointer; }
+.pv-mp-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.pv-mp-list { margin-top: 10px; display: grid; gap: 6px; }
+.pv-mp-row { display: flex; gap: 6px; min-width: 0; }
+.pv-mp-row button { min-height: 40px; border-radius: 10px; border: 1px solid var(--g-line2, rgba(255,255,255,.2)); background: rgba(128, 128, 128, .12); color: inherit; font: inherit; font-weight: 700; cursor: pointer; padding: 0 12px; }
+.pv-mp-open { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-mp-del { flex: none; color: #E5484D !important; }
+.pv-yt .yt-form { margin-top: 2px; }

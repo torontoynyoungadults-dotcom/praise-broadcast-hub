@@ -44,6 +44,7 @@ const LIVE_V = (() => {
   } catch (e) { return String(Date.now()); }
 })();
 
+const ytForm = require('../lib/ytForm');
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
 
@@ -223,6 +224,7 @@ window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n}
 <script defer src="/worship/harmony-core.js${v}"></script>
 <script defer src="/worship/omr.js${v}"></script>
 <script defer src="/worship/harmony-ui.js${v}"></script>
+<script defer src="/worship/ytform.js${v}"></script>
 <script defer src="/worship/ytplayer.js${v}"></script>
 <script defer src="/worship/rt.js${v}"></script>
 <script defer src="/worship/timer.js${v}"></script>
@@ -370,7 +372,7 @@ router.get('/sheet/:id', fileAccess, async (req, res) => {
   const id = String(req.params.id || '');
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   try {
-    const hit = await sheetRowFor(req, id);
+    const hit = (await sheetRowFor(req, id)) || (await ytForm.mineRowFor(req.ctx, id));      // v9.6 — 나만 보는 악보는 올린 본인만
     if (!hit) return res.status(404).send('not found');
     const rec = await sheetBytes(id, hit);
     res.set({ 'Content-Type': rec.type, 'Content-Length': String(rec.buf.length), 'Cache-Control': 'private, max-age=600' });
@@ -534,6 +536,13 @@ const FNS = {
     });
   },
   async worshipSongsOf(u, room) { return { songs: await liveStore.songsOf(u.team, room) }; },
+  /** v9.6 — 유튜브 송폼 태그 (팀 · 영상마다 · 팀원 누구나 저장) */
+  async worshipYtFormGet(u, vid) { return ytForm.get(u.team, vid); },
+  async worshipYtFormSave(u, vid, title, tags, baseAt) { return ytForm.save(u.team, u.name, vid, title, tags, baseAt); },
+  /** v9.6 — 라이브 악보 "나만 보는 악보" (올린 본인에게만) */
+  async worshipMySheets(u, room) { return ytForm.mySheets(u, room); },
+  async worshipMySheetAdd(u, room, fileName, dataUrl) { return ytForm.mySheetAdd(u, room, fileName, dataUrl); },
+  async worshipMySheetDel(u, room, fileId) { return ytForm.mySheetDel(u, room, fileId); },
   /** 예배 중에 악보를 올리거나 지웠을 때 — 열린 라이브 악보(악보 목록) · 방송팀 화면(곡별 악보)이 다시 받아 감 (songs:changed 알림 뒤) */
   async worshipLiveSheets(u, room) {
     const scope = liveStore.scopeOfRoom(String(room || ''));
@@ -576,7 +585,7 @@ router.post('/api/:fn', async (req, res) => {
     const u = liveAuth.verify(args[0]);
     const rest = args.slice(1);
     if (u.ro) {                                           // 방송팀 보기 링크 — 그 예배의 악보 · 필기 · 곡 정보 읽기만
-      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1, worshipLiveSheets: 0 };
+      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1, worshipLiveSheets: 0, worshipYtFormGet: -1 };
       if (!own(RO_OK, fn)) throw new Error('방송팀 보기 링크는 읽기 전용입니다.');
       if (RO_OK[fn] >= 0 && String(rest[RO_OK[fn]] || '') !== u.room) throw new Error('이 링크로는 해당 예배의 라이브 악보만 볼 수 있습니다.');
     }
@@ -584,7 +593,7 @@ router.post('/api/:fn', async (req, res) => {
       await guestAccess.ensure(u);
       const ROOM_AT = { worshipAnnoLoad: 1, worshipAnnoSaveMine: 1, worshipCfgLoad: 0, worshipCfgSave: 0, worshipSongsOf: 0, worshipLiveSheets: 0, worshipSongPatch: 0, worshipSheetSplit: 0 };
       if (own(ROOM_AT, fn)) { if (!guestAccess.roomOk(u, rest[ROOM_AT[fn]])) throw new Error('객원 멤버는 스케줄에 서는 날만 열 수 있습니다.'); }
-      else if (!['worshipSchedule', 'setMyUnavailableMany', 'removeMyUnavailable', 'worshipHarmLoad'].includes(fn)) throw new Error('객원 멤버는 쓸 수 없는 기능입니다.');
+      else if (!['worshipSchedule', 'setMyUnavailableMany', 'removeMyUnavailable', 'worshipHarmLoad', 'worshipYtFormGet'].includes(fn)) throw new Error('객원 멤버는 쓸 수 없는 기능입니다.');
     }
     if (fn === 'worshipRepoSongUse') rest.length = 4, rest.push((team, sc) => songsChanged(team, sc, 'saveWorshipSongs'));   // 콘티에 곡을 넣으면 열린 라이브 악보에 알림
     const result = await table[fn](u, ...rest);

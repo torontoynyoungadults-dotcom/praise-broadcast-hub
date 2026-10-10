@@ -229,9 +229,92 @@
       clearTimeout(S.msgT); if (t) S.msgT = setTimeout(function () { toastEl.className = 'pv-toast'; }, ms || (bad ? 5000 : 2200));
     }
 
-    function paintSheetSel() { sheetSel.innerHTML = sheets.map(function (s, i) { return '<option value="' + i + '">' + h(s.name || ('악보 ' + (i + 1))) + '</option>'; }).join(''); sheetSel.value = String(S.sheetIdx); }
+    /** 나만 보는 악보는 목록 맨 뒤 (이 앱은 서버가 콘티 순서로 줌) */
+    function orderMine(list) { return list.filter(function (x) { return !x.mine; }).concat(list.filter(function (x) { return x.mine; })); }
+    function canMine() { return !!(opts.callServer && opts.token && S.room && !opts.readOnly); }
+    function paintSheetSel() {
+      var cur = sheets[S.sheetIdx];
+      sheetSel.innerHTML = sheets.map(function (s, i) { return '<option value="' + i + '">' + (s.mine ? '🔒 ' : '') + h(s.label || s.name || ('악보 ' + (i + 1))) + (s.mine ? ' (나만)' : '') + '</option>'; }).join('') +
+        (canMine() ? '<option value="__mineadd">🔒 나만 보는 악보 올리기 · 관리…</option>' + (cur && cur.mine ? '<option value="__minedel">🗑 이 악보 지우기 (나만 보는 악보)</option>' : '') : '');
+      sheetSel.value = String(S.sheetIdx);
+    }
     paintSheetSel();
-    sheetSel.onchange = function () { loadSheet(+sheetSel.value, 1, true); };
+    sheetSel.onchange = function () {
+      var v = sheetSel.value;
+      if (v === '__mineadd') { sheetSel.value = String(S.sheetIdx); pickMine(); return; }
+      if (v === '__minedel') { sheetSel.value = String(S.sheetIdx); delMine(); return; }
+      loadSheet(+v, 1, true);
+    };
+    /* ------------------------------------------------------------ v9.6 나만 보는 악보
+       라이브 악보에서 내가 올린 PDF · 사진 악보 — 내 악보 목록에만 보이고(🔒), 다른 팀원에게는 보이지 않습니다.
+       이 악보를 보는 동안에는 페이지 컨트롤이어도 팀 화면을 넘기지 않습니다 (다른 사람에게는 없는 악보라서). 예배(날짜)마다 저장됩니다. */
+    /* 파일 고르기는 진짜 단추(label 안의 input)로 — 아이패드 사파리는 목록(select)에서 파일 창을 열지 못하게 막습니다 */
+    var minePanel = doc.createElement('div'); minePanel.className = 'pv-minepanel'; minePanel.setAttribute('role', 'dialog'); minePanel.setAttribute('aria-label', '나만 보는 악보'); minePanel.hidden = true;
+    minePanel.innerHTML = '<div class="pv-mp-in"><div class="pv-mp-h"><b>🔒 나만 보는 악보</b><button type="button" class="pv-mp-x" aria-label="닫기">✕</button></div>' +
+      '<p class="pv-mp-p">여기서 올린 PDF · 사진 악보는 <b>나에게만</b> 보여요. 다른 팀원 목록에는 나오지 않고, 이 악보를 보는 동안에는 페이지 컨트롤이어도 팀 화면을 넘기지 않아요. 이 예배(날짜)에 저장됩니다.</p>' +
+      '<label class="pv-btn2 primary pv-mp-pick">PDF · 사진 고르기<input type="file" class="pv-mineinput" accept="application/pdf,image/*" multiple></label>' +
+      '<div class="pv-mp-list"></div></div>';
+    var mineInput = minePanel.querySelector('.pv-mineinput');
+    function paintMinePanel() {
+      var mine = sheets.filter(function (x) { return x.mine; }), lst = minePanel.querySelector('.pv-mp-list');
+      lst.innerHTML = mine.length ? mine.map(function (x) { return '<div class="pv-mp-row"><button type="button" class="pv-mp-open" data-id="' + h(x.id) + '">🔒 ' + h(x.name || '악보') + '</button><button type="button" class="pv-mp-del" data-id="' + h(x.id) + '" aria-label="지우기">지우기</button></div>'; }).join('') : '<p class="pv-mp-p">아직 올린 악보가 없어요.</p>';
+    }
+    function openMinePanel() { paintMinePanel(); minePanel.hidden = false; }
+    minePanel.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button') : null; if (!b) { if (e.target === minePanel) minePanel.hidden = true; return; }
+      if (b.classList.contains('pv-mp-x')) { minePanel.hidden = true; return; }
+      var id = b.getAttribute('data-id'), i = -1; sheets.forEach(function (x, k) { if (x.id === id) i = k; });
+      if (b.classList.contains('pv-mp-open') && i >= 0) { minePanel.hidden = true; loadSheet(i, 1, false); }
+      else if (b.classList.contains('pv-mp-del') && i >= 0) delMine(sheets[i]);
+    });
+    function addMineSheets(list, openId) {
+      var had = {}; sheets.forEach(function (x) { had[x.id] = x; });
+      var cur = sheets[S.sheetIdx];
+      (list || []).forEach(function (x) { if (x && x.id && !had[x.id]) { sheets.push({ id: x.id, name: x.name || '나만 보는 악보', mine: true }); had[x.id] = 1; } });
+      var next = orderMine(sheets.slice()); sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
+      S.sheetIdx = Math.max(0, sheets.indexOf(cur)); paintSheetSel(); P.emit('sheets', sheets.slice(), []);
+      if (openId) { var i = -1; sheets.forEach(function (x, k) { if (x.id === openId) i = k; }); if (i >= 0) loadSheet(i, 1, false); }
+    }
+    function loadMine() {
+      if (!canMine()) return;
+      opts.callServer('worshipMySheets', [opts.token, S.room], function (r) { if (!S.dead && r && Array.isArray(r.sheets)) addMineSheets(r.sheets); }, function () { /* 없으면 그대로 */ });
+    }
+    function pickMine() { if (!canMine()) return; openMinePanel(); }
+    function readUrl(f) { return new Promise(function (res, rej) { var fr = new root.FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = function () { rej(new Error('파일을 읽지 못했습니다.')); }; fr.readAsDataURL(f); }); }
+    mineInput.onchange = function () {
+      var files = Array.prototype.slice.call(mineInput.files || []).filter(function (f) { return /pdf|image\//i.test(f.type || '') || /\.(pdf|png|jpe?g|webp|gif)$/i.test(f.name || ''); });
+      if (!files.length) { toast('PDF 또는 사진 파일을 골라 주세요.', true); return; }
+      minePanel.hidden = true;
+      var big = files.filter(function (f) { return f.size > 20 * 1024 * 1024; }); if (big.length) { toast('파일은 20MB까지 올릴 수 있어요: ' + big[0].name, true, 6000); return; }
+      var lastId = '', n = 0;
+      toast('나만 보는 악보를 올리는 중… (' + files.length + '개)', false, 60000);
+      files.reduce(function (p, f) {
+        return p.then(function () {
+          return readUrl(f).then(function (url) {
+            return new Promise(function (res, rej) { opts.callServer('worshipMySheetAdd', [opts.token, S.room, f.name, url], res, function (e) { rej(e instanceof Error ? e : new Error((e && e.message) || '올리지 못했습니다.')); }); });
+          }).then(function (r) { n++; if (r && r.sheet) { lastId = r.sheet.id; addMineSheets([r.sheet]); } });
+        });
+      }, Promise.resolve()).then(function () {
+        if (S.dead) return;
+        mineInput.value = '';
+        toast('🔒 나만 보는 악보 ' + n + '개를 올렸어요 — 다른 팀원에게는 보이지 않아요.', false, 4000);
+        if (lastId) addMineSheets([], lastId);
+      }, function (e) { if (!S.dead) { toast((e && e.message) || '올리지 못했습니다.', true, 6000); if (lastId) addMineSheets([], lastId); } });
+    };
+    function delMine(target) {
+      var cur = target || sheets[S.sheetIdx]; if (!cur || !cur.mine) return;
+      var viewing = sheets[S.sheetIdx] === cur;
+      if (typeof root.confirm === 'function' && !root.confirm('"' + (cur.name || '악보') + '" 를 지울까요? (나만 보는 악보 — 내 필기도 함께 볼 수 없게 됩니다)')) return;
+      opts.callServer('worshipMySheetDel', [opts.token, S.room, cur.id], function () {
+        if (S.dead) return;
+        var showing = sheets[S.sheetIdx], i = sheets.indexOf(cur); if (i >= 0) sheets.splice(i, 1);
+        if (!minePanel.hidden) paintMinePanel();
+        if (!sheets.length) { toast('지웠어요.'); paintSheetSel(); return; }
+        if (viewing) { S.sheetIdx = Math.min(i, sheets.length - 1); paintSheetSel(); P.emit('sheets', sheets.slice(), []); loadSheet(S.sheetIdx, 1, true); }
+        else { S.sheetIdx = Math.max(0, sheets.indexOf(showing)); paintSheetSel(); P.emit('sheets', sheets.slice(), []); }
+        toast('나만 보는 악보를 지웠어요.');
+      }, function (e) { toast((e && e.message) || '지우지 못했습니다.', true); });
+    }
 
     /* ------------------------------------------------------------ 레이아웃 */
     function applyLayout(l, save) {
@@ -694,7 +777,7 @@
       idx = clamp(idx | 0, 0, sheets.length - 1);
       var f = sheets[idx], lid = ++S.loadId; turnStart();
       flushMine(); an.closeEditor();
-      S.sheetIdx = idx; sheetSel.value = String(idx); S.loadingTo = lid; S.loadWant = page || 1;
+      S.sheetIdx = idx; paintSheetSel(); S.loadingTo = lid; S.loadWant = page || 1;
       /* v9.5 — 이미 받아 둔 악보(미리 그려 둔 쪽)면 "불러오는 중" 가림막을 띄우지 않습니다 — 넘김이 번쩍이지 않게. 오래 걸릴 때만 보임 */
       loading.textContent = S.cache[f.id] ? '악보를 그리는 중…' : '악보를 불러오는 중…';
       clearTimeout(S.ldT);
@@ -888,7 +971,9 @@
         if (JSON.stringify(o.map || {}) !== JSON.stringify(x.map || {})) { if (x.map) o.map = x.map; else delete o.map; delete S.maps[o.id]; if (o === cur) mapChanged = true; }
         o.name = x.name || o.name; return o;
       });
+      sheets.forEach(function (x) { if (x.mine && next.indexOf(x) < 0) next.push(x); });     // v9.6 — 나만 보는 악보는 팀 목록에 없으므로 그대로 둠
       if (cur && next.indexOf(cur) < 0) next.push(cur);                                   // 지워진 악보라도 보고 있는 동안은 남겨 둠
+      next = orderMine(next);
       if (sheetSig(next) === sheetSig(sheets)) return;
       sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
       S.sheetIdx = Math.max(0, sheets.indexOf(cur));
@@ -1074,6 +1159,16 @@
     function ytIdOf(url) { var m = /(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/.exec(String(url || '')); return m ? m[1] : ''; }
     var ytBtn = $('.pv-ytbtn'), ytBox = null, ytCtl = null;
     function closeYt() { if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } ytBtn.classList.remove('on'); ytBtn.setAttribute('aria-pressed', 'false'); }
+    /* v9.6 — 유튜브 송폼 태그 저장 (영상마다 팀에 하나 — 서버 worshipYtFormGet / worshipYtFormSave) */
+    function ytFormApi() {
+      if (!opts.callServer || !opts.token) return null;
+      var call = function (fn, args) { return new Promise(function (res, rej) { opts.callServer(fn, [opts.token].concat(args), res, function (e) { rej(e instanceof Error ? e : new Error((e && e.message) || String(e || '실패'))); }); }); };
+      return {
+        canEdit: !opts.readOnly,
+        load: function (vid) { return call('worshipYtFormGet', [vid]); },
+        save: function (vid, title, tags, baseAt) { return call('worshipYtFormSave', [vid, title, tags, baseAt]); }
+      };
+    }
     function setYt(s) { var id = s ? ytIdOf(s.link) : ''; if (ytBox && ytBtn.getAttribute('data-id') !== id) closeYt(); ytBtn.style.display = id ? '' : 'none'; ytBtn.setAttribute('data-id', id); if (!id) closeYt(); }
     ytBtn.onclick = function () {
       var id = ytBtn.getAttribute('data-id'); if (!id) return;
@@ -1086,7 +1181,7 @@
       if (P.floatWin) P.floatWin('yt', ytBox, function () { return S.compact ? { x: 0.5, y: 0.98 } : { x: 0.98, y: 0.9 }; }); else el.appendChild(ytBox);
       ytBtn.classList.add('on'); ytBtn.setAttribute('aria-pressed', 'true');
       var body = ytBox.querySelector('.pv-ytbody');
-      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
+      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null, form: ytFormApi() });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
       else body.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
     };
 
@@ -1154,6 +1249,7 @@
     P.openAudioShift = function (o) { return root.YNAudioShift && root.YNAudioShift.openDialog ? root.YNAudioShift.openDialog(P, o) : null; };
     P.on('song', function () { if (P.keyShift() !== 0) P.ensureTab('harmony'); });
     S.room = opts.room || '';
+    el.appendChild(minePanel); paintSheetSel(); setTimeout(loadMine, 300);              // v9.6 — 나만 보는 악보 목록 (내 것만)
     var rt = null, an = null;
 
     /* ------------------------------------------------------------ 필기 엔진 연결 */
@@ -1293,6 +1389,7 @@
     }
     function sendNav() {
       if (S.applying || !rt || !rt.isLeader || !S.follow) return;      // 페이지 동기화를 끈 동안에는 내 화면을 보내지 않음
+      if (sheets[S.sheetIdx] && sheets[S.sheetIdx].mine) return;          // v9.6 — 나만 보는 악보는 팀에게 없으므로 넘기지 않음
       clearTimeout(S.navT); S.navT = 0;
       var gap = Date.now() - (S.navLast || 0);
       if (gap >= 80) { navSend(); return; }                            // 오랜만의 넘김 → 즉시

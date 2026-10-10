@@ -102,6 +102,22 @@
       '<div class="yt-msg" role="status"></div>';
     var zl = el('div', 'yt-zone yt-zl', '<i></i>'), zr = el('div', 'yt-zone yt-zr', '<i></i>'); zl.setAttribute('aria-hidden', 'true'); zr.setAttribute('aria-hidden', 'true'); stage.appendChild(zl); stage.appendChild(zr);
     host.appendChild(stage); host.appendChild(ctl);
+    /* v9.6 — 송폼 태그 (Intro · V1 · C · B …) — opt.form = { load, save, canEdit } 이 있고 ytform.js 가 있으면 컨트롤 아래에 붙임 */
+    var form = null;
+    if (opt.form && typeof window !== 'undefined' && window.YNYtForm) {
+      var fh = el('div', 'yt-form'); host.appendChild(fh);
+      try {
+        form = window.YNYtForm.mount(fh, {
+          vid: id, title: opt.title || '', canEdit: opt.form.canEdit !== false, api: { load: opt.form.load, save: opt.form.save },
+          player: {
+            time: function () { return st.ready && !st.fallback ? now() : null; },
+            seek: function (t) { if (st.ready && !st.fallback) { try { st.player.seekTo(t, true); } catch (e) {} } },
+            play: function () { if (st.ready && !st.fallback) { try { st.player.playVideo(); } catch (e) {} } },
+            duration: function () { try { return st.ready ? +st.player.getDuration() || 0 : 0; } catch (e) { return 0; } }
+          }
+        });
+      } catch (e) { form = null; }
+    }
     var msg = ctl.querySelector('.yt-msg'), abinfo = ctl.querySelector('.yt-abinfo'), knEl = ctl.querySelector('.yt-kn'), kstat = ctl.querySelector('.yt-kstat');
     var volRow = ctl.querySelector('.yt-vol'), volBtn = ctl.querySelector('[data-v="mute"]'), volRange = ctl.querySelector('.yt-volrange'), volOut = volRow && volRow.querySelector('output');
     function say(t, bad) { msg.textContent = t || ''; msg.className = 'yt-msg' + (bad ? ' bad' : ''); }
@@ -249,7 +265,8 @@
       setVolume: setVolume, toggleMute: toggleMute,
       state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback, key: kb ? keyNow() : null, vol: st.vol, muted: st.muted }; },
       setKeyStatus: setKeyStatus, repaintKey: paintKey,
-      destroy: function () { st.dead = true; stopTimer(); kOffs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); kOffs = []; try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
+      form: function () { return form; },
+      destroy: function () { st.dead = true; stopTimer(); if (form) { try { form.destroy(); } catch (e) {} form = null; } kOffs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); kOffs = []; try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
     };
   }
 
