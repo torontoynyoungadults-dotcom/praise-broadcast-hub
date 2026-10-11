@@ -838,6 +838,7 @@
       var f = sheets[idx], lid = ++S.loadId; turnStart();
       flushMine(); an.closeEditor();
       S.sheetIdx = idx; paintSheetSel(); S.loadingTo = lid; S.loadWant = page || 1;
+      mineLayerSync(true);                                                                // v9.13 — 나만 보는 악보에는 내 필기만 (팀으로 보내지 않음)
       /* v9.5 — 이미 받아 둔 악보(미리 그려 둔 쪽)면 "불러오는 중" 가림막을 띄우지 않습니다 — 넘김이 번쩍이지 않게. 오래 걸릴 때만 보임 */
       loading.textContent = S.cache[f.id] ? '악보를 그리는 중…' : '악보를 불러오는 중…';
       clearTimeout(S.ldT);
@@ -1033,6 +1034,18 @@
       var cur = sheets[S.sheetIdx], had = {}, mapChanged = false;
       sheets.forEach(function (x) { had[x.id] = x; });
       var added = list.filter(function (x) { return x && x.id && !had[x.id]; });
+      /* v9.13 — "바뀐" 악보: 머리말 다시 만들기 · 쪽 지우기 · 자르기처럼 같은 악보가 새 파일로 바뀌면 목록에서 빠진 악보와 같은 이름의 새 악보가 들어옵니다.
+         새 악보로 따로 알리지 않고 그 자리에서 바꿔 끼웁니다 (같은 악보가 두 개 보이지 않게). 지금 보고 있는 악보면 「새로 보기」 안내 */
+      var inNew = {}; list.forEach(function (x) { if (x && x.id) inNew[x.id] = 1; });
+      var nk = function (x) { return String((x && x.name) || '').replace(/\.(pdf|png|jpe?g|webp|gif|heic)$/i, '').trim().toLowerCase(); };
+      var swapped = [], curNew = null;
+      sheets.forEach(function (o) {
+        if (!o || o.mine || inNew[o.id] || !nk(o)) return;
+        var k = -1; added.forEach(function (x, j) { if (k < 0 && nk(x) === nk(o)) k = j; });
+        if (k < 0) return;
+        var nx = added.splice(k, 1)[0]; swapped.push({ from: o, to: nx });
+        if (o === cur) curNew = nx;
+      });
       var next = list.filter(function (x) { return x && x.id; }).map(function (x) {
         var o = had[x.id]; if (!o) return x;
         if (JSON.stringify(o.map || {}) !== JSON.stringify(x.map || {})) { if (x.map) o.map = x.map; else delete o.map; delete S.maps[o.id]; if (o === cur) mapChanged = true; }
@@ -1047,23 +1060,34 @@
       paintSheetSel();
       if (mapChanged && S.doc) { scanTitles(S.doc, sheets[S.sheetIdx]); syncSongForPage(); renderSongSel(); }
       P.emit('sheets', sheets.slice(), added);
-      if (added.length) newSheetNotice(added);
+      if (curNew) newSheetNotice([curNew], cur);
+      else if (added.length) newSheetNotice(added);
+      else if (swapped.length) toast('🎼 악보가 새로 바뀌었어요: ' + (swapped[0].to.name || '악보') + (swapped.length > 1 ? ' 외 ' + (swapped.length - 1) + '개' : ''), false, 3500);
     }
     var nsEl = null, nsT = 0;
-    function newSheetNotice(added) {
+    function newSheetNotice(added, replacing) {
       if (!nsEl) {
         nsEl = doc.createElement('div'); nsEl.className = 'pv-newsheet'; nsEl.setAttribute('role', 'status');
         nsEl.addEventListener('click', function (e) {
           var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
-          var id = b.getAttribute('data-open'); nsEl.classList.remove('show');
-          if (id) { var i = -1; sheets.forEach(function (x, k) { if (x.id === id) i = k; }); if (i >= 0) loadSheet(i, 1, true); }
+          var id = b.getAttribute('data-open'), old = b.getAttribute('data-old'); nsEl.classList.remove('show');
+          if (id) {
+            var i = -1; sheets.forEach(function (x, k) { if (x.id === id) i = k; });
+            if (i >= 0) {
+              var pg = old && sheets[S.sheetIdx] && sheets[S.sheetIdx].id === old ? S.page : 1;          // v9.13 — 바뀐 악보는 보던 쪽 그대로
+              loadSheet(i, pg, true);
+              if (old) { var oi = -1; sheets.forEach(function (x, k) { if (x.id === old) oi = k; }); if (oi >= 0 && oi !== S.sheetIdx) { var curF = sheets[S.sheetIdx]; sheets.splice(oi, 1); S.sheetIdx = Math.max(0, sheets.indexOf(curF)); paintSheetSel(); P.emit('sheets', sheets.slice(), []); } }   // 옛 파일은 목록에서 뺌
+            }
+          }
         });
         el.appendChild(nsEl);
       }
       var host = el.querySelector('.lm-inbox'); if (host && nsEl.parentNode !== host) host.appendChild(nsEl);   // 받은 메시지 카드와 겹치지 않게 같은 줄에 쌓음
       var f = added[added.length - 1];
-      nsEl.innerHTML = '<span>🎼 새 악보가 올라왔어요: <b>' + h(f.name || '악보') + '</b>' + (added.length > 1 ? ' 외 ' + (added.length - 1) + '개' : '') + '</span>' +
-        '<button type="button" class="pv-ns-open" data-open="' + h(f.id) + '">열기</button><button type="button" class="pv-ns-x" aria-label="닫기">✕</button>';
+      nsEl.innerHTML = (replacing
+        ? '<span>🎼 지금 보는 악보가 새로 바뀌었어요: <b>' + h(f.name || '악보') + '</b></span><button type="button" class="pv-ns-open" data-open="' + h(f.id) + '" data-old="' + h(replacing.id) + '">새로 보기</button>'
+        : '<span>🎼 새 악보가 올라왔어요: <b>' + h(f.name || '악보') + '</b>' + (added.length > 1 ? ' 외 ' + (added.length - 1) + '개' : '') + '</span><button type="button" class="pv-ns-open" data-open="' + h(f.id) + '">열기</button>') +
+        '<button type="button" class="pv-ns-x" aria-label="닫기">✕</button>';
       nsEl.classList.add('show'); clearTimeout(nsT); nsT = setTimeout(function () { if (nsEl) nsEl.classList.remove('show'); }, 20000);
     }
     /** 곡 정보(BPM · 송폼 · 유튜브 링크) 저장 — 팀 층이면 '찬양콘티' 줄을 고쳐 팀에 실시간 전달, 나만 보기면 내 설정으로 */
@@ -1334,7 +1358,7 @@
       onAutoSelect: function () { setTool('select', true); toast('선택·이동 모드 — 다시 쓰려면 도구를 누르세요', false, 1400); },
       onAdd: function (layer, it) { annoSend(layer, it, 'add'); }, onDel: function (layer, id) { annoSend(layer, { id: id }, 'del'); },
       onClear: function (layer, ids, pg, all) { annoClear(layer, ids, pg, all); },
-      onLive: function (m) { if (rt && rt.online) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
+      onLive: function (m) { if (rt && rt.online && !(sheets[S.sheetIdx] && sheets[S.sheetIdx].mine)) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
       onChange: function () { P.emit('annochange'); },
       onMessage: function (t, bad) { toast(t, bad); },
       keepEditor: function (a) { return !!(a && (toolsEl.contains(a) || (drawerEl && drawerEl.contains(a)))); },
@@ -1353,6 +1377,7 @@
       var sc = op === 'add' ? (S.scopeOf[it.id] || S.scopeKey) : (S.scopeOf[it.id] || S.scopeKey);
       if (op === 'add') S.scopeOf[it.id] = sc;
       if (layer === 'mine') { if (op === 'add') { S.localMine[it.id] = 1; delete S.delMine[it.id]; } else { S.delMine[it.id] = 1; delete S.localMine[it.id]; } markMine(sc); if (op === 'del') delete S.scopeOf[it.id]; return; }
+      if (onMineSheet()) return;                                                         // v9.13 — 나만 보는 악보는 팀으로 보내지 않음 (지킴 한 번 더)
       if (!rt || rt.state === 'unavailable' || rt.state === 'denied') return;
       var payload = op === 'add' ? { file: fileId(), scope: sc, item: it } : { file: fileId(), scope: sc, id: it.id };
       if (op === 'add') S.unsent[it.id] = 1;
@@ -1369,7 +1394,7 @@
     function annoClear(layer, ids, pg, all) {
       var scs = {}; ids.forEach(function (id) { scs[S.scopeOf[id] || S.scopeKey] = 1; });
       if (layer === 'mine') { Object.keys(scs).forEach(markMine); return; }
-      if (!rt || rt.state === 'unavailable') return;
+      if (!rt || rt.state === 'unavailable' || onMineSheet()) return;
       Object.keys(scs).forEach(function (sc) { rt.call('anno:clear', { file: fileId(), scope: sc, pg: pg, own: !all }, { queue: true }).catch(function (e) { toast('지우기를 팀에 보내지 못했습니다: ' + e.message, true); }); });
     }
     /* 나만 보기 필기 — 1.5초 모아서 서버(시트)에 저장 */
@@ -1409,9 +1434,9 @@
       var id = ++S.annoId, file = fileId(); S.teamFrom = {}; S.scopeOf = {}; S.unsent = {}; S.localMine = {}; S.delMine = {};
       scopes().forEach(function (sc) { delete S.mineLoaded[file + '|' + sc]; });
       an.setItems('team', []); an.setItems('mine', []);
-      var rtOn = !!(rt && rt.online);                                                    // 실시간이 연결돼 있으면 팀 필기는 그쪽에서 받으므로 시트 읽기를 아낍니다
-      if (opts.callServer) scopes().forEach(function (sc) { loadOne(id, file, sc, 0, rtOn); });
-      loadTeam(id, file);
+      var rtOn = !!(rt && rt.online), mineF = onMineSheet();                            // 실시간이 연결돼 있으면 팀 필기는 그쪽에서 받으므로 시트 읽기를 아낍니다
+      if (opts.callServer) scopes().forEach(function (sc) { loadOne(id, file, sc, 0, rtOn || mineF); });
+      if (!mineF) loadTeam(id, file);                                                    // v9.13 — 나만 보는 악보에는 팀 필기가 없음 (실시간으로 이 악보를 묻지도 않음)
     }
     function loadOne(id, file, sc, tries, mineOnly) {
       var hit = mineOnly ? mineCacheGet(file, sc) : null;
@@ -1441,7 +1466,14 @@
         });
       });
     }
-    function setLayer(l, byUser) { S.layer = l === 'mine' ? 'mine' : 'team'; if (byUser) { S.layerUser = true; ls('layer', S.layer); } an.setLayer(S.layer); P.emit('layer', S.layer); renderTools(); }
+    function setLayer(l, byUser) { S.layer = l === 'mine' ? 'mine' : 'team'; if (byUser) { S.layerUser = true; ls('layer', S.layer); } an.setLayer(onMineSheet() ? 'mine' : S.layer); if (byUser && S.layer === 'team' && onMineSheet()) toast('🔒 나만 보는 악보에는 내 필기만 쓸 수 있어요. 다른 악보에서는 팀 필기로 써요.', false, 3200); P.emit('layer', S.layer); renderTools(); }
+    /* v9.13 — 나만 보는 악보(🔒)는 다른 사람에게 절대 보이지 않아야 하므로, 그 위의 필기는 언제나 "나만 보기"로 저장하고
+       팀(실시간)으로는 아무것도 보내지 않습니다 — 악보 파일 ID 도 팀에 나가지 않음. 팀 필기 설정(S.layer)은 그대로 두었다가 다른 악보로 가면 되돌림 */
+    function onMineSheet() { var f = sheets[S.sheetIdx]; return !!(f && f.mine); }
+    function mineLayerSync(tell) {
+      var m = onMineSheet(); an.setLayer(m ? 'mine' : S.layer);
+      if (m && tell && S.layer === 'team' && !S.mineLayerTold) { S.mineLayerTold = true; toast('🔒 나만 보는 악보 — 여기 쓰는 필기는 나에게만 보여요.', false, 3000); }
+    }
     function setScope(s) { S.scope = s === 'date' ? 'date' : 'song'; ls('scope', S.scope); P.emit('scope', S.scope); renderTools(); }
     /* scope 를 서버에 보낼 때: 'song' 그대로 / 'date' = 방(날짜) 키 */
     Object.defineProperty(S, 'scopeKey', { get: function () { return S.scope === 'date' && S.room ? S.room : 'song'; } });
@@ -1677,7 +1709,7 @@
       rt.on('cfg', onRemoteCfg);
       rt.on('song', function (m) { if (m && m.cid !== S.cid) applySongPatch(m.kind, m.seq, m.patch, m.by, true); });
       rt.on('songs:changed', function () { refetchSongs(); });
-      rt.on('state', function (st) { if (st === 'online' && S.cfgLoaded && S.wasOffline) loadCfg(); S.wasOffline = st === 'offline'; });
+      rt.on('state', function (st) { if (st === 'online' && S.cfgLoaded && S.wasOffline) { loadCfg(); refetchSongs(); } S.wasOffline = st === 'offline'; });      // v9.13 — 끊긴 동안 올라온 · 바뀐 악보도 다시 받아 옴
       rt.on('anno:add', function (m) { if (m.file !== fileId() || scopes().indexOf(m.scope) < 0) return; S.scopeOf[m.item.id] = m.scope; an.remoteAdd('team', m.item); });
       rt.on('anno:del', function (m) { if (m.file === fileId()) an.remoteDel('team', m.id); });
       rt.on('anno:clear', function (m) { if (m.file === fileId()) an.remoteClear('team', m.ids); });
