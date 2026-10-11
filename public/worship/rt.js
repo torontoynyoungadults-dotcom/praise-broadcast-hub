@@ -8,12 +8,46 @@
  *  · 오프라인일 때 보낸 필기(anno:add / anno:del)는 최대 300개까지 보관했다가 연결되면 순서대로 보냅니다
  *  · socket.io 스크립트를 못 불러오면 state = 'unavailable' — 앱은 혼자 쓰는 모드로 그대로 동작합니다
  * 상태(state): idle → connecting → online ⇄ offline / unavailable / denied (권한 없음 — 다시 시도 안 함)
+ *
+ *  v9.9 미리 연결 — YNRT.preconnect({ token, room })
+ *  · 라이브 악보를 열기 전(허브 화면이 한가할 때)에 웹소켓 연결(TLS · 핸드셰이크)과 인증만 미리 해 둡니다 (가벼운 접속 — 방에는 안 들어감, 접속자 목록에도 안 보임).
+ *  · 라이브 악보가 create() 로 같은 열쇠(token)의 연결을 만들면 그 연결을 그대로 넘겨받아 곧바로 방에 들어갑니다 → "연결 중"이 거의 없음.
+ *  · 미리 연결이 실패 · 끊김 · 거절이어도 create() 는 예전처럼 새로 연결합니다 (넘겨받은 연결이 끊겨 있으면 다시 붙임).
+ *  · 페이지가 window.__RT_PRE__ = { token, room } 을 넣어 두면 이 파일을 읽자마자 미리 연결합니다 (다른 화면 스크립트를 기다리지 않음).
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.YNRT = factory();
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+
+  /* v9.9 — 미리 연결해 둔 소켓 (한 개만). { sock, token, io, dead } */
+  var POOL = null;
+  var SOCK_OPTS = function (opt) { return { path: opt.path || '/socket.io', transports: opt.transports || ['websocket', 'polling'], tryAllTransports: true, reconnection: true, reconnectionDelay: 500, reconnectionDelayMax: 5000, timeout: 8000 }; };
+  function poolDrop() { var p = POOL; POOL = null; if (p) { try { p.sock.off('connect', p.onConn); p.sock.disconnect(); } catch (e) {} } }
+  function preconnect(opt) {
+    opt = opt || {};
+    try {
+      var ioFn = opt.io || (typeof io !== 'undefined' ? io : null);
+      if (!ioFn || !opt.token || !opt.room) return false;
+      if (POOL && POOL.token === opt.token && !POOL.dead) return true;
+      poolDrop();
+      var sock = ioFn(opt.url || undefined, SOCK_OPTS(opt)), me = { sock: sock, token: String(opt.token), io: ioFn, dead: false, at: Date.now() };
+      me.onConn = function () {                                    // 가벼운 접속으로 인증만 (서버는 인증 안 된 연결을 10초 뒤 끊음)
+        try { sock.emit('join', { token: opt.token, room: opt.room, light: true }, function (r) { if (!r || r.ok === false) { me.dead = true; if (POOL === me) poolDrop(); } }); } catch (e) { me.dead = true; }
+      };
+      sock.on('connect', me.onConn);
+      POOL = me;
+      return true;
+    } catch (e) { POOL = null; return false; }
+  }
+  /** 같은 열쇠로 미리 연결해 둔 소켓을 넘겨받음 (없으면 null) */
+  function adopt(token, ioFn) {
+    var p = POOL; if (!p || p.dead || p.token !== String(token || '') || p.io !== ioFn) return null;
+    POOL = null;
+    try { p.sock.off('connect', p.onConn); } catch (e) { return null; }
+    return p.sock;
+  }
 
   var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer', 'msg', 'msg:ack', 'msg:clear'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
@@ -41,9 +75,11 @@
         if (!ioFn) { setState('unavailable', '실시간 도구(socket.io)를 불러오지 못했습니다'); return api; }
         if (S.socket) return api;
         S.closed = false; setState('connecting');
-        var sock;
-        try { sock = ioFn(opt.url || undefined, { path: opt.path || '/socket.io', transports: opt.transports || ['websocket', 'polling'], tryAllTransports: true, reconnection: true, reconnectionDelay: 500, reconnectionDelayMax: 5000, timeout: 8000 }); }   // V857 — 웹소켓이 막힌 와이파이에서는 곧바로 HTTP 방식으로
-        catch (e) { setState('unavailable', '연결을 시작하지 못했습니다: ' + e.message); return api; }
+        var sock = opt.url ? null : adopt(opt.token, ioFn), adopted = !!sock;            // v9.9 — 미리 연결해 둔 것이 있으면 그대로 (핸드셰이크를 다시 안 함)
+        if (!sock) {
+          try { sock = ioFn(opt.url || undefined, SOCK_OPTS(opt)); }   // V857 — 웹소켓이 막힌 와이파이에서는 곧바로 HTTP 방식으로
+          catch (e) { setState('unavailable', '연결을 시작하지 못했습니다: ' + e.message); return api; }
+        }
         S.socket = sock;
         sock.on('connect', function () { join(); });
         sock.on('disconnect', function (why) {
@@ -64,6 +100,9 @@
             emitLocal(n, p);
           });
         });
+        if (adopted) {                                                              // 이미 붙어 있으면 바로 방에 들어가고, 끊겨 있으면 다시 붙임 ('connect' 에서 들어감)
+          try { if (sock.connected) join(); else if (!sock.active) sock.connect(); } catch (e) { /* 아래 자동 재연결 */ }
+        }
         return api;
       },
 
@@ -149,5 +188,6 @@
     return api;
   }
 
-  return { create: create, FWD: FWD };
+  try { var pre = typeof self !== 'undefined' && self.__RT_PRE__; if (pre && pre.token && pre.room) preconnect(pre); } catch (e) { /* 덤 — 열 때 새로 연결 */ }
+  return { create: create, FWD: FWD, preconnect: preconnect, dropPreconnect: poolDrop, get pooled() { return !!(POOL && !POOL.dead); } };
 }));

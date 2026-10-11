@@ -74,7 +74,7 @@
      · PDF 도구(pdf.js)도 한가할 때 미리 불러 둡니다 (처음 열 때 큰 스크립트를 읽느라 멈칫하던 부분)
      · 휴대폰으로 찍은 큰 사진 악보(예: 4000×3000)는 화면에 필요한 크기(긴 변 IMG_MAX)로 한 번만 줄여 둡니다.
        필기 좌표는 쪽 전체 기준(0~1)이라 줄여도 필기 위치 · 다른 사람 화면과의 동기화는 그대로입니다. */
-  var BYTES = new Map(), BYTE_MAX = 6, IMG_MAX = 2800, PROG = {};
+  var BYTES = new Map(), BYTE_MAX = 12, IMG_MAX = 2800, PROG = {};          // v9.9 — 6 → 12 (한 주 악보 전부를 기억해 두어 2 · 3번째 악보도 바로)
   function mbText(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB'; }
   function sheetBytes(id) {
     var hit = BYTES.get(id);
@@ -276,7 +276,7 @@
       if (openId) { var i = -1; sheets.forEach(function (x, k) { if (x.id === openId) i = k; }); if (i >= 0) loadSheet(i, 1, false); }
     }
     function loadMine() {
-      if (!canMine()) return;
+      if (!canMine() || S.mineAsked) return; S.mineAsked = true;                       // v9.9 — 한 번만 (첫 악보를 그린 뒤 · 늦어도 4초 뒤)
       opts.callServer('worshipMySheets', [opts.token, S.room], function (r) { if (!S.dead && r && Array.isArray(r.sheets)) addMineSheets(r.sheets); }, function () { /* 없으면 그대로 */ });
     }
     function pickMine() { if (!canMine()) return; openMinePanel(); }
@@ -868,18 +868,25 @@
         S.doc = null; loading.style.display = 'flex'; loading.textContent = (e && e.message) || '악보를 불러오지 못했습니다.'; toast(loading.textContent, true, 7000);
       });
     }
-    /* v6.9 — 지금 악보를 그린 뒤, 한가할 때 나머지 악보(최대 4개)를 미리 받아 둡니다 → 페이지 컨트롤이 다른 악보로 넘겨도 내려받기를 기다리지 않음 (순서대로 하나씩 · 실패는 무시) */
+    /* v6.9 — 지금 악보를 그린 뒤, 나머지 악보를 미리 받아 둡니다 → 다른 악보로 넘겨도 내려받기를 기다리지 않음 (순서대로 하나씩 · 실패는 무시)
+       v9.9 — 더 빨리 · 더 많이: 그린 직후(0.2초) 시작 · 다음 악보부터 · 앞 4개는 열어(읽어) 두고 나머지는 파일만 받아 둠 (BYTE_MAX 안에서).
+       필기하는 동안에는 잠깐 쉬었다가 이어 감. */
     function preloadSheets() {
+      if (!S.mineAsked) setTimeout(loadMine, 50);                                      // v9.9 — 첫 악보를 그렸으니 이제 내 악보 목록
       if (S.preT || S.dead || sheets.length < 2) return;
-      var order = []; for (var k = 1; k < sheets.length && order.length < 4; k++) { var j = (S.sheetIdx + k) % sheets.length; order.push(sheets[j]); }
+      var order = [], max = Math.min(BYTE_MAX - 1, sheets.length - 1);
+      for (var k = 1; k < sheets.length && order.length < max; k++) { var j = (S.sheetIdx + k) % sheets.length; order.push(sheets[j]); }
       S.preT = setTimeout(function () {
         var i = 0, go = function () {
           if (S.dead || i >= order.length) { S.preT = 0; return; }
-          var f = order[i++]; if (!f || S.cache[f.id]) return go();
-          fetchDoc(f).then(function () { setTimeout(go, 150); }, function () { setTimeout(go, 150); });
+          if (inking()) { S.preT = setTimeout(go, 300); return; }
+          var f = order[i], open = i < 4; i++;
+          if (!f || S.cache[f.id]) return go();
+          var next = function () { S.preT = setTimeout(go, 60); };
+          (open ? fetchDoc(f) : sheetBytes(f.id)).then(next, next);
         };
         go();
-      }, 1200);
+      }, 200);
     }
     function goPage(n, fromUser) {
       if (S.loadingTo) { S.loadWant = n | 0 || 1; return; }                             // v9.5 — 악보를 불러오는 중이면 그 악보의 몇 쪽을 열지만 바꿈 (앞 악보에 넘기지 않게)
@@ -1309,7 +1316,7 @@
     P.openAudioShift = function (o) { return root.YNAudioShift && root.YNAudioShift.openDialog ? root.YNAudioShift.openDialog(P, o) : null; };
     P.on('song', function () { if (P.keyShift() !== 0) P.ensureTab('harmony'); });
     S.room = opts.room || '';
-    el.appendChild(minePanel); paintSheetSel(); setTimeout(loadMine, 300);              // v9.6 — 나만 보는 악보 목록 (내 것만)
+    el.appendChild(minePanel); paintSheetSel(); setTimeout(loadMine, 4000);              // v9.6 — 나만 보는 악보 목록 (내 것만) · v9.9 — 첫 악보 · 실시간 연결이 먼저. 보통은 첫 악보를 그린 직후에 부름
     var rt = null, an = null;
 
     /* ------------------------------------------------------------ 필기 엔진 연결 */

@@ -175,14 +175,21 @@ async function renderLive(req, res, o) {
   }
 
   const start = String(req.query.sheet || '').trim();
+  const [pastors, lineup] = await Promise.all([honorific.pastorSet(team), lineupOf(team, scope)]);      // v9.9 — 나란히 (예전: 하나씩 기다림)
   const boot = {
     token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
-    pastors: Array.from(await honorific.pastorSet(team)),
-    lineup: await lineupOf(team, scope), sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
+    pastors: Array.from(pastors),
+    lineup, sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
     startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 쪽부터
   };
   const v = `?v=${LIVE_V}`;
   const title = `${team} · ${ev ? ev['이름'] : week.labelKo(date)} 라이브 악보`;
+  /* v9.9 — 첫 악보 · PDF 도구를 화면 스크립트와 나란히 바로 받기 시작 (예전: 스크립트 15개를 다 읽은 뒤에야 받기 시작) ·
+     실시간 연결도 rt.js 를 읽자마자 미리 (__RT_PRE__ — 방송팀 보기 링크는 제외) · 서버는 이 예배의 악보를 모두 미리 받아 둠 */
+  const startSheet = d.sheets.find((s) => s.id === boot.start) || d.sheets[0];
+  const early = (startSheet && /^[A-Za-z0-9_-]{10,}$/.test(startSheet.id) ? `<link rel="preload" href="/sheet/${encodeURIComponent(startSheet.id)}" as="fetch" crossorigin="anonymous">\n` : '') +
+    '<link rel="preload" href="/vendor/pdfjs/pdf.min.js" as="script">\n<link rel="prefetch" href="/vendor/pdfjs/pdf.worker.min.js">\n';      // 악보는 거의 PDF — 사진 악보뿐이어도 7일 보관이라 부담 적음
+  warmLive(team, d.sheets.map((s) => s.id));
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html>
 <html lang="ko">
@@ -199,7 +206,7 @@ async function renderLive(req, res, o) {
 <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <script>${THEME_BOOT}</script>
-<link rel="stylesheet" href="/worship/live-base.css${v}">
+${early}<link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
 <link rel="stylesheet" href="/worship/live-glass.css${v}">
 <style>
@@ -213,7 +220,8 @@ async function renderLive(req, res, o) {
 <script>window.__LIVE__ = ${JSON.stringify(boot).replace(/</g, '\\u003c')};</script>
 <script>(function(){var P={};((window.__LIVE__||{}).pastors||[]).forEach(function(n){P[n]=1});
 window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n},say:function(n){n=String(n||'');return P[n.trim()]?n+' 목사가':n+' 님이'}};})();</script>
-<script defer src="/socket.io/socket.io.js"></script>
+${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token, room: boot.room }).replace(/</g, '\\u003c')};</script>\n`}<script defer src="/socket.io/socket.io.js"></script>
+<script defer src="/worship/rt.js${v}"></script>
 <script defer src="/worship/icons.js${v}"></script>
 <script defer src="/worship/icons-plus.js${v}"></script>
 <script defer src="/vendor/qrcode.js${v}"></script>
@@ -226,7 +234,6 @@ window.YNHon={name:function(n){n=String(n||'');return P[n.trim()]?n+' 목사':n}
 <script defer src="/worship/harmony-ui.js${v}"></script>
 <script defer src="/worship/ytform.js${v}"></script>
 <script defer src="/worship/ytplayer.js${v}"></script>
-<script defer src="/worship/rt.js${v}"></script>
 <script defer src="/worship/timer.js${v}"></script>
 <script defer src="/worship/anno.js${v}"></script>
 <script defer src="/worship/mainstage.js${v}"></script>
@@ -331,11 +338,35 @@ async function renderStage(req, res, o) {
 
 /* ================================================================ 악보 · 녹음 파일 */
 const BYTES = new Map();                         // id → { buf, type, at } — 최근 악보 몇 개는 메모리에 (church-app 의 memory:true)
-const BYTES_MAX = 8, BYTES_ONE_MAX = 30 * 1024 * 1024;
+const BYTES_MAX = 24, BYTES_ONE_MAX = 30 * 1024 * 1024, BYTES_TOTAL_MAX = 96 * 1024 * 1024;     // v9.9 — 8개 → 24개 (전체 96MB 안에서) · 한 예배 악보를 모두 기억
+let bytesTotal = 0;
 function bytesPut(id, rec) {
   if (rec.buf.length > BYTES_ONE_MAX) return;
-  BYTES.delete(id); BYTES.set(id, rec);
-  while (BYTES.size > BYTES_MAX) BYTES.delete(BYTES.keys().next().value);
+  const old = BYTES.get(id); if (old) bytesTotal -= old.buf.length;
+  BYTES.delete(id); BYTES.set(id, rec); bytesTotal += rec.buf.length;
+  while ((BYTES.size > BYTES_MAX || bytesTotal > BYTES_TOTAL_MAX) && BYTES.size > 1) { const k = BYTES.keys().next().value; bytesTotal -= BYTES.get(k).buf.length; BYTES.delete(k); }
+}
+/* v9.9 — 같은 악보를 여럿이 동시에 열어도 드라이브에서는 한 번만 · 라이브 악보 화면을 열 때 이 예배의 악보를 둘씩 나란히 미리 받아 둠 */
+const BYTES_LOADING = new Map(), WARMING = new Set();
+function warmLive(team, ids) {
+  try {
+    const todo = Array.from(new Set(ids || [])).filter((id) => liveStore.FILE_RE.test(String(id)) && !BYTES.has(id) && !WARMING.has(id)).slice(0, 16);
+    if (!todo.length) return;
+    todo.forEach((id) => WARMING.add(id));
+    (async () => {
+      let rows = [];
+      try { rows = await sheetsDb.readAll('악보저장소'); } catch (e) { todo.forEach((id) => WARMING.delete(id)); return; }
+      let i = 0;
+      const lane = async () => {
+        while (i < todo.length) {
+          const id = todo[i++];
+          try { const hit = rows.find((s) => s['팀ID'] === team && s['파일링크'] && liveStore.sheetIdOf(team, s['파일링크']) === id); if (hit) await sheetBytes(id, hit); }
+          catch (e) { /* 미리 받기는 덤 */ } finally { WARMING.delete(id); }
+        }
+      };
+      await Promise.all([lane(), lane()]);
+    })();
+  } catch (e) { /* 덤 */ }
 }
 async function driveFetch(id, range) {
   const { token } = await serviceAuth().getAccessToken();
@@ -356,6 +387,14 @@ function pipeWeb(res, r, cacheControl) {
 async function sheetBytes(id, hit) {
   const cached = BYTES.get(id);
   if (cached) { BYTES.delete(id); BYTES.set(id, cached); return cached; }
+  if (BYTES_LOADING.has(id)) return BYTES_LOADING.get(id);
+  const p = sheetBytesLoad(id, hit);
+  BYTES_LOADING.set(id, p);
+  const done = () => { BYTES_LOADING.delete(id); };
+  p.then(done, done);
+  return p;
+}
+async function sheetBytesLoad(id, hit) {
   const driveId = liveStore.driveIdOf(hit['파일링크']);
   const r = driveId ? await driveFetch(driveId) : await fetch(hit['파일링크'], { redirect: 'follow' });
   if (!r.ok || !r.body) throw Object.assign(new Error('원본 악보를 불러오지 못했습니다.'), { status: r.status === 404 ? 404 : 502 });
