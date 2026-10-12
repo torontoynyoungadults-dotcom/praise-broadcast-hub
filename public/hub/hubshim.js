@@ -294,26 +294,76 @@ function stPracLink() {
   });
 }
 
-/* ---------------------------------------------------------------- 내가 안 되는 날 — 스케줄표 제목 옆 단추 · 열면 바로 아래 칸 */
-function stOffBtn(picking) {
-  if (!D.who || picking) return '';
-  var n = (ST.mine || []).length;
-  return '<button type="button" class="stoffbtn' + (ST.offOpen ? ' on' : '') + (n ? ' has' : '') + '" aria-expanded="' + (ST.offOpen ? 'true' : 'false') + '" onclick="ST.offOpen=!ST.offOpen;render();">' +
-    YI('calendar') + '<span>내가 안 되는 날</span>' + (n ? '<b class="cnt">' + n + '</b>' : '') + '</button>';
+/* ---------------------------------------------------------------- v12 내가 안 되는 날 — 한눈에 보고 누르면 끝
+ * 스케줄표 위에 늘 보이는 카드. 앞으로의 주일 · 행사가 달마다 날짜 단추로 나오고, 누르면 그 자리에서 "불가"로 저장(화면은 먼저 바뀜),
+ * 다시 누르면 지워집니다. 사유는 선택(안 적으면 "개인 사정"). 방금 누른 날 아래 칸에서 "둘 다 · 금요일 연습만 · 주일만" 과 사유를 바꿀 수 있습니다.
+ * (예전의 제목 옆 단추 · 날짜 고르기 모드는 없앰 — 날짜를 눌러 여는 자세히 창의 "이 날 저는 어려워요" 는 그대로) */
+var OFF_DEFAULT = '개인 사정';
+function stOffBtn() { return ''; }
+function stMinePanel() { return ''; }
+function stOffCard() {
+  if (!D.who) return '';
+  var mineSet = {}; (ST.mine || []).forEach(function (x) { mineSet[x.date] = x; });
+  var rows = (ST.rows || []).filter(function (r) { return r && r.key; });
+  if (!rows.length) return '';
+  var months = [], cur = null;
+  rows.forEach(function (r) { var mo = r.date.slice(0, 7); if (!cur || cur.mo !== mo) { cur = { mo: mo, rows: [] }; months.push(cur); } cur.rows.push(r); });
+  var n = rows.filter(function (r) { return mineSet[r.key]; }).length;
+  var html = '<div class="panel offcard"><div class="offc-h"><b>내가 안 되는 날</b>' + (n ? '<span class="offc-n">' + n + '일 표시됨</span>' : '') + '</div>' +
+    '<p class="offc-hint">안 되는 날을 누르세요 — 바로 저장돼요. 다시 누르면 취소.</p>';
+  months.forEach(function (m) {
+    html += '<div class="offc-mon"><span class="offc-ml">' + Number(m.mo.split('-')[1]) + '월</span><div class="offc-days">' + m.rows.map(function (r) {
+      var mi = mineSet[r.key], on = !!mi, d = dt(r.date);
+      var sub = r.event ? esc(String(r.event.name || '행사').slice(0, 6)) : '주일';
+      var tag = !on ? '' : mi.part === 'prac' ? (r.event ? '연습' : '금') : mi.part === 'sun' ? (r.event ? '당일' : '주일') : '불가';
+      return '<button type="button" class="offd' + (on ? ' on' : '') + (on && mi.part !== 'all' ? ' half' : '') + (r.event ? ' ev' : '') + (ST.offEdit === r.key ? ' cur' : '') + '" aria-pressed="' + on + '" ' +
+        'aria-label="' + esc(md(r.date) + ' ' + (r.event ? r.event.name : '주일') + (on ? ' — 안 되는 날로 표시됨 (누르면 취소)' : ' — 누르면 안 되는 날로 표시')) + '" onclick="offTap(\'' + esc(jsq(r.key)) + '\')">' +
+        '<b>' + d.getDate() + '</b><small>' + sub + '</small>' + (on ? '<i>' + tag + '</i>' : '') + '</button>';
+    }).join('') + '</div></div>';
+  });
+  var ed = ST.offEdit && mineSet[ST.offEdit] ? mineSet[ST.offEdit] : null, er = ed ? stRow(ST.offEdit) : null;
+  if (ed) {
+    var k = esc(jsq(ST.offEdit)), why = ed.part === 'prac' ? ed.pr : ed.sr || ed.pr || '';
+    html += '<div class="offc-ed"><div class="offc-et"><b>' + esc(er ? (er.event ? er.event.name + ' ' + md(er.date) : md(er.date) + ' 주일') : fmtDate(ed.date)) + '</b> 안 되는 날로 표시했어요</div>' +
+      '<div class="offpart"><span class="gl">어느 때가 안 돼요?</span><div class="seg">' + [['all', '둘 다'], ['prac', stPartLbl('prac', er) + '만'], ['sun', (er && er.event ? '당일' : '주일') + '만']].map(function (v) {
+        return '<button type="button" class="' + (ed.part === v[0] ? 'on' : '') + '" onclick="offPartSet(\'' + k + '\',\'' + v[0] + '\')">' + esc(v[1]) + '</button>';
+      }).join('') + '</div></div>' +
+      '<div class="addrow"><input type="text" id="offWhy" maxlength="100" placeholder="사유 (선택) — 예: 출장 · 시험 · 가족 행사" value="' + esc(why === OFF_DEFAULT ? '' : why) + '" onkeydown="if(event.key===\'Enter\')offWhySave(\'' + k + '\')">' +
+      '<button type="button" class="btn" onclick="offWhySave(\'' + k + '\')">사유 저장</button></div></div>';
+  }
+  return html + '<p class="msg" id="offCardMsg"></p></div>';
 }
-function stMinePanel(picking) {
-  if (!D.who || picking || !ST.offOpen) return '';
-  var list = ST.mine || [];
-  return '<div class="stmine"><div class="stmine-in">' +
-    (list.length
-      ? '<div class="offchips">' + list.map(function (x) {
-          var tag = x.part === 'prac' ? '금요일 연습' : x.part === 'sun' ? '주일 예배' : '금 · 주일 모두';
-          return '<span class="offchip"><b>' + (x.label ? esc(x.label) : fmtDate(x.date)) + '</b><em>' + tag + '</em><i>' + esc(x.reason) + '</i>' +
-            '<button type="button" aria-label="해제" title="해제" onclick="clearOff(\'' + esc(jsq(x.date)) + '\',\'all\')">' + YI('close') + '</button></span>';
-        }).join('') + '</div>'
-      : '<p class="empty" style="margin:0;">표시해 둔 날이 없습니다. 안 되는 날을 미리 적어두면 팀장 · 인도자가 편성할 때 바로 보입니다. 금요일 연습만 / 주일만 따로 고를 수 있어요.</p>') +
-    '<button type="button" class="btn mini accent" onclick="ST.offOpen=false;ST.pick=[];render();">' + YI('plus') + ' 날짜 고르기</button>' +
-    '</div></div>';
+function offDone(mine, keys, msg) { stAfterOff(mine, keys); render(); if (msg) say('offCardMsg', msg, 'ok'); }
+function offTap(key) {
+  var had = stMineOf(key), keep = (ST.mine || []).slice();
+  if (had) {                                                          // 다시 누름 → 취소
+    ST.mine = keep.filter(function (x) { return x.date !== key; }); if (ST.offEdit === key) ST.offEdit = null; render();
+    callServer('removeMyUnavailable', [TOKEN, key, 'all'], function (mine) { offDone(mine, [key], '표시를 지웠어요.'); },
+      function (e) { ST.mine = keep; render(); say('offCardMsg', (e && e.message) || '지우지 못했습니다. 다시 눌러 주세요.', 'err'); });
+    return;
+  }
+  var r = stRow(key);                                                 // 누름 → 바로 불가 (금요일 연습 · 주일 둘 다, 화면 먼저)
+  ST.mine = keep.concat([{ date: key, day: r ? r.date : key, label: r && r.event ? r.event.name : '', reason: OFF_DEFAULT, part: 'all', pr: OFF_DEFAULT, sr: OFF_DEFAULT }]); ST.offEdit = key; render();
+  callServer('setMyUnavailableMany', [TOKEN, [key], OFF_DEFAULT, 'all'], function (mine) { offDone(mine, [key], '저장했어요. 사유는 적지 않아도 돼요.'); },
+    function (e) { ST.mine = keep; ST.offEdit = null; render(); say('offCardMsg', (e && e.message) || '저장하지 못했습니다. 다시 눌러 주세요.', 'err'); });
+}
+/** 둘 다 · 금요일 연습만 · 주일만 — 없앨 쪽만 지우고(서버가 나머지를 남김), 둘 다면 다시 표시 */
+function offPartSet(key, part) {
+  var m = stMineOf(key); if (!m || m.part === part) return;
+  var why = m.sr || m.pr || OFF_DEFAULT;
+  say('offCardMsg', '저장하는 중…');
+  var fail2 = function (e) { say('offCardMsg', (e && e.message) || '저장하지 못했습니다.', 'err'); };
+  if (part === 'all') { callServer('setMyUnavailableMany', [TOKEN, [key], why, 'all'], function (mine) { offDone(mine, [key], '금요일 연습 · 주일 모두 안 되는 날로 바꿨어요.'); }, fail2); return; }
+  var drop = part === 'prac' ? 'sun' : 'prac';
+  var then = function () { callServer('removeMyUnavailable', [TOKEN, key, drop], function (mine) { offDone(mine, [key], part === 'prac' ? '연습만 안 되는 날로 바꿨어요. (예배는 나올 수 있음)' : '예배만 안 되는 날로 바꿨어요. (연습은 나올 수 있음)'); }, fail2); };
+  if (m.part === 'all') then();
+  else callServer('setMyUnavailableMany', [TOKEN, [key], why, part], function () { then(); }, fail2);   // 반대쪽만 표시돼 있던 날 — 원하는 쪽을 먼저 표시한 뒤 반대쪽을 지움
+}
+function offWhySave(key) {
+  var m = stMineOf(key), why = val('offWhy') || OFF_DEFAULT;
+  say('offCardMsg', '저장하는 중…');
+  callServer('setMyUnavailableMany', [TOKEN, [key], why, (m && m.part) || 'all'], function (mine) { ST.offEdit = null; offDone(mine, [key], '사유를 저장했어요.'); },
+    function (e) { say('offCardMsg', (e && e.message) || '저장하지 못했습니다.', 'err'); });
 }
 
 /* ---------------------------------------------------------------- 안 되는 날 — 금요일 연습 · 주일(행사) 예배를 따로
@@ -404,14 +454,14 @@ function stMeBox(r, key, mine) {
   if (!st.sr) chk += '<label class="mechk"><input type="checkbox" id="offSun" checked><span>' + esc(sn) + '</span></label>';
   return '<div class="stme">' + (done ? '<div class="gl">내가 표시한 불가</div>' + done : '') +
     (chk ? '<div class="gl">' + (done ? '다른 때도 어려워요' : '이 날 저는 어려워요') + '</div><div class="mechks">' + chk + '</div>' +
-      '<div class="addrow"><input type="text" id="dayReason" placeholder="사유" maxlength="100" onkeydown="if(event.key===\'Enter\')offOne(\'' + k + '\')">' +
+      '<div class="addrow"><input type="text" id="dayReason" placeholder="사유 (선택)" maxlength="100" onkeydown="if(event.key===\'Enter\')offOne(\'' + k + '\')">' +
       '<button class="btn accent" onclick="offOne(\'' + k + '\')">표시</button></div><p class="msg" id="dayMsg" style="margin:6px 0 0;min-height:0;"></p>' : '') + '</div>';
 }
 function offOne(key) {
   var prac = el('offPrac'), sun = el('offSun'), r = val('dayReason');
   var wantP = prac ? prac.checked : false, wantS = sun ? sun.checked : false;
   if (!wantP && !wantS) { say('dayMsg', '금요일 연습이나 주일 예배 중 어느 때가 안 되는지 골라주세요.', 'err'); return; }
-  if (!r) { say('dayMsg', '사유를 적어주세요.', 'err'); el('dayReason').focus(); return; }
+  if (!r) r = OFF_DEFAULT;                                          // v12 — 사유는 선택
   var part = wantP && wantS ? 'all' : (wantP ? 'prac' : 'sun');
   // 이미 한쪽을 표시해 둔 날에 나머지를 더하면 서버가 합쳐 줍니다
   YC.close();

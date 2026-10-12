@@ -193,3 +193,43 @@ html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .34); --grid-hd: rgba(21
 /* v17 — 스케줄표 카드 보기 칸 구분선도 테이블과 같은 또렷한 격자 */
 .yn .stcc { border-right-color: var(--grid) !important; border-top-color: var(--grid) !important; }
 .yn .stcg { border-bottom-color: var(--grid) !important; }
+
+/* v12 내가 안 되는 날 — 늘 보이는 카드 · 날짜 단추 (누르면 바로 저장, 다시 누르면 취소) */
+.yn .offcard { padding-top: 14px !important; }
+.yn .offc-h { display: flex; align-items: center; gap: 10px; }
+.yn .offc-h b { font-size: 17px; font-weight: 850; }
+.yn .offc-n { padding: 2px 10px; border-radius: 99px; background: var(--bad-bg, rgba(214,69,65,.14)); color: var(--bad, #D64541); font-size: 13px; font-weight: 800; }
+.yn .offc-hint { margin: 4px 0 10px; font-size: 14px; color: var(--ink-3, #8a8f9c); }
+.yn .offc-mon { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(127,127,127,.18); }
+.yn .offc-mon:first-of-type { border-top: 0; }
+.yn .offc-ml { flex: none; width: 38px; padding-top: 14px; font-size: 13.5px; font-weight: 800; color: var(--ink-3, #8a8f9c); }
+.yn .offc-days { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; }
+.yn .offd { position: relative; width: 58px; height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; border-radius: 14px;
+  border: 1.5px solid rgba(127,127,127,.38); background: rgba(127,127,127,.1); color: inherit; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: transform .1s, background .15s, border-color .15s; }
+.yn .offd b { font-size: 19px; font-weight: 850; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.yn .offd small { font-size: 11px; font-weight: 700; color: var(--ink-3, #8a8f9c); max-width: 52px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.yn .offd.ev { border-style: dashed; }
+.yn .offd:active { transform: scale(.94); }
+@media (hover: hover) { .yn .offd:not(.on):hover { border-color: var(--bad, #D64541); } }
+.yn .offd.on { background: var(--bad, #D64541); border-color: var(--bad, #D64541); color: #fff; }
+.yn .offd.on.half { background: repeating-linear-gradient(135deg, var(--bad, #D64541) 0 7px, rgba(214,69,65,.72) 7px 14px); }
+.yn .offd.on small { color: rgba(255,255,255,.88); }
+.yn .offd.on i { position: absolute; top: -9px; right: -9px; padding: 1px 6px; border-radius: 99px; background: #fff; color: var(--bad, #D64541); font-style: normal; font-size: 10.5px; font-weight: 900; box-shadow: 0 1px 4px rgba(0,0,0,.25); white-space: nowrap; }
+.yn .offd.cur { box-shadow: 0 0 0 3px rgba(var(--tone-rgb), .45); }
+.yn .offc-ed { margin-top: 10px; padding: 12px; border-radius: var(--r-md, 14px); background: rgba(127,127,127,.1); }
+.yn .offc-et { font-size: 14.5px; margin-bottom: 8px; } .yn .offc-et b { color: var(--bad, #D64541); }
+.yn .offc-ed .offpart { margin-bottom: 8px; }
+.yn .offcard .msg { margin: 8px 0 0; min-height: 0; }
+@media (max-width: 420px) { .yn .offd { width: 52px; height: 54px; } .yn .offc-ml { width: 32px; } }
+html[data-theme="light"] .yn .offc-h b, html[data-theme="light"] .yn .offd, html[data-theme="light"] .yn .offc-et { color: #17302A; }
+html[data-theme="light"] .yn .offd { background: #fff; border-color: rgba(23,48,42,.22); }
+html[data-theme="light"] .yn .offd small { color: #5E746E; }
+html[data-theme="light"] .yn .offd.on { color: #fff; background: #C8463B; border-color: #C8463B; }
+html[data-theme="light"] .yn .offd.on.half { background: repeating-linear-gradient(135deg, #C8463B 0 7px, #DE7A6F 7px 14px); }
+html[data-theme="light"] .yn .offd.on small { color: rgba(255,255,255,.9); }
+html[data-theme="light"] .yn .offd.on i { color: #C8463B; }
+html[data-theme="light"] .yn .offc-ed { background: #F4F1EC; }
+html[data-theme="light"] .yn .offd b { color: #17302A; } html[data-theme="light"] .yn .offd.on b { color: #fff; }
+.yn .offd.on b { color: #fff; }
+html[data-theme="light"] .yn .offc-hint, html[data-theme="light"] .yn .offc-ml, html[data-theme="light"] .yn .offcard .msg { color: #4E625D; } html[data-theme="light"] .yn .offc-et b { color: #C8463B; } html[data-theme="light"] .yn .offcard .msg.err { color: #C8463B; }
+html[data-theme="light"] body .yn .offcard .msg.ok { color: #1E7F4F !important; }

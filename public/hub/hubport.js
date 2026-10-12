@@ -357,7 +357,7 @@ function schedTab() {
     return '<option value="' + x[0] + '"' + (ST.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>';
   }).join('') + '</select>';
 
-  return '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + stOffBtn(picking) + viewSeg + '</div>' + stMinePanel(picking) +
+  return stOffCard() + '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + stOffBtn(picking) + viewSeg + '</div>' + stMinePanel(picking) +
       '<div class="sttools">' + rangeSel + hlSel + '</div>' +
       '<div class="docbar" style="margin:0 4px 8px;">' + docBtn('스케줄표 PDF 미리보기 · 다운로드', 'hubDoc(\'hubScheduleDoc\',[TOKEN,ST.range],\'stDocMsg\')') + '<p class="msg docmsg" id="stDocMsg"></p></div>' +
       '<p class="hint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.'
