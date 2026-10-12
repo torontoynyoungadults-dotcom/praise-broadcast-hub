@@ -1,0 +1,136 @@
+/* ============================================================
+   라이브 악보 v10 — 색 · 굵기 창 / 떠 있는 색 단추 / 기호 · 음표 팔레트 (toolpop.js)
+   · live-glass.css 의 유리 토큰(--lg-*)을 그대로 씁니다 (없으면 아래 기본값)
+   · 흐림(backdrop-filter) 없음 — 아이패드에서 필기가 끊기지 않게 (hub.css 성능 원칙과 같음)
+   · 움직임은 transform · opacity 만
+   ============================================================ */
+.pv {
+  --tp-bg: var(--lg-sheet, rgba(22, 24, 30, .985));                 /* 거의 불투명 — 뒤의 악보 · 알림 글자가 비치지 않게 */
+  --tp-edge: var(--lg-edge, rgba(255, 255, 255, .10));
+  --tp-ctl: var(--lg-ctl, rgba(255, 255, 255, .06));
+  --tp-ctl-hov: var(--lg-ctl-hov, rgba(255, 255, 255, .11));
+  --tp-ink: var(--lg-ink, #F5F5F7); --tp-sub: var(--lg-sub, #A9ABB6); --tp-dim: var(--lg-dim, #6F7280);
+  --tp-a: var(--lg-a, #FF8A3D); --tp-a-soft: var(--lg-a-soft, rgba(255, 138, 61, .16));
+  --tp-shadow: var(--lg-shine, inset 0 1px 0 rgba(255, 255, 255, .08)), 0 24px 60px -14px rgba(0, 0, 0, .6), 0 6px 18px -8px rgba(0, 0, 0, .45);
+}
+
+/* ---------------- 색 · 굵기 창 ---------------- */
+.pv .tp-pop {
+  position: absolute; z-index: 90; width: 300px; max-width: calc(100% - 16px); overflow: auto; overscroll-behavior: contain;
+  padding: 10px 12px 12px; border-radius: 18px; color: var(--tp-ink);
+  background: var(--tp-bg); background-image: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 40%);
+  border: 1px solid var(--tp-edge); box-shadow: var(--tp-shadow);
+  opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: top center; transition: opacity .14s ease, transform .16s cubic-bezier(.2, .8, .2, 1);
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; contain: layout paint;
+}
+.pv .tp-pop[hidden] { display: none; }
+.pv .tp-pop.in { opacity: 1; transform: none; }
+.pv .tp-pop.tp-sheet { left: 8px !important; right: 8px; top: auto !important; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-width: none; border-radius: 20px; transform-origin: bottom center; transform: translateY(8px); }
+.pv .tp-pop.tp-sheet.in { transform: none; }
+.tp-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 6px; }
+.tp-head b { font-size: 13px; font-weight: 800; letter-spacing: .02em; }
+.tp-x { width: 30px; height: 30px; border-radius: 10px; border: 0; background: var(--tp-ctl); color: var(--tp-sub); font-size: 13px; cursor: pointer; }
+.tp-x:hover { background: var(--tp-ctl-hov); color: var(--tp-ink); }
+.tp-sec { padding: 9px 0 8px; border-top: 1px solid rgba(255, 255, 255, .06); }
+.tp-head + .tp-sec { border-top: 0; padding-top: 2px; }
+.tp-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.tp-lb { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; color: var(--tp-sub); letter-spacing: .06em; margin-bottom: 7px; }
+.tp-row .tp-lb { margin: 0; }
+.tp-mini { font-size: 10.5px; font-weight: 700; color: var(--tp-dim); margin-right: 2px; align-self: center; }
+.tp-sws { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 7px; justify-items: center; }
+.tp-subl { margin: 10px 0 6px; font-size: 10.5px; font-weight: 800; color: var(--tp-dim); letter-spacing: .04em; }
+.tp-sw {
+  position: relative; width: 28px; height: 28px; padding: 0; border-radius: 50%; cursor: pointer; background: var(--c);
+  border: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25), 0 0 0 1px rgba(255, 255, 255, .14); transition: transform .12s ease;
+}
+.tp-sw.lt { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28), 0 0 0 1px rgba(255, 255, 255, .3); }
+.tp-sw:active { transform: scale(.9); }
+.tp-sw.on { box-shadow: 0 0 0 2px var(--tp-bg), 0 0 0 4px var(--tp-a); }
+.tp-sw.on::after { content: ''; position: absolute; inset: 9px; border-radius: 50%; background: rgba(255, 255, 255, .9); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+.tp-sw.lt.on::after { background: rgba(0, 0, 0, .7); }
+.tp-cust { display: grid; place-items: center; background: conic-gradient(#ff4d4d, #ffd84d, #5cff7a, #4dd8ff, #6b6bff, #ff4dd8, #ff4d4d); overflow: hidden; }
+.tp-cust span { position: relative; width: 18px; height: 18px; border-radius: 50%; background: var(--tp-bg); color: var(--tp-ink); font-size: 14px; font-weight: 800; line-height: 18px; text-align: center; pointer-events: none; }
+.tp-cust input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.tp-prev { display: inline-flex; width: 120px; height: 28px; border-radius: 9px; background: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+.tp-prev svg { width: 100%; height: 100%; }
+.tp-ln-w { stroke: #fff; filter: drop-shadow(0 0 1px rgba(0, 0, 0, .7)); }
+.tp-wps { display: flex; gap: 6px; margin-bottom: 8px; }
+.tp-wp { flex: 1; height: 34px; border-radius: 10px; border: 1px solid transparent; background: var(--tp-ctl); display: grid; place-items: center; cursor: pointer; }
+.tp-wp i { width: var(--s); height: var(--s); border-radius: 50%; background: var(--tp-ink); }
+.tp-wp.on { background: var(--tp-a-soft); border-color: var(--tp-a); }
+.tp-wp.on i { background: var(--tp-a); }
+.pv .tp-pop .tp-range { display: block; width: 100%; height: 26px; margin: 0; touch-action: pan-x; }
+.tp-slots { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.tp-slot { width: 30px; height: 26px; border-radius: 8px; border: 1px solid var(--tp-edge); background: transparent; color: var(--tp-sub); font-size: 12px; font-weight: 800; cursor: pointer; }
+.tp-slot.on { border-color: var(--tp-a); color: var(--tp-ink); background: var(--tp-a-soft); }
+.tp-fl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tp-fl:first-child { flex: 1 1 150px; }
+.tp-fl select { flex: 1; min-width: 0; max-width: 100%; height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--tp-edge); background: var(--tp-ctl); color: var(--tp-ink); font-size: 13px; font-weight: 700; }
+.tp-step { display: inline-flex; align-items: center; height: 34px; border-radius: 10px; background: var(--tp-ctl); border: 1px solid var(--tp-edge); overflow: hidden; }
+.tp-step button { width: 34px; height: 100%; border: 0; background: transparent; color: var(--tp-ink); font-size: 18px; font-weight: 700; cursor: pointer; }
+.tp-step button:active { background: var(--tp-ctl-hov); }
+.tp-step output { min-width: 30px; text-align: center; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tp-tg { display: flex; align-items: center; gap: 8px; }
+.tp-tog { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border-radius: 10px; border: 1px solid var(--tp-edge); background: var(--tp-ctl); color: var(--tp-sub); font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.tp-tog.on { color: var(--tp-ink); border-color: var(--tp-a); background: var(--tp-a-soft); }
+.tp-tog i { width: 14px; height: 11px; border-radius: 3px; }
+.tp-ico-bg { background: currentColor; opacity: .7; }
+.tp-ico-bd { box-shadow: inset 0 0 0 1.6px currentColor; }
+.tp-sample { margin-left: auto; padding: 3px 9px; border-radius: 7px; font-size: 14px; font-weight: 700; background: rgba(255, 255, 255, .92); }
+.tp-note { margin: 6px 0 0; font-size: 11.5px; color: var(--tp-dim); }
+.tp-pop button:focus-visible, .tp-pop select:focus-visible, .tp-symv2 button:focus-visible { outline: 2px solid var(--tp-a); outline-offset: 2px; }
+
+/* ---------------- 도구 막대의 색 단추 (늘 보임) ---------------- */
+.pv .pv-tools .tp-stylebtn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.pv .pv-tools .tp-stylebtn .tp-dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25), 0 0 0 2px rgba(255, 255, 255, .16); }
+.pv .pv-tools .tp-stylebtn .tp-dot i { width: var(--s); height: var(--s); max-width: 14px; max-height: 14px; border-radius: 50%; background: rgba(255, 255, 255, .92); box-shadow: 0 0 0 1px rgba(0, 0, 0, .2); }
+.pv .pv-tools .tp-stylebtn.lt .tp-dot i { background: rgba(0, 0, 0, .7); }
+.pv .pv-tools .tp-stylebtn.hl .tp-dot { border-radius: 7px; }
+
+/* ---------------- 떠 있는 색 단추 (도구를 접었거나 폰) ---------------- */
+.pv .tp-qchip {
+  position: absolute; z-index: 55; left: max(10px, env(safe-area-inset-left, 0px)); top: 50%; width: 46px; height: 46px; margin-top: -23px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--tp-edge); background: var(--tp-bg); box-shadow: var(--tp-shadow); display: grid; place-items: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.pv .tp-qchip[hidden] { display: none; }
+.pv .tp-qchip .tp-qdot { width: 28px; height: 28px; border-radius: 50%; background: var(--c); display: grid; place-items: center; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25); }
+.pv .tp-qchip .tp-qdot::after { content: ''; width: var(--s); height: var(--s); max-width: 16px; max-height: 16px; border-radius: 50%; background: rgba(255, 255, 255, .92); }
+.pv .tp-qchip.lt .tp-qdot::after { background: rgba(0, 0, 0, .7); }
+.pv .tp-qchip.hl .tp-qdot { border-radius: 9px; }
+.pv .tp-qchip:active { transform: scale(.94); }
+
+/* ---------------- 기호 · 음표 팔레트 (하나로 합침 · 끌어서 옮김 · 접힘) ---------------- */
+html .pv .pv-sympop.tp-symv2 {
+  left: 0; top: 0; right: auto; bottom: auto; margin: 0; width: 292px; max-width: calc(100% - 12px); padding: 6px 8px 8px; border-radius: 16px; z-index: 60;
+  will-change: transform; contain: layout paint;
+}
+.pv .pv-sympop.tp-symv2.dragging { opacity: .94; }
+.tp-symhead { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 2px 0 4px; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+.tp-symv2.dragging .tp-symhead { cursor: grabbing; }
+.tp-grip { width: 10px; height: 16px; flex: none; background: radial-gradient(circle, var(--tp-dim) 1.2px, transparent 1.6px) 0 0 / 5px 5px; opacity: .9; }
+.tp-symhead b { font-size: 12.5px; font-weight: 800; color: var(--tp-ink); white-space: nowrap; }
+.tp-cur { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 700; color: var(--tp-a); }
+.tp-ib { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 9px; background: var(--tp-ctl); color: var(--tp-sub); cursor: pointer; }
+.tp-ib svg { width: 16px; height: 16px; transition: transform .16s ease; }
+.tp-ib:hover { background: var(--tp-ctl-hov); color: var(--tp-ink); }
+.tp-symv2.folded .tp-ib[data-sp="fold"] svg { transform: rotate(-90deg); }
+.tp-cats { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 4px 0 6px; margin: 0 -2px; -webkit-overflow-scrolling: touch; }
+.tp-cats::-webkit-scrollbar { display: none; }
+.tp-cats { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); padding-right: 18px; }      /* 옆으로 더 있다는 표시 */
+.tp-cat { flex: none; height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid transparent; background: var(--tp-ctl); color: var(--tp-sub); font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.tp-cat.on { color: var(--tp-ink); background: var(--tp-a-soft); border-color: var(--tp-a); }
+.tp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 5px; max-height: min(34vh, 230px); overflow: auto; overscroll-behavior: contain; }
+.tp-sym { aspect-ratio: 1; min-height: 40px; padding: 0; border-radius: 10px; border: 1px solid rgba(0, 0, 0, .08); background: #FBFAF7; cursor: pointer; display: grid; place-items: center; transition: transform .1s ease; }
+.tp-sym img { width: 34px; height: 34px; pointer-events: none; }
+.tp-sym span { font-size: 9.5px; color: #333; }
+.tp-sym:active { transform: scale(.92); }
+.tp-sym.on { box-shadow: 0 0 0 2px var(--tp-a), 0 4px 12px -4px rgba(255, 122, 40, .6); border-color: transparent; }
+.tp-symv2.folded .tp-cats, .tp-symv2.folded .tp-grid { display: none; }
+
+@media (prefers-reduced-motion: reduce) { .pv .tp-pop { transition: none; } }
+
+/* 밝은 화면 */
+html[data-theme="light"] .tp-sec { border-top-color: rgba(18, 24, 40, .08); }
+html[data-theme="light"] .tp-sym { border-color: rgba(18, 24, 40, .12); background: #fff; }
+html[data-theme="light"] .pv .pv-tools .tp-stylebtn .tp-dot { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2), 0 0 0 2px rgba(18, 24, 40, .1); }

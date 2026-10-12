@@ -210,6 +210,7 @@ ${early}<link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
 <link rel="stylesheet" href="/worship/live-glass.css${v}">
 <link rel="stylesheet" href="/worship/live-head.css${v}">
+<link rel="stylesheet" href="/worship/toolpop.css${v}">
 <style>
   html, body { min-height: 100%; }
   .lv-fallback { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; max-width: 520px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }
@@ -237,6 +238,7 @@ ${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token,
 <script defer src="/worship/ytplayer.js${v}"></script>
 <script defer src="/worship/timer.js${v}"></script>
 <script defer src="/worship/anno.js${v}"></script>
+<script defer src="/worship/toolpop.js${v}"></script>
 <script defer src="/worship/mainstage.js${v}"></script>
 <script defer src="/worship/practice-panels.js${v}"></script>
 <script defer src="/worship/livemsg.js${v}"></script>

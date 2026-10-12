@@ -64,7 +64,7 @@
 
   var TOOLS = [
     { t: 'none', ic: 'hand', n: '이동' }, { t: 'pen', ic: 'pen', n: '펜' }, { t: 'hl', ic: 'hl', n: '형광펜' }, { t: 'select', ic: 'select', n: '선택·이동' }, { t: 'lasso', ic: 'lasso', n: '올가미' }, { t: 'text', ic: 'text', n: '글자' },
-    { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'note', ic: 'note', n: '음표' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }, { t: 'white', ic: 'whiteout', n: '흰 지우개' }
+    { t: 'sym', ic: 'note', n: '기호 · 음표' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }, { t: 'white', ic: 'whiteout', n: '흰 지우개' }
   ];
   var current = null;
   /* v9.16 — 유튜브 단추: 누구나 알아보는 빨간 둥근 네모 + 흰 ▶ (외부 그림 없이 SVG) */
@@ -1399,7 +1399,7 @@
     var YA = root.YNAnno;
     if (!YA) { toast('필기 도구를 불러오지 못했습니다. 새로고침해 주세요.', true); }
     an = YA ? YA.create({
-      host: box, canvas: annoCv, clipEl: stage, me: opts.me || '', canEdit: !!opts.canEdit,
+      host: box, canvas: annoCv, clipEl: stage, me: opts.me || '', canEdit: !!opts.canEdit, hlBlend: true,      // v10 — 형광펜은 악보 글자 "밑에" (굿노트 방식)
       sawPen: ls('sawpen') === '1', onPenSeen: function () { ls('sawpen', '1'); },                    // 이 기기에서 펜슬을 한 번 쓴 적이 있으면 처음부터 손가락 필기를 막음 (손바닥 방지) — 필기 탭의 "펜 입력"에서 바꿀 수 있음
       onToolSwap: function (to, from, via) { swapTool(to, via); },
       onEraseDone: function () {                                                        // V844 — 펜슬로 지우고 떼면 원래 펜으로
@@ -1413,7 +1413,7 @@
       onLive: function (m) { if (rt && rt.online && !(sheets[S.sheetIdx] && sheets[S.sheetIdx].mine)) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
       onChange: function () { P.emit('annochange'); },
       onMessage: function (t, bad) { toast(t, bad); },
-      keepEditor: function (a) { return !!(a && (toolsEl.contains(a) || (drawerEl && drawerEl.contains(a)))); },
+      keepEditor: function (a) { return !!(a && (toolsEl.contains(a) || (drawerEl && drawerEl.contains(a)) || (TP && TP.pop && TP.pop.contains(a)))); },
       teamBlocked: function () {
         var blocked = !rt || rt.state === 'unavailable' || rt.state === 'denied';
         if (!blocked) return '';
@@ -1777,10 +1777,13 @@
     /* ------------------------------------------------------------ 도구 막대 */
     var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], white: [0.01, 0.02, 0.036], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05], fbox: [0.02, 0.028, 0.04] };
     /* V844 — 펜 · 형광펜 굵기 3칸을 각자 원하는 굵기로: 이미 고른 칸을 한 번 더 누르면 조절 막대가 나오고, 바꾼 굵기는 그 칸에 이 기기에 저장됩니다 */
-    var SZ_RANGE = { pen: [0.0008, 0.016], hl: [0.006, 0.06], white: [0.004, 0.06] };
+    var SZ_RANGE = { pen: [0.0004, 0.016], hl: [0.003, 0.06], white: [0.004, 0.06] };
+    /* v10 — 색 · 굵기 창의 굵기 단추 (아주 가는 펜부터) */
+    var W_PRESETS = { pen: [0.0006, 0.0012, 0.002, 0.003, 0.0045, 0.007], hl: [0.006, 0.01, 0.016, 0.024, 0.036], white: [0.006, 0.012, 0.02, 0.032, 0.048] };
+    var W_NAMES = { pen: ['아주 가늘게', '가늘게', '조금 가늘게', '보통', '굵게', '아주 굵게'], hl: ['가늘게', '조금 가늘게', '보통', '굵게', '아주 굵게'], white: ['가늘게', '조금 가늘게', '보통', '굵게', '아주 굵게'] };
     function slotSizes(k) { var d = SIZES[k].slice(); if (!SZ_RANGE[k]) return d; try { var v = JSON.parse(ls('sz.' + k) || 'null'); if (Array.isArray(v)) for (var i = 0; i < 3; i++) if (+v[i] >= SZ_RANGE[k][0] && +v[i] <= SZ_RANGE[k][1]) d[i] = +v[i]; } catch (e) { /* 기본값 */ } return d; }
     function slotSave(k, i, v) { var a = slotSizes(k); a[i] = v; ls('sz.' + k, JSON.stringify(a)); }
-    function slotDot(k, v, i) { if (k === 'white') return Math.max(4, Math.min(20, Math.round(v * 420))); if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(4, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
+    function slotDot(k, v, i) { if (k === 'white') return Math.max(4, Math.min(20, Math.round(v * 420))); if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(3, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
     S.szEdit = -1; S.eraseBack = ls('eraseback') !== '0';
     S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
     function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'white' ? 'white' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
@@ -1807,15 +1810,15 @@
       toast(to === 'eraser' ? '지우개로 전환 — 펜 옆 버튼을 다시 누르면 펜으로 돌아옵니다' : '펜으로 돌아왔습니다', false, 1600);
     }
     /* 음표 도구 = 기호 도구에 음표 · 쉼표 팔레트 (필기 저장 형식은 기호와 같음) */
-    function toolOn(t) { return t === 'note' ? (S.tool === 'sym' && S.symGrp === 'note') : t === 'sym' ? (S.tool === 'sym' && S.symGrp !== 'note') : S.tool === t; }
+    function toolOn(t) { return t === 'note' ? S.tool === 'sym' : S.tool === t; }
     function setTool(t, fromAnno, quiet) {
       if (opts.readOnly && t !== 'none') return;
-      if (t === 'note' || t === 'sym') {
-        var grp = t === 'note' ? 'note' : 'sym', grpChanged = S.symGrp !== grp; S.symGrp = grp; t = 'sym';
-        var inGrp = function (k) { return YA.SYMBOLS.some(function (x) { return x.k === k && (x.grp === 'note') === (grp === 'note'); }); };
-        if (!inGrp(S.sym)) { S.sym = grp === 'note' ? 'n:4' : 'sharp'; an.setSymbol(S.sym); }
-        if (grpChanged) { var pp = $('.pv-sympop'); if (pp) { pp.innerHTML = ''; pp._wired = false; } }
-        if (S.tool === 'sym' && grpChanged && !fromAnno) { S.symOpen = true; renderTools(); renderSymPop(); if (!quiet) toast(grp === 'note' ? '음표: 위에서 음표 · 쉼표를 고르고 악보를 눌러 찍습니다.' : '기호: 고른 기호를 악보에 눌러 찍습니다.', false, 2400); return; }
+      if (t === 'chord') t = 'text';                                                     // v10 — 코드 도구는 글자 도구로 (예전 단축키 · 기억도 그대로 동작)
+      if (t === 'note' || t === 'sym') {                                                 // v10 — 기호 · 음표 하나로: 음표(Alt+N)는 음표 칸을 펼친 채로
+        var wantNote = t === 'note'; t = 'sym';
+        if (wantNote && YA && YNTP && YNTP.catOf(S.sym || '') !== 'note') { S.sym = 'n:4'; an.setSymbol(S.sym); }
+        else if (!S.sym || !(YA && YA.SYMBOLS.some(function (x) { return x.k === S.sym; }))) { S.sym = 'sharp'; an.setSymbol(S.sym); }
+        if (S.tool === 'sym' && !fromAnno) { S.symOpen = true; renderTools(); renderSymPop(); return; }
       }
       if (t === 'eraser' && (S.tool === 'pen' || S.tool === 'hl' || S.tool === 'white')) S.prevDraw = S.tool;      // V844 — 지우개를 쓰고 펜슬을 떼면 돌아갈 도구
       if (t !== S.tool) S.szEdit = -1;
@@ -1824,7 +1827,7 @@
       if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]); else if (t === 'white') an.setWidth(slotSizes('white')[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
-      var hint = { white: '흰 지우개: 악보의 지우고 싶은 부분을 하얗게 칠해 가립니다. (필기라서 지우개 · 되돌리기로 다시 보이게 할 수 있어요)', pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: S.symGrp === 'note' ? '음표: 위에서 온음표 · 2분 · 4분 · 8분 · 16분음표나 쉼표를 고르고 악보를 눌러 찍습니다. (크기는 아래 숫자칸, 옮기기는 선택·이동)' : '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', lasso: '올가미: 악보 위에 고리를 그리면 그 안의 펜 · 형광펜 · 글자 · 기호 · 라벨이 한꺼번에 골라집니다. 끌어서 옮기고, 모서리 손잡이로 크기를 바꾸고, ✕ 로 지웁니다. (↶ 로 되돌리기)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
+      var hint = { white: '흰 지우개: 악보의 지우고 싶은 부분을 하얗게 칠해 가립니다. (필기라서 지우개 · 되돌리기로 다시 보이게 할 수 있어요)', pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자 · 코드: 악보를 눌러 씁니다. 색 · 글꼴 · 바탕 · 테두리는 색 단추(●)에서. 쓴 글자를 다시 누르면 고칠 수 있습니다.', sym: '기호 · 음표: 팔레트에서 고르고 악보를 눌러 찍습니다. 팔레트 위쪽 막대를 끌어 옮기고, ▾ 로 접을 수 있어요.', lasso: '올가미: 악보 위에 고리를 그리면 그 안의 펜 · 형광펜 · 글자 · 기호 · 라벨이 한꺼번에 골라집니다. 끌어서 옮기고, 모서리 손잡이로 크기를 바꾸고, ✕ 로 지웁니다. (↶ 로 되돌리기)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
       if (hint && !quiet) toast(hint, false, 2600);
     }
     function renderTools() {
@@ -1838,12 +1841,9 @@
       var fontVal = sel ? (sel.f || 'sans') : S.font, showFont = !sel || sel.t === 'text';
       var rng = sel && sel.t === 'fbox' ? [8, 60] : isSym ? [12, 120] : [12, 80];
       var lock = sel && !sel.canModify ? ' disabled' : '';
-      /* 글꼴 · 크기 줄 — 크기는 긴 슬라이더 대신 "숫자 + ▲▼" 작은 조절기 */
-      var fontRow = !txt ? '' :
-        '<div class="pv-tg pv-fontrow">' + (showFont ? '<label class="pv-fl"><span>글꼴</span><select data-font aria-label="글꼴"' + lock + '>' + YA.FONT_KEYS.map(function (k) { return '<option value="' + k + '"' + (fontVal === k ? ' selected' : '') + '>' + h(YA.FONT_NAMES[k]) + '</option>'; }).join('') + '</select></label>' : '') +
-        '<div class="pv-fl"><span>크기</span><span class="pv-num" role="group" aria-label="글자 크기">' +
-          '<input type="number" inputmode="numeric" pattern="[0-9]*" data-fsz min="' + rng[0] + '" max="' + rng[1] + '" step="1" value="' + Math.round(fsz * 1000) + '" aria-label="크기 숫자"' + lock + '>' +
-          '<span class="pv-numbtns"><button type="button" class="pv-nb" data-step="1" aria-label="크기 키우기" title="크기 키우기"' + lock + '>▲</button><button type="button" class="pv-nb" data-step="-1" aria-label="크기 줄이기" title="크기 줄이기"' + lock + '>▼</button></span></span></div>' +
+      /* v10 — 글꼴 · 크기 · 바탕 · 테두리는 색 · 굵기 창(색 단추)으로 옮겼습니다 — 작은 화면에서 도구 막대 밖으로 잘리던 문제 */
+      void fontVal; void showFont; void rng; void fsz;
+      var fontRow = !sel ? '' : '<div class="pv-tg pv-fontrow">' +
         (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + '</div>';
       if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 눌러 선택하세요. 선택한 뒤 끌면 옮겨지고, 쓴 사람이 보입니다.</div>';
       if (S.tool === 'lasso') {                                                       // v9.16 — 올가미: 고른 개수 · 함께 지우기
@@ -1863,6 +1863,7 @@
       toolsEl.innerHTML =
         '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
         '<div class="pv-tg">' + TOOLS.map(function (t) { var on = toolOn(t.t); return '<button class="pv-tool' + (on ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + on + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
+        styleBtnHtml() +
         colRow +
         fontRow + clipRow +
         fbRow +
@@ -1875,6 +1876,7 @@
         '<div class="pv-tg pv-pills pv-sec"><label class="pv-mineonly' + (S.layer === 'mine' ? ' on' : '') + '" title="체크하면 나에게만 보입니다. 체크하지 않으면(기본) 팀 모두의 화면에 실시간으로 나타납니다."><input type="checkbox" data-a="mineonly"' + (S.layer === 'mine' ? ' checked' : '') + '><span>나만 보기</span></label>' +
           '<button class="pv-pill scope" data-a="scope" title="필기가 어디에 붙나요? (눌러서 바꾸기)">' + (S.scope === 'date' && S.room ? I('calendar') + '이 날짜만' : I('pin') + '곡에 계속') + '</button></div>';
       try { P.emit('toolsrender', toolsEl); } catch (e) { /* 라이브 컨트롤이 안 붙어도 도구는 그대로 */ }
+      updStyleUi();
     }
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
@@ -1891,6 +1893,7 @@
       }
       if (b.dataset.a === 'szok') { S.szEdit = -1; renderTools(); return; }
       var a = b.dataset.a;
+      if (a === 'style') { if (TP.pop) TP.pop.toggle(b); return; }
       if (a === 'dockhide') { setTools(false, true); return; }
       if (a === 'dockmore') { setDockMore(!S.dockMore, true); return; }
       if (a === 'undo') { an.undo(); renderTools(); } else if (a === 'redo') { an.redo(); renderTools(); }
@@ -1953,66 +1956,77 @@
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
     S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
     var origSetTool = setTool;
-    setTool = function (t) { origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (t === 'chord' || t === 'fbox') ? ((S.toolCol && S.toolCol[t]) || '#111111') : (S.penSel || YA.PALETTE[0]);   /* v6.9 — 코드 · 송폼 라벨의 기본색은 검정 (색을 바꾸면 그 도구에서는 기억) */ if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none') setDrawer(false); };     // v6.1 — 도구를 고르면 서랍을 닫아 바로 악보에 쓸 수 있게
+    setTool = function (t) { if (t === 'chord') t = 'text'; origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (t === 'chord' || t === 'fbox') ? ((S.toolCol && S.toolCol[t]) || '#111111') : (S.penSel || YA.PALETTE[0]);   /* v6.9 — 코드 · 송폼 라벨의 기본색은 검정 (색을 바꾸면 그 도구에서는 기억) */ if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none') setDrawer(false); };     // v6.1 — 도구를 고르면 서랍을 닫아 바로 악보에 쓸 수 있게
 
     function renderSymPop() {
-      var pop = $('.pv-sympop'); pop.style.display = S.symOpen ? 'block' : 'none';
-      if (!S.symOpen) return;
-      if (!pop.firstChild) {
-        var noteGrp = S.symGrp === 'note';
-        pop.innerHTML = '<div class="pv-symbar" title="끌어서 옮기기 · 두 번 누르면 처음 자리로"><span class="pv-symgrip" aria-hidden="true">⋮⋮</span><b>' + (noteGrp ? '음표 · 쉼표' : '기호') + '</b><small>끌어서 옮기기</small>' +
-          '<button type="button" class="pv-symfold" aria-label="접기 / 펼치기" title="접기 / 펼치기">▾</button></div><div class="pv-symgrid">' + YA.SYMBOLS.filter(function (s) { return (s.grp === 'note') === noteGrp; }).map(function (s) { return '<button class="pv-sym' + (s.k === S.sym ? ' on' : '') + '" data-k="' + s.k + '" title="' + h(s.n) + '"><canvas width="44" height="44"></canvas><span>' + h(s.n) + '</span></button>'; }).join('') + '</div>';
-        Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (b) {
-          var c = b.querySelector('canvas').getContext('2d'), k = b.dataset.k;
-          YA.drawItem(c, { t: 'sym', k: k, c: '#ffb066', x: YA.STRETCH[k] ? 0.15 : 0.5, y: 0.5, sz: k === 'n:16b' ? 0.26 : k === 'n:3' ? 0.34 : (k === 'n:hd' || k === 'n:ho') ? 0.9 : 0.42, w2: 0.7 }, 44, 44);
-        });
-        if (!pop._drag) wireSymDrag(pop);
-        if (!pop._wired) pop.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.pv-sym') : null; if (!b) return; an.setSymbol(b.dataset.k); S.sym = b.dataset.k; Array.prototype.forEach.call(pop.querySelectorAll('.pv-sym'), function (x) { x.classList.toggle('on', x === b); }); toast(b.title + ' — 악보를 눌러 찍으세요.', false, 1800); });
-        pop._wired = true;
-      }
-      pop.classList.toggle('folded', ls('symfold') === '1');
-      symPlace(pop);
+      var pop = $('.pv-sympop');
+      if (!S.symOpen || !YA || !YNTP) { pop.style.display = 'none'; if (TP.sym) TP.sym.hide(); return; }
+      if (!TP.sym && pop.parentNode === stage) stage.parentNode.insertBefore(pop, stage.nextSibling);      // v10 — 악보를 스크롤 · 확대해도 팔레트는 제자리 (스크롤 칸 밖으로)
+      if (!TP.sym) TP.sym = YNTP.symPicker({ el: pop, bounds: stage, symbols: YA.SYMBOLS, drawItem: YA.drawItem, stretch: YA.STRETCH, current: function () { return S.sym; },
+        onPick: function (k) { an.setSymbol(k); S.sym = k; },
+        onClose: function () { setTool('none'); },
+        toast: function (t) { toast(t, false, 1400); },
+        avoid: function () { return [toolsEl.closest('.pv-drawer') ? null : toolsEl, el.querySelector('.pv-timer, .yn-timer')]; } });
+      TP.sym.show(S.sym);
     }
-    /* 기호 · 음표 팔레트 옮기기 — 위쪽 막대를 끌면 화면 어디로든 (기기에 기억), 두 번 누르면 처음 자리 · ▾ 로 접기 */
-    function symPos() { try { var p = JSON.parse(ls('sympos') || 'null'); return p && isFinite(p.x) && isFinite(p.y) ? p : null; } catch (e) { return null; } }
-    function symBox(pop) { var cb = pop.offsetParent || pop.parentNode; var r = cb.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width || root.innerWidth, h: r.height || root.innerHeight }; }   // 팔레트가 들어 있는 칸 (악보 화면) 기준
-    function symPlace(pop) {
-      var p = symPos();
-      if (!p) { pop.classList.remove('moved'); pop.style.left = pop.style.top = ''; return; }
-      pop.classList.add('moved');
-      var B = symBox(pop), w = pop.offsetWidth || 320;
-      pop.style.left = Math.round(Math.max(4, Math.min(B.w - w - 4, p.x * B.w))) + 'px';
-      pop.style.top = Math.round(Math.max(4, Math.min(B.h - 48, p.y * B.h))) + 'px';
-    }
-    function wireSymDrag(pop) {
-      pop._drag = true;
-      var d = null;
-      pop.addEventListener('pointerdown', function (e) {
-        var bar = e.target.closest ? e.target.closest('.pv-symbar') : null;
-        if (!bar || e.target.closest('.pv-symfold') || (e.pointerType === 'mouse' && e.button !== 0)) return;
-        var r = pop.getBoundingClientRect();
-        d = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false, x0: e.clientX, y0: e.clientY };
-        try { bar.setPointerCapture(e.pointerId); } catch (x) { /* 무시 */ }
-        e.preventDefault(); e.stopPropagation();
-      });
-      pop.addEventListener('pointermove', function (e) {
-        if (!d || e.pointerId !== d.id) return;
-        if (!d.moved && Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 4) return;
-        d.moved = true; pop.classList.add('moved', 'dragging');
-        var B = symBox(pop), w = pop.offsetWidth;
-        var L = Math.max(4, Math.min(B.w - w - 4, e.clientX - d.dx - B.l)), T = Math.max(4, Math.min(B.h - 48, e.clientY - d.dy - B.t));
-        pop.style.left = L + 'px'; pop.style.top = T + 'px';
-        e.preventDefault();
-      });
-      function end(e) {
-        if (!d || (e && e.pointerId !== d.id)) return;
-        if (d.moved) { var B = symBox(pop); ls('sympos', JSON.stringify({ x: +((parseFloat(pop.style.left) || 0) / B.w).toFixed(4), y: +((parseFloat(pop.style.top) || 0) / B.h).toFixed(4) })); }
-        pop.classList.remove('dragging'); d = null;
+
+    /* ------------------------------------------------------------ v10 — 색 · 굵기 창 (도구 막대 · 떠 있는 단추에서 열림) */
+    var STYLE_TOOLS = { pen: '펜', hl: '형광펜', white: '흰 지우개', text: '글자', sym: '기호 · 음표', fbox: '송폼 라벨' };
+    function styleSel() { var sel = S.tool === 'select' && an.selected ? an.selected() : null; return sel; }
+    function styleModel() {
+      if (!YA) return null;
+      var sel = styleSel(), t = S.tool, st = an.state ? an.state() : {}, kind;
+      if (sel) kind = sel.t === 'text' ? 'text' : (sel.t === 'sym' || sel.t === 'fbox') ? 'sym' : 'stroke';
+      else kind = (t === 'pen' || t === 'hl' || t === 'white') ? 'ink' : t === 'text' ? 'text' : (t === 'sym' || t === 'fbox') ? 'sym' : null;
+      if (!kind) return null;
+      var hl = sel ? sel.t === 'hl' : t === 'hl', names = Object.assign({}, YA.COLOR_NAMES || {}, YA.MORE_NAMES || {});
+      var m = { kind: kind, tool: t, names: names, locked: !!(sel && !sel.canModify), title: sel ? '선택한 필기' : (STYLE_TOOLS[t] || '스타일'),
+        colors: (t === 'white' && !sel) ? [] : hl ? YA.HL_COLORS : YA.PALETTE, moreColors: hl ? (YA.HL_COLORS_X || []) : (YA.PALETTE_X || []), color: sel && sel.c ? sel.c : S.curColor };
+      if (kind === 'ink') {
+        var k = sizeKey(), sv = slotSizes(k);
+        m.slots = sv; m.slot = S.sizeIdx; m.width = sv[S.sizeIdx]; m.wRange = SZ_RANGE[k]; m.wPresets = W_PRESETS[k]; m.wNames = W_NAMES[k];
+        m.dots = m.wPresets.map(function (v) { return slotDot(k, v, 0); }); m.dot = slotDot(k, m.width, S.sizeIdx);
       }
-      pop.addEventListener('pointerup', end); pop.addEventListener('pointercancel', end);
-      pop.addEventListener('dblclick', function (e) { if (!(e.target.closest && e.target.closest('.pv-symbar')) || e.target.closest('.pv-symfold')) return; ls('sympos', ''); symPlace(pop); toast('팔레트를 처음 자리로 옮겼습니다.', false, 1400); });
-      pop.addEventListener('click', function (e) { if (!(e.target.closest && e.target.closest('.pv-symfold'))) return; var f = !pop.classList.contains('folded'); pop.classList.toggle('folded', f); ls('symfold', f ? '1' : '0'); symPlace(pop); });
-      root.addEventListener('resize', function () { if (pop.style.display !== 'none') symPlace(pop); });
+      if (kind === 'text' || kind === 'sym') { m.size = curFsz(); m.fonts = YA.FONT_KEYS.map(function (f) { return { k: f, n: YA.FONT_NAMES[f] }; }); m.font = sel ? (sel.f || 'sans') : S.font; }
+      if (kind === 'text') { m.bg = sel ? sel.bg : (st.textBg || ''); m.bd = sel ? sel.bd : (st.textBd || ''); m.bgColors = YA.TEXT_BG_COLORS || []; m.bdColors = YA.TEXT_BD_COLORS || []; m.lastBg = ls('tbglast') || ''; m.lastBd = ls('tbdlast') || ''; }
+      return m;
+    }
+    function styleSet(key, v, live) {
+      var sel = styleSel();
+      if (key === 'color') {
+        if (sel) { an.editSelected({ c: v }); renderTools(); return; }
+        S.curColor = v; if (S.tool === 'hl') { an.setHlColor(v); S.hlSel = v; } else { an.setColor(v); if (S.tool === 'fbox') (S.toolCol = S.toolCol || {}).fbox = v; else S.penSel = v; }
+        memoSave(); renderTools(); if (an.focusEditor) an.focusEditor(); return;
+      }
+      if (key === 'width') { var k = sizeKey(); if (!SZ_RANGE[k]) return; v = Math.max(SZ_RANGE[k][0], Math.min(SZ_RANGE[k][1], Math.round(v * 10000) / 10000)); slotSave(k, S.sizeIdx, v); an.setWidth(v); if (!live) renderTools(); else updStyleUi(); return; }
+      if (key === 'slot') { S.sizeIdx = v; delete S.fsz[sizeKey()]; S.sizeOf[sizeKey()] = v; memoSave(); applySize(); renderTools(); return; }
+      if (key === 'size') { stepFsz(v); return; }
+      if (key === 'font') { if (sel) { an.editSelected({ f: v }); renderTools(); return; } S.font = v; ls('font', v); an.setFont(v); renderTools(); if (an.focusEditor) an.focusEditor(); return; }
+      if (key === 'bg' || key === 'bd') {
+        if (v) ls(key === 'bg' ? 'tbglast' : 'tbdlast', v);
+        if (sel) { var pt = {}; pt[key] = v || ''; an.editSelected(pt); renderTools(); return; }
+        var ts = {}; ts[key] = v || ''; if (an.setTextStyle) an.setTextStyle(ts); ls(key === 'bg' ? 'tbg' : 'tbd', v || ''); renderTools(); if (an.focusEditor) an.focusEditor();
+      }
+    }
+    function styleDot() { var m = styleModel(); if (!m) return null; return { color: m.colors.length || m.kind !== 'ink' ? (m.color || '#111111') : '#ffffff', dot: m.kind === 'ink' ? Math.max(4, Math.min(14, m.dot || 6)) : 8, hl: m.tool === 'hl' && !styleSel() }; }
+    function styleBtnHtml() {
+      var d = styleDot(); if (!d) return '';
+      var lt = /^#(f|e)[0-9a-f](f|e)[0-9a-f](f|e)[0-9a-f]$/i.test(d.color) || d.color === '#ffe14d' || d.color === '#7dff8a' ? ' lt' : '';
+      return '<div class="pv-tg pv-styletg"><button type="button" class="pv-tool tp-stylebtn' + lt + (d.hl ? ' hl' : '') + '" data-a="style" aria-haspopup="dialog" title="색 · 굵기 · 글꼴 (더 많은 색)" aria-label="색 · 굵기 바꾸기"><span class="ic"><span class="tp-dot" style="--c:' + d.color + '"><i style="--s:' + d.dot + 'px"></i></span></span><span class="nm">색 · 굵기</span></button></div>';
+    }
+    function updStyleUi() {
+      if (!TP || !TP.chip) return;
+      var d = styleDot(), hidden = !d || !(S.compact || el.classList.contains('pv-toolshide'));
+      TP.chip.set(hidden ? null : { show: true, color: d.color, dot: d.dot, hl: d.hl });
+      if (TP.pop && TP.pop.isOpen()) TP.pop.refresh();
+    }
+    var YNTP = root.YNToolPop || null, TP = { pop: null, chip: null, sym: null };
+    if (YNTP && YA) {
+      TP.pop = YNTP.stylePop({ host: el, ctx: { model: styleModel, set: styleSet } });
+      TP.chip = YNTP.qchip({ host: el, onTap: function (b) { TP.pop.toggle(b); } });
+      try { new MutationObserver(function () { updStyleUi(); }).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* 아주 오래된 브라우저 */ }      // 도구 막대 접기 · 폰 화면으로 바뀌면 떠 있는 단추를 보이기 / 숨기기
+      if (an.setTextStyle) an.setTextStyle({ bg: ls('tbg') || '', bd: ls('tbd') || '' });          // 마지막에 쓰던 글자 바탕 · 테두리 (이 기기)
+      updStyleUi();
     }
 
     /* ------------------------------------------------------------ 패널(탭) */
@@ -2331,7 +2345,7 @@
       if (mod && (k === 'd' || k === 'D') && an.selected && an.selected() && !opts.readOnly) { e.preventDefault(); if (doCopy()) doPaste(); return; }   // Ctrl/⌘+D = 바로 복제
       if (mod) return;
       if (e.altKey) {                                                                  // 필기 도구 단축키는 Alt+글자 (글자만 누르는 키는 콜아웃에 씁니다)
-        var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyL: 'lasso', KeyC: 'chord', KeyS: 'sym', KeyN: 'note', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
+        var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyL: 'lasso', KeyC: 'text', KeyS: 'sym', KeyN: 'note', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
         if (tm) { e.preventDefault(); setTool(tm); }
         return;
       }
