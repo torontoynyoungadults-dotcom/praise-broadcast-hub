@@ -836,8 +836,7 @@
       var m = metro(); if (!need('메트로놈', m, host)) return;
       var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['rep', '반복 · 콜아웃'], ['dyn', '다이내믹'], ['in', '들어가기']];
       host.innerHTML =
-        '<div class="pv-mstick"><button class="pv-big" data-a="toggle" data-role="toggle">▶ 시작</button></div>' +
-        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmwrap"><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
+        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmwrap pv-mline"><div class="pv-bpmrow"><button type="button" class="pv-big pv-mgo" data-a="toggle" data-role="toggle" aria-label="시작" title="시작 / 멈춤 (Space)">▶</button><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
           '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div></div>' +
           '<div class="pv-row"><label class="pv-chk">박자 <select data-o="sig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
@@ -941,7 +940,7 @@
         var st = m.state(), c = st.cfg;
         fillVoices();
         if (doc.activeElement !== bpmIn) bpmIn.value = Math.round(st.bpm);
-        toggleB.textContent = st.running ? '■ 멈춤' : '▶ 시작'; toggleB.classList.toggle('on', st.running);
+        toggleB.textContent = st.running ? '■' : '▶'; toggleB.setAttribute('aria-label', st.running ? '멈춤' : '시작'); toggleB.classList.toggle('on', st.running);
         var sigv = st.num + '/' + st.den, ss = q('[data-o="sig"]'); if (ss.value !== sigv) ss.value = sigv;
         if (dotsEl.children.length !== st.num) drawDots(st.num, st.marks); else paintMarks(st.marks);
         q('[data-o="flash"]').checked = !!c.flash; q('[data-o="flashall"]').checked = c.flashAll !== false; q('[data-o="mq"]').checked = quick.on();

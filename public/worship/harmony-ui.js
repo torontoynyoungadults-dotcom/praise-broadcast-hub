@@ -50,6 +50,7 @@
     '.hm-legend span{margin-right:12px;font-size:12.5px;color:var(--g-sub,#d4cfc7)}' +
     '.hm-pop{position:absolute;z-index:8;pointer-events:none;padding:7px 11px 6px;border-radius:13px;background:rgba(14,14,22,.95);border:1.5px solid #ff8a2a;color:#fff;box-shadow:0 8px 26px rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translate(-50%,-100%);white-space:nowrap;transition:opacity .25s}' +
     '.hm-pop b{display:block;font:900 17px -apple-system,Helvetica,Arial,sans-serif;color:#FFB066}.hm-pop span{display:block;margin-top:2px;font:700 12px -apple-system,Helvetica,Arial,sans-serif;color:#e8e3da}.hm-pop i{font-style:normal;color:#9aa0ab;font-weight:600}' +
+    '.hm-pop b{transition:transform .12s}.hm-pop b.on{transform:scale(1.06)}.hm-poptones em{display:inline-block;min-width:22px;padding:1px 5px;margin:2px 1px 0;border-radius:7px;font-style:normal;font-size:14px;font-weight:800;color:#e8e3da;background:rgba(255,255,255,.08);transition:background .1s,color .1s}.hm-poptones em.on{background:#FFB066;color:#1a1208}' +
     'html[data-theme=light] .hm-pop{background:rgba(255,255,255,.97);color:#111;border-color:#46BDC6}html[data-theme=light] .hm-pop b{color:#0E7C86}html[data-theme=light] .hm-pop span{color:#333}';
   function injectCss() {
     if (!doc || doc.getElementById('yn-harm-css')) return;
@@ -824,24 +825,53 @@
       return best;
     }
     var popEl = null, popT = 0;
-    function showPop(cd, name, v) {
+    function showPop(cd, name, v, arp, total) {
       if (!popEl) { popEl = doc.createElement('div'); popEl.className = 'hm-pop'; popEl.setAttribute('aria-live', 'polite'); }
       if (popEl.parentNode !== box) box.appendChild(popEl);
-      var W = box.clientWidth, Hh = box.clientHeight;
-      popEl.innerHTML = '<b>' + h(name) + '</b><span>' + v.degs.map(function (g) { return h(g.name) + ' <i>' + h(g.d) + '</i>'; }).join(' · ') + (cd.parsed.bass != null ? ' · 베이스 ' + h(v.names[0]) : '') + '</span>';
+      var W = box.clientWidth, Hh = box.clientHeight, nm = S.flats ? ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      var tones = (arp || []).map(function (m, i) { return '<em data-i="' + i + '">' + h(nm[((m % 12) + 12) % 12]) + '</em>'; }).join(' ');
+      popEl.innerHTML = '<b class="on">' + h(name) + '</b>' + (tones ? '<span class="hm-poptones">' + tones + '</span>' : '<span>' + v.degs.map(function (g) { return h(g.name) + ' <i>' + h(g.d) + '</i>'; }).join(' · ') + '</span>');
       popEl.style.left = clamp((cd.x + cd.w / 2) * W, 70, Math.max(70, W - 70)) + 'px'; popEl.style.top = Math.max(46, cd.y * Hh - 8) + 'px'; popEl.style.opacity = '1';
-      clearTimeout(popT); popT = setTimeout(function () { if (popEl) popEl.style.opacity = '0'; }, 1900);
+      clearTimeout(popT); popT = setTimeout(function () { if (popEl) popEl.style.opacity = '0'; }, Math.max(1900, (total || 0) * 1000 - 500));
+    }
+    /** 지금 울리는 음을 말풍선에서 밝게 (i = 구성음 순서, -1 = 다시 화음) */
+    function popStep(i) {
+      if (!popEl || S.dead) return;
+      Array.prototype.forEach.call(popEl.querySelectorAll('em'), function (e) { e.classList.toggle('on', +e.getAttribute('data-i') === i); });
+      var b = popEl.querySelector('b'); if (b) b.classList.toggle('on', i < 0);
+    }
+    function stopChordSeq() {
+      var q = au.seq; au.seq = null; if (!q) return;
+      q.timers.forEach(function (t) { clearTimeout(t); });
+      try { var c = q.g.context; q.g.gain.cancelScheduledValues(c.currentTime); q.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.02); } catch (e) { /* 무시 */ }
+      setTimeout(function () { try { q.g.disconnect(); } catch (e) { /* 무시 */ } }, 160);
     }
     function playChordObj(cd) {
       if (!cd || !cd.parsed) return false;
       var semis = S.data.show.orig ? 0 : (S.semis || 0), v = HC.voiceChord(cd.parsed, semis, S.flats); if (!v) return false;
       var name = semis ? HC.formatChord(cd.parsed, semis, S.flats) : cd.text;
+      /* 깨끗한 피아노로: 화음 → 구성음을 아래에서 위로 하나씩 → 다시 화음 (예: C → C · E · G → C). 다른 코드를 누르면 앞의 소리는 바로 줄여 끊음 */
+      var arp = (cd.parsed.bass != null && v.bass % 12 !== (v.notes[0] != null ? v.notes[0] % 12 : -1) ? [v.bass] : []).concat(v.notes);
+      var CH = 1.0, GAP = 0.16, STEP = 0.42, NOTE = 0.6, END = 1.9, total = 0;
       try {
-        var a = ensureAudio(), t0 = a.ctx.currentTime + 0.03;
-        v.all.forEach(function (m, i) { var n = a.synth.on(m, i === 0 ? 0.78 : 0.66, t0 + i * 0.024); n.off(t0 + 1.9); });          // 아래에서 위로 살짝 굴려(아르페지오) 치기
+        var a = ensureAudio(), ctx = a.ctx, t0 = ctx.currentTime + 0.03;
+        stopChordSeq();
+        var g = ctx.createGain(); g.gain.value = 1; g.connect(a.master);
+        var syn = root.YNPitch && root.YNPitch.createSynth ? root.YNPitch.createSynth(ctx, g, { clean: true }) : fallbackSynth(ctx, g);
+        var chord = function (t, len) { v.all.forEach(function (m, i) { syn.on(m, i === 0 ? 0.62 : 0.56, t + i * 0.012).off(t + len); }); };
+        chord(t0, CH);
+        var tA = t0 + CH + GAP;
+        arp.forEach(function (m, i) { syn.on(m, 0.62, tA + i * STEP).off(tA + i * STEP + NOTE); });
+        var tC = tA + arp.length * STEP + GAP;
+        chord(tC, END);
+        total = tC + END + 0.7 - ctx.currentTime;
+        var seq = au.seq = { g: g, timers: [] }, ms = function (t) { return Math.max(0, (t - ctx.currentTime) * 1000); };
+        arp.forEach(function (m, i) { seq.timers.push(setTimeout(function () { popStep(i); }, ms(tA + i * STEP))); });
+        seq.timers.push(setTimeout(function () { popStep(-1); }, ms(tC)));
+        seq.timers.push(setTimeout(function () { if (au.seq === seq) { au.seq = null; try { g.disconnect(); } catch (x) {} } }, total * 1000));
       } catch (e) { toast(e.message || '소리를 낼 수 없습니다.', true); return false; }
       S.flashChord = { id: cd.id, t: Date.now() }; redraw(); setTimeout(function () { if (!S.dead) redraw(); }, 1650);
-      showPop(cd, name, v);
+      showPop(cd, name, v, arp, total);
       return true;
     }
     /** 이동(손바닥) 도구로 악보를 톡 — 그 자리에 읽어 둔 코드가 있으면 피아노로 치고 true */
@@ -1168,6 +1198,7 @@
       try { clearInterval(pullTimer); if (doc) doc.removeEventListener('visibilitychange', onVis); } catch (e) {}
       try { if (ro) ro.disconnect(); root.removeEventListener('resize', redraw); } catch (e) {}
       try { cv.remove(); } catch (e) {} try { if (S.editor) S.editor.inp.remove(); } catch (e) {}
+      try { stopChordSeq(); } catch (e) {}
       try { if (au.ctx && au.ctx.close) au.ctx.close(); } catch (e) {}
       try { if (S.worker) S.worker.then(function (w) { return w.terminate(); }).catch(function () {}); } catch (e) {}
     }

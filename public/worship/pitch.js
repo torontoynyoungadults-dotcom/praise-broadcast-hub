@@ -18,7 +18,8 @@
   var SOLFEGE = { 0: '도', 2: '레', 4: '미', 5: '파', 7: '솔', 9: '라', 11: '시' };
   var FLAT = { 'Db': 1, 'Eb': 3, 'Gb': 6, 'Ab': 8, 'Bb': 10, 'Cb': 11, 'Fb': 4, 'E#': 5, 'B#': 0 };
   var BLACK = [1, 3, 6, 8, 10];
-  var PARTIALS = [1.0, 0.56, 0.32, 0.2, 0.11, 0.06];         // 배음 세기 (기본음 = 1)
+  var PARTIALS = [1.0, 0.56, 0.32, 0.2, 0.11, 0.06];
+  var CLEAN_PARTIALS = [1.0, 0.34, 0.12, 0.045];              // 깨끗한 피아노 — 높은 배음을 줄여 맑고 둥글게 (코드 들려주기)         // 배음 세기 (기본음 = 1)
   var MAX_VOICES = 12;
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -91,22 +92,23 @@
    *   on(midi, vel, when) → 음 하나를 시작하고 { midi, off(when) } 를 돌려줍니다 (건반에서 손을 떼면 off)
    *   allOff()
    */
-  function createSynth(ctx, dest) {
-    var voices = [];
+  function createSynth(ctx, dest, sopt) {
+    var voices = [], clean = !!(sopt && sopt.clean), PARTS = clean ? CLEAN_PARTIALS : PARTIALS, MIX = clean ? 1 / 1.9 : 1 / 2.4;
     function killOldest() { var v = voices.shift(); if (v) try { v.off(ctx.currentTime, true); } catch (e) {} }
     function on(midi, vel, when) {
       var t = when == null ? ctx.currentTime + 0.005 : when, p = adsr(midi, vel), f0 = midiToFreq(midi);
+      if (clean) { p.cutoffStart = Math.min(4200, f0 * (3 + 3 * clamp(vel == null ? 0.8 : vel, 0.05, 1))); p.cutoffEnd = Math.min(2600, f0 * 1.8); }
       if (voices.length >= MAX_VOICES) killOldest();
       var env = ctx.createGain(), lp = ctx.createBiquadFilter(), mix = ctx.createGain(), oscs = [];
       lp.type = 'lowpass'; lp.Q.value = 0.5;
       lp.frequency.setValueAtTime(p.cutoffStart, t); lp.frequency.exponentialRampToValueAtTime(Math.max(200, p.cutoffEnd), t + p.cutoffTime);
-      mix.gain.value = 1 / 2.4;                            // 배음 합이 1 을 넘지 않게
+      mix.gain.value = MIX;                            // 배음 합이 1 을 넘지 않게
       // ADSR: A → 최고 음량 / D → sustain 으로 (지수 감쇠) / S → 누르는 동안 천천히 줄어듦
       env.gain.setValueAtTime(0.0001, t);
       env.gain.linearRampToValueAtTime(p.peak, t + p.attack);
       env.gain.setTargetAtTime(p.peak * p.sustain, t + p.attack, p.decay / 3);
       env.gain.setTargetAtTime(0.0001, t + p.attack + p.decay, p.hold);
-      PARTIALS.forEach(function (amp, i) {
+      PARTS.forEach(function (amp, i) {
         var n = i + 1, o = ctx.createOscillator(), g = ctx.createGain();
         o.type = 'sine';
         o.frequency.value = f0 * n * Math.sqrt(1 + 0.00018 * n * n);       // 실제 피아노 줄은 배음이 아주 조금 높게 울림

@@ -103,7 +103,7 @@ global.fetch = async (url, opt) => {
   await PV(() => YNPractice.current().P.showTab('metro')); await sleep(500);
   tx = await sideText();
   ok(tx.indexOf('딸깍') >= 0, '메트로놈 탭이 열림');
-  sc = await scrollCheck('.pv-mstick'); console.log('    시작 버튼', JSON.stringify(sc));
+  sc = await scrollCheck('.pv-mline'); console.log('    시작 버튼', JSON.stringify(sc));
   ok(!sc.none && sc.pos !== 'sticky' && (sc.noScroll || sc.moved < 10 || sc.t1 < sc.t0 - sc.moved + 10), '메트로놈 탭: 시작 버튼이 고정되지 않고 같이 스크롤됨', sc);
   const eqv = () => PV(() => { const e = [...document.querySelectorAll('.pv-eq')].find((x) => x.offsetParent !== null); if (!e) return null; const lo = e.querySelector('[data-o="eqlow"]'), sel = e.querySelector('[data-o="eqp"]'), tg = e.querySelector('.pv-eqtog'); return { open: e.classList.contains('open'), low: !!(lo && lo.offsetParent !== null), sel: !!(sel && sel.offsetParent !== null), exp: tg && tg.getAttribute('aria-expanded') }; });
   let ev = await eqv();
@@ -122,6 +122,22 @@ global.fetch = async (url, opt) => {
   await PV(() => YNPractice.current().P.showTab('together')); await sleep(500);
   tx = await sideText();
   ok(!/켜면 다른 사람이 넘기는 페이지/.test(tx), '함께 탭: 혼자 보기 긴 설명이 없음');
+
+  /* ---- 메트로놈: 시작 · BPM −/+ · TAP · 박 동그라미가 한 줄 ---- */
+  await page.evaluate(() => YNPractice.current().P.showTab('metro')); await sleep(500);
+  const row = await page.evaluate(() => { const pane = [...document.querySelectorAll('.pv-panes > *')].find((x) => x.offsetParent !== null); const g = (s) => { const n = pane.querySelector(s); if (!n) return null; const r = n.getBoundingClientRect(); return { t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left), r: Math.round(r.right), h: Math.round(r.height) }; };
+    return { go: g('.pv-mgo'), minus: g('[data-a="b-"]'), bpm: g('.pv-bpm'), plus: g('[data-a="b+"]'), tap: g('[data-a="tap"]'), dot: g('.pv-beat'), pane: g('.pv-metrosec'), sticky: !!pane.querySelector('.pv-mstick') }; });
+  const mid = (x) => (x.t + x.b) / 2;
+  ok(row.go && row.dot && ['minus', 'bpm', 'plus', 'tap', 'dot'].every((k) => row[k] && Math.abs(mid(row[k]) - mid(row.go)) < 10), '시작 · − · BPM · + · TAP · 박 동그라미가 한 줄', row);
+  ok(row.go && row.go.h <= 48, '시작 버튼이 작아짐 (높이 48px 이하)', row.go);
+  ok(row.dot && row.pane && row.dot.r <= row.pane.r + 1, '한 줄이 패널 폭 안에 들어감', { dot: row.dot, pane: row.pane });
+  ok(!row.sticky, '예전 큰 시작 막대는 없음');
+  await page.evaluate(() => { const pane = [...document.querySelectorAll('.pv-panes > *')].find((x) => x.offsetParent !== null); pane.querySelector('.pv-mgo').click(); }); await sleep(400);
+  const run1 = await page.evaluate(() => { const b = [...document.querySelectorAll('.pv-mgo')].find((x) => x.offsetParent !== null); return { t: b.textContent, a: b.getAttribute('aria-label'), on: b.classList.contains('on') }; });
+  ok(run1.on && run1.t === '■' && run1.a === '멈춤', '누르면 시작 (■ · 멈춤 표시)', run1);
+  await page.evaluate(() => { const b = [...document.querySelectorAll('.pv-mgo')].find((x) => x.offsetParent !== null); b.click(); }); await sleep(400);
+  const run2 = await page.evaluate(() => { const b = [...document.querySelectorAll('.pv-mgo')].find((x) => x.offsetParent !== null); return { t: b.textContent, on: b.classList.contains('on') }; });
+  ok(!run2.on && run2.t === '▶', '다시 누르면 멈춤 (▶)', run2);
 
   ok(errs.length === 0, '화면 오류 없음', errs);
   await br.close(); await rt.close(); server.close();
