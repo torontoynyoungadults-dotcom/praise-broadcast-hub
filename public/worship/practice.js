@@ -1987,7 +1987,11 @@
         m.slots = sv; m.slot = S.sizeIdx; m.width = sv[S.sizeIdx]; m.wRange = SZ_RANGE[k]; m.wPresets = W_PRESETS[k]; m.wNames = W_NAMES[k];
         m.dots = m.wPresets.map(function (v) { return slotDot(k, v, 0); }); m.dot = slotDot(k, m.width, S.sizeIdx);
       }
-      if (kind === 'text' || kind === 'sym') { m.size = curFsz(); m.fonts = YA.FONT_KEYS.map(function (f) { return { k: f, n: YA.FONT_NAMES[f] }; }); m.font = sel ? (sel.f || 'sans') : S.font; }
+      if (kind === 'text' || kind === 'sym') {
+        m.size = curFsz(); m.fonts = YA.FONT_KEYS.map(function (f) { return { k: f, n: YA.FONT_NAMES[f] }; }); m.font = sel ? (sel.f || 'sans') : S.font;
+        m.sRange = fszRange(); m.sPresets = (sel ? sel.t === 'fbox' : t === 'fbox') ? [16, 22, 28, 38, 52] : kind === 'sym' ? [22, 32, 48, 72, 100] : [16, 24, 34, 48, 64];
+        if (kind === 'text') { if (YA.fontReady) YA.fontReady(m.font); m.fontCss = (YA.FONTS && YA.FONTS[m.font]) || ''; }          // v11 — 고른 글꼴을 이때 받기 시작 (그리는 길목이 아니라 창을 열 때)
+      }
       if (kind === 'text') { m.bg = sel ? sel.bg : (st.textBg || ''); m.bd = sel ? sel.bd : (st.textBd || ''); m.bgColors = YA.TEXT_BG_COLORS || []; m.bdColors = YA.TEXT_BD_COLORS || []; m.lastBg = ls('tbglast') || ''; m.lastBd = ls('tbdlast') || ''; }
       return m;
     }
@@ -2001,6 +2005,7 @@
       if (key === 'width') { var k = sizeKey(); if (!SZ_RANGE[k]) return; v = Math.max(SZ_RANGE[k][0], Math.min(SZ_RANGE[k][1], Math.round(v * 10000) / 10000)); slotSave(k, S.sizeIdx, v); an.setWidth(v); if (!live) renderTools(); else updStyleUi(); return; }
       if (key === 'slot') { S.sizeIdx = v; delete S.fsz[sizeKey()]; S.sizeOf[sizeKey()] = v; memoSave(); applySize(); renderTools(); return; }
       if (key === 'size') { stepFsz(v); return; }
+      if (key === 'sizeTo') { setFsz(v); if (live) { updStyleUi(); return; } renderTools(); if (S.tool !== 'select' && an.focusEditor) an.focusEditor(); return; }
       if (key === 'font') { if (sel) { an.editSelected({ f: v }); renderTools(); return; } S.font = v; ls('font', v); an.setFont(v); renderTools(); if (an.focusEditor) an.focusEditor(); return; }
       if (key === 'bg' || key === 'bd') {
         if (v) ls(key === 'bg' ? 'tbglast' : 'tbdlast', v);

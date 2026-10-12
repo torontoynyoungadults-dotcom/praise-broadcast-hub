@@ -30,12 +30,15 @@
   var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'P', 'C', 'C2', 'B', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
   var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', P: '프리코러스', C: '후렴', C2: '후렴 2', B: '브릿지', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
   /** 글꼴 — 글자 · 코드 · 글자 모양 기호(음표 도장 · 다이내믹)에 씁니다. 서버는 이 키(sans · serif · hand)만 받습니다 */
-  var FONT_KEYS = ['sans', 'serif', 'hand', 'pen', 'dodum'];
-  var FONT_NAMES = { sans: '고딕 (Sans-serif)', serif: '명조 (Serif)', hand: '손글씨 (기기 글꼴)', pen: '나눔 펜 손글씨', dodum: '고운돋움 (손글씨체)' };
+  var FONT_KEYS = ['sans', 'pretendard', 'seoyun', 'positive', 'serif', 'hand', 'pen', 'dodum'];
+  var FONT_NAMES = { sans: '고딕 (기기 글꼴)', pretendard: '프리텐다드', seoyun: '이서윤체', positive: '온글잎 긍정체', serif: '명조 (Serif)', hand: '손글씨 (기기 글꼴)', pen: '나눔 펜 손글씨', dodum: '고운돋움 (손글씨체)' };
   /** 한글 손글씨 웹폰트 (구글 폰트) — 화면 글자 · 코드에 고를 수 있고, 못 받으면 아래 대체 글꼴로 보입니다 */
   var WEBFONT_URL = 'https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gowun+Dodum&display=swap';
   var WEBFONT_FACES = ['Nanum Pen Script', 'Gowun Dodum'];
   var FONTS = {
+    pretendard: '"YN Pretendard","Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Arial,sans-serif',
+    seoyun: '"YN Seoyun","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
+    positive: '"YN Positive","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
     pen: '"Nanum Pen Script","Segoe Print","Bradley Hand","Noteworthy","Apple SD Gothic Neo",cursive',
     dodum: '"Gowun Dodum","Nanum Gothic","Apple SD Gothic Neo","Malgun Gothic",sans-serif',
     sans: '"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif',
@@ -61,6 +64,34 @@
         Promise.all(WEBFONT_FACES.map(function (f) { return document.fonts.load('24px "' + f + '"', '\uAC00\uB098\uB2E4'); })).then(function () { if (done) done(); }, function () {});
       }
     } catch (e) { /* 글꼴을 못 받아도 대체 글꼴로 계속 동작 */ }
+  }
+  /** v11 — 앱에 담아 둔 글꼴 (프리텐다드 · 이서윤체 · 온글잎 긍정체). 쓰이는 순간에만 한 번 받고(필요한 글자만 줄인 woff2, 각 160~590KB),
+   *  받는 동안엔 대체 글꼴로 보이다가 다 받으면 바로 다시 그립니다. 못 받으면(오프라인 등) 대체 글꼴로 계속 동작하고 20초 뒤 다시 시도합니다. */
+  var LOCAL_FONT_BASE = '/fonts/anno/';
+  var LOCAL_FONTS = {
+    pretendard: { fam: 'YN Pretendard', faces: [['Pretendard-SemiBold.woff2', '100 700'], ['Pretendard-Bold.woff2', '701 900']] },
+    seoyun: { fam: 'YN Seoyun', faces: [['LeeSeoyun.woff2', null]] },
+    positive: { fam: 'YN Positive', faces: [['OwnglyphPositive.woff2', null]] }
+  };
+  var _lf = {}, _lfT = {}, _lfSubs = [];
+  function _lfNotify() { _lfSubs.slice().forEach(function (f) { try { f(); } catch (e) {} }); }
+  function onLocalFont(fn) { _lfSubs.push(fn); return function () { var i = _lfSubs.indexOf(fn); if (i >= 0) _lfSubs.splice(i, 1); }; }
+  /** 글꼴이 준비됐으면 true. 아직이면 받기 시작하고 false (다 받으면 onLocalFont 로 알림) */
+  function fontReady(key) {
+    var d = LOCAL_FONTS[key]; if (!d) return true;
+    var st = _lf[key];
+    if (st === 2) return true;
+    if (st === 1) return false;
+    if (st === 3 && Date.now() - (_lfT[key] || 0) < 20000) return false;
+    if (typeof document === 'undefined' || typeof FontFace === 'undefined' || !document.fonts) { _lf[key] = 3; _lfT[key] = Date.now(); return false; }
+    _lf[key] = 1;
+    try {
+      Promise.all(d.faces.map(function (f) {
+        var ff = new FontFace(d.fam, 'url(' + LOCAL_FONT_BASE + f[0] + ') format("woff2")', f[1] ? { weight: f[1] } : {});
+        return ff.load().then(function (x) { document.fonts.add(x); });
+      })).then(function () { _lf[key] = 2; _lfNotify(); }, function () { _lf[key] = 3; _lfT[key] = Date.now(); });
+    } catch (e) { _lf[key] = 3; _lfT[key] = Date.now(); }
+    return false;
   }
   function textLike(k) { return k.indexOf('dyn:') === 0 || k.indexOf('g:') === 0; }
   function fontOf(it) { return FONTS[it && it.f] ? it.f : 'sans'; }
@@ -292,7 +323,7 @@
       else if (it.t === 'text') {
         var px = Math.max(8, (it.sz || 0.025) * W), tpad = textPad(it, px), a0 = (o.alpha == null ? 1 : o.alpha);
         c.translate(it.x * W, it.y * H); if (it.rot) c.rotate(it.rot * Math.PI / 180);
-        c.font = (it.chord ? '800 ' : '600 ') + px + 'px ' + FONTS[fontOf(it)]; c.textBaseline = 'alphabetic';
+        fontReady(it.f); c.font = (it.chord ? '800 ' : '600 ') + px + 'px ' + FONTS[fontOf(it)]; c.textBaseline = 'alphabetic';
         if (tpad && it.s) {                                                                // v10 — 글자 바탕 · 테두리 (둥근 네모)
           var pg = textPlate(px, c.measureText(it.s).width, tpad), rr0 = Math.max(2, px * 0.2);
           c.save(); c.globalAlpha = a0; c.beginPath();
@@ -320,10 +351,10 @@
         var k = it.k, s = Math.max(8, (it.sz || 0.03) * W);
         c.translate(it.x * W, it.y * H); if (it.rot) c.rotate(it.rot * Math.PI / 180);
         if (k.indexOf('g:') === 0) {                                                       // 음표 도장 ♩ ♪ ♯ ♭ — 글꼴 설정을 따름
-          c.font = '700 ' + s * 1.05 + 'px ' + FONTS[it.f && FONTS[it.f] ? it.f : 'serif'] + GLYPH_FALLBACK; c.textAlign = 'center'; c.textBaseline = 'middle';
+          fontReady(it.f); c.font = '700 ' + s * 1.05 + 'px ' + FONTS[it.f && FONTS[it.f] ? it.f : 'serif'] + GLYPH_FALLBACK; c.textAlign = 'center'; c.textBaseline = 'middle';
           c.lineWidth = Math.max(2, s * 0.14); c.strokeStyle = 'rgba(255,255,255,.9)'; c.strokeText(GLYPHS[k.slice(2)] || '', 0, 0); c.fillText(GLYPHS[k.slice(2)] || '', 0, 0);
         } else if (k.indexOf('dyn:') === 0) {
-          c.font = it.f && FONTS[it.f] ? 'italic 700 ' + s * 0.85 + 'px ' + FONTS[it.f] : 'italic 700 ' + s * 0.85 + 'px "Times New Roman",Georgia,serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+          fontReady(it.f); c.font = it.f && FONTS[it.f] ? 'italic 700 ' + s * 0.85 + 'px ' + FONTS[it.f] : 'italic 700 ' + s * 0.85 + 'px "Times New Roman",Georgia,serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
           c.lineWidth = Math.max(2, s * 0.16); c.strokeStyle = 'rgba(255,255,255,.9)'; c.strokeText(DYN_TEXT[k.slice(4)] || '', 0, 0); c.fillText(DYN_TEXT[k.slice(4)] || '', 0, 0);
         } else if (SYM[k]) { c.strokeStyle = 'rgba(255,255,255,.0)'; c.strokeStyle = it.c || '#ff5a1f'; SYM[k](c, s, (it.w2 || 0.08) * W); }
       }
@@ -342,7 +373,7 @@
   function textWidth(it, W) {
     var px = Math.max(8, (it.sz || 0.025) * W), s = String(it.s || '');
     try {
-      if (typeof document !== 'undefined') { _meas = _meas || document.createElement('canvas').getContext('2d'); _meas.font = (it.chord ? '800 ' : '600 ') + px + 'px ' + FONTS[fontOf(it)]; return _meas.measureText(s).width; }
+      if (typeof document !== 'undefined') { _meas = _meas || document.createElement('canvas').getContext('2d'); fontReady(it.f); _meas.font = (it.chord ? '800 ' : '600 ') + px + 'px ' + FONTS[fontOf(it)]; return _meas.measureText(s).width; }
     } catch (e) {}
     var w = 0; for (var i = 0; i < s.length; i++) w += s.charCodeAt(i) > 0x2e80 ? px : px * 0.58;
     return w;
@@ -1307,7 +1338,7 @@
     function paintEditor() {
       var ed = S.editor; if (!ed) return; var st = ed.inp.style, px = Math.max(12, ed.sz * S.W);
       st.setProperty('color', ed.color, 'important'); st.setProperty('-webkit-text-fill-color', ed.color, 'important'); st.setProperty('caret-color', ed.color, 'important');
-      st.fontFamily = FONTS[ed.font] || FONTS.sans; st.fontSize = px + 'px'; st.background = ed.bg ? ed.bg : isLight(ed.color) ? 'rgba(40,40,48,.94)' : 'rgba(255,255,255,.96)';
+      fontReady(ed.font); st.fontFamily = FONTS[ed.font] || FONTS.sans; st.fontSize = px + 'px'; st.background = ed.bg ? ed.bg : isLight(ed.color) ? 'rgba(40,40,48,.94)' : 'rgba(255,255,255,.96)';
       st.boxShadow = ed.bd ? 'inset 0 0 0 ' + Math.max(1.5, px * 0.08).toFixed(1) + 'px ' + ed.bd : '';
       ed.box.style.top = (parseFloat(ed.box.style.top) || 0) + 'px';
     }
@@ -1355,6 +1386,7 @@
     cv.addEventListener('selectstart', function (e) { if (drawing()) e.preventDefault(); });
     cv.addEventListener('dragstart', function (e) { e.preventDefault(); });
     ensureWebFonts(function () { invalidate(); });
+    var offLocalFont = onLocalFont(function () { if (S.dead) return; invalidate(); if (S.editor) paintEditor(); });
     refreshTouch();
 
     /* ---- 바깥에서 부르는 함수 ---- */
@@ -1378,7 +1410,7 @@
         if (S.tool === 'hl') S.hlColor = c; else S.color = c;
         if (S.editor && S.tool !== 'hl') { S.editor.color = c; S.editor.colorSet = true; paintEditor(); }          // 글자를 치는 도중에 색을 바꿔도 입력칸이 바로 그 색으로
       },
-      setFont: function (f) { if (!FONTS[f]) return; S.font = f; if (S.editor) { S.editor.font = f; S.editor.fontSet = true; paintEditor(); } },
+      setFont: function (f) { if (!FONTS[f]) return; fontReady(f); S.font = f; if (S.editor) { S.editor.font = f; S.editor.fontSet = true; paintEditor(); } },
       /** v10 — 새로 쓸 글자의 바탕 · 테두리 색 ('' = 없음). 글자를 치는 중이면 그 입력칸에도 바로 */
       setTextStyle: function (st) {
         st = st || {};
@@ -1471,7 +1503,7 @@
         var ly = S.sel.layer; if (!canModify(ly, it)) { say('다른 사람이 쓴 필기는 고칠 수 없습니다.', true); return false; }
         var after = Object.assign({}, it, { ts: Date.now() }), rng = SZ_RANGE[it.t] || SZ_RANGE.text, ch = false;
         if (patch.sz != null && isFinite(+patch.sz)) { var nz = r4(clamp(+patch.sz, rng[0], rng[1])); if (nz !== it.sz) { after.sz = nz; ch = true; } }
-        if (patch.f != null && it.t === 'text' && FONTS[patch.f]) { if (patch.f === 'sans') { if (after.f != null) { delete after.f; ch = true; } } else if (after.f !== patch.f) { after.f = patch.f; ch = true; } }
+        if (patch.f != null && it.t === 'text' && FONTS[patch.f]) { fontReady(patch.f); if (patch.f === 'sans') { if (after.f != null) { delete after.f; ch = true; } } else if (after.f !== patch.f) { after.f = patch.f; ch = true; } }
         if (patch.c != null && /^#[0-9a-f]{6}$/i.test(patch.c) && after.c !== patch.c) { after.c = patch.c; ch = true; }
         if (it.t === 'text') ['bg', 'bd'].forEach(function (k) {                          // v10 — 글자 바탕 · 테두리 ('' = 없애기)
           if (patch[k] == null) return; var v = okHex(patch[k]) ? patch[k].toLowerCase() : '';
@@ -1509,11 +1541,11 @@
       drawPage: function (c, W, H, pg, vis, skip) { return drawPage(c, W, H, pg, vis, skip, 'export'); },
       state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, textBg: S.editor ? S.editor.bg : S.tbg, textBd: S.editor ? S.editor.bd : S.tbd, pw: S.pw, hw: S.hw, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, msel: S.msel ? mselCount() : 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
       redraw: redraw, closeEditor: function () { closeEditor(true); },
-      destroy: function () { S.dead = true; if (S.raf && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(S.raf); } catch (e) {} } S.raf = 0; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = 0; } freeBase(); S.live.clear(); closeEditor(false); try { cv.remove(); } catch (e) {} try { if (wet) { wet.width = wet.height = 0; wet.remove(); } } catch (e) {} try { if (hlc) { hlc.width = hlc.height = 0; hlc.remove(); } } catch (e) {} }
+      destroy: function () { S.dead = true; try { offLocalFont(); } catch (e) {} if (S.raf && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(S.raf); } catch (e) {} } S.raf = 0; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = 0; } freeBase(); S.live.clear(); closeEditor(false); try { cv.remove(); } catch (e) {} try { if (wet) { wet.width = wet.height = 0; wet.remove(); } } catch (e) {} try { if (hlc) { hlc.width = hlc.height = 0; hlc.remove(); } } catch (e) {} }
     };
     return api;
   }
 
   return { create: create, newId: newId, simplify: simplify, limitPoints: limitPoints, drawItem: drawItem, hit: hit, symBox: symBox,
-    SYMBOLS: SYMBOLS, FBOX_TAGS: FBOX_TAGS, FBOX_NAMES: FBOX_NAMES, fboxLabel: fboxLabel, PALETTE: PALETTE, COLOR_NAMES: COLOR_NAMES, FONTS: FONTS, FONT_KEYS: FONT_KEYS, FONT_NAMES: FONT_NAMES, GLYPHS: GLYPHS, HL_COLORS: HL_COLORS, PALETTE_X: PALETTE_X, HL_COLORS_X: HL_COLORS_X, TEXT_BG_COLORS: TEXT_BG_COLORS, TEXT_BD_COLORS: TEXT_BD_COLORS, MORE_NAMES: MORE_NAMES, STRETCH: STRETCH, CHORD_KEYS: CHORD_KEYS };
+    SYMBOLS: SYMBOLS, FBOX_TAGS: FBOX_TAGS, FBOX_NAMES: FBOX_NAMES, fboxLabel: fboxLabel, PALETTE: PALETTE, COLOR_NAMES: COLOR_NAMES, FONTS: FONTS, FONT_KEYS: FONT_KEYS, FONT_NAMES: FONT_NAMES, fontReady: fontReady, GLYPHS: GLYPHS, HL_COLORS: HL_COLORS, PALETTE_X: PALETTE_X, HL_COLORS_X: HL_COLORS_X, TEXT_BG_COLORS: TEXT_BG_COLORS, TEXT_BD_COLORS: TEXT_BD_COLORS, MORE_NAMES: MORE_NAMES, STRETCH: STRETCH, CHORD_KEYS: CHORD_KEYS };
 }));

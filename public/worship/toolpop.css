@@ -134,3 +134,10 @@ html .pv .pv-sympop.tp-symv2 {
 html[data-theme="light"] .tp-sec { border-top-color: rgba(18, 24, 40, .08); }
 html[data-theme="light"] .tp-sym { border-color: rgba(18, 24, 40, .12); background: #fff; }
 html[data-theme="light"] .pv .pv-tools .tp-stylebtn .tp-dot { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2), 0 0 0 2px rgba(18, 24, 40, .1); }
+
+/* v11 — 글꼴 미리보기 · 크기 빠른 선택 */
+.tp-fprev { margin-top: 8px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, .94); font-size: 17px; line-height: 1.35; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-szps { display: flex; gap: 6px; margin-bottom: 8px; }
+.tp-szp { flex: 1; height: 34px; border-radius: 10px; border: 1px solid transparent; background: var(--tp-ctl); color: var(--tp-ink); display: grid; place-items: center; cursor: pointer; font-weight: 800; line-height: 1; }
+.tp-szp.on { background: var(--tp-a-soft); border-color: var(--tp-a); color: var(--tp-a); }
+.tp-szp:disabled, .tp-range:disabled { opacity: .45; cursor: default; }

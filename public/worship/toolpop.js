@@ -62,10 +62,15 @@
           '<input class="tp-range" type="range" data-tp="w" min="' + r[0] + '" max="' + r[1] + '" step="' + step + '" value="' + m.width + '" style="--fill:' + fillPct(m.width, r) + '%" aria-label="굵기 세밀하게">' +
           (m.slots ? '<div class="tp-slots"><span class="tp-mini">저장 칸</span>' + m.slots.map(function (v, i) { return '<button type="button" class="tp-slot' + (i === m.slot ? ' on' : '') + '" data-slot="' + i + '" aria-pressed="' + (i === m.slot) + '" title="굵기 칸 ' + (i + 1) + ' — 고른 굵기가 이 칸에 저장됩니다">' + (i + 1) + '</button>'; }).join('') + '</div>' : '') + '</div>';
       }
+      if (m.kind === 'text' && m.fonts) {
+        html += '<div class="tp-sec"><div class="tp-row"><label class="tp-fl"><span class="tp-lb">글꼴</span><select data-tp="font"' + lk + '>' + m.fonts.map(function (f) { return '<option value="' + h(f.k) + '"' + (f.k === m.font ? ' selected' : '') + '>' + h(f.n) + '</option>'; }).join('') + '</select></label></div>' +
+          '<div class="tp-fprev" style="font-family:' + h(m.fontCss || 'inherit') + ';color:' + h(okHex(m.color) ? m.color : '#111') + '">가나다라 마바사 ABC abc 123</div></div>';
+      }
       if (m.kind === 'text' || m.kind === 'sym') {
-        html += '<div class="tp-sec tp-row">' +
-          (m.kind === 'text' && m.fonts ? '<label class="tp-fl"><span class="tp-lb">글꼴</span><select data-tp="font"' + lk + '>' + m.fonts.map(function (f) { return '<option value="' + h(f.k) + '"' + (f.k === m.font ? ' selected' : '') + '>' + h(f.n) + '</option>'; }).join('') + '</select></label>' : '') +
-          '<div class="tp-fl"><span class="tp-lb">크기</span><span class="tp-step"><button type="button" data-tp="sz-" aria-label="작게"' + lk + '>−</button><output>' + Math.round(m.size * 1000) + '</output><button type="button" data-tp="sz+" aria-label="크게"' + lk + '>+</button></span></div></div>';
+        var sr = m.sRange || [0.012, 0.08], sv = Math.round(m.size * 1000), sp = m.sPresets || [];
+        html += '<div class="tp-sec"><div class="tp-lb">크기<span class="tp-step"><button type="button" data-tp="sz-" aria-label="작게"' + lk + '>−</button><output>' + sv + '</output><button type="button" data-tp="sz+" aria-label="크게"' + lk + '>+</button></span></div>' +
+          '<div class="tp-szps">' + sp.map(function (v, i) { var on = Math.abs(v - sv) < 0.5; return '<button type="button" class="tp-szp' + (on ? ' on' : '') + '" data-sz="' + v + '" aria-pressed="' + on + '" title="크기 ' + v + '"' + lk + '><span style="font-size:' + (11 + i * 3) + 'px">가</span></button>'; }).join('') + '</div>' +
+          '<input class="tp-range" type="range" data-tp="sz" min="' + Math.round(sr[0] * 1000) + '" max="' + Math.round(sr[1] * 1000) + '" step="1" value="' + sv + '" style="--fill:' + fillPct(sv / 1000, sr) + '%" aria-label="크기 세밀하게"' + lk + '></div>';
       }
       if (m.kind === 'text') {
         var bgOn = okHex(m.bg), bdOn = okHex(m.bd);
@@ -82,16 +87,25 @@
     function place() {
       if (!open) return;
       var hr = host.getBoundingClientRect(), W = hr.width || root.innerWidth, H = hr.height || root.innerHeight, narrow = W < 560;
+      var vt = Math.max(0, -hr.top), vb = Math.min(H, root.innerHeight - hr.top);                            // 화면에 실제로 보이는 띠 (host 가 화면보다 길어도 창은 화면 안에)
+      if (!(vb - vt > 120)) { vt = 0; vb = H; }
       el.classList.toggle('tp-sheet', narrow);
-      if (narrow) { el.style.left = el.style.top = ''; el.style.maxHeight = Math.round(H * 0.62) + 'px'; return; }
+      if (narrow) { el.style.left = el.style.top = ''; el.style.maxHeight = Math.round((vb - vt) * 0.62) + 'px'; return; }
       if (anchor && !anchor.isConnected) anchor = host.querySelector('[data-a="style"]') || null;                 // 도구 막대를 다시 그려 단추가 바뀌었으면 새 단추 기준
       var w = el.offsetWidth || 300, hh = el.offsetHeight || 260, a = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
       if (a && !a.width && !a.height) a = null;
       var x = a ? a.left - hr.left + a.width / 2 - w / 2 : (W - w) / 2, y = a ? a.bottom - hr.top + 8 : 60;
-      if (a && y + hh > H - 8) { var up = a.top - hr.top - hh - 8; y = up >= 8 ? up : Math.max(8, H - hh - 8); }
+      hh = Math.min(hh, vb - vt - 16);
+      if (a && y + hh > vb - 8) { var up = a.top - hr.top - hh - 8; y = up >= vt + 8 ? up : Math.max(vt + 8, vb - hh - 8); }
       if (a && a.left - hr.left > W * 0.7 && a.top - hr.top > 40 && a.height > a.width * 1.5) { x = a.left - hr.left - w - 8; y = a.top - hr.top; }     // 오른쪽 세로 막대 옆
-      el.style.maxHeight = Math.round(H - 16) + 'px';
-      el.style.left = Math.round(clamp(x, 8, Math.max(8, W - w - 8))) + 'px'; el.style.top = Math.round(clamp(y, 8, Math.max(8, H - Math.min(hh, H - 16) - 8))) + 'px';
+      el.style.maxHeight = Math.round(vb - vt - 16) + 'px';
+      el.style.left = Math.round(clamp(x, 8, Math.max(8, W - w - 8))) + 'px'; el.style.top = Math.round(clamp(y, vt + 8, Math.max(vt + 8, vb - hh - 8))) + 'px';
+      fit(); if (root.requestAnimationFrame) root.requestAnimationFrame(fit);                              // 그린 뒤 실제 크기로 한 번 더 — 글꼴이 늦게 와서 창이 커져도 화면 밖으로 안 나가게
+    }
+    function fit() {
+      if (!open || el.classList.contains('tp-sheet')) return;
+      var r = el.getBoundingClientRect(), lim = root.innerHeight - 8, top = parseFloat(el.style.top) || 0;
+      if (r.bottom > lim) el.style.top = Math.max(8, Math.round(top - (r.bottom - lim))) + 'px';
     }
     function show(a) { anchor = a || anchor; open = true; render(); el.hidden = false; place(); root.requestAnimationFrame(function () { el.classList.add('in'); }); doc.addEventListener('pointerdown', outside, true); doc.addEventListener('keydown', onKey, true); }
     function hide() { if (!open) return; open = false; el.classList.remove('in'); el.hidden = true; doc.removeEventListener('pointerdown', outside, true); doc.removeEventListener('keydown', onKey, true); if (o.onHide) try { o.onHide(); } catch (e) { /* 무시 */ } }
@@ -111,15 +125,18 @@
       else if (d.w != null) { ctx.set('width', +d.w); }
       else if (d.slot != null) { ctx.set('slot', +d.slot); }
       else if (d.tp === 'sz-' || d.tp === 'sz+') { ctx.set('size', d.tp === 'sz+' ? 1 : -1); }
+      else if (d.sz != null) { ctx.set('sizeTo', +d.sz / 1000); }
       else if (d.tp === 'bg' || d.tp === 'bd') { var m = ctx.model(); ctx.set(d.tp, okHex(m[d.tp]) ? '' : (d.tp === 'bg' ? (m.lastBg || '#fff3b0') : (m.lastBd || '#111111'))); }
       render(); place();
     });
     el.addEventListener('input', function (e) {
       var t = e.target;
+      if (t.dataset.tp === 'sz') { sliding = true; ctx.set('sizeTo', +t.value / 1000, true); var m2 = ctx.model(); if (m2 && m2.sRange) t.style.setProperty('--fill', fillPct(+t.value / 1000, m2.sRange) + '%'); var ou = el.querySelector('.tp-step output'); if (ou) ou.textContent = t.value; return; }
       if (t.dataset.tp === 'w') { sliding = true; ctx.set('width', +t.value, true); var pv = el.querySelector('.tp-prev'); var m = ctx.model(); if (m && m.wRange) t.style.setProperty('--fill', fillPct(+t.value, m.wRange) + '%'); if (pv && m) pv.innerHTML = lineSvg(m.dot || 3, m.tool === 'white' ? '#ffffff' : (m.color || '#111')); }
     });
     el.addEventListener('change', function (e) {
       var t = e.target, k = t.dataset.tp;
+      if (k === 'sz') { sliding = false; ctx.set('sizeTo', +t.value / 1000); render(); return; }
       if (k === 'w') { sliding = false; ctx.set('width', +t.value); render(); return; }
       if (k === 'font') { ctx.set('font', t.value); render(); return; }
       if (k === 'cust' || k === 'custbg' || k === 'custbd') { if (!okHex(t.value)) return; pushRecent(t.value); ctx.set(k === 'cust' ? 'color' : k === 'custbg' ? 'bg' : 'bd', t.value.toLowerCase()); render(); place(); }

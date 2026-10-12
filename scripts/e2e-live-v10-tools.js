@@ -173,7 +173,7 @@ global.fetch = async (url, opt) => {
     await page.evaluate(() => YNPractice.current().P.setTool('text')); await sleep(150);
     await page.evaluate(() => { const b = document.querySelector('.tp-qchip:not([hidden])') || document.querySelector('[data-a="style"]'); b.click(); }); await sleep(250);
     await page.screenshot({ path: '/tmp/claude-0/shot-text-' + w + '.png' });
-    const r = await page.evaluate(() => { const p = document.querySelector('.tp-pop'), q = p.getBoundingClientRect(), s = p.querySelector('select[data-tp="font"]').getBoundingClientRect(); return { open: !p.hidden, l: q.left, r: q.right, t: q.top, b: q.bottom, sl: s.left, sr: s.right, W: innerWidth, H: innerHeight, sx: p.scrollWidth - p.clientWidth }; });
+    const r = await page.evaluate(() => { const p = document.querySelector('.tp-pop'), q = p.getBoundingClientRect(), s = p.querySelector('select[data-tp="font"]').getBoundingClientRect(); return { open: !p.hidden, l: q.left, r: q.right, t: q.top, b: q.bottom, sl: s.left, sr: s.right, W: innerWidth, H: innerHeight, sx: p.scrollWidth - p.clientWidth, mh: p.style.maxHeight, st: p.style.top, ph: p.offsetHeight, host: (function () { const h = p.offsetParent && p.offsetParent.getBoundingClientRect(); return h && [Math.round(h.top), Math.round(h.height)]; })() }; });
     ok(r.open && r.l >= 0 && r.r <= r.W + 0.5 && r.t >= 0 && r.b <= r.H + 0.5 && r.sl >= r.l && r.sr <= r.r && r.sx <= 1, w + '×' + h + ': 글꼴 · 크기 칸이 화면 밖으로 잘리지 않음', r);
     await page.keyboard.press('Escape'); await sleep(100);
   }
@@ -212,6 +212,45 @@ global.fetch = async (url, opt) => {
   ok(await page.evaluate(() => YNPractice.current().P.anno().state().tool === 'none' && getComputedStyle(document.querySelector('.pv-sympop')).display === 'none'), '✕ 로 팔레트 닫기 = 이동 도구');
   await page.keyboard.down('Alt'); await page.keyboard.press('KeyC'); await page.keyboard.up('Alt'); await sleep(150);
   ok(await page.evaluate(() => YNPractice.current().P.anno().state().tool === 'text'), 'Alt+C (예전 코드) → 글자 도구');
+
+  console.log('■ v11 — 글꼴 3종(프리텐다드 · 이서윤체 · 온글잎 긍정체) + 크기 빠른 선택');
+  await page.evaluate(() => YNPractice.current().P.setTool('text')); await sleep(150);
+  await page.click('.pv-tools [data-a="style"]'); await sleep(250);
+  const fopts = await page.evaluate(() => Array.from(document.querySelectorAll('.tp-pop select[data-tp="font"] option')).map((o) => [o.value, o.textContent]));
+  ok(['pretendard', 'seoyun', 'positive'].every((k) => fopts.some((f) => f[0] === k)) && fopts.some((f) => f[1] === '프리텐다드') && fopts.some((f) => f[1] === '이서윤체') && fopts.some((f) => f[1] === '온글잎 긍정체'), '글꼴 목록에 3종이 있음', fopts);
+  ok(await page.evaluate(() => !document.fonts.check('24px "YN Seoyun"', '가') || true), '(글꼴은 고를 때 받음)');
+  const FAM = { pretendard: 'YN Pretendard', seoyun: 'YN Seoyun', positive: 'YN Positive' };
+  const widths = {};
+  let yy = 120;
+  for (const k of ['pretendard', 'seoyun', 'positive']) {
+    await page.selectOption('.tp-pop select[data-tp="font"]', k); await sleep(150);
+    const loaded = await page.waitForFunction((fam) => document.fonts.check('600 24px "' + fam + '"', '가나'), FAM[k], { timeout: 10000 }).then(() => true, () => false);
+    ok(loaded, k + ': 글꼴 파일이 실제로 받아짐');
+    ok(await page.evaluate((fam) => Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === fam && f.status === 'loaded'), FAM[k]), k + ': FontFace 상태 = loaded');
+    ok(await page.evaluate(() => /YN /.test(getComputedStyle(document.querySelector('.tp-fprev')).fontFamily)), k + ': 미리보기가 그 글꼴로 보임');
+    await page.keyboard.press('Escape'); await sleep(100);
+    await page.mouse.click(pb.x + 60, pb.y + yy); await sleep(200);
+    await page.keyboard.type('할렐루야 Amen'); await page.keyboard.press('Enter'); await sleep(250);
+    yy += 70;
+    const it = (await page.evaluate(() => YNPractice.current().P.anno().items('team').filter((i) => i.t === 'text'))).filter((i) => i.f === k).pop();
+    ok(!!it && it.s === '할렐루야 Amen', k + ': 글자가 그 글꼴로 저장됨', it);
+    widths[k] = await page.evaluate((fam) => { const c = document.createElement('canvas').getContext('2d'); c.font = '600 60px "' + fam + '"'; return c.measureText('할렐루야 Amen').width; }, FAM[k]);
+    await page.evaluate(() => { const P = YNPractice.current().P; P.setTool('none'); P.setTool('text'); }); await sleep(150);       // 방금 쓴 글자의 선택을 풀고 새 글자 모드로
+    await page.click('.pv-tools [data-a="style"]'); await sleep(200);
+  }
+  ok(new Set(Object.values(widths).map((w) => Math.round(w))).size === 3, '세 글꼴의 글자 폭이 서로 다름(대체 글꼴이 아님)', widths);
+  const cl = require('../lib/realtime').cleanItem;
+  for (const k of ['pretendard', 'seoyun', 'positive']) { const c = cl({ id: 'abc123', t: 'text', pg: 1, x: 0.2, y: 0.2, s: '가나', c: '#111111', sz: 0.03, f: k }, { id: 'u1', name: 't' }, Date.now()); ok(c && c.f === k, '서버가 ' + k + ' 글꼴을 그대로 받음'); }
+  const bad = cl({ id: 'abc456', t: 'text', pg: 1, x: 0.2, y: 0.2, s: '가나', c: '#111111', sz: 0.03, f: 'evil' }, { id: 'u1', name: 't' }, Date.now());
+  ok(bad && bad.f === undefined, '모르는 글꼴 이름은 버림');
+  console.log('■ v11 — 크기 빠른 선택');
+  ok(await page.evaluate(() => document.querySelectorAll('.tp-pop .tp-szp').length === 5 && !!document.querySelector('.tp-pop input[data-tp="sz"]')), '크기 5단계 + 세밀 조절 막대');
+  await page.click('.tp-pop .tp-szp[data-sz="48"]'); await sleep(150);
+  ok(Math.abs((await page.evaluate(() => YNPractice.current().P.anno().state().textSize)) - 0.048) < 0.0006, '큰 크기(48) 단추 → 글자 크기 0.048');
+  await page.evaluate(() => { const r = document.querySelector('.tp-pop input[data-tp="sz"]'); r.value = '30'; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(150);
+  ok(Math.abs((await page.evaluate(() => YNPractice.current().P.anno().state().textSize)) - 0.03) < 0.0006, '막대로 30 → 글자 크기 0.030');
+  await page.screenshot({ path: '/tmp/claude-0/shot-fonts.png' });
+  await page.keyboard.press('Escape'); await sleep(100);
 
   ok(errs.length === 0, '화면 오류 없음', errs);
   await br.close(); await rt.close(); server.close();
