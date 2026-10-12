@@ -87,7 +87,7 @@
     var ctl = el('div', 'yt-ctl');
     ctl.innerHTML =
       '<div class="yt-row yt-vol" role="group" aria-label="음량"><span class="yt-lb">음량</span><button type="button" class="yt-b" data-v="mute" aria-pressed="false" aria-label="음소거">' + (st.vol <= 0 ? '🔇' : '🔊') + '</button><input type="range" class="yt-volrange" min="0" max="100" step="1" value="' + st.vol + '" aria-label="음량 조절"><output>' + Math.round(st.vol) + '</output></div>' +
-      '<div class="yt-row yt-skip" role="group" aria-label="15초 이동"><span class="yt-lb">이동</span><button type="button" class="yt-b" data-skip="-15" aria-label="15초 뒤로">⟲ 15초</button><button type="button" class="yt-b" data-skip="15" aria-label="15초 앞으로">15초 ⟳</button><span class="yt-note yt-skiphint">영상 왼쪽 · 오른쪽을 두 번 누르거나 더블클릭해도 됩니다</span></div>' +
+      '<div class="yt-row yt-skip" role="group" aria-label="15초 이동"><span class="yt-lb">이동</span><button type="button" class="yt-b" data-skip="-15" aria-label="15초 뒤로">⟲ 15초</button><button type="button" class="yt-b" data-skip="15" aria-label="15초 앞으로">15초 ⟳</button><span class="yt-note yt-skiphint">영상 창을 누른 뒤 ← → 키 : 5초 (Shift 15초) · 영상 양쪽을 두 번 눌러도 됩니다</span></div>' +
       '<div class="yt-row yt-rates" role="group" aria-label="재생 속도 (템포)"><span class="yt-lb">속도</span>' + RATES.map(function (r) { var ext = TEMPO_RATES.indexOf(r) < 0; return '<button type="button" class="yt-b' + (ext ? ' xr' : '') + '" data-rate="' + r + '" aria-pressed="' + (r === 1) + '"' + (ext ? ' title="0.5배는 요청 범위(0.75~1.25배) 밖의 보조 속도입니다"' : '') + '>' + r + 'x</button>'; }).join('') + '</div>' +
       '<p class="yt-note yt-ratenote">속도는 YouTube 가 지원하는 0.75 · 1 · 1.25배만 고를 수 있고, 음높이는 YouTube 가 그대로 유지합니다.</p>' +
       (kb ?
@@ -262,6 +262,8 @@
 
     return {
       setRate: setRate, markA: markA, markB: markB, clearLoop: clearLoop, skip: skip,
+      /** 방향키 이동 — skip 과 같지만 화면에 "5초 ⟳" 표시를 띄움 (영상이 준비되기 전이면 false) */
+      step: function (d) { var r = skip(d); if (r !== false) flash(d < 0 ? zl : zr, d); return r; },
       setVolume: setVolume, toggleMute: toggleMute,
       state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback, key: kb ? keyNow() : null, vol: st.vol, muted: st.muted }; },
       setKeyStatus: setKeyStatus, repaintKey: paintKey,

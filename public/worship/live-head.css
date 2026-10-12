@@ -199,3 +199,5 @@ html body .pv .pv-acts .pv-fltlabel {
 html body .pv.pv-compact .pv-acts .pv-flt[data-k="tools"] { display: none !important; }      /* 폰은 필기 도구가 떠 있는 창이 아니라 서랍 */
 html body .pv .pv-metro .pv-fx { order: 99; }                                                /* 메트로놈 창은 내용이 나중에 들어와도 ✕ 는 맨 오른쪽 위 */
 html body .pv.pv-compact .pv-metro .pv-fx { position: absolute; top: -13px; right: 10px; margin: 0; width: 26px; height: 26px; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); background: var(--lg-glass, #1d1e26); }   /* 폰: 창 폭이 화면을 꽉 채워서 ✕ 는 윗변에 걸치게 */
+html body .pv .pv-help:empty { display: none; }
+html body .pv .pv-yt.pv-yt-sel { outline: 2px solid var(--lg-a-text, #FFC18F); outline-offset: -2px; }       /* 선택된 유튜브 창 — ← → 가 영상 이동 */

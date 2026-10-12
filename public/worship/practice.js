@@ -1344,8 +1344,11 @@
     }
     /* 유튜브 참고 영상 — 리더가 곡 정보에 넣어 둔 링크를 앱 안의 작은 창으로 재생 (악보 화면을 떠나지 않음, 필기 · 실시간 동기화와 무관) */
     function ytIdOf(url) { var m = /(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/.exec(String(url || '')); return m ? m[1] : ''; }
-    var ytBtn = $('.pv-ytbtn'), ytBox = null, ytCtl = null;
-    function closeYt() { if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } ytBtn.classList.remove('on'); ytBtn.setAttribute('aria-pressed', 'false'); }
+    var ytBtn = $('.pv-ytbtn'), ytBox = null, ytCtl = null, ytSel = false;
+    /* 유튜브 창을 누르면 "선택"됨 → ← → 키는 영상을 5초씩(Shift 15초) 앞뒤로. 악보나 다른 곳을 누르면 선택이 풀려 ← → 가 다시 악보 넘김 */
+    function ytSelect(on) { ytSel = !!on && !!ytBox; if (ytBox) ytBox.classList.toggle('pv-yt-sel', ytSel); }
+    el.addEventListener('pointerdown', function (e) { if (!ytBox) return; ytSelect(!!(e.target.closest && e.target.closest('.pv-yt') === ytBox)); }, true);
+    function closeYt() { ytSelect(false); if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } ytBtn.classList.remove('on'); ytBtn.setAttribute('aria-pressed', 'false'); }
     /* v9.6 — 유튜브 송폼 태그 저장 (영상마다 팀에 하나 — 서버 worshipYtFormGet / worshipYtFormSave) */
     function ytFormApi() {
       if (!opts.callServer || !opts.token) return null;
@@ -2409,6 +2412,9 @@
       if (cue) { if (P.cueKey) { var cr = e.repeat ? { ok: true } : P.cueKey(cue); if (cr) { e.preventDefault(); return; } } return; }
       if ((k === 'Delete' || k === 'Backspace') && an.lassoCount && an.lassoCount()) { e.preventDefault(); an.lassoDelete(); renderTools(); return; }
       if ((k === 'Delete' || k === 'Backspace') && an.selected && an.selected()) { e.preventDefault(); an.deleteSelected(); renderTools(); return; }
+      if ((k === 'ArrowRight' || k === 'ArrowLeft') && ytSel && ytBox && ytCtl && ytCtl.step) {          // 유튜브 창이 선택되어 있으면 ← → 는 영상 이동
+        ytCtl.step((k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 15 : 5)); e.preventDefault(); return;
+      }
       var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc' };
       var m = map[k]; if (!m) return;
       if (m === 'bu' || m === 'bd' || m === 'sp') {                                    // 메트로놈: ↑↓ BPM · Space 시작/멈춤 — 메트로놈을 쓸 수 없으면 원래 동작(스크롤 등) 그대로

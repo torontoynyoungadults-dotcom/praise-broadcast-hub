@@ -845,9 +845,6 @@
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
           '<div class="pv-row"><button class="pv-btn2" data-a="reanchor">1박 다시 맞추기</button><button class="pv-btn2" data-a="count4">숫자로 세기</button><button class="pv-btn2" data-a="sub" aria-pressed="false">×2 쪼개기</button><button class="pv-btn2" data-a="savebpm">이 곡 BPM 저장</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="countall"> 딸깍 대신 숫자로 세기 <small>(One · Two · Three · Four 를 계속)</small></label>' +
-          '<p class="pv-help">"×2 쪼개기" — 박 사이에 작은 딸깍을 하나 더 (4/4 면 한 마디에 8번 · 화면 깜빡임은 4번). 연주 중에 바꾼 BPM 은 저장되지 않습니다 — "이 곡 BPM 저장"(또는 송폼 창의 "저장")을 눌러야 다음에도 그 BPM 으로 열립니다.</p>' +
-          '<p class="pv-help">"1박 다시 맞추기" — 밴드가 실제로 들어간 순간에 누르면, 딸깍 간격은 그대로 두고 그 박을 "1박"으로 다시 정합니다 (강세 · 음성 큐 기준이 그 박으로 옮겨갑니다).<br>"숫자로 세기" — 다음 마디를 딸깍 대신 One · Two · Three · Four 로 세어 줍니다(한 번만, 실제 박자 그대로).</p>' +
-          '<p class="pv-help pv-dotshelp">원(박)을 누를 때마다 보통 → ">" 강세 → 소리 끔(✕) → 보통 — 강세 박은 더 높고 크게, 끈 박은 딸깍이 나지 않습니다. 송폼 · 메트로놈 창의 작은 동그라미도 같아요.</p>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> ' + I('bulb') + '전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
           '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ' + I('timer') + '악보 화면 위에 메트로놈 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
@@ -857,7 +854,7 @@
           '<div class="pv-freqrow" data-role="freqrow"><label class="pv-rng">주파수 <input type="range" min="200" max="4000" step="10" data-o="freq" aria-label="사인파 주파수"><output data-role="freqout"></output></label>' +
             '<div class="pv-row pv-freqbtns"><input class="pv-freqin" type="number" inputmode="numeric" min="200" max="4000" step="1" data-o="freqn" aria-label="주파수 (Hz) 직접 입력"><span class="pv-unit">Hz</span>' +
             [440, 800, 1000, 1500, 2000].map(function (f) { return '<button type="button" class="pv-btn2 mini" data-freq="' + f + '">' + f + '</button>'; }).join('') + '</div>' +
-            '<p class="pv-help">사인파는 맑은 "삐" 한 음입니다 (기본 1000Hz). 강세 박은 5도 위(×1.5), 시작 전 예비 박은 한 옥타브 위로 납니다.</p></div>' +
+            '</div>' +
           '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
           '<label class="pv-rng pv-pitchrow">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
           '<div class="pv-eq"><div class="pv-eqhead"><b>이퀄라이저 (EQ)</b><select data-o="eqp" aria-label="EQ 미리 정한 값"><option value="flat">평평 (기본)</option><option value="soft">부드럽게 (귀가 덜 아프게)</option><option value="clear">또렷하게 (밴드 소리 위로)</option><option value="ears">인이어 · 이어폰</option><option value="warm">따뜻하게 (저음 강조)</option><option value="">직접 조절</option></select></div>' +
@@ -866,18 +863,17 @@
             '<label class="pv-rng pv-eqf">가운데 주파수 <input type="range" min="300" max="5000" step="50" data-o="eqmidf"><output data-role="eqmidfout"></output></label>' +
             '<label class="pv-rng">고음 <small>4kHz</small> <input type="range" min="-12" max="12" step="0.5" data-o="eqhigh"><output data-role="eqhighout"></output></label>' +
             '<div class="pv-row"><button type="button" class="pv-btn2" data-a="clickprev">▶ 딸깍 들어보기</button><button type="button" class="pv-btn2" data-a="eqflat">EQ 평평하게</button></div></div>' +
-          '<p class="pv-help">딸깍 볼륨은 가운데가 기본 크기이고 오른쪽 끝이 약 6배입니다 — 높일수록 소리가 단단하고 길어져 실제로 더 크게 들립니다 (찢어지지 않게 자동으로 눌러 줍니다). EQ 는 딸깍 소리에만 걸리고(음성 큐는 그대로) 박이 늦어지지 않습니다. 이 기기에 기억됩니다.</p></div>' +
+          '</div>' +
         '<div class="pv-sec"><h4>음성 큐 — 눌러서 알려주기</h4><p class="pv-help" data-role="cuehelp"></p>' +
           GROUPS.map(function (g) { return '<div class="pv-cuegrp"><span>' + g[1] + '</span><div class="pv-cues">' + CUES.filter(function (c) { return c.g === g[0]; }).map(function (c) { return '<button class="pv-cue" data-cue="' + c.id + '"></button>'; }).join('') + '</div></div>'; }).join('') +
           '<div class="pv-cuestat" data-role="cuestat"></div></div>' +
         '<div class="pv-sec"><h4>소리 · 큐 설정</h4>' +
           '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="2" step="0.05" data-o="voice"><output data-role="voiceout"></output></label>' +
-          '<p class="pv-help">음성 볼륨은 최대 2배입니다. 딸깍 소리 · 볼륨 · 이퀄라이저는 위 「딸깍 소리 · EQ」에 있습니다.</p>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기 <small>(끄면 큐 이름을 소리로 말하지 않습니다 — 화면 위 도크에서도 켜고 끌 수 있어요)</small></label>' +
+                    '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기</label>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="countdown"> 콜아웃 뒤 "Three, Two, One" 세어주기 <small>(예: Verse, Three, Two, One — 누른 뒤 바로 다음 박이 새 1박 — 콜아웃이 그 박에 나오고, 그 마디 끝 3박에서 숫자를 셉니다. 끄면 콜아웃은 박과 상관없이 누르는 즉시 나옵니다. 박자가 빠르면 빨리 말합니다)</small></label>' +
-          '<label class="pv-chk pv-sub"><input type="checkbox" data-o="cdreset" checked> 누르면 바로 다음 박을 1박으로 <small>(켬: 누른 바로 다음 박이 새 1박 — 박이 그 자리에서 다시 맞춰집니다. 끔: 박은 그대로 흐르고, 다음 마디 첫 박에 콜아웃이 나온 뒤 그 마디 끝 3박에서 Three, Two, One)</small></label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="countdown"> 콜아웃 뒤 "Three, Two, One" 세어주기</label>' +
+          '<label class="pv-chk pv-sub"><input type="checkbox" data-o="cdreset" checked> 누르면 바로 다음 박을 1박으로</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="cdskip"> 반복 · 다이내믹 콜아웃에는 Three, Two, One 하지 않기 <small>(Repeat · Voice only · Break … 는 바로 이어지므로)</small></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
           '<label class="pv-chk">음성 <select data-o="gender"></select></label>' +
@@ -888,14 +884,14 @@
         '<div class="pv-sec"><h4>팀과 함께</h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 페이지 컨트롤일 때 큐를 팀 전체에 보내기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="recv"> 컨트롤이 보낸 큐 받기 (이 기기에서 소리 나게)</label>' +
-          '<p class="pv-help">딸깍 소리는 기기마다 각자 냅니다. 메트로놈(BPM · 박자 · 시작/멈춤)은 팀과 맞추지 않고 각자 조절합니다 — 페이지만 함께 넘어갑니다.</p></div>';
+          '</div>';
       var q = function (s) { return host.querySelector(s); };
       var dotsEl = q('[data-role="dots"]'), toggleB = q('[data-role="toggle"]'), msg = q('[data-role="msg"]'), bpmIn = q('[data-role="bpm"]');
       function say(t, bad) { msg.textContent = t || ''; msg.className = 'pv-msg2' + (bad ? ' bad' : ''); }
       function labels() {
         var lang = P.lang();
         Array.prototype.forEach.call(host.querySelectorAll('[data-cue]'), function (b) { var c = CUES.filter(function (x) { return x.id === b.dataset.cue; })[0]; b.textContent = lang === 'ko' ? c.ko : c.en; b.title = c.en + ' / ' + c.ko; });
-        q('[data-role="cuehelp"]').textContent = m.state().speech ? '박자가 돌아가는 중에 누르면 다음 마디 시작에 맞춰 말해 줍니다. 멈춰 있을 때는 바로 들려줍니다.' : root.YNMetro.help.noSpeech;
+        q('[data-role="cuehelp"]').textContent = m.state().speech ? '' : root.YNMetro.help.noSpeech;
       }
       /** 박 원 — 박자 수만큼, 칸 너비를 꽉 채워 크게 (9박 이상은 두 줄). 눌러서 ">" 강세 켜고 끄기 */
       function drawDots(num, marks) {
