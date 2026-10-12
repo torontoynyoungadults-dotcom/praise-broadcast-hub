@@ -862,9 +862,10 @@ function songSheet(c) {
         { label: '인도자', chips: pairs(lead, '회') }, { label: 'KEY', chips: pairs(keys, '회') }, { label: '함께 섬긴 사람', chips: top(ppl).map(function (k) { return [k, ppl[k]]; }) }]),
       dates: dates.map(function (i) {
         var l = lineup(i.key).lead.join(', ');
-        return { date: i.date.replace(/-/g, '.'), soon: i.date > SS.data.today,
+        return { date: i.date.replace(/-/g, '.'), soon: i.date > SS.data.today, key: i.key,
           meta: (evs[i.key] ? evs[i.key] : '주일') + (i.kind === '결단' ? ' · 결단' : '') + (l ? ' · 인도 ' + l : '') + (i.mkey ? ' · ' + i.mkey : '') };
-      })
+      }),
+      onDay: typeof ldOpen === 'function' ? function (n) { var it = dates[n]; if (!it) return; YNStats.close(true); ldOpen(it.key, SS.names[c]); } : null
     });
     return;
   }
@@ -1054,7 +1055,8 @@ function arCard(d) {
       .filter(function (x) { return x; }).join(' · ');
     return '<div class="panel arday">' +
       '<div class="arh"><div class="art">' + arTitle(d) + '</div>' +
-        '<button class="btn mini" onclick="goWeek(\'' + esc(jsq(d.key)) + '\')">열기 &rsaquo;</button></div>' +
+        '<span class="arbtns">' + (typeof ldOpen === 'function' ? '<button class="btn mini"' + ldBtnAttrs(d.key, '') + '>자세히</button>' : '') +
+        '<button class="btn mini" onclick="goWeek(\'' + esc(jsq(d.key)) + '\')">열기 &rsaquo;</button></span></div>' +
       (sub ? '<p class="ars">' + esc(sub) + '</p>' : '') +
       (d.songs.length ? d.songs.map(function (s, i) {
         var yt = ytId(s.link);
@@ -1114,7 +1116,7 @@ function arSongs(days) {
         '</div>' +
         (files.length ? '<div class="afiles">' + files.map(fileChip).join('') + '</div>' : '') +
         '<div class="adates">' + x.uses.slice(0, 10).map(function (u) {
-          return '<button type="button" onclick="goWeek(\'' + esc(jsq(u.key)) + '\')">' + md(u.date) + '</button>';
+          return '<button type="button"' + (typeof ldOpen === 'function' ? ldBtnAttrs(u.key, x.title) + ' title="그날 자세히"' : ' onclick="goWeek(\'' + esc(jsq(u.key)) + '\')"') + '>' + md(u.date) + '</button>';
         }).join('') + (x.uses.length > 10 ? '<span>외 ' + (x.uses.length - 10) + '번</span>' : '') + '</div>' +
       '</div>';
     }).join('') +
@@ -1296,11 +1298,16 @@ function rpDetail(s) {
     }).join('');
   } else h += '<p class="hint">올려 둔 악보 PDF가 없습니다.</p>';
   if (s.history.length) {
-    h += '<div class="sv-sub">지난 콘티 기록</div><div class="rp-hist">' + s.history.slice(0, 10).map(function (x) {
+    var hs = RP.histAll && RP.histAll[s.id] ? s.history : s.history.slice(0, 8);
+    h += '<div class="sv-sub">지난 콘티 기록 · ' + s.uses + '회</div><p class="hint rp-hhint">날짜를 누르면 그날 선 사람 · 콘티 · 악보 · 녹음을 자세히 볼 수 있어요.</p><div class="rp-hist">' + hs.map(function (x) {
       var solo = (x.solo || []).map(function (y) { return (y.name || '') + (y.part ? '(' + y.part + ')' : ''); }).join(', ');
-      return '<div class="rp-h"><b>' + esc(x.date) + '</b><span>' + [x.kind === '결단' && '결단', x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.form, solo && '솔로 ' + solo, x.leader && '인도 ' + dispList(x.leader)].filter(Boolean).map(esc).join(' · ') + '</span>' +
+      var lead = x.leader || (x.leaders || []).join(', ');
+      var dl = /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : '행사';
+      return '<div class="rp-h">' + (typeof ldOpen === 'function' ? '<button type="button" class="rp-hd"' + ldBtnAttrs(x.wk || x.date, s.title) + ' title="그날 자세히"><b>' + esc(dl) + '</b><i aria-hidden="true">›</i></button>' : '<b>' + esc(dl) + '</b>') +
+        '<span>' + [x.kind === '결단' && '결단', x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.form, solo && '솔로 ' + solo, lead && '인도 ' + (typeof dispList === 'function' ? dispList(lead) : lead)].filter(Boolean).map(esc).join(' · ') + '</span>' +
         (x.note ? '<em>' + esc(x.note) + '</em>' : '') + (x.link ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(x.link) + '">▶ 링크</a>' : '') + '</div>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' +
+    (s.history.length > hs.length ? '<button type="button" class="btn mini rp-hmore" onclick="RP.histAll=RP.histAll||{};RP.histAll[\'' + esc(jsq(s.id)) + '\']=1;rpRedraw();">기록 더 보기 (' + (s.history.length - hs.length) + ')</button>' : '');
   }
   return h + '</div>';
 }

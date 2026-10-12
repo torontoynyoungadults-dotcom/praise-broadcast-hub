@@ -48,8 +48,9 @@
       (o.tiles && o.tiles.length ? '<div class="yg-tiles">' + o.tiles.map(function (t) { return '<div class="yg-tile"><b>' + h(t[0]) + '</b><span>' + h(t[1]) + '</span></div>'; }).join('') + '</div>' : '') +
       sparkHtml(o.spark) +
       (o.groups || []).map(function (g) { return '<section class="yg-sec"><h4>' + h(g.label) + '</h4>' + chipsHtml(g.chips) + '</section>'; }).join('') +
-      '<section class="yg-sec"><h4>부른 날</h4>' + ((o.dates || []).length ? '<ol class="yg-tl">' + o.dates.map(function (d) {
-        return '<li' + (d.soon ? ' class="soon"' : '') + '><time>' + h(d.date) + '</time>' + (d.soon ? '<em>예정</em>' : '') + '<span>' + h(d.meta) + '</span></li>';
+      '<section class="yg-sec"><h4>부른 날</h4>' + ((o.dates || []).length ? '<ol class="yg-tl">' + o.dates.map(function (d, i) {
+        var inner = '<time>' + h(d.date) + '</time>' + (d.soon ? '<em>예정</em>' : '') + '<span>' + h(d.meta) + '</span>';
+        return '<li' + (d.soon ? ' class="soon"' : '') + '>' + (o.onDay ? '<button type="button" class="yg-day" data-day="' + i + '" title="그날 선 사람 · 콘티 · 악보 자세히">' + inner + '<i class="yg-go" aria-hidden="true">›</i></button>' : inner) + '</li>';
       }).join('') + '</ol>' : '<p class="yg-none">기록 없음</p>') + '</section>';
   }
 
@@ -78,6 +79,8 @@
     ov.addEventListener('click', function (e) {
       var ac = e.target.closest ? e.target.closest('[data-act="edit"]') : null;
       if (ac && stack.length) { try { stack[stack.length - 1].opts.onEdit && stack[stack.length - 1].opts.onEdit(); } catch (x) { if (root.console) root.console.error(x); } return; }
+      var dd = e.target.closest ? e.target.closest('[data-day]') : null;           // v12 — 「부른 날」을 누르면 그날 자세히 (라이브러리 libday.js)
+      if (dd && stack.length) { var tp = stack[stack.length - 1]; try { tp.opts.onDay && tp.opts.onDay(+dd.getAttribute('data-day')); } catch (x) { if (root.console) root.console.error(x); } return; }
       var r = e.target.closest ? e.target.closest('[data-row]') : null; if (!r || !stack.length) return;
       var top = stack[stack.length - 1]; try { top.opts.onRow && top.opts.onRow(+r.getAttribute('data-row')); } catch (x) { if (root.console) root.console.error(x); }
     });
