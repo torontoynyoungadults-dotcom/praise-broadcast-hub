@@ -339,7 +339,7 @@
       if (save) { ls('layout', S.layout); S.fit = S.layout === 'tablet' ? 'page' : 'width'; S.zoom = 1; }
       el.classList.toggle('pv-tablet', S.layout === 'tablet'); el.classList.toggle('pv-computer', S.layout === 'computer');
       el.classList.toggle('pv-lefty', S.hand === 'left');
-      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? ls('side') === '1' : false);
+      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? !!S.sideOn : false);       // 패널은 열 때마다 닫힌 채로 시작 (이번에 연 동안만 기억)
       Array.prototype.forEach.call(el.querySelectorAll('[data-layout]'), function (b) { b.classList.toggle('on', b.getAttribute('data-layout') === S.layout); b.setAttribute('aria-pressed', b.getAttribute('data-layout') === S.layout ? 'true' : 'false'); });
       an && an.setPenMode(S.layout === 'tablet' ? (ls('penmode') || 'auto') : 'off');
       if (S.compact !== calcCompact()) setCompact(calcCompact());
@@ -377,7 +377,7 @@
       } else {
         setDrawer(false);
         holders.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
-        if (S.layout === 'computer' && ls('side') === '1') el.classList.add('pv-sideopen');
+        if (S.layout === 'computer' && S.sideOn) el.classList.add('pv-sideopen');
       }
     }
     function autoFit() {                                              // 폰을 옆으로 눕히면 한 페이지가 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
@@ -491,7 +491,7 @@
       var on = force != null ? force : !el.classList.contains('pv-sideopen');
       if (on && S.compact) setDrawer(false);
       el.classList.toggle('pv-sideopen', on);
-      if (S.layout === 'computer' && !S.compact) ls('side', on ? '1' : '0');
+      if (S.layout === 'computer' && !S.compact) S.sideOn = !!on;
       if (on && !S.tab && P.tabs.length) showTab(P.tabs[0].id);
       renderSoon(260);
     }
@@ -2095,7 +2095,7 @@
     }
     function showTab(id) {
       var t = P.tabs.filter(function (x) { return x.id === id; })[0]; if (!t) return;
-      S.tab = id; el.classList.add('pv-sideopen'); if (S.layout === 'computer') ls('side', '1');
+      S.tab = id; el.classList.add('pv-sideopen'); if (S.layout === 'computer') S.sideOn = true;
       Array.prototype.forEach.call(tabsEl.children, function (b) { b.classList.toggle('on', b.dataset.tab === id); b.setAttribute('aria-selected', b.dataset.tab === id ? 'true' : 'false'); });
       Array.prototype.forEach.call(panesEl.children, function (p) { p.style.display = p.dataset.pane === id ? '' : 'none'; });
       ensureTab(id);
@@ -2838,7 +2838,6 @@
     try { setupFloats(); } catch (e) { /* 떠 있는 창을 못 만들어도 악보 · 필기는 그대로 */ }
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
     loadSheet(S.sheetIdx, Math.max(1, opts.startPage | 0) || 1, false);   // 라이브러리에서 곡별로 나눈 악보를 열면 그 곡 첫 페이지부터
-    if (S.layout === 'computer' && ls('side') === '1' && P.tabs.length) showTab(P.tabs[0].id);
     return api;
   }
 

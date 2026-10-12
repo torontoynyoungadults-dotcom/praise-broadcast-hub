@@ -647,16 +647,15 @@
     tabs.push({ id: 'anno', icon: 'pen', label: '필기', build: function (host) {
       host.innerHTML =
         '<div class="pv-sec"><h4>누가 볼 수 있나요</h4><label class="pv-chk"><input type="checkbox" data-o="mineonly"> ' + I('lock') + '나만 보기</label>' +
-          '<p class="pv-help">체크하면 내 필기는 나에게만 보입니다. 체크하지 않으면(기본) 이 예배를 연 모든 사람 화면에 실시간으로 공유됩니다.</p></div>' +
+          '</div>' +
         '<div class="pv-sec"><h4>필기가 붙는 곳</h4><div class="pv-radio" data-g="scope"><button data-v="song">' + I('pin') + '이 곡에 계속</button><button data-v="date">' + I('calendar') + '이 날짜(콘티)만</button></div>' +
-          '<p class="pv-help">"이 곡에 계속"은 다음 주에 같은 악보를 열어도 남아 있고, "이 날짜만"은 이번 예배에서만 보입니다.</p></div>' +
+          '</div>' +
         '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
           '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 · 형광펜을 화면에 0.9초 대고 있으면 지우개 — 그대로 문지르면 지우고 떼면 원래대로, 바뀐 뒤 바로 떼면 지우개가 남아 다음에 지우고 떼면 원래 펜으로 · 형광펜 줄 끝에서 0.9초 멈추면 반듯하게</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="eraseback" checked> 펜슬로 지우개를 쓰고 떼면 원래 펜으로 돌아가기</label>' +
-          '<p class="pv-help">굵기 3칸: 고른 칸을 한 번 더 누르면 조절 막대가 나와요. 바꾼 굵기는 그 칸에 저장됩니다 (펜 · 형광펜 따로).</p>' +
-          '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜슬을 0.9초 대고 있기(또는 펜 옆 버튼)로 지우개를 씁니다. 펜으로 다른 필기를 톡 치면 누가 썼는지 잠깐 보입니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
+          '</div>' +
         '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
@@ -754,8 +753,7 @@
           '<div class="pv-row"><button class="pv-btn2" data-a="prev">◀ 이전</button><button class="pv-btn2 primary" data-a="next">다음 ▶</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="cue" checked> 칸을 누르면 음성 큐로 알려주기 (박자가 돌고 있으면 박에 맞춰)</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="fbadge"> 악보 맨 위에 송폼 순서 배지 보이기</label>' +
-          '<label class="pv-chk pv-penrow">큐 언어 <select data-o="lang"><option value="en">English (Verse 1 …)</option><option value="ko">한국어 (1절 …)</option></select></label>' +
-          '<p class="pv-help">칸을 누르면 지금 위치가 밝게 표시됩니다. 리더가 "팀에 큐 보내기"를 켜 두었다면 팀원 기기에서도 같은 큐가 들립니다. 송폼은 곡 정보의 "송폼 만들기"에서 고칩니다.</p></div>';
+          '<label class="pv-chk pv-penrow">큐 언어 <select data-o="lang"><option value="en">English (Verse 1 …)</option><option value="ko">한국어 (1절 …)</option></select></label></div>';
       /* 곡 정보 고치기 — BPM · 송폼 · 유튜브 링크. 팀장 · 인도자는 팀 전체에 (실시간), "나만 보기" 이거나 팀원이면 나에게만 저장 */
       host.insertAdjacentHTML('beforeend', '<div class="pv-sec pv-songedit"><h4>곡 정보 고치기 <small>BPM · 송폼 · 유튜브</small></h4>' +
         '<label class="pv-fl2"><span>BPM</span><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="3" data-e="bpm" autocomplete="off" placeholder="예: 72"></label>' +
@@ -857,7 +855,7 @@
             '</div>' +
           '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
           '<label class="pv-rng pv-pitchrow">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
-          '<div class="pv-eq"><div class="pv-eqhead"><b>이퀄라이저 (EQ)</b><select data-o="eqp" aria-label="EQ 미리 정한 값"><option value="flat">평평 (기본)</option><option value="soft">부드럽게 (귀가 덜 아프게)</option><option value="clear">또렷하게 (밴드 소리 위로)</option><option value="ears">인이어 · 이어폰</option><option value="warm">따뜻하게 (저음 강조)</option><option value="">직접 조절</option></select></div>' +
+          '<div class="pv-eq"><div class="pv-eqhead"><button type="button" class="pv-eqtog" aria-expanded="false">이퀄라이저 (EQ) <span class="pv-eqcar" aria-hidden="true">▾</span></button><select data-o="eqp" aria-label="EQ 미리 정한 값"><option value="flat">평평 (기본)</option><option value="soft">부드럽게 (귀가 덜 아프게)</option><option value="clear">또렷하게 (밴드 소리 위로)</option><option value="ears">인이어 · 이어폰</option><option value="warm">따뜻하게 (저음 강조)</option><option value="">직접 조절</option></select></div>' +
             '<label class="pv-rng">저음 <small>250Hz</small> <input type="range" min="-12" max="12" step="0.5" data-o="eqlow"><output data-role="eqlowout"></output></label>' +
             '<label class="pv-rng">가운데 <input type="range" min="-12" max="12" step="0.5" data-o="eqmid"><output data-role="eqmidout"></output></label>' +
             '<label class="pv-rng pv-eqf">가운데 주파수 <input type="range" min="300" max="5000" step="50" data-o="eqmidf"><output data-role="eqmidfout"></output></label>' +
@@ -886,6 +884,10 @@
           '<label class="pv-chk"><input type="checkbox" data-o="recv"> 컨트롤이 보낸 큐 받기 (이 기기에서 소리 나게)</label>' +
           '</div>';
       var q = function (s) { return host.querySelector(s); };
+      (function () {                                                   // EQ 는 접힌 채로 — 머리줄을 누르면 세부 설정이 펼쳐짐 (미리 정한 값 고르기는 접힌 채로도)
+        var eq = q('.pv-eq'), hd = eq && eq.querySelector('.pv-eqhead'), tg = hd && hd.querySelector('.pv-eqtog'); if (!hd) return;
+        hd.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('select')) return; var on = !eq.classList.contains('open'); eq.classList.toggle('open', on); if (tg) tg.setAttribute('aria-expanded', on ? 'true' : 'false'); });
+      })();
       var dotsEl = q('[data-role="dots"]'), toggleB = q('[data-role="toggle"]'), msg = q('[data-role="msg"]'), bpmIn = q('[data-role="bpm"]');
       function say(t, bad) { msg.textContent = t || ''; msg.className = 'pv-msg2' + (bad ? ' bad' : ''); }
       function labels() {
@@ -1274,7 +1276,6 @@
             (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
           html += '<div class="pv-sec pv-follows"><h4>따라가기</h4>' +
             '<label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>🔒 혼자 보기 — 남의 정보 안 받기</b></label>' +
-            '<p class="pv-help">켜면 다른 사람이 넘기는 페이지 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 페이지↔곡 연결이 내 화면을 바꾸지 않아요. 팀 필기와 나에게 온 요청 메시지는 그대로 보여요 (팀 필기는 「필기」 탭에서 숨길 수 있어요).</p>' +
             '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 페이지가 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 페이지 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
             (!fp && lead && !mine ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
             '<p class="pv-help">메트로놈은 기기마다 따로 씁니다 (팀과 맞추지 않음).</p></div>';

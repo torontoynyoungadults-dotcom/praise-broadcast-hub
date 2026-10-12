@@ -2229,3 +2229,14 @@ html[data-theme="light"] .pv.pv-fs .pv-fsbar .pv-b .yi, html[data-theme="light"]
 html[data-theme="light"] .pv.pv-fs .pv-fshandle span { background: rgba(15, 23, 42, .45); box-shadow: 0 0 0 1px rgba(255, 255, 255, .7); }
 /* v9.12 — 「도구 열기」 알약: 글씨에 테두리 · 바탕이 한 겹 더 있어 테두리가 두 개로 보이던 것 → 바깥 알약 테두리 하나만 */
 .pv .pv-toolsbtn .nm { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+
+/* ---------- v12 — 패널: 시작 버튼 · 송폼 탭의 작은 메트로놈을 위에 고정하지 않고 같이 스크롤 (블러도 빼서 스크롤이 가볍게) ---------- */
+html body .pv .pv-mstick, html body .pv .pv-mini { position: relative !important; top: auto !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
+/* EQ — 접힌 채로, 머리줄을 누르면 세부 설정 */
+html body .pv .pv-eq:not(.open) > :not(.pv-eqhead) { display: none !important; }
+html body .pv .pv-eqtog { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 800; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+html body .pv .pv-eqcar { font-size: 12px; opacity: .7; transition: transform .15s; }
+html body .pv .pv-eq.open .pv-eqcar { transform: rotate(180deg); }
+html body .pv .pv-eq:not(.open) { padding-bottom: 4px; padding-top: 4px; }
+html body .pv .hm-share:empty { display: none; }
+html body .pv .hm-allsec .pv-switch b small { font-weight: 700; opacity: .65; margin-left: 4px; }

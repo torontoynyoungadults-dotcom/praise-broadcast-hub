@@ -151,7 +151,7 @@
       var d = S.data, when = d.sharedAt ? new Date(d.sharedAt) : null, ts = when ? (when.getMonth() + 1) + '/' + when.getDate() + ' ' + String(when.getHours()).padStart(2, '0') + ':' + String(when.getMinutes()).padStart(2, '0') : '';
       e.className = 'hm-share' + (S.shareMsg ? ' bad' : '');
       e.textContent = S.shareMsg || (P.canEdit
-        ? (ts ? '팀 공유됨 · ' + (d.sharedBy ? d.sharedBy + ' · ' : '') + ts + ' — 고친 화음 · 코드는 팀 모두에게 자동으로 보입니다.' : '고친 화음 · 코드는 팀 모두에게 자동으로 저장 · 공유됩니다.')
+        ? (ts ? '팀 공유됨 · ' + (d.sharedBy ? d.sharedBy + ' · ' : '') + ts : '')
         : (ts ? '팀 화음 · ' + (d.sharedBy ? d.sharedBy + ' · ' : '') + ts + ' — 여기서 고친 것은 이 기기에만 저장됩니다 (팀 공유는 팀장 · 인도자).' : '여기서 고친 화음은 이 기기에만 저장됩니다 (팀 공유는 팀장 · 인도자).'));
     }
     /* ---------- 연습 키 이동(P.keyShift) 연동 ---------- */
@@ -257,7 +257,7 @@
     /** 한 페이지의 덧그림을 그립니다 — W · Hh 는 그리는 곳의 픽셀 크기(화면 · 내보내기 공용). o.hits 이면 눌러 볼 수 있는 자리를 모아 둡니다 */
     function draw(c, W, Hh, pg, o) {
       o = o || {}; var d = S.data, pd = d && d.pages[pg]; if (!pd) return;
-      var sh = d.show, hits = o.hits ? [] : null;
+      var sh = S.harmOn === false ? { chords: d.show.chords, orig: d.show.orig, alto: false, tenor: false, link: false } : d.show, hits = o.hits ? [] : null;      // 「만든 화음 보이기」를 끄면 알토 · 테너 · 연결선만 숨김 (코드는 그대로)
       c.save();
       /* 1) 코드: 원래 글자를 종이 색으로 덮고 새 코드를 유리 칩으로 */
       if (sh.chords && !sh.orig) {
@@ -809,6 +809,7 @@
 
     /* ---------- V849 코드를 누르면 피아노로 (모든 텐션 코드 · 슬래시 베이스) ---------- */
     S.tapOn = true; try { S.tapOn = root.localStorage.getItem('yn.pv.harm.tap') !== '0'; } catch (e) { /* 기본 켬 */ }
+    S.harmOn = true; try { S.harmOn = root.localStorage.getItem('yn.pv.harm.show') !== '0'; } catch (e) { /* 기본 켬 */ }
     function chordAtClient(cx, cy, touch) {
       var pg = pgKey(), pd = S.data && S.data.pages[pg]; if (!pd || !pd.chords || !pd.chords.length) return null;
       var r = cv.getBoundingClientRect(); if (!r.width || !r.height) return null;
@@ -993,22 +994,22 @@
     /* ---------- 패널 ---------- */
     host.innerHTML =
       '<div class="hm">' +
+      '<div class="pv-sec hm-allsec" style="display:none"><label class="pv-switch"><input type="checkbox" data-o="harmall"><span></span><b>만든 화음 보이기 <small>알토 · 테너</small></b></label></div>' +
       '<div class="pv-sec"><h4>① 악보 분석 — 코드 · 오선 · 멜로디</h4>' +
         '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="an-page">' + YI('search') + ' 이 페이지 분석</button><button type="button" class="pv-btn2" data-a="an-all">전체 페이지 분석</button></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="ocr"><span></span><b>PDF 글자 대신 OCR 로 읽기</b></label>' +
         '<div class="hm-stat" role="status" aria-live="polite"></div><div class="hm-share"></div>' +
-        '<p class="pv-help">PDF 는 글자층에서 코드와 위치를 정확히 읽습니다. 글자가 없는 스캔 · 사진 악보는 OCR(처음 한 번 도구를 내려받음)로 읽습니다. 오선이 반듯한 악보일수록 멜로디 인식이 잘 됩니다.</p></div>' +
+        '</div>' +
       '<div class="pv-sec"><h4>② 키 바꾸기</h4>' +
         '<div class="hm-keys"><label>원래 조<select class="pv-sel" data-o="orig" aria-label="원래 조"></select></label><span class="hm-arrow" aria-hidden="true">➔</span><label>목표 조<select class="pv-sel" data-o="target" aria-label="목표 조"></select></label></div>' +
         '<div class="hm-semis" aria-live="polite"></div>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="song-key" style="display:none"></button></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="showorig"><span></span><b>원래 코드 그대로 보기</b></label>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="auto"><span></span><b>키를 바꾸면 이 페이지을 자동으로 분석</b></label>' +
-        '<p class="pv-help hm-linkhelp">유튜브 카드 · 키 바꿔 듣기 카드의 키(−3 ~ +3 반음)와 이 목표 조는 같은 값입니다. 어느 쪽을 바꿔도 다른 쪽이 따라옵니다 (±3 반음 안에서). 키를 바꿨는데 이 페이지이 아직 분석 전이면 알아서 한 번 분석합니다.</p></div>' +
+        '</div>' +
       '<div class="pv-sec"><h4>③ 화음 보기 <span class="hm-legend"><span><i class="hm-dot" style="background:#FF4D4D"></i>알토</span><span><i class="hm-dot" style="background:#4D94FF"></i>테너</span></span></h4>' +
         '<div class="hm-chk"><label><input type="checkbox" data-o="alto"> 알토(빨강)</label><label><input type="checkbox" data-o="tenor"> 테너(파랑)</label><label><input type="checkbox" data-o="link"> 멜로디와 연결선</label></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="tap"><span></span><b>악보의 코드를 누르면 피아노로 들려주기</b></label>' +
-        '<p class="pv-help">분석한 페이지에서 이동(손바닥) 도구로 코드 글자를 톡 치면 그 코드를 피아노로 칩니다 — 7 · 9 · 11 · 13 · sus · add · b9 · #11 · alt · 슬래시 베이스까지. 키를 바꿨으면 바뀐 코드로.</p>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="reset-all">수정 모두 자동값으로</button></div>' +
         '<p class="pv-help">알토는 멜로디 3도 아래(높으면 위 6도), 테너는 멜로디 <b>위로</b> 3도 · 4도(또는 5도)를 코드음 안에서 골라, 앞뒤 도약과 병행 5도/8도를 피하도록 곡 전체를 함께 계산합니다. 표시는 인쇄된 악보의 조(원래 조) 기준입니다.</p></div>' +
       '<div class="pv-sec"><h4>④ 손으로 고치기</h4>' +
@@ -1059,6 +1060,8 @@
       if (sk && S.okey && sk.tonic !== tk.tonic) { songBtn.style.display = ''; songBtn.textContent = '곡 정보의 Key (' + (P.song().key) + ') 로 맞추기'; } else songBtn.style.display = 'none';
       host.querySelector('[data-o=showorig]').checked = !!d.show.orig; host.querySelector('[data-o=auto]').checked = !!S.autoOn;
       ['alto', 'tenor', 'link'].forEach(function (k) { host.querySelector('[data-o=' + k + ']').checked = !!d.show[k]; });
+      var hasHarm = Object.keys(S.model || {}).some(function (k) { var mm = S.model[k]; return !!(mm && mm.notes && mm.notes.length); });
+      var allSec = host.querySelector('.hm-allsec'); if (allSec) { allSec.style.display = hasHarm ? '' : 'none'; allSec.querySelector('[data-o=harmall]').checked = S.harmOn !== false; }
       ['m', 'a', 't'].forEach(function (k) { host.querySelector('[data-v=' + k + ']').checked = !!d.voices[k]; });
       host.querySelector('[data-o=loop]').checked = !!S.loop;
       host.querySelector('[data-o=keymode]').value = d.keyMode; var vol = host.querySelector('[data-o=vol]'); vol.value = String(Math.round(d.vol * 100));
@@ -1125,6 +1128,7 @@
       else if (o === 'showorig') { S.data.show.orig = !!t.checked; commit(); }
       else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; commit(); }
       else if (o === 'ocr') { S.forceOcr = !!t.checked; }
+      else if (o === 'harmall') { S.harmOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.show', S.harmOn ? '1' : '0'); } catch (x) { /* 저장이 막힌 브라우저 */ } S.sel = null; redraw(); toast(S.harmOn ? '만든 화음을 보입니다.' : '만든 화음을 숨겼습니다.'); }
       else if (o === 'tap') { S.tapOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.tap', S.tapOn ? '1' : '0'); } catch (x) { /* 저장이 막힌 브라우저 */ } }
       else if (o === 'loop') { S.loop = !!t.checked; }
       else if (o === 'keymode') { S.data.keyMode = t.value; saveSoon(); }

@@ -218,7 +218,6 @@
           '<div class="fb-custom"><span>직접 입력</span><input type="text" class="fb-cin" maxlength="' + CUSTOM_MAX + '" autocomplete="off" data-role="cin" placeholder="예: 키 업 · 기도 · 마지막 줄 한 번 더 (한글은 한국어 음성으로 읽어줘요)">' +
             '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="cbars" placeholder="마디" aria-label="마디 수 (선택)">' +
             '<button type="button" class="fb-t primary" data-act="addcustom">＋ 넣기</button></div>' +
-          '<p class="fb-hint">칩을 누르면 선택됩니다. 선택한 칩 뒤에 새 칸이 들어가고, 선택이 없으면 맨 끝에 붙습니다. 칩을 선택하면 "마디 수"(예: 4 · 8마디)와 "반복"(×2 · ×3 · ×4 … 직접 9까지)을 붙일 수 있고, "직접 입력"에는 어떤 글이든 한 칸으로 넣을 수 있습니다.</p>' +
         '</div>';
     }
     function onClick(ev) {
