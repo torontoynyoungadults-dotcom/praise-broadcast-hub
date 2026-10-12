@@ -161,6 +161,27 @@
       return api;
     }
     P.metroCircle = function () { return circleMetro(); };
+    /* ---------- v9.16 — 위 막대의 메트로놈 켜기/끄기 단추 ----------
+       누르면 시작 / 멈춤 (Space 와 같은 길 P.metroKey('toggle') — 클릭 컨트롤 잠금 · 팀 동기화 그대로). 켜져 있으면 주황 · 박마다 살짝 반짝 · 옆에 BPM. */
+    P.metroHeader = function (btn) {
+      if (!btn || btn._pvWired) return null; btn._pvWired = true;
+      var bEl = btn.querySelector('.pv-metbpm'), bt = 0;
+      function sync() {
+        var st = M ? M.state() : null, sg = P.song(), b = st ? Math.round(st.bpm) : (sg && +sg.bpm >= 30 && +sg.bpm <= 300 ? Math.round(+sg.bpm) : 0), run = !!(st && st.running), lock = ctl() === 'locked';
+        btn.classList.toggle('on', run); btn.classList.toggle('locked', lock); btn.setAttribute('aria-pressed', run ? 'true' : 'false');
+        if (bEl) bEl.textContent = b ? String(b) : '';
+        var t = (run ? '메트로놈 끄기' : '메트로놈 켜기') + (b ? ' · ' + b + ' BPM' : '') + (lock ? ' (클릭 컨트롤을 따라가는 중)' : '') + ' — Space';
+        btn.title = t; btn.setAttribute('aria-label', t);
+      }
+      function beat(e) { btn.classList.remove('b', 'b0'); void btn.offsetWidth; btn.classList.add('b'); if (e && e.beat === 0) btn.classList.add('b0'); clearTimeout(bt); bt = setTimeout(function () { btn.classList.remove('b', 'b0'); }, 120); }
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var r = P.metroKey('toggle'); if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true); sync();
+      });
+      var api = { el: btn, sync: sync, beat: beat, destroy: function () { clearTimeout(bt); var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); } };
+      minis.push(api); btn.style.display = ''; sync(); P.on('song', sync); P.on('close', api.destroy);
+      return api;
+    };
 
     /* ---------- V848 — 박 흐름 막대 (송폼 창 · 메트로놈 창) ----------
        ● ● ● ●  박이 흘러가는 것을 보여 주고(2박으로 쪼개면 사이에 작은 점), 바로 누르는 단추들:

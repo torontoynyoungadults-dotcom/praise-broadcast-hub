@@ -431,13 +431,15 @@
         if (!vis[ly]) return;
         var list = pageItems(ly, pg);
         if (S.byFilter) list = list.filter(function (i) { return (i.by || '') === S.byFilter; });   // V842 — "이 사람 필기만 보기" (화면에서만 · 저장 · 내보내기는 그대로)
-        list.filter(function (i) { return i.t === 'hl' && i.id !== skip && i.id !== editId; }).forEach(function (i) { drawItem(c, i, W, H); });
+        list.filter(function (i) { return i.t === 'hl' && !skipped(i, skip) && i.id !== editId; }).forEach(function (i) { drawItem(c, i, W, H); });
         var fl = flashOn();
-        list.filter(function (i) { return i.t !== 'hl' && i.id !== skip && i.id !== editId; }).forEach(function (i) { drawItem(c, i, W, H, fl && i.t === 'fbox' && fl.keys[String(i.k || '').toLowerCase()] ? { flash: true } : null); });
+        list.filter(function (i) { return i.t !== 'hl' && !skipped(i, skip) && i.id !== editId; }).forEach(function (i) { drawItem(c, i, W, H, fl && i.t === 'fbox' && fl.keys[String(i.k || '').toLowerCase()] ? { flash: true } : null); });
       });
     }
-    /** 옮기기 · 크기 바꾸기 중인 항목 번호 (없으면 null) */
-    function movingId() { var c = S.cur; return c && (c.kind === 'move' || c.kind === 'resize') && c.item ? c.item.id : null; }
+    function skipped(i, skip) { return skip != null && (typeof skip === 'object' ? !!skip[i.id] : i.id === skip); }
+    /** 옮기기 · 크기 바꾸기 중인 항목 번호 (없으면 null) — 올가미로 여러 개를 옮기는 중이면 그 묶음의 표시 */
+    function movingId() { var c = S.cur; return c && (c.kind === 'move' || c.kind === 'resize') && c.item ? c.item.id : c && (c.kind === 'lmove' || c.kind === 'lscale') ? 'L' + c.ptr : null; }
+    function movingSkip() { var c = S.cur; if (c && c.origs) { var m = {}; c.origs.forEach(function (x) { m[x.orig.id] = 1; }); return m; } return movingId(); }
     /** 확정된 필기를 따로 그려 두는 그림 — 필기가 많은 쪽(30개↑)에서 획을 긋는 동안만 씁니다 (적은 쪽은 그냥 다시 그리는 게 더 쌉니다) */
     function baseWorth() {
       if (!S.cur && !S.live.size) return false;
@@ -451,7 +453,7 @@
         var bc = S.base || (S.base = document.createElement('canvas'));
         if (bc.width !== cv.width || bc.height !== cv.height) { bc.width = cv.width; bc.height = cv.height; }
         var b = bc.getContext('2d'); b.setTransform(1, 0, 0, 1, 0, 0); b.clearRect(0, 0, bc.width, bc.height); b.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
-        S.baseId = movingId(); drawPage(b, S.W, S.H, S.page, null, S.baseId); S.baseOk = true;
+        S.baseId = movingId(); drawPage(b, S.W, S.H, S.page, null, movingSkip()); S.baseOk = true;
       } catch (e) { S.baseOk = false; }
     }
     /* V865 — 펜 · 형광펜을 긋는 동안 화면 전체를 다시 그리지 않고, 획 끝 부분(마지막 몇 점 + 예측점)만 저장해 둔 그림으로 되돌린 뒤 그 안에만 획을 다시 그립니다.
@@ -490,6 +492,7 @@
       if (usedBase) {                                                              // 획을 긋는 동안 : 확정된 필기는 저장해 둔 그림을 한 번에 붙임
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(S.base, 0, 0); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
         if (S.baseId && S.cur && S.cur.item) drawItem(ctx, S.cur.item, S.W, S.H);   // 옮기는 항목만 새 자리에 따로 그림
+        else if (S.baseId && S.cur && S.cur.origs) S.cur.origs.forEach(function (x) { drawItem(ctx, x.item, S.W, S.H); });   // v9.16 — 올가미로 옮기는 묶음
       } else {
         ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); ctx.clearRect(0, 0, S.W, S.H);
         drawPage(ctx, S.W, S.H, S.page);
@@ -515,6 +518,7 @@
       drawItemFlash(ctx); drawPeek(ctx);
       var si = selItem();
       if (si && si.pg === S.page && S.vis[S.sel.layer]) drawSel(ctx, si);
+      if (S.msel || (S.cur && S.cur.kind === 'lasso')) drawLasso(ctx);
     }
     /* V842 — 누가 쓴 필기인지: 이름표 (짧게 · 같은 사람의 가까운 필기는 이름표 하나로) */
     function hon(n) { try { return typeof window !== 'undefined' && window.YNHon ? window.YNHon.name(n) : n; } catch (e) { return n; } }   // 찬양방송팀 허브 — 목사님 호칭
@@ -601,22 +605,30 @@
     function record(op) { S.seq++; S.hist.push(op); if (S.hist.length > 200) S.hist.shift(); S.redo = []; }
     function addLocal(layer, it) { it.by = S.me; it.ts = Date.now(); put(layer, it); record({ op: 'add', layer: layer, item: it }); return it; }
 
-    function undo() {
-      var h = S.hist.pop(); if (!h) { say('되돌릴 것이 없습니다.'); return false; }
+    function undoOp(h) {
       if (h.op === 'add') take(h.layer, h.item.id);
       else if (h.op === 'del') put(h.layer, h.item);
       else if (h.op === 'edit') put(h.layer, h.before);
       else if (h.op === 'clear') h.items.forEach(function (i) { put(h.layer, i); });
-      S.redo.push(h); return true;
+      else if (h.op === 'batch') h.ops.slice().reverse().forEach(undoOp);                 // v9.16 — 올가미: 여러 항목을 한 번에 옮김 · 크기 · 지우기 → 한 번에 되돌림
     }
-    function redo() {
-      var h = S.redo.pop(); if (!h) return false;
+    function redoOp(h) {
       if (h.op === 'add') put(h.layer, h.item);
       else if (h.op === 'del') take(h.layer, h.item.id);
       else if (h.op === 'edit') put(h.layer, h.after);
       else if (h.op === 'clear') h.items.forEach(function (i) { take(h.layer, i.id); });
-      S.hist.push(h); return true;
+      else if (h.op === 'batch') h.ops.forEach(redoOp);
     }
+    function undo() {
+      var h = S.hist.pop(); if (!h) { say('되돌릴 것이 없습니다.'); return false; }
+      S.msel = null; undoOp(h); S.redo.push(h); return true;
+    }
+    function redo() {
+      var h = S.redo.pop(); if (!h) return false;
+      S.msel = null; redoOp(h); S.hist.push(h); return true;
+    }
+    /** 이 기록이 그 층(layer)을 건드리나 (층을 통째로 새로 받을 때 되돌리기 기록에서 뺌) */
+    function histTouches(h, ly) { return h.op === 'batch' ? h.ops.some(function (x) { return x.layer === ly; }) : h.layer === ly; }
 
     /* ---- 입력 ---- */
     var rectC = null;                                                             // 손가락을 대고 있는 동안의 캔버스 자리 (움직일 때마다 배치를 다시 재지 않으려고)
@@ -633,7 +645,7 @@
       cv.style.touchAction = 'none'; cv.style.webkitUserSelect = 'none'; cv.style.userSelect = 'none'; cv.style.webkitTouchCallout = 'none';
       cv.style.cursor = toolCursor();
     }
-    function toolCursor() { return !drawing() ? '' : S.tool === 'select' ? 'move' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair'; }
+    function toolCursor() { return !drawing() ? '' : S.tool === 'select' ? 'move' : S.tool === 'lasso' ? 'crosshair' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair'; }
     function activeColor() { return S.tool === 'hl' ? S.hlColor : S.color; }
 
     function eraseAt(px, py) {
@@ -738,8 +750,180 @@
       } else S.cur = { kind: 'handle', which: which, ptr: e.pointerId, px0: e.clientX, py0: e.clientY, moved: false };
       invalidate();
     }
+    /* ---- v9.16 올가미(lasso) — 손으로 고리를 그려 그 안의 필기(펜 · 형광펜 획 · 글자 · 코드 · 기호 · 송폼 라벨)를 한꺼번에 고릅니다 ----
+       고른 뒤: 상자 안을 끌면 함께 옮기기 · 오른쪽 아래 손잡이로 함께 크기 바꾸기 · 오른쪽 위 ✕ 로 함께 지우기. 한 번의 동작은 되돌리기 한 번으로 돌아갑니다.
+       저장 형식은 그대로입니다 (항목마다 좌표 · 크기만 바뀌어 예전처럼 하나씩 저장 · 실시간 전파). 다른 사람이 쓴 필기는 고칠 권한이 있을 때만 고릅니다. */
+    function mselList() {                                                          // 지금 쪽에 남아 있는 고른 항목들 [{ layer, it }] (지워진 것은 빼고)
+      var m = S.msel; if (!m) return [];
+      var out = [];
+      m.items = m.items.filter(function (x) { var it = S.layers[x.layer] && S.layers[x.layer].get(x.id); if (!it || it.pg !== S.page) return false; if (S.vis[x.layer]) out.push({ layer: x.layer, it: it }); return true; });
+      if (!m.items.length) S.msel = null;
+      return out;
+    }
+    function mselCount() { return mselList().length; }
+    function unionBox(list) {                                                      // 여러 항목을 감싸는 상자 (px)
+      var x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9;
+      list.forEach(function (x) { var b = itemBox(x.it, S.W, S.H); if (!b) return; if (b.x < x1) x1 = b.x; if (b.y < y1) y1 = b.y; if (b.x + b.w > x2) x2 = b.x + b.w; if (b.y + b.h > y2) y2 = b.y + b.h; });
+      return x2 < x1 ? null : { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+    }
+    function mselGeom() {
+      var list = mselList(), b = unionBox(list); if (!b) return null;
+      var pad = 7, x = b.x - pad, y = b.y - pad, w = b.w + pad * 2, h = b.h + pad * 2;
+      function cl(px, py) { return { x: clamp(px, HANDLE_R, Math.max(HANDLE_R, S.W - HANDLE_R)), y: clamp(py, HANDLE_R, Math.max(HANDLE_R, S.H - HANDLE_R)) }; }
+      return { list: list, x: x, y: y, w: w, h: h, tl: cl(x, y), tr: cl(x + w, y), br: cl(x + w, y + h) };
+    }
+    function mselHandleAt(px, py, touch) {
+      var g = mselGeom(); if (!g) return null;
+      var tol = touch ? 24 : 15, dd = Math.hypot(px - g.tr.x, py - g.tr.y), ds = Math.hypot(px - g.br.x, py - g.br.y);
+      if (dd <= tol && dd <= ds) return 'del'; if (ds <= tol) return 'size'; return null;
+    }
+    function inMselBox(px, py, touch) { var g = mselGeom(); if (!g) return false; var t = touch ? 12 : 4; return px >= g.x - t && px <= g.x + g.w + t && py >= g.y - t && py <= g.y + g.h + t; }
+    function inPoly(x, y, poly) {                                                  // poly = [x,y,x,y…] (px) — 짝수-홀수 규칙
+      var ins = false, n = poly.length / 2;
+      for (var i = 0, j = n - 1; i < n; j = i++) {
+        var xi = poly[i * 2], yi = poly[i * 2 + 1], xj = poly[j * 2], yj = poly[j * 2 + 1];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi) ins = !ins;
+      }
+      return ins;
+    }
+    /** 고리(0~1 좌표) 안의 항목 고르기 — 획은 점의 절반 이상이 안에 있으면, 글자 · 기호 · 라벨은 가운데가 안에 있으면 */
+    function lassoPick(pn) {
+      var poly = [], i; for (i = 0; i + 1 < pn.length; i += 2) poly.push(pn[i] * S.W, pn[i + 1] * S.H);
+      var got = [], locked = 0;
+      ['team', 'mine'].forEach(function (ly) {
+        if (!S.vis[ly]) return;
+        pageItems(ly, S.page).forEach(function (it) {
+          if (S.byFilter && (it.by || '') !== S.byFilter) return;
+          var inside = false;
+          if (isStroke(it)) {
+            var p = it.p || [], n = p.length / 2, step = Math.max(1, Math.floor(n / 60)), hitN = 0, tot = 0;
+            for (var k = 0; k < n; k += step) { tot++; if (inPoly(p[k * 2] * S.W, p[k * 2 + 1] * S.H, poly)) hitN++; }
+            inside = tot > 0 && hitN / tot >= 0.5;
+          } else { var b = itemBox(it, S.W, S.H); inside = !!b && inPoly(b.x + b.w / 2, b.y + b.h / 2, poly); }
+          if (!inside) return;
+          if (!canModify(ly, it)) { locked++; return; }
+          got.push({ layer: ly, id: it.id });
+        });
+      });
+      return { items: got, locked: locked };
+    }
+    function moveItem(o0, dx, dy) {                                                // 항목 하나를 (dx, dy) 만큼 (0~1) — 새 사본을 돌려줌
+      var it = Object.assign({}, o0);
+      if (isStroke(o0)) it.p = (o0.p || []).map(function (v, k) { return r4(clamp(v + (k % 2 ? dy : dx), 0, 1)); });
+      else if (o0.t === 'fbox') { it.x = r4(clamp(o0.x + dx, 0, 1 - (o0.w || 0))); it.y = r4(clamp(o0.y + dy, 0, 1 - (o0.h || 0))); }
+      else { it.x = r4(clamp(o0.x + dx, 0, 1)); it.y = r4(clamp(o0.y + dy, 0, 1)); }
+      return it;
+    }
+    function scaleItem(o0, ax, ay, r) {                                            // (ax, ay) 를 기준으로 r 배 — 위치 · 굵기 · 글자 크기를 함께
+      var it = Object.assign({}, o0);
+      if (isStroke(o0)) {
+        it.p = (o0.p || []).map(function (v, k) { return r4(clamp(k % 2 ? ay + (v - ay) * r : ax + (v - ax) * r, 0, 1)); });
+        it.w = r4(clamp((o0.w || (o0.t === 'hl' ? 0.02 : 0.003)) * r, 0.0005, 0.06));
+      } else {
+        it.x = r4(clamp(ax + (o0.x - ax) * r, 0, 1)); it.y = r4(clamp(ay + (o0.y - ay) * r, 0, 1));
+        var rng = SZ_RANGE[o0.t] || SZ_RANGE.text; it.sz = r4(clamp((o0.sz || (o0.t === 'text' ? 0.025 : o0.t === 'fbox' ? 0.028 : 0.03)) * r, rng[0], rng[1]));
+        if (o0.w2 != null) it.w2 = r4(clamp(o0.w2 * r, 0.02, 0.5));
+      }
+      return it;
+    }
+    function lassoDelete() {
+      var list = mselList(); if (!list.length) return 0;
+      var ops = [];
+      list.forEach(function (x) { var t = take(x.layer, x.it.id); if (t) ops.push({ op: 'del', layer: x.layer, item: t }); });
+      S.msel = null;
+      if (ops.length) record({ op: 'batch', ops: ops });
+      invalidate(); changed(); return ops.length;
+    }
+    function lassoDown(e, p, touch) {
+      var ppx = p.x * S.W, ppy = p.y * S.H;
+      if (S.msel && mselCount()) {
+        var hd = mselHandleAt(ppx, ppy, touch);
+        if (hd === 'del') { S.cur = { kind: 'lhandle', ptr: e.pointerId, px0: e.clientX, py0: e.clientY, moved: false }; invalidate(true); return; }
+        var g = mselGeom();
+        var origs = g.list.map(function (x) { return { layer: x.layer, orig: x.it, item: x.it }; });
+        if (hd === 'size') {
+          var ax = g.x / S.W, ay = g.y / S.H;
+          S.cur = { kind: 'lscale', ptr: e.pointerId, origs: origs, ax: clamp(ax, 0, 1), ay: clamp(ay, 0, 1), d0: Math.max(16, Math.hypot(g.br.x - g.x, g.br.y - g.y)), gx: g.br.x - ppx, gy: g.br.y - ppy, moved: false };
+          cv.style.cursor = 'nwse-resize'; invalidate(true); return;
+        }
+        if (inMselBox(ppx, ppy, touch)) {
+          var bx = { x1: g.x / S.W, y1: g.y / S.H, x2: (g.x + g.w) / S.W, y2: (g.y + g.h) / S.H };
+          S.cur = { kind: 'lmove', ptr: e.pointerId, origs: origs, x0: p.x, y0: p.y, px0: e.clientX, py0: e.clientY, bb: bx, moved: false };
+          cv.style.cursor = 'grabbing'; invalidate(true); return;
+        }
+      }
+      if (S.msel) { S.msel = null; changed(); }
+      S.cur = { kind: 'lasso', ptr: e.pointerId, p: [p.x, p.y], touch: touch, t0: Date.now() };
+      invalidate(true);
+    }
+    function lassoMove(e, list) {
+      var c = S.cur;
+      if (c.kind === 'lasso') {
+        for (var i = 0; i < list.length; i++) { var q = norm(list[i]), n = c.p.length; if (n >= 4000) break; if (Math.abs(q.x - c.p[n - 2]) * S.W + Math.abs(q.y - c.p[n - 1]) * S.H < 2.5) continue; c.p.push(q.x, q.y); }
+        invalidate(true); return;
+      }
+      if (c.kind === 'lhandle') { if (Math.hypot(e.clientX - c.px0, e.clientY - c.py0) > 12) c.moved = true; return; }
+      if (c.kind === 'lmove') {
+        if (!c.moved && Math.hypot(e.clientX - c.px0, e.clientY - c.py0) < 5) return;
+        c.moved = true;
+        var qm = norm(e), dx = clamp(qm.x - c.x0, -c.bb.x1, 1 - c.bb.x2), dy = clamp(qm.y - c.y0, -c.bb.y1, 1 - c.bb.y2);
+        c.origs.forEach(function (x) { x.item = moveItem(x.orig, dx, dy); S.layers[x.layer].set(x.item.id, x.item); });
+        invalidate(true); return;
+      }
+      if (c.kind === 'lscale') {
+        var qr = norm(e), r = clamp(Math.hypot(qr.x * S.W + c.gx - c.ax * S.W, qr.y * S.H + c.gy - c.ay * S.H) / c.d0, 0.2, 6);
+        if (Math.abs(r - (c.r || 1)) < 0.004) return;
+        c.r = r; c.moved = true;
+        c.origs.forEach(function (x) { x.item = scaleItem(x.orig, c.ax, c.ay, r); S.layers[x.layer].set(x.item.id, x.item); });
+        invalidate(true);
+      }
+    }
+    function lassoUp(c, e) {
+      if (e.type === 'pointercancel') { lassoRestore(c); invalidate(); return; }
+      if (c.kind === 'lasso') {
+        if (c.p.length < 6 || tinyPath(c.p)) {                                       // 톡 = 그 자리의 필기 하나만 고르기 (빈 곳이면 선택 해제)
+          var g1 = pickAny(c.p[0] * S.W, c.p[1] * S.H, c.touch);
+          S.msel = g1 && canModify(g1.layer, g1.item) ? { items: [{ layer: g1.layer, id: g1.item.id }] } : null;
+          if (g1 && !S.msel) say('다른 사람이 쓴 필기는 고를 수 없습니다. (팀장 · 인도자만 가능)', true);
+        } else {
+          var r = lassoPick(c.p);
+          S.msel = r.items.length ? { items: r.items } : null;
+          if (r.items.length) say(r.items.length + '개 골랐어요 — 끌어서 옮기기 · 모서리로 크기 · ✕ 로 지우기' + (r.locked ? ' (다른 사람 필기 ' + r.locked + '개는 빼고)' : ''));
+          else say(r.locked ? '고리 안의 필기는 다른 사람이 쓴 것이라 고를 수 없습니다.' : '고리 안에 필기가 없습니다.', !!r.locked);
+        }
+        invalidate(true); changed(); return;
+      }
+      if (c.kind === 'lhandle') { if (!c.moved && e.type === 'pointerup') lassoDelete(); return; }
+      if (c.kind === 'lmove' || c.kind === 'lscale') {
+        if (!c.moved) { lassoRestore(c); invalidate(true); return; }
+        var now = Date.now(), ops = [];
+        c.origs.forEach(function (x) { var after = Object.assign({}, x.item, { ts: now }); S.layers[x.layer].set(x.orig.id, x.orig); put(x.layer, after); ops.push({ op: 'edit', layer: x.layer, before: x.orig, after: after }); });
+        if (ops.length) record({ op: 'batch', ops: ops });
+        invalidate(); changed();
+      }
+    }
+    function lassoRestore(c) { if (c && c.origs) c.origs.forEach(function (x) { if (S.layers[x.layer]) S.layers[x.layer].set(x.orig.id, x.orig); }); }
+    function drawLasso(c2) {
+      var c = S.cur;
+      if (c && c.kind === 'lasso' && c.p.length >= 4) {
+        c2.save(); c2.beginPath(); c2.moveTo(c.p[0] * S.W, c.p[1] * S.H);
+        for (var i = 2; i + 1 < c.p.length; i += 2) c2.lineTo(c.p[i] * S.W, c.p[i + 1] * S.H);
+        c2.closePath(); c2.fillStyle = 'rgba(255,138,42,.08)'; c2.fill();
+        c2.setLineDash([7, 5]); c2.lineWidth = 3; c2.strokeStyle = 'rgba(20,20,26,.45)'; c2.stroke();
+        c2.lineWidth = 1.6; c2.strokeStyle = '#ff8a2a'; c2.stroke(); c2.restore();
+      }
+      var g = S.msel ? mselGeom() : null; if (!g) return;
+      c2.save();
+      c2.fillStyle = 'rgba(255,138,42,.06)'; c2.fillRect(g.x, g.y, g.w, g.h);
+      c2.setLineDash([6, 4]); c2.lineWidth = 3.4; c2.strokeStyle = 'rgba(20,20,26,.5)'; c2.strokeRect(g.x, g.y, g.w, g.h);
+      c2.lineWidth = 1.8; c2.strokeStyle = '#ff8a2a'; c2.strokeRect(g.x, g.y, g.w, g.h); c2.setLineDash([]);
+      if (g.list.length > 1) { c2.lineWidth = 1; c2.strokeStyle = 'rgba(255,138,42,.55)'; g.list.forEach(function (x) { var b = itemBox(x.it, S.W, S.H); if (b) c2.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4); }); }
+      c2.restore();
+      byTag(c2, g.x, g.y - 22, '◌ ' + g.list.length + '개 선택', true);
+      drawHandle(c2, g.tr, '#e5484d', 'del'); drawHandle(c2, g.br, '#ff8a2a', 'size');
+    }
     /** 그리던 것 · 옮기던 것을 버리고 원래 모양으로 (도구 · 쪽을 바꾸거나 두 번째 손가락이 닿았을 때) */
-    function dropCur() { clearTimeout(S.holdT); S.holdT = 0; var c = S.cur; S.cur = null; if (W8.on) wetEnd(); if (c && (c.kind === 'move' || c.kind === 'resize') && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); rectC = null; }
+    function dropCur() { clearTimeout(S.holdT); S.holdT = 0; var c = S.cur; S.cur = null; if (W8.on) wetEnd(); if (c && (c.kind === 'move' || c.kind === 'resize') && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); if (c && (c.kind === 'lmove' || c.kind === 'lscale')) lassoRestore(c); rectC = null; }
     /** 방금 만든 글자 · 기호 · 송폼 라벨을 바로 선택 상태(테두리 + 손잡이)로 — 곧바로 끌어서 옮기거나 크기를 바꿀 수 있음 */
     /* v6 — 자동 선택·이동: 글자 · 코드 · 기호 · 라벨 · 펜을 한 번 쓴 뒤 악보의 빈 곳을 톡 치면 선택·이동 도구로 바뀝니다 */
     function autoSelect() {
@@ -810,7 +994,7 @@
         /* v6.9 — 글자 · 코드 · 기호 · 송폼 · 선택·이동은 "한 번 톡"이 핵심이라 손가락(아이패드)으로도 됩니다. 펜 전용 모드는 펜 · 형광펜 · 지우개의 "그리기"에만 적용 (손바닥 방지는 그대로) */
         var palm = Date.now() - S.penT < 700 || ((e.width || 0) > 76 || (e.height || 0) > 76);
         var penOnly = S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen);
-        var fingerOk = S.tool === 'text' || S.tool === 'chord' || S.tool === 'sym' || S.tool === 'fbox' || S.tool === 'select';
+        var fingerOk = S.tool === 'text' || S.tool === 'chord' || S.tool === 'sym' || S.tool === 'fbox' || S.tool === 'select' || S.tool === 'lasso';
         if (palm || (penOnly && !fingerOk)) return;
       }
       else if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -834,6 +1018,7 @@
           autoSelect();                                                                                                // 빈 곳 → 선택·이동 (아래 select 로 이어서 처리)
         }
       }
+      if (S.tool === 'lasso') { if (S.sel) { S.sel = null; S.fresh = null; } lassoDown(e, p, touch); return; }      // v9.16 — 올가미
       var keepSel = S.tool === 'select' || S.tool === 'text' || S.tool === 'chord' || S.tool === 'sym' || S.tool === 'fbox';
       if (!keepSel && S.sel) { S.sel = null; S.fresh = null; changed(); }
       if (keepSel && S.sel) { var hh = handleAt(ppx, ppy, touch); if (hh) { beginHandle(e, hh, p); return; } }              // 손잡이: 크기 · 지우기 · 고치기
@@ -869,6 +1054,7 @@
     function onMove(e) {
       var c = S.cur; if (!c || e.pointerId !== c.ptr) return;
       var list = (e.getCoalescedEvents && e.getCoalescedEvents()) || [e]; if (!list.length) list = [e];
+      if (c.kind === 'lasso' || c.kind === 'lmove' || c.kind === 'lscale' || c.kind === 'lhandle') { lassoMove(e, list); return; }
       if (c.kind === 'move') {
         if (!c.moved && Math.hypot(e.clientX - c.px0, e.clientY - c.py0) < 5) return;                           // 살짝 흔들린 것은 "누름"으로
         if (c.locked) { if (!c.warned) { c.warned = true; say('다른 사람이 쓴 필기는 옮길 수 없습니다. (팀장 · 인도자만 가능)', true); } return; }
@@ -933,6 +1119,7 @@
       S.cur = null; rectC = null; if (cv.style.cursor === 'grabbing' || cv.style.cursor === 'nwse-resize') cv.style.cursor = toolCursor();
       if (W8.on) { S.dirty = true; invalidate(); }                                                                     // v9.7 — 다음 프레임: 획을 필기 캔버스에 붙이고 그때 젖은 잉크를 지움
       try { cv.releasePointerCapture(e.pointerId); } catch (x) {}
+      if (c.kind === 'lasso' || c.kind === 'lmove' || c.kind === 'lscale' || c.kind === 'lhandle') { lassoUp(c, e); return; }
       if (e.type === 'pointercancel') { if (c.kind === 'move' || c.kind === 'resize') S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return; }
       if (c.kind === 'move' || c.kind === 'resize') {
         if (!c.moved) {
@@ -1073,6 +1260,7 @@
       origUp(e);
     };
     cv.addEventListener('pointermove', function (e) {                                                            // 마우스를 올렸을 때: 손잡이는 손가락 · 크기 화살표, 몸통은 이동 커서
+      if (!S.cur && e.pointerType === 'mouse' && S.tool === 'lasso' && S.msel) { var rq = cv.getBoundingClientRect(), hq = mselHandleAt(e.clientX - rq.left, e.clientY - rq.top, false); cv.style.cursor = hq === 'del' ? 'pointer' : hq === 'size' ? 'nwse-resize' : inMselBox(e.clientX - rq.left, e.clientY - rq.top, false) ? 'move' : 'crosshair'; return; }
       if (S.cur || e.pointerType !== 'mouse' || !S.sel || !drawing()) return;
       var r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, h = handleAt(px, py, false);
       cv.style.cursor = h === 'del' ? 'pointer' : h === 'size' ? 'nwse-resize' : h === 'edit' ? 'pointer' : inSelBox(px, py, false) ? 'move' : toolCursor();
@@ -1102,8 +1290,8 @@
         var sw = S.W + 'px', sh = S.H + 'px'; if (cv.style.width !== sw) cv.style.width = sw; if (cv.style.height !== sh) cv.style.height = sh;
         rectC = null; invalidate();
       },
-      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
-      setTool: function (t) { closeEditor(true); S.placed = false; if (t !== 'eraser') S.holdArmed = null; S.tool = ['none', 'pen', 'hl', 'white', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.fresh) { S.sel = null; S.fresh = null; }      /* 방금 만들어서 자동 선택된 것은 도구를 바꾸면 선택을 풀어 예전처럼 */
+      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; S.msel = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
+      setTool: function (t) { closeEditor(true); S.placed = false; if (t !== 'eraser') S.holdArmed = null; S.tool = ['none', 'pen', 'hl', 'white', 'select', 'lasso', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.tool !== 'lasso') S.msel = null; if (S.fresh) { S.sel = null; S.fresh = null; }      /* 방금 만들어서 자동 선택된 것은 도구를 바꾸면 선택을 풀어 예전처럼 */
       if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.tool !== 'sym' && S.tool !== 'fbox') { S.sel = null; S.fresh = null; } changed(); refreshTouch(); invalidate(); },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;
@@ -1135,7 +1323,7 @@
       setStraight: function (b) { S.straight = !!b; },
       setAutoSelect: function (b) { S.autoSel = !!b; }, autoSelect: function () { return !!S.autoSel; },
       setPerms: function (me, canEdit) { S.me = me || S.me; S.canEdit = !!canEdit; },
-      setItems: function (ly, items) { var m = new Map(); (items || []).forEach(function (i) { if (i && i.id) m.set(i.id, i); }); S.layers[ly] = m; S.hist = S.hist.filter(function (h) { return h.layer !== ly; }); invalidate(); changed(); },
+      setItems: function (ly, items) { var m = new Map(); (items || []).forEach(function (i) { if (i && i.id) m.set(i.id, i); }); S.layers[ly] = m; S.hist = S.hist.filter(function (h) { return !histTouches(h, ly); }); invalidate(); changed(); },
       remoteAdd: function (ly, it) { S.layers[ly].set(it.id, it); S.live.delete(it.id); invalidate(); changed(); },
       remoteDel: function (ly, id) { S.layers[ly].delete(id); invalidate(); changed(); },
       remoteClear: function (ly, ids) { (ids || []).forEach(function (id) { S.layers[ly].delete(id); }); invalidate(); changed(); },
@@ -1146,7 +1334,12 @@
       /** 선택한 항목 (없으면 null) — 화면 도구줄이 크기 · 글꼴 칸을 맞추는 데 씁니다 */
       selected: function () { var it = selItem(); return it ? { layer: S.sel.layer, id: it.id, t: it.t, by: it.by || '', ts: it.ts || 0, sz: it.sz, f: it.f, c: it.c, s: it.s, chord: it.chord, canModify: canModify(S.sel.layer, it) } : null; },
       select: function (layer, id) { if (S.layers[layer] && S.layers[layer].get(id)) { S.sel = { layer: layer, id: id }; invalidate(); changed(); return true; } return false; },
-      deselect: function () { if (S.sel) { S.sel = null; S.fresh = null; invalidate(); changed(); } },
+      deselect: function () { if (S.sel || S.msel) { S.sel = null; S.fresh = null; S.msel = null; invalidate(); changed(); } },
+      /** v9.16 — 올가미로 고른 항목 수 · 지우기 · (시험용) 0~1 좌표 고리로 고르기 */
+      lassoCount: function () { return mselCount(); },
+      lassoGeom: function () { var g = S.msel ? mselGeom() : null; return g ? { x: g.x, y: g.y, w: g.w, h: g.h, tr: g.tr, br: g.br, n: g.list.length } : null; },
+      lassoDelete: function () { return lassoDelete(); },
+      lassoSelect: function (poly) { if (!poly || poly.length < 6) return 0; var r = lassoPick(poly); S.msel = r.items.length ? { items: r.items } : null; invalidate(true); changed(); return r.items.length; },
       /** 복사 — 선택한 글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 기억 (다른 쪽 · 다른 악보에도 붙일 수 있게 모듈 전체에서 하나). 붙일 때 쓰는 글(있으면)을 돌려줌 */
       copySelected: function () {
         var it = selItem(); if (!it) return null;
@@ -1181,6 +1374,7 @@
         return it;
       },
       deleteSelected: function () {
+        if (S.msel && mselCount()) return lassoDelete() > 0;
         var it = selItem(); if (!it) return false;
         if (!canModify(S.sel.layer, it)) { say('다른 사람이 쓴 필기는 지울 수 없습니다.', true); return false; }
         var ly = S.sel.layer, t = take(ly, it.id); S.sel = null; S.fresh = null; if (t) record({ op: 'del', layer: ly, item: t }); return !!t;
@@ -1223,7 +1417,7 @@
       ago: ago,
       count: function (pg) { var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (i) { if (pg == null || i.pg === pg) n++; }); }); return n; },
       drawPage: drawPage,
-      state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
+      state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, msel: S.msel ? mselCount() : 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
       redraw: redraw, closeEditor: function () { closeEditor(true); },
       destroy: function () { S.dead = true; if (S.raf && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(S.raf); } catch (e) {} } S.raf = 0; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = 0; } freeBase(); S.live.clear(); closeEditor(false); try { cv.remove(); } catch (e) {} try { if (wet) { wet.width = wet.height = 0; wet.remove(); } } catch (e) {} }
     };

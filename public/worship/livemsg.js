@@ -71,7 +71,8 @@
     btn.type = 'button'; btn.className = 'pv-b pv-msgbtn'; btn.setAttribute('aria-haspopup', 'dialog'); btn.setAttribute('aria-expanded', 'false');
     btn.title = ro ? '찬양팀에 메시지 보내기' : '방송팀에 요청 보내기 (모니터 · P16 · 자막)';
     btn.innerHTML = ICON + '<span class="pv-tx"> 요청</span>';
-    var top = el.querySelector('.pv-top'), anchor = el.querySelector('.pv-flts') || el.querySelector('.pv-fsbtn');
+    /* v9.16 — 위 막대가 줄어 떠 있는 창 · 전체 화면 단추가 「⋯」 · 묶음 안으로 들어감: 요청 단추는 메트로놈 단추 바로 앞 (폰에서도 위 막대에 남음) */
+    var top = el.querySelector('.pv-top'), anchor = el.querySelector('.pv-top > .pv-metbtn') || el.querySelector('.pv-top > .pv-hx') || el.querySelector('.pv-flts') || el.querySelector('.pv-fsbtn');
     if (top) top.insertBefore(btn, anchor && anchor.parentNode === top ? anchor : null);
 
     var pop = doc.createElement('div'); pop.className = 'lm-pop'; pop.hidden = true; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', '요청 메시지');

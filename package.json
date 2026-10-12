@@ -11,7 +11,8 @@
   "scripts": {
     "start": "node server.js",
     "auth": "node scripts/get-refresh-token.js",
-    "test:ytform": "node scripts/test-ytform.js && node scripts/e2e-ytform-conti.js"
+    "test:ytform": "node scripts/test-ytform.js && node scripts/e2e-ytform-conti.js",
+    "test:live-lasso": "node scripts/e2e-live-lasso-header.js"
   },
   "dependencies": {
     "@hyzyla/pdfium": "^2.1.13",

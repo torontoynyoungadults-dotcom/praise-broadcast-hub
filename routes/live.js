@@ -209,6 +209,7 @@ async function renderLive(req, res, o) {
 ${early}<link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
 <link rel="stylesheet" href="/worship/live-glass.css${v}">
+<link rel="stylesheet" href="/worship/live-head.css${v}">
 <style>
   html, body { min-height: 100%; }
   .lv-fallback { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; max-width: 520px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }

@@ -1,0 +1,179 @@
+/* ============================================================
+   v9.16 — 라이브 악보 위 막대 다이어트 · 폰 전용(최소) 모드 · 올가미
+   · hub.css · live-glass.css 다음에 불러옵니다 (두 앱 — 청년부 앱 · 찬양방송팀 허브 — 이 파일은 똑같습니다)
+   · 위 막대는 늘 한 줄: 단추 · 글자가 겹치거나 줄바꿈되지 않게 (넘치면 practice.js 가 단계적으로 「⋯」 안으로 접음)
+   · 곡 · 악보 = 알약 하나 · 쪽 넘기기 작게 · 메트로놈 켜기/끄기 · 유튜브(빨간 아이콘) · 나머지는 「⋯」
+   · 폰(.pv-compact): 닫기 · 곡 알약 · 쪽 · 메트로놈 · ⋯(서랍) 만
+   ============================================================ */
+
+/* ---------- 위 막대: 한 줄 · 넘침 없음 ---------- */
+html body .pv .pv-top { flex-wrap: nowrap !important; overflow: hidden; gap: 6px; min-height: 52px; }
+html body .pv .pv-top > *, html body .pv .pv-top .pv-grp { flex-shrink: 0; }
+html body .pv .pv-top .pv-b { white-space: nowrap; }
+
+/* ---------- 곡 · 악보 알약 (한 칸) ---------- */
+html body .pv .pv-top .pv-title.pv-songpill {
+  display: flex; flex-direction: row; align-items: center; gap: 0; flex: 1 1 auto; min-width: 0; max-width: 560px; height: 38px; overflow: hidden;
+  padding: 0 2px; border-radius: 12px; background: var(--lg-ctl, rgba(255, 255, 255, .06)); border: 1px solid var(--lg-ctl-edge, rgba(255, 255, 255, .08)); box-shadow: none;
+}
+html body .pv .pv-top .pv-songpill .pv-sel {
+  height: 34px; min-width: 0 !important; max-width: none !important; border: 0 !important; background-color: transparent !important; box-shadow: none !important;
+  border-radius: 10px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; background-position: right 8px center;
+}
+html body .pv .pv-top .pv-songpill > .pv-sel { flex: 1 1 0; padding: 0 24px 0 10px; font-size: 14px; font-weight: 800; color: var(--lg-ink, #F5F5F7); }
+html body .pv .pv-top .pv-songpill .pv-sheetwrap {
+  position: relative; display: flex; align-items: center; flex: 0 1 190px; min-width: 40px; height: 34px; margin: 0; padding-left: 4px;
+  border-left: 1px solid var(--lg-edge, rgba(255, 255, 255, .12)); cursor: pointer;
+}
+html body .pv .pv-top .pv-songpill .pv-sheetic { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; pointer-events: none; color: var(--lg-sub, #A9ABB6); }
+html body .pv .pv-top .pv-songpill .pv-sheetic .yi { width: 17px; height: 17px; }
+html body .pv .pv-top .pv-songpill .pv-sheetwrap .pv-sel { flex: 1 1 auto; width: 100%; padding: 0 22px 0 28px; font-size: 12.5px; font-weight: 600; color: var(--lg-sub, #A9ABB6); }
+html body .pv .pv-top .pv-songpill .pv-sel:focus-visible { outline: 2px solid var(--lg-a2, #ffb066); outline-offset: -2px; }
+html body .pv .pv-top .pv-songpill .pv-sel option { color: #111827; }
+html body .pv .pv-top .pv-songpill .pv-songinfo { display: none !important; }
+/* 보조 칸이 필요 없으면(.pv-nosub — 찬양방송팀 허브: 이 쪽의 곡 칸이 없음) 알약 = 주 칸 하나 */
+html body .pv.pv-nosub .pv-top .pv-songpill .pv-sheetwrap { display: none; }
+/* 곡이 없는 예배(곡 칸이 숨겨짐) — 악보 칸이 알약 전체 */
+html body .pv .pv.pv-nosong .pv-top .pv-songpill .pv-sheetwrap { flex: 1 1 auto; border-left: 0; }
+/* 좁으면(.pv-tight · 폰) 악보 칸은 📄 아이콘만 — 누르면 그대로 악보 목록 */
+html body .pv.pv-tight:not(.pv-nosong) .pv-top .pv-songpill .pv-sheetwrap,
+html body .pv.pv-compact:not(.pv-nosong) .pv-top .pv-songpill .pv-sheetwrap { flex: 0 0 40px; width: 40px; padding-left: 0; }
+html body .pv.pv-tight:not(.pv-nosong) .pv-top .pv-songpill .pv-sheetwrap .pv-sel,
+html body .pv.pv-compact:not(.pv-nosong) .pv-top .pv-songpill .pv-sheetwrap .pv-sel { color: transparent !important; background-image: none !important; padding: 0; }
+html body .pv.pv-tight .pv-top .pv-songpill .pv-sheetic, html body .pv.pv-compact .pv-top .pv-songpill .pv-sheetic { left: 50%; transform: translate(-50%, -50%); color: var(--lg-ink, #F5F5F7); }
+html body .pv.pv-tight.pv-nosong .pv-top .pv-songpill .pv-sheetic,
+html body .pv.pv-compact.pv-nosong .pv-top .pv-songpill .pv-sheetic { left: 10px; transform: translateY(-50%); }
+
+/* ---------- 쪽 넘기기 (작게) ---------- */
+html body .pv .pv-top .pv-pager { padding: 1px; gap: 0; height: 38px; }
+html body .pv .pv-top .pv-pager .pv-b { min-width: 32px; width: 32px; height: 34px; padding: 0; }
+html body .pv .pv-top .pv-pg { min-width: 40px; padding: 0 2px; font-size: 13px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
+
+/* ---------- 확대 묶음: 여백 · 두 쪽은 넓은 화면에서만 글자 ---------- */
+html body .pv .pv-top .pv-zoom .pv-b { min-width: 34px; padding: 0 8px; }
+html body .pv .pv-zoom .pv-tx { display: none; }
+@media (min-width: 1440px) { html body .pv:not(.pv-compact) .pv-top .pv-zoom .pv-tx { display: inline; } }
+
+/* ---------- 실시간 알약: 넓으면 전체 글자 · 좁으면 짧게 ---------- */
+html body .pv .pv-chip .pv-ls { display: none; }
+html body .pv .pv-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+html body .pv .pv-chip.pv-conn .pv-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; opacity: .55; }
+html body .pv .pv-chip.pv-conn.online .pv-dot { background: #34D399; opacity: 1; box-shadow: 0 0 0 3px rgba(52, 211, 153, .18); }
+html body .pv .pv-chip.pv-conn.offline .pv-dot, html body .pv .pv-chip.pv-conn.connecting .pv-dot { background: #FBBF24; opacity: 1; }
+html body .pv .pv-chip.pv-conn.denied .pv-dot { background: #F87171; opacity: 1; }
+@media (max-width: 1279px) {
+  html body .pv .pv-top .pv-chip .pv-lf { display: none; }
+  html body .pv .pv-top .pv-chip .pv-ls { display: inline; }
+  html body .pv .pv-top .pv-chip.pv-conn { padding: 0 9px; min-width: 30px; justify-content: center; }
+}
+html body .pv .pv-top .pv-chip { height: 32px; padding-top: 0; padding-bottom: 0; }
+
+/* ---------- 메트로놈 켜기/끄기 · 유튜브 ---------- */
+html body .pv .pv-top .pv-metbtn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; height: 38px; padding: 0 9px; font-variant-numeric: tabular-nums; }
+html body .pv .pv-top .pv-metbtn .yi { width: 20px; height: 20px; flex: none; }
+html body .pv .pv-metbtn .pv-metbpm { font-size: 12.5px; font-weight: 800; letter-spacing: -.02em; color: var(--lg-sub, #A9ABB6); }
+html body .pv .pv-metbpm:empty { display: none; }
+html body .pv .pv-top .pv-metbtn.on { background: var(--lg-a-grad, linear-gradient(135deg, #FFB067, #FF8A3D)) !important; color: var(--lg-a-ink, #1A0E05) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lg-a-glow, 0 8px 24px -6px rgba(255, 122, 40, .55)) !important; }
+html body .pv .pv-top .pv-metbtn.on .pv-metbpm { color: inherit; }
+html body .pv .pv-top .pv-metbtn.on.b { transform: scale(1.06); }
+html body .pv .pv-top .pv-metbtn.on.b0 { box-shadow: 0 0 0 3px rgba(255, 138, 61, .35), 0 0 18px rgba(255, 138, 61, .7) !important; }
+html body .pv .pv-top .pv-metbtn.locked:not(.on) { opacity: .6; }
+html body .pv .pv-metbtn { transition: transform .08s ease, box-shadow .12s ease, background .15s ease; }
+
+html body .pv .pv-ytbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0; }
+html body .pv .pv-top .pv-ytbtn { min-width: 40px; height: 38px; padding: 0 8px; border-radius: 12px; background: var(--lg-ctl, rgba(255, 255, 255, .06)) !important; border: 1px solid var(--lg-ctl-edge, rgba(255, 255, 255, .08)) !important; font-size: 0; }
+html body .pv .pv-top .pv-ytbtn::before { content: none !important; }
+html body .pv .pv-yticon { width: 26px; height: 18px; flex: none; display: block; }
+html body .pv .pv-ytbtn.on { background: rgba(255, 0, 0, .14) !important; border-color: rgba(255, 60, 60, .55) !important; }
+html body .pv .pv-top .pv-hx { gap: 6px; background: transparent !important; border: 0 !important; padding: 0; }
+html body .pv .pv-top .pv-hx .pv-b { background: var(--lg-ctl, rgba(255, 255, 255, .06)) !important; border: 1px solid var(--lg-ctl-edge, rgba(255, 255, 255, .08)) !important; }
+html body .pv .pv-top .pv-hx .pv-b.on, html body .pv .pv-top .pv-hx .pv-b[aria-pressed="true"] { background: var(--lg-a-soft) !important; border-color: var(--lg-a-edge) !important; }
+/* 메뉴용 글자(pv-mt)는 위 막대에서는 숨기고, 「⋯」 · 서랍 안에서만 보임 */
+html body .pv .pv-top .pv-mt { display: none; }
+
+/* ---------- 「⋯」 단추 · 펼침 메뉴 (넓은 화면 · 태블릿) ---------- */
+html body .pv:not(.pv-compact) .pv-top .pv-morebtn { display: inline-flex !important; align-items: center; justify-content: center; min-width: 40px; height: 38px; padding: 0; }
+html body .pv:not(.pv-compact) .pv-top .pv-morebtn .yi { width: 22px; height: 22px; }
+html body .pv.pv-moreopen .pv-top .pv-morebtn { background: var(--lg-a-soft) !important; border-color: var(--lg-a-edge) !important; color: var(--lg-a-text) !important; }
+html body .pv .pv-morepop { display: none !important; }
+html body .pv.pv-moreopen:not(.pv-compact) .pv-morepop {
+  display: flex !important; flex-direction: column; align-items: stretch; gap: 10px; position: absolute; z-index: 70; top: 58px; right: 10px;
+  width: min(340px, calc(100vw - 20px)); max-height: calc(100% - 70px); overflow-y: auto; padding: 12px; border-radius: 18px;
+  background: #1A1C23 !important; border: 1px solid var(--lg-edge, rgba(255, 255, 255, .14)); box-shadow: var(--lg-shine, none), 0 22px 60px -12px rgba(0, 0, 0, .62);
+}
+html body .pv .pv-morepop .pv-mp-view { display: flex; flex-direction: column; gap: 8px; }
+html body .pv .pv-morepop .pv-mp-view:empty { display: none; }
+html body .pv .pv-morepop .pv-grp { flex-wrap: wrap; gap: 6px; background: transparent !important; border: 0 !important; padding: 0; }
+html body .pv .pv-morepop .pv-zoom .pv-b, html body .pv .pv-morepop .pv-seg button { height: 42px; flex: 1 1 auto; }
+html body .pv .pv-morepop .pv-zoom .pv-tx, html body .pv .pv-morepop .pv-layoutseg .pv-tx { display: inline !important; }
+html body .pv .pv-morepop .pv-layoutseg { display: flex; padding: 3px; border-radius: 12px; background: var(--lg-ctl, rgba(255, 255, 255, .06)) !important; }
+html body .pv .pv-morepop .pv-layoutseg button { flex: 1 1 0; }
+html body .pv .pv-morepop .pv-chips { flex-wrap: wrap; }
+html body .pv .pv-morepop .pv-chip { height: 36px; max-width: none; }
+html body .pv .pv-morepop .pv-chip .pv-lf { display: inline !important; } html body .pv .pv-morepop .pv-chip .pv-ls { display: none !important; }
+/* 메뉴 줄: 아이콘 + 글자, 한 줄씩 */
+html body .pv .pv-acts { display: flex; flex-direction: column; gap: 2px; }
+html body .pv .pv-acts .pv-flts { display: contents; }
+html body .pv .pv-acts .pv-b, html body .pv-drawer .pv-hx .pv-b {
+  display: flex !important; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; height: 44px; min-width: 0; padding: 0 12px; border-radius: 12px;
+  font-size: 14.5px; font-weight: 700; text-align: left; opacity: 1 !important; filter: none !important;
+  background: transparent !important; border: 1px solid transparent !important; color: var(--lg-ink, #F5F5F7) !important;
+}
+html body .pv .pv-acts .pv-b:hover, html body .pv-drawer .pv-hx .pv-b:hover { background: var(--lg-ctl-hov, rgba(255, 255, 255, .1)) !important; }
+html body .pv .pv-acts .pv-b .yi, html body .pv-drawer .pv-hx .pv-b .yi { width: 20px; height: 20px; flex: none; }
+html body .pv .pv-acts .pv-mt, html body .pv .pv-drawer .pv-mt { display: inline; }
+html body .pv .pv-acts .pv-flt::after { content: '꺼짐'; margin-left: auto; font-size: 12px; font-weight: 800; color: var(--lg-dim, #6F7280); }
+html body .pv .pv-acts .pv-flt.on::after { content: '켜짐'; color: var(--lg-a-text, #FFC18F); }
+html body .pv .pv-acts .pv-flt.on { background: transparent !important; border-color: transparent !important; }
+html body .pv .pv-acts .pv-editsheet { font-size: 16px !important; }
+html body .pv .pv-acts .pv-editsheet .pv-mt { font-size: 14.5px; }
+html body .pv-drawer .pv-acts .pv-mpdf { display: none !important; }             /* 서랍에는 아래 「저장」 칸에 따로 있음 */
+
+/* ---------- 폰 · 아주 좁은 창 (.pv-compact): 꼭 필요한 것만 ---------- */
+html body .pv.pv-compact .pv-top {
+  gap: 4px; min-height: 52px; padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left)) !important;
+}
+html body .pv.pv-compact .pv-top > .pv-b, html body .pv.pv-compact .pv-top .pv-pager .pv-b { min-width: 40px; height: 40px; font-size: 18px; border-radius: 12px; }
+html body .pv.pv-compact .pv-top > .pv-b[data-a="close"] { order: 1; width: 40px; padding: 0; }
+html body .pv.pv-compact .pv-top .pv-title.pv-songpill { order: 2; display: flex !important; flex: 1 1 auto; height: 40px; min-width: 0; }
+html body .pv.pv-compact .pv-top .pv-songpill > .pv-sel { order: 0; height: 38px; flex: 1 1 auto; font-size: 14px; padding: 0 20px 0 10px; background-position: right 6px center; }
+html body .pv.pv-compact .pv-top .pv-songpill .pv-sheetwrap { order: 1; height: 38px; }
+html body .pv.pv-compact .pv-top .pv-pager { order: 3; margin-left: 0; height: 40px; }
+html body .pv.pv-compact .pv-top .pv-pager .pv-b { min-width: 28px; width: 28px; height: 38px; padding: 0; }
+html body .pv.pv-compact .pv-top .pv-pg { min-width: 36px; font-size: 13px; }
+html body .pv.pv-compact .pv-top .pv-metbtn { order: 4; min-width: 40px; width: 40px; height: 40px; padding: 0; }
+html body .pv.pv-compact .pv-top .pv-metbtn .pv-metbpm { display: none; }
+html body .pv.pv-compact .pv-top .pv-msgbtn { order: 4; min-width: 40px; width: 40px; height: 40px; padding: 0; }
+html body .pv .pv-top .pv-msgbtn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 38px; }
+html body .pv .pv-top .pv-msgbtn .pv-ic { width: 20px; height: 20px; flex: none; }                /* 찬양방송팀 허브: 방송팀 요청 단추는 폰에서도 위 막대에 */
+html body .pv.pv-compact .pv-top .pv-menubtn { order: 5; display: inline-flex !important; width: 40px; min-width: 40px; height: 40px; padding: 0 !important; font-size: 0; border-radius: 12px; }
+html body .pv.pv-compact .pv-top .pv-menubtn .nm { display: none !important; }
+html body .pv.pv-compact .pv-top .pv-menubtn .ic .yi { width: 22px; height: 22px; }
+html body .pv.pv-compact .pv-top .pv-morebtn, html body .pv.pv-compact .pv-top .pv-panelbtn { display: none !important; }
+/* 서랍(⋯) 맨 위 「더 보기」: 유튜브 · 전체 화면 · 밝기 · 악보 편집 · 떠 있는 창 */
+html body .pv .pv-drawer .pv-sheetwrap { position: relative; display: flex; align-items: center; margin: 0 0 6px; cursor: pointer; }
+html body .pv .pv-drawer .pv-sheetwrap .pv-sheetic { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; pointer-events: none; color: var(--lg-sub, #A9ABB6); }
+html body .pv .pv-drawer .pv-sheetwrap .pv-sheetic .yi { width: 18px; height: 18px; }
+html body .pv .pv-drawer .pv-sheetwrap .pv-sel { width: 100%; height: 44px; padding: 0 30px 0 38px; font-size: 14px; font-weight: 700; text-overflow: ellipsis; }
+html body .pv .pv-drawer .pv-ds-acts .pv-dslot { display: flex; flex-direction: column; gap: 2px; }
+html body .pv .pv-drawer .pv-hx { display: flex; flex-direction: column; gap: 2px; background: transparent !important; border: 0 !important; padding: 0; }
+html body .pv .pv-drawer .pv-ytbtn .pv-yticon { width: 24px; height: 17px; }
+html body .pv:not(.pv-compact) .pv-drawer .pv-ds-acts { display: none; }
+/* 아주 좁은 폰(≤360px): 곡 알약이 너무 좁아지지 않게 쪽 넘기기 단추를 조금 더 작게 */
+@media (max-width: 360px) {
+  html body .pv.pv-compact .pv-top { gap: 4px; }
+  html body .pv.pv-compact .pv-top .pv-pager .pv-b { min-width: 26px; width: 26px; }
+  html body .pv.pv-compact .pv-top .pv-pg { min-width: 32px; font-size: 12px; }
+}
+
+/* ---------- 밝은 화면 ---------- */
+html[data-theme="light"] body .pv .pv-top .pv-songpill > .pv-sel { color: #111827; }
+html[data-theme="light"] body .pv .pv-top .pv-songpill .pv-sheetwrap .pv-sel { color: #4B5563; }
+html[data-theme="light"] body .pv.pv-tight .pv-top .pv-songpill .pv-sheetic, html[data-theme="light"] body .pv.pv-compact .pv-top .pv-songpill .pv-sheetic { color: #111827; }
+html[data-theme="light"] body .pv.pv-moreopen:not(.pv-compact) .pv-morepop { background: #FFFFFF !important; box-shadow: 0 18px 48px rgba(15, 23, 42, .18); }
+html[data-theme="light"] body .pv .pv-acts .pv-b, html[data-theme="light"] body .pv-drawer .pv-hx .pv-b { color: #111827 !important; }
+html[data-theme="light"] body .pv .pv-ytbtn.on { background: rgba(255, 0, 0, .08) !important; }
+
+/* ---------- 올가미 도구 줄 ---------- */
+html body .pv .pv-lassorow { display: flex; align-items: center; gap: 6px; }
+html body .pv .pv-lassocount { font-size: 12.5px; font-weight: 800; color: var(--lg-a-text, #FFC18F); white-space: nowrap; padding: 0 4px; }

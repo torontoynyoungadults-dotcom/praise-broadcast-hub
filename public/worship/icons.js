@@ -39,6 +39,7 @@
     pen: '<path class="f" d="M4.2 19.8l.9-4.3L16 4.6a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.5 18.9z"/><path d="M13.8 6.8l3.4 3.4M4.2 19.8l3.4-.7"/>',
     hl: '<path class="f" d="M9.5 15.8l7-7a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8l-7 7z"/><path d="M9.5 15.8l2.8 2.8-3.4 1-2.2-.1.1-2.1z"/><path d="M14 21h6.5"/>',
     select: '<rect x="3.8" y="3.8" width="11.4" height="11.4" rx="2.2" stroke-dasharray="2.4 2.6"/><path class="f" d="M12.6 12.4l7.6 2.7-3.3 1.5-1.5 3.4z"/>',
+    lasso: '<path d="M7.6 15.6C4.9 14.6 3.4 12.6 3.4 10.4c0-3.6 3.9-6.4 8.6-6.4s8.6 2.8 8.6 6.4-3.9 6.4-8.6 6.4c-.9 0-1.8-.1-2.6-.3" stroke-dasharray="2.6 2.4"/><circle class="f" cx="8.4" cy="17.4" r="2"/><path d="M8.4 19.4c0 1.2-.7 1.9-1.8 2.1"/>',
     text: '<path d="M5.5 7V5.2h13V7M12 5.2v13.6M9 18.8h6"/>',
     chord: '<rect class="f" x="6" y="4" width="12" height="15" rx="1.2" stroke="none"/><path d="M6 4h12M6 9h12M6 14h12M6 19h12M6 4v15M10 4v15M14 4v15M18 4v15" stroke-width="1.15"/><circle class="k" cx="10" cy="11.5" r="1.7"/><circle class="k" cx="14" cy="16.5" r="1.7"/>',
     note: '<ellipse class="f" cx="8.6" cy="17.4" rx="3.3" ry="2.4" transform="rotate(-20 8.6 17.4)"/><path d="M11.6 16.6V4.6c2.6 1.4 5.6 2.8 5.2 7"/>',

@@ -63,10 +63,13 @@
   }
 
   var TOOLS = [
-    { t: 'none', ic: 'hand', n: '이동' }, { t: 'pen', ic: 'pen', n: '펜' }, { t: 'hl', ic: 'hl', n: '형광펜' }, { t: 'select', ic: 'select', n: '선택·이동' }, { t: 'text', ic: 'text', n: '글자' },
+    { t: 'none', ic: 'hand', n: '이동' }, { t: 'pen', ic: 'pen', n: '펜' }, { t: 'hl', ic: 'hl', n: '형광펜' }, { t: 'select', ic: 'select', n: '선택·이동' }, { t: 'lasso', ic: 'lasso', n: '올가미' }, { t: 'text', ic: 'text', n: '글자' },
     { t: 'chord', ic: 'chord', n: '코드' }, { t: 'sym', ic: 'sharp', n: '기호' }, { t: 'note', ic: 'note', n: '음표' }, { t: 'fbox', ic: 'tag', n: '송폼 라벨' }, { t: 'eraser', ic: 'eraser', n: '지우개' }, { t: 'white', ic: 'whiteout', n: '흰 지우개' }
   ];
   var current = null;
+  /* v9.16 — 유튜브 단추: 누구나 알아보는 빨간 둥근 네모 + 흰 ▶ (외부 그림 없이 SVG) */
+  var YT_ICON = '<svg class="pv-yticon" viewBox="0 0 28 20" width="24" height="17" aria-hidden="true" focusable="false"><rect x="0.5" y="0.5" width="27" height="19" rx="5.2" fill="#FF0000"/><path d="M11.2 5.6v8.8l7.6-4.4z" fill="#FFFFFF"/></svg>';
+  function themeBtnHtml(light) { return I(light ? 'moon' : 'sun') + '<span class="pv-mt">' + (light ? '어두운 화면으로' : '밝은 화면으로') + '</span>'; }
 
   /* ------------------------------------------------------------ 성능 (허브 v5)
      · 악보 파일 바이트를 화면(연습 창) 밖에서도 잠깐 기억합니다 — 허브 화면이 한가할 때 첫 악보를 미리 받아 두면(warm)
@@ -187,19 +190,31 @@
     el.className = 'pv';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '라이브 악보');
     el.innerHTML =
+      /* v9.16 — 위 막대 다이어트 (청년부 앱과 같은 구성): 악보 · 이 쪽의 곡을 한 칸(알약)으로 · 쪽 넘기기 작게 · 자주 안 쓰는 단추(밝기 · 떠 있는 창 · 화면 배치 · 여백 · 두 쪽 · PDF)는 「⋯」 안으로 ·
+         메트로놈 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 악보 · 쪽 · (요청) · 메트로놈 · ⋯ 만 */
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
-        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
+        '<div class="pv-title pv-songpill"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select>' +
+          '<label class="pv-sheetwrap" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."><span class="pv-sheetic" aria-hidden="true">' + I('note') + '</span><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)"></select></label><span class="pv-songinfo"></span></div>' +
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)" aria-label="다음 쪽">' + I('next') + '</button></div>' +
-        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + ' 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">' + I('spread') + ' 두 쪽</button></div>' +
-        '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
+        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" aria-label="여백 자동 맞춤" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + '<span class="pv-tx"> 여백</span></button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" aria-label="두 쪽 나란히 보기" title="두 쪽 나란히 보기 (컴퓨터 화면)">' + I('spread') + '<span class="pv-tx"> 두 쪽</span></button></div>' +
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
-        '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + I(doc.documentElement.getAttribute('data-theme') === 'light' ? 'moon' : 'sun') + '</button>' +
-        '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
-        '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">' + I('sliders') + '</span><span class="nm">메뉴</span></button>' +
-        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-expanded="false" aria-label="보기 메뉴 (확대 · 여백 · 화면 배치)" title="확대 · 여백 · 두 쪽 · 화면 배치">' + I('more') + '</button>' +
+        '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="메트로놈 켜기" title="메트로놈 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
+        '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button>' +
+          '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
+        '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
+        '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="메뉴 열기 (도구 · 보기 · 더 보기)" title="메뉴 열기 / 닫기"><span class="ic">' + I('more') + '</span><span class="nm">메뉴</span></button>' +
+        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="더 보기 (화면 배치 · 밝기 · 떠 있는 창)" title="더 보기 — 화면 배치 · 여백 · 두 쪽 · 밝기 · 떠 있는 창">' + I('more') + '</button>' +
       '</header>' +
-      '<div class="pv-morepop" role="group" aria-label="보기 메뉴"></div>' +
+      '<div class="pv-morepop" role="group" aria-label="더 보기">' +
+        '<div class="pv-mp-view"></div>' +
+        '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
+        '<div class="pv-acts" role="group" aria-label="더 보기 동작">' +
+          (opts.canEdit && opts.onSheetEdit ? '<button class="pv-b pv-editsheet" data-a="editsheet" title="이 악보 편집 — 위쪽 머리말 자르기 · 쪽 삭제" aria-label="이 악보 편집">✂<span class="pv-mt">악보 편집 (자르기 · 쪽 삭제)</span></button>' : '') +
+          '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + themeBtnHtml(doc.documentElement.getAttribute('data-theme') === 'light') + '</button>' +
+          '<button class="pv-b pv-mpdf" data-a="pdf" title="필기 포함 PDF 저장 (악보 전체 한 파일)" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-mt">필기 포함 PDF 저장</span></button>' +
+        '</div>' +
+      '</div>' +
       '<div class="pv-rtpop" role="dialog" aria-label="실시간 메뉴" hidden></div>' +
       '<div class="pv-wifipop" role="dialog" aria-label="와이파이" hidden></div>' +
       '<div class="pv-main">' +
@@ -213,13 +228,15 @@
       '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 쪽" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽" aria-label="다음 쪽">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
-        '<div class="pv-dh"><b>' + I('sliders') + '도구 메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
+        '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
+        '<section class="pv-ds pv-ds-acts"><h5>더 보기</h5><div class="pv-dslot" data-slot="acts"></div></section>' +
         '<section class="pv-ds"><h5>보기</h5><div class="pv-dslot" data-slot="view"></div></section>' +
         '<section class="pv-ds"><h5>필기 도구</h5><div class="pv-dslot" data-slot="tools"></div></section>' +
         '<section class="pv-ds"><h5>저장</h5><div class="pv-dslot"><button type="button" class="pv-btn2" data-a="pdf">' + I('download') + ' 필기 포함 PDF 저장 (악보 전체 한 파일)</button></div></section>' +
         '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">' + I('metronome') + ' 메트로놈 · 시작음 · 함께 (패널 열기)</button></div></section>' +
       '</aside>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
+    el.classList.toggle('pv-nosub', !songs.length);
     function $(sel) { return el.querySelector(sel); }
     var stage = $('.pv-stage'), box = $('.pv-pagebox'), pdfCv = $('.pv-pdf'), annoCv = $('.pv-anno'), loading = $('.pv-loading'), toastEl = $('.pv-toast');
     var toolsEl = $('.pv-tools'), sideEl = $('.pv-side'), tabsEl = $('.pv-tabs'), panesEl = $('.pv-panes'), sheetSel = $('.pv-sheetsel');
@@ -342,17 +359,20 @@
       open = !!open && S.compact;
       el.classList.toggle('pv-drawopen', open); drawerEl.setAttribute('aria-hidden', open ? 'false' : 'true');
       menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); menuBtn.setAttribute('aria-label', open ? '도구 메뉴 닫기' : '도구 메뉴 열기');
-      menuBtn.querySelector('.ic').innerHTML = I(open ? 'close' : 'sliders'); menuBtn.querySelector('.nm').textContent = open ? '닫기' : '메뉴';
+      menuBtn.querySelector('.ic').innerHTML = I(open ? 'close' : 'more'); menuBtn.querySelector('.nm').textContent = open ? '닫기' : '메뉴';
       if (open) { el.classList.remove('pv-sideopen'); try { drawerEl.querySelector('.pv-dclose').focus({ preventScroll: true }); } catch (e) {} }
     }
     function setCompact(on) {
-      on = !!on; if (on === !!S.compact && holders.length === (on ? 4 : 0)) return;
+      on = !!on; if (on === !!S.compact && (on ? holders.length >= 6 : !holders.length)) return;
+      if (on) { applyNarrow(0); setMore(false); }                                       // v9.16 — "⋯" 에 옮겨 둔 것을 먼저 제자리로 (그다음 서랍으로)
       S.compact = on; el.classList.toggle('pv-compact', on);
       try { if (typeof paintShows === 'function' && typeof SHOWS !== 'undefined' && SHOWS) { paintShows(); if (on) requestAnimationFrame(function () { try { flPlace('metro'); } catch (e) {} }); } } catch (e) { /* 아직 떠 있는 창을 만들기 전 */ }
       if (on) {
         var v = drawerEl.querySelector('[data-slot="view"]'), t = drawerEl.querySelector('[data-slot="tools"]');
         [$('.pv-zoom'), $('.pv-layoutseg'), $('.pv-chips')].forEach(function (n) { if (n) hold(n, v); });
         hold(toolsEl, t);
+        var ac = drawerEl.querySelector('[data-slot="acts"]');                            // v9.16 — 폰: 유튜브 · 전체 화면 · 밝기 · 악보 편집 · 떠 있는 창도 서랍(⋯) 안으로
+        [songs.length ? $('.pv-sheetwrap') : null, $('.pv-hx'), $('.pv-acts')].forEach(function (n) { if (n) hold(n, ac); });      // 악보 고르기도 서랍 맨 위 (곡 칸을 넓게)
         el.classList.remove('pv-sideopen');
       } else {
         setDrawer(false);
@@ -366,16 +386,46 @@
     }
     /* v6.1 — 아이패드 세로처럼 폭이 1100px 보다 좁은 (서랍이 아닌) 화면: 위 막대를 한 줄로 — 확대 · 여백 · 두 쪽 · 화면 배치는 "⋯" 안으로 */
     var moreEl = $('.pv-morepop'), moreBtn = $('.pv-morebtn'), moreHold = [];
-    function setNarrow() {
-      var on = !S.compact && (root.innerWidth || 1200) < 1100;
-      if (on === !!S.narrow && moreHold.length === (on ? 2 : 0)) return;
-      S.narrow = on; el.classList.toggle('pv-narrow', on); setMore(false);
-      if (on) [$('.pv-zoom'), $('.pv-layoutseg')].forEach(function (n) { if (n && n.parentNode) { var ph = doc.createComment('pvm'); n.parentNode.insertBefore(ph, n); moreHold.push({ node: n, ph: ph }); moreEl.appendChild(n); } });
-      else moreHold.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
+    /* v9.16 — 접는 단계: 0 = 모두 위 막대 · 1 = 확대(−/맞춤/+ · 여백 · 두 쪽)를 「⋯」 안으로 · 2 = 실시간 알약도 「⋯」 안으로 (폭을 실제로 재서 정함) */
+    var mpView = moreEl.querySelector('.pv-mp-view');
+    function applyNarrow(level) {
+      level = S.compact ? 0 : (level === true ? 1 : level === false ? 0 : (+level || 0));
+      if (level === (S.narrowLv || 0) && moreHold.length === (level >= 2 ? 2 : level)) return;
+      moreHold.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
+      S.narrowLv = level; S.narrow = level > 0; el.classList.toggle('pv-narrow', level > 0); el.classList.toggle('pv-narrow2', level > 1);
+      var mv = level >= 2 ? [$('.pv-zoom'), $('.pv-chips')] : level === 1 ? [$('.pv-zoom')] : [];
+      mv.forEach(function (n) { if (n && n.parentNode) { var ph = doc.createComment('pvm'); n.parentNode.insertBefore(ph, n); moreHold.push({ node: n, ph: ph }); mpView.appendChild(n); } });
     }
-    function setMore(open) { open = !!open && !!S.narrow; el.classList.toggle('pv-moreopen', open); moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    /** v9.15 → v9.16 — 단추가 막대에 다 안 들어가면 단계적으로 접음: 실제로 넘치는지 재서 정함. 곡 · 악보 알약이 좁으면 악보 칸은 아이콘만(.pv-tight) — 줄바꿈은 하지 않습니다 */
+    function setNarrow() {
+      var top = $('.pv-top'), t = $('.pv-title');
+      el.classList.remove('pv-tworow');
+      if (S.compact || !top) { applyNarrow(0); el.classList.remove('pv-tight'); return; }
+      var keep = t ? t.style.minWidth : '', lv = 0;
+      el.classList.remove('pv-tight');
+      for (lv = 0; lv < 2; lv++) {                                                 // 펴 놓고 재야 정확 (같은 프레임 안이라 깜빡이지 않음)
+        applyNarrow(lv);
+        if (t) t.style.minWidth = lv === 0 ? '230px' : '170px';                     // 곡 · 악보 알약이 최소한 이만큼은 보여야 함
+        var over = top.scrollWidth - top.clientWidth > 1;
+        if (t) t.style.minWidth = keep;
+        if (!over) break;
+      }
+      if (lv > 2) lv = 2;
+      applyNarrow(lv);
+      if (t && t.getBoundingClientRect().width < 300) el.classList.add('pv-tight');   // 좁으면 악보 칸은 📄 아이콘만 (누르면 그대로 목록)
+    }
+    function setMore(open) {
+      open = !!open && !S.compact; el.classList.toggle('pv-moreopen', open); moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {                                                                  // v9.16 — 「⋯」 바로 아래, 화면 밖으로 나가지 않게
+        try { var br = moreBtn.getBoundingClientRect(), er = el.getBoundingClientRect(); moreEl.style.top = Math.round(br.bottom - er.top + 6) + 'px'; moreEl.style.right = Math.max(8, Math.round(er.right - br.right)) + 'px'; } catch (e) { /* 자리는 CSS 기본값 */ }
+      }
+    }
     function moreOutside(e) { if (!el.classList.contains('pv-moreopen')) return; var tg = e.target; if (tg && tg.closest && (tg.closest('.pv-morepop') || tg.closest('.pv-morebtn'))) return; setMore(false); }
     doc.addEventListener('pointerdown', moreOutside, true);      // (닫을 때 떼기는 아래 P.on('close') 에서)
+    var fitT = 0; function fitSoon() { clearTimeout(fitT); fitT = setTimeout(function () { if (!S.dead) setNarrow(); }, 80); }
+    /* v9.16 — 막대 폭이 바뀔 때만 다시 잽니다 (알약 글자가 바뀌면 renderChips 가 부름). 접은 것을 옮기는 동안 생기는 크기 변화로 계속 다시 재지 않게 폭을 기억 */
+    var fitW = 0;
+    try { if (root.ResizeObserver) { var fitRo = new root.ResizeObserver(function () { var tp = $('.pv-top'), w = tp ? Math.round(tp.clientWidth) : 0; if (w !== fitW) { fitW = w; fitSoon(); } }); var tq = $('.pv-top'); if (tq) fitRo.observe(tq); } } catch (e) { /* 없어도 창 크기 · 방향이 바뀔 때는 다시 잼 */ }
     function checkCompact() { var c = calcCompact(); if (c !== !!S.compact) { setCompact(c); if (S.doc) renderSoon(40); } setNarrow(); autoFit(); }
     menuBtn.onclick = function () { setDrawer(!el.classList.contains('pv-drawopen')); };
     var orT = 0; function onOrient() { clearTimeout(orT); orT = setTimeout(function () { if (!S.dead) checkCompact(); }, 200); }
@@ -1161,6 +1211,7 @@
     function songLabel(i) { return i >= 0 && songs[i] ? (i + 1) + '. ' + songs[i].title : '없음'; }
     function renderSongSel() {
       var sel = $('.pv-songsel'); if (!sel) return;
+      el.classList.toggle('pv-nosub', !songs.length);                                // v9.16 — 곡이 없으면 이 쪽의 곡 칸을 숨김 (알약 = 악보 칸)
       if (!songs.length) { sel.style.display = 'none'; return; }
       var f = sheets[S.sheetIdx], m = mapOf(f), man = m.manual[S.page], auto = autoSongAt(f, S.page);
       var html = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('') +
@@ -1264,6 +1315,7 @@
     ytBtn.onclick = function () {
       var id = ytBtn.getAttribute('data-id'); if (!id) return;
       if (ytBox) { closeYt(); return; }
+      if (S.compact) setDrawer(false);                                                 // v9.16 — 폰: 서랍(⋯)에서 눌렀으면 서랍을 닫고 영상 창을 보여 줌
       try { root.YNAudioShift && root.YNAudioShift.closeDialog && root.YNAudioShift.closeDialog(); } catch (e) {}          // 키 바꿔 듣기 카드가 열려 있으면 닫음 (소리가 겹치지 않게)
       ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog');      // V859 — 떠 있는 창: 위 줄(제목)을 끌어 옮김 · 자리는 이 기기에 기억 ytBox.setAttribute('aria-label', '유튜브 참고 영상');
       ytBox.innerHTML = '<div class="pv-yth" data-drag title="끌어서 옮기기"><span class="pv-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="pv-ytbody"></div>';
@@ -1638,28 +1690,29 @@
       var conn = $('.pv-conn'), lead = $('.pv-lead'), fol = $('.pv-follow'), clk = $('.pv-click'), folm = $('.pv-followm');
       var st = rt ? rt.state : 'unavailable';
       var label = { idle: '연결 전', connecting: '연결 중…', online: '실시간 연결됨', offline: '연결 끊김 — 다시 연결 중', unavailable: '혼자 보기 (실시간 없음)', denied: '연결 거부됨' }[st] || st;
-      conn.textContent = { online: '● 실시간', connecting: '○ 연결 중', offline: '○ 끊김', unavailable: '○ 혼자', denied: '✕ 거부', idle: '○' }[st] || '○';
-      conn.className = 'pv-chip pv-conn ' + st; conn.title = label + (rt && rt.error && st !== 'online' ? ' — ' + rt.error : '');
-      var pend = rt ? rt.pending() : 0; if (pend) conn.textContent += ' · 대기 ' + pend;
+      /* v9.16 — 알약 글자: 넓은 화면은 전체 글자(.pv-lf), 좁으면 짧게(.pv-ls) — 둘 다 넣어 두고 CSS 로 고름 (글자가 줄바꿈 · 겹치지 않게) */
+      var pend = rt ? rt.pending() : 0;
+      conn.innerHTML = '<i class="pv-dot" aria-hidden="true"></i>' + chipTx({ online: '실시간', connecting: '연결 중', offline: '끊김', unavailable: '혼자', denied: '✕ 거부', idle: '' }[st] || '', '') + (pend ? chipTx(' · 대기 ' + pend, ' ' + pend) : '');
+      conn.className = 'pv-chip pv-conn ' + st; conn.title = label + (rt && rt.error && st !== 'online' ? ' — ' + rt.error : ''); conn.setAttribute('aria-label', label);
       var peers = rt ? rt.peers.length : 0;
       if (st === 'online') {
         var ln = rt.leader; lead.style.display = (rt.isLeader || ln) ? '' : 'none';     // v6 — 컨트롤이 없으면 칩을 숨겨 위 막대를 짧게 ("함께" 탭에서 맡기)
-        lead.innerHTML = rt.isLeader ? I('page') + '내가 페이지 컨트롤' : ln ? I('page') + h(ln) : '페이지 컨트롤 없음'; lead.className = 'pv-chip pv-lead' + (rt.isLeader ? ' me' : ln ? ' has' : '');
+        lead.innerHTML = rt.isLeader ? I('page') + chipTx('내가 페이지 컨트롤', '나') : ln ? I('page') + chipTx(h(ln), h(String(ln).slice(0, 3))) : '페이지 컨트롤 없음'; lead.className = 'pv-chip pv-lead' + (rt.isLeader ? ' me' : ln ? ' has' : '');
         lead.title = peers + '명 접속 중 — 눌러서 페이지 컨트롤 · 클릭 컨트롤 · 동기화 설정 열기';
         var cn = rt.clicker;
         clk.style.display = 'none'; clk.innerHTML = rt.isClicker ? I('metronome') + '내가 클릭 컨트롤' : cn ? I('metronome') + h(cn) : '클릭 컨트롤 없음'; clk.className = 'pv-chip pv-click' + (rt.isClicker ? ' me' : cn ? ' has' : '');
         clk.title = '메트로놈(클릭)을 조절하는 사람 — 눌러서 설정 열기';
       } else { lead.style.display = 'none'; clk.style.display = 'none'; }
       if (st === 'online' && S.manual && !(rt.leader && !rt.isLeader)) {      // v6 — 수동 = 페이지 따라가기 끔. 컨트롤이 있으면 아래에서 "컨트롤 N쪽" 안내
-        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.textContent = '🔒 혼자 보기'; fol.setAttribute('aria-pressed', 'false');
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.innerHTML = chipTx('🔒 혼자 보기', '🔒 혼자'); fol.setAttribute('aria-pressed', 'false');
         fol.title = '남의 페이지 · BPM · 콜아웃을 받지 않는 중 — 눌러서 다시 함께 보기';
       } else if (st === 'online' && rt.leader && !rt.isLeader) {
         fol.style.display = ''; fol.className = 'pv-chip pv-follow ' + (S.follow ? 'on' : 'off'); fol.title = '페이지 컨트롤 화면 따라가기 켜기/끄기';
         var behind = !S.follow && S.pendingNav && (S.pendingNav.page !== S.page || S.pendingNav.file !== fileId());
-        fol.textContent = S.follow ? '따라가는 중' : (behind ? '🔒 혼자 보기 · 컨트롤 ' + S.pendingNav.page + '쪽' : '🔒 혼자 보기');
+        fol.innerHTML = S.follow ? chipTx('따라가는 중', '따라감') : (behind ? chipTx('🔒 혼자 보기 · 컨트롤 ' + S.pendingNav.page + '쪽', '🔒 ' + S.pendingNav.page + '쪽') : chipTx('🔒 혼자 보기', '🔒 혼자'));
         fol.setAttribute('aria-pressed', S.follow ? 'true' : 'false');
       } else if (st === 'online') {                                       // 컨트롤이 없거나 내가 컨트롤 — 눌러서 「혼자 보기」 켜기
-        fol.style.display = ''; fol.className = 'pv-chip pv-follow on together'; fol.textContent = '함께 보기'; fol.setAttribute('aria-pressed', 'true');
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow on together'; fol.innerHTML = chipTx('함께 보기', '함께'); fol.setAttribute('aria-pressed', 'true');
         fol.title = '지금은 팀과 함께 보는 중 — 눌러서 「혼자 보기」(남의 정보 안 받기)';
       } else fol.style.display = 'none';
       if (folm) {                                                         // v6 — 메트로놈 따라가기 칩은 없앰
@@ -1669,7 +1722,10 @@
         } else folm.style.display = 'none';
       }
       P.emit('conn', st); if (!rtPop.hidden) rtPaint();
+      var csig = conn.className + '|' + lead.style.display + lead.textContent + '|' + fol.style.display + fol.textContent;      // 알약 폭이 바뀌었으면 막대를 다시 잼
+      if (csig !== S.chipSig) { S.chipSig = csig; if (!S.compact && typeof fitSoon === 'function') fitSoon(); }
     }
+    function chipTx(full, short) { return '<span class="pv-lf">' + full + '</span>' + (short ? '<span class="pv-ls">' + short + '</span>' : ''); }
     function connect() {
       if (opts.realtime === false || !root.YNRT || !S.room) { renderChips(); return; }
       rt = root.YNRT.create({ token: opts.token, room: S.room, io: opts.io });
@@ -1768,7 +1824,7 @@
       if (t === 'pen') an.setWidth(slotSizes('pen')[S.sizeIdx]); else if (t === 'hl') an.setWidth(slotSizes('hl')[S.sizeIdx]); else if (t === 'white') an.setWidth(slotSizes('white')[S.sizeIdx]);
       if (fromAnno) { S.symOpen = false; renderTools(); renderSymPop(); P.emit('tool', t); return; }    // v6 — 필기 도구가 스스로 선택·이동으로 바꿈 (지금 누르고 있는 동작은 그대로 이어짐)
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
-      var hint = { white: '흰 지우개: 악보의 지우고 싶은 부분을 하얗게 칠해 가립니다. (필기라서 지우개 · 되돌리기로 다시 보이게 할 수 있어요)', pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: S.symGrp === 'note' ? '음표: 위에서 온음표 · 2분 · 4분 · 8분 · 16분음표나 쉼표를 고르고 악보를 눌러 찍습니다. (크기는 아래 숫자칸, 옮기기는 선택·이동)' : '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
+      var hint = { white: '흰 지우개: 악보의 지우고 싶은 부분을 하얗게 칠해 가립니다. (필기라서 지우개 · 되돌리기로 다시 보이게 할 수 있어요)', pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: S.symGrp === 'note' ? '음표: 위에서 온음표 · 2분 · 4분 · 8분 · 16분음표나 쉼표를 고르고 악보를 눌러 찍습니다. (크기는 아래 숫자칸, 옮기기는 선택·이동)' : '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', lasso: '올가미: 악보 위에 고리를 그리면 그 안의 펜 · 형광펜 · 글자 · 기호 · 라벨이 한꺼번에 골라집니다. 끌어서 옮기고, 모서리 손잡이로 크기를 바꾸고, ✕ 로 지웁니다. (↶ 로 되돌리기)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
       if (hint && !quiet) toast(hint, false, 2600);
     }
     function renderTools() {
@@ -1790,13 +1846,18 @@
           '<span class="pv-numbtns"><button type="button" class="pv-nb" data-step="1" aria-label="크기 키우기" title="크기 키우기"' + lock + '>▲</button><button type="button" class="pv-nb" data-step="-1" aria-label="크기 줄이기" title="크기 줄이기"' + lock + '>▼</button></span></span></div>' +
         (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + '</div>';
       if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 눌러 선택하세요. 선택한 뒤 끌면 옮겨지고, 쓴 사람이 보입니다.</div>';
+      if (S.tool === 'lasso') {                                                       // v9.16 — 올가미: 고른 개수 · 함께 지우기
+        var nL = an.lassoCount ? an.lassoCount() : 0;
+        fontRow = nL ? '<div class="pv-tg pv-lassorow"><span class="pv-lassocount">' + nL + '개 선택</span><button type="button" class="pv-tool sm pv-del" data-a="lassodel" title="고른 필기 모두 지우기 (Delete)"><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button><button type="button" class="pv-tool sm" data-a="lassooff" title="선택 해제 (Esc)"><span class="ic">' + I('close') + '</span><span class="nm">해제</span></button></div>'
+          : '<div class="pv-tg pv-selhint">악보 위에 고리를 그려 그 안의 필기를 한꺼번에 고르세요. 고른 뒤 끌면 옮겨지고, 모서리 손잡이로 크기, ✕ 로 지웁니다.</div>';
+      }
       /* 복사 · 붙여넣기 — 선택한 것을 복사하고, 복사해 둔 것이 있으면 어느 쪽에서든 붙여넣기 (키보드: Ctrl/⌘+C · V · D) */
       var canClip = !opts.readOnly && an.copySelected, hasClip = canClip && an.hasClip();
       var clipRow = !canClip || (!sel && !(hasClip && S.tool !== 'none')) ? '' : '<div class="pv-tg pv-cliprow">' +
         (sel ? '<button type="button" class="pv-tool sm" data-a="copysel" title="선택한 것 복사 (Ctrl/⌘+C)"><span class="ic">' + I('copy') + '</span><span class="nm">복사</span></button>' : '') +
         (hasClip ? '<button type="button" class="pv-tool sm" data-a="paste" title="붙여넣기 (Ctrl/⌘+V)"><span class="ic">' + I('paste') + '</span><span class="nm">붙여넣기</span></button>' : '') + '</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
-      var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
+      var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' :
         '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
@@ -1805,7 +1866,7 @@
         colRow +
         fontRow + clipRow +
         fbRow +
-        (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { var k = sizeKey(), sv = slotSizes(k); return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[k] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + (SZ_RANGE[k] ? ' — 한 번 더 누르면 굵기 조절' : '') + '"><i style="--s:' + slotDot(k, sv[i], i) + 'px"></i></button>'; }).join('') +
+        (S.tool === 'select' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { var k = sizeKey(), sv = slotSizes(k); return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[k] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + (SZ_RANGE[k] ? ' — 한 번 더 누르면 굵기 조절' : '') + '"><i style="--s:' + slotDot(k, sv[i], i) + 'px"></i></button>'; }).join('') +
           (SZ_RANGE[sizeKey()] && S.szEdit >= 0 ? (function () { var k = sizeKey(), r = SZ_RANGE[k], v = slotSizes(k)[S.szEdit]; return '<div class="pv-szpop" role="group" aria-label="굵기 ' + (S.szEdit + 1) + ' 조절"><span>굵기 ' + (S.szEdit + 1) + '</span><input type="range" data-szr min="' + r[0] + '" max="' + r[1] + '" step="' + (k === 'pen' ? 0.0002 : 0.001) + '" value="' + v + '" aria-label="굵기"><i class="pv-szprev" style="--s:' + slotDot(k, v, S.szEdit) + 'px"></i><button type="button" class="pv-szok" data-a="szok">완료</button></div>'; })() : '') + '</div>') +
         '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">' + I('undo') + '</span><span class="nm">취소</span></button>' +
           '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">' + I('redo') + '</span><span class="nm">다시</span></button>' +
@@ -1836,6 +1897,8 @@
       else if (a === 'clearpg') { var n = an.clearPage(S.layer, false); if (n) toast(n + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.'); renderTools(); }
       else if (a === 'copysel') { doCopy(); }
       else if (a === 'paste') { doPaste(); }
+      else if (a === 'lassodel') { var nd = an.lassoDelete ? an.lassoDelete() : 0; if (nd) toast(nd + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.', false, 1600); renderTools(); }
+      else if (a === 'lassooff') { an.deselect(); renderTools(); }
       else if (a === 'delsel') { if (an.deleteSelected()) { toast('지웠습니다. ↶ 로 되돌릴 수 있어요.', false, 1600); } renderTools(); }
       else if (a === 'scope') { if (!S.room) toast('이 곡에만 붙일 수 있습니다.'); else setScope(S.scope === 'song' ? 'date' : 'song'); }
     });
@@ -2041,7 +2104,7 @@
       else if (a === 'theme') {                                                  // v6.3 — 라이브 악보도 ☀️ / 🌙 (포털 · 허브와 같은 설정)
         var toLight = doc.documentElement.getAttribute('data-theme') !== 'light';
         try { if (window.YNTheme && window.YNTheme.set) window.YNTheme.set(toLight ? 'light' : 'dark', b); else { if (toLight) doc.documentElement.setAttribute('data-theme', 'light'); else doc.documentElement.removeAttribute('data-theme'); localStorage.setItem('ynTheme', toLight ? 'light' : 'dark'); } } catch (e) {}
-        b.innerHTML = I(toLight ? 'moon' : 'sun');
+        b.innerHTML = themeBtnHtml(toLight);
       }
       else if (a === 'fs') setFs(!S.fs); else if (a === 'fs-bar') fsBar(!el.classList.contains('pv-fsbar-on')); else if (a === 'fs-tools') { setTools(el.classList.contains('pv-toolshide'), false); fsBar(true); } else if (a === 'fs-panel') { toggleSide(); fsBar(true); }
       else if (a === 'pdf') exportPdf(false); else if (a === 'rtmenu') rtOpen(rtPop.hidden); else if (a === 'panel') toggleSide(); else if (a === 'follow') { if (S.manual) setManual(false); else setFollow(!S.follow); } else if (a === 'followm') setFollowM(!S.followM); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
@@ -2268,7 +2331,7 @@
       if (mod && (k === 'd' || k === 'D') && an.selected && an.selected() && !opts.readOnly) { e.preventDefault(); if (doCopy()) doPaste(); return; }   // Ctrl/⌘+D = 바로 복제
       if (mod) return;
       if (e.altKey) {                                                                  // 필기 도구 단축키는 Alt+글자 (글자만 누르는 키는 콜아웃에 씁니다)
-        var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyC: 'chord', KeyS: 'sym', KeyN: 'note', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
+        var tm = { KeyV: 'none', KeyP: 'pen', KeyH: 'hl', KeyT: 'text', KeyM: 'select', KeyL: 'lasso', KeyC: 'chord', KeyS: 'sym', KeyN: 'note', KeyB: 'fbox', KeyE: 'eraser' }[e.code];
         if (tm) { e.preventDefault(); setTool(tm); }
         return;
       }
@@ -2280,6 +2343,7 @@
       if ((k === 'n' || k === 'N') && !e.shiftKey && !e.repeat && P.metroKey) { var rn = P.metroKey('count'); if (rn) { e.preventDefault(); return; } }   // V842 — N = 숫자로 세기 (누르는 순간이 1박)
       var cue = cueFromKey(e);                                                         // 콜아웃 단축키 (i v c p b r t · Shift+P 기도 · Shift+R 한 번 더 · 1 2 3 = 1·2·3절)
       if (cue) { if (P.cueKey) { var cr = e.repeat ? { ok: true } : P.cueKey(cue); if (cr) { e.preventDefault(); return; } } return; }
+      if ((k === 'Delete' || k === 'Backspace') && an.lassoCount && an.lassoCount()) { e.preventDefault(); an.lassoDelete(); renderTools(); return; }
       if ((k === 'Delete' || k === 'Backspace') && an.selected && an.selected()) { e.preventDefault(); an.deleteSelected(); renderTools(); return; }
       var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc' };
       var m = map[k]; if (!m) return;
@@ -2291,7 +2355,7 @@
       e.preventDefault();
       if (m === 'n') nextPage(true); else if (m === 'p') prevPage(true); else if (m === 'zi') setZoom(S.zoom * 1.2, true); else if (m === 'zo') setZoom(S.zoom / 1.2, true);
       else if (m === 'zf') { S.zoom = 1; renderPage(); sendNav(); }
-      else if (m === 'esc') { if (S.fs) setFs(false); else if (an.selected && an.selected()) { an.deselect(); renderTools(); } else if (el.classList.contains('pv-drawopen')) setDrawer(false); else if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
+      else if (m === 'esc') { if (S.fs) setFs(false); else if ((an.selected && an.selected()) || (an.lassoCount && an.lassoCount())) { an.deselect(); renderTools(); } else if (el.classList.contains('pv-drawopen')) setDrawer(false); else if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
     }
     /* 필기 복사 · 붙여넣기 — 앱 안에서 기억한 항목(모양 · 색 그대로) + 시스템 클립보드에도 글을 넣어 둠.
        붙여넣을 때 클립보드 글이 방금 복사한 것이면 그 항목을, 다른 앱에서 복사한 글이면 새 글자로 붙임 */
@@ -2444,8 +2508,8 @@
       });
     }
     var fltGrp = doc.createElement('div'); fltGrp.className = 'pv-grp pv-flts'; fltGrp.setAttribute('role', 'group'); fltGrp.setAttribute('aria-label', '떠 있는 창 보이기');
-    fltGrp.innerHTML = SHOWS.map(function (s) { return '<button type="button" class="pv-b pv-flt" data-k="' + s[0] + '" aria-pressed="true" aria-label="' + s[2] + '" title="' + s[2] + '">' + I(s[1]) + '</button>'; }).join('');
-    $('.pv-top').insertBefore(fltGrp, $('.pv-fsbtn'));
+    fltGrp.innerHTML = SHOWS.map(function (s) { return '<button type="button" class="pv-b pv-flt" data-k="' + s[0] + '" aria-pressed="true" aria-label="' + s[2] + ' 창" title="' + s[2] + '">' + I(s[1]) + '<span class="pv-mt">' + s[2] + ' 창</span></button>'; }).join('');
+    (function () { var ac = el.querySelector('.pv-acts'); if (ac) ac.insertBefore(fltGrp, ac.querySelector('.pv-mpdf')); else $('.pv-top').insertBefore(fltGrp, $('.pv-fsbtn')); })();     // v9.16 — 떠 있는 창 보이기는 「⋯」 안에
     fltGrp.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('.pv-flt') : null; if (!b) return;
       var k = b.getAttribute('data-k'), on = !showOn(k); ls('show.' + k, on ? '1' : '0'); paintShows();
@@ -2589,6 +2653,7 @@
       P.floatWin = function (k, node, def) { return makeFloat(k, node, def); };            // v6.1 — 패널이 만드는 떠 있는 창 (시작음 피아노)
       P.floatPlace = function (k) { requestAnimationFrame(function () { flPlace(k); }); };
       try { if (P.metroCircle) mcApi = P.metroCircle(); } catch (e) { mcApi = null; }
+      try { if (P.metroHeader) P.metroHeader($('.pv-metbtn')); } catch (e) { /* 위 막대 메트로놈 단추가 없어도 송폼 창 · 패널의 메트로놈은 그대로 */ }
       try { if (P.beatStrip) fsApi = P.beatStrip('form'); } catch (e) { fsApi = null; }      // V848 — 송폼 창: 저장 · 박 흐름 · 1234 · 1박 · ×2 · 숫자로 · 3·2·1
       applyFormSize(); paintShows(); paintForm();
       P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm); P.on('songedit', paintForm); P.on('songs', paintForm);   // V838 — 송폼을 고치면 떠 있는 송폼 창도 바로 바뀜
