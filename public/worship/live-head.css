@@ -28,7 +28,7 @@ html body .pv .pv-top .pv-songpill .pv-sheetwrap {
 html body .pv .pv-top .pv-songpill .pv-sheetic { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; pointer-events: none; color: var(--lg-sub, #A9ABB6); }
 html body .pv .pv-top .pv-songpill .pv-sheetic .yi { width: 17px; height: 17px; }
 html body .pv .pv-top .pv-songpill .pv-sheetwrap .pv-sel { flex: 1 1 auto; width: 100%; padding: 0 22px 0 28px; font-size: 12.5px; font-weight: 600; color: var(--lg-sub, #A9ABB6); }
-html body .pv .pv-top .pv-songpill .pv-sel:focus-visible { outline: 2px solid var(--lg-a2, #ffb066); outline-offset: -2px; }
+html body .pv .pv-top .pv-songpill .pv-sel:focus-visible { outline: 2px solid var(--lg-a2, #e2cb9c); outline-offset: -2px; }
 html body .pv .pv-top .pv-songpill .pv-sel option { color: #111827; }
 html body .pv .pv-top .pv-songpill .pv-songinfo { display: none !important; }
 /* 보조 칸이 필요 없으면(.pv-nosub — 찬양방송팀 허브: 이 페이지의 곡 칸이 없음) 알약 = 주 칸 하나 */
@@ -73,10 +73,10 @@ html body .pv .pv-top .pv-metbtn { display: inline-flex; align-items: center; ju
 html body .pv .pv-top .pv-metbtn .yi { width: 20px; height: 20px; flex: none; }
 html body .pv .pv-metbtn .pv-metbpm { font-size: 12.5px; font-weight: 800; letter-spacing: -.02em; color: var(--lg-sub, #A9ABB6); }
 html body .pv .pv-metbpm:empty { display: none; }
-html body .pv .pv-top .pv-metbtn.on { background: var(--lg-a-grad, linear-gradient(135deg, #FFB067, #FF8A3D)) !important; color: var(--lg-a-ink, #1A0E05) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lg-a-glow, 0 8px 24px -6px rgba(255, 122, 40, .55)) !important; }
+html body .pv .pv-top .pv-metbtn.on { background: var(--lg-a-grad, linear-gradient(135deg, #D9C08D, #CFAE6E)) !important; color: var(--lg-a-ink, #1A0E05) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lg-a-glow, 0 8px 24px -6px rgba(201, 165, 94, .55)) !important; }
 html body .pv .pv-top .pv-metbtn.on .pv-metbpm { color: inherit; }
 html body .pv .pv-top .pv-metbtn.on.b { transform: scale(1.06); }
-html body .pv .pv-top .pv-metbtn.on.b0 { box-shadow: 0 0 0 3px rgba(255, 138, 61, .35), 0 0 18px rgba(255, 138, 61, .7) !important; }
+html body .pv .pv-top .pv-metbtn.on.b0 { box-shadow: 0 0 0 3px rgba(207, 174, 110, .35), 0 0 18px rgba(207, 174, 110, .7) !important; }
 html body .pv .pv-top .pv-metbtn.locked:not(.on) { opacity: .6; }
 html body .pv .pv-metbtn { transition: transform .08s ease, box-shadow .12s ease, background .15s ease; }
 
@@ -123,7 +123,7 @@ html body .pv .pv-acts .pv-b:hover, html body .pv-drawer .pv-hx .pv-b:hover { ba
 html body .pv .pv-acts .pv-b .yi, html body .pv-drawer .pv-hx .pv-b .yi { width: 20px; height: 20px; flex: none; }
 html body .pv .pv-acts .pv-mt, html body .pv .pv-drawer .pv-mt { display: inline; }
 html body .pv .pv-acts .pv-flt::after { content: '꺼짐'; margin-left: auto; font-size: 12px; font-weight: 800; color: var(--lg-dim, #6F7280); }
-html body .pv .pv-acts .pv-flt.on::after { content: '켜짐'; color: var(--lg-a-text, #FFC18F); }
+html body .pv .pv-acts .pv-flt.on::after { content: '켜짐'; color: var(--lg-a-text, #E3D0AB); }
 html body .pv .pv-acts .pv-flt.on { background: transparent !important; border-color: transparent !important; }
 html body .pv .pv-acts .pv-editsheet { font-size: 16px !important; }
 html body .pv .pv-acts .pv-editsheet .pv-mt { font-size: 14.5px; }
@@ -176,7 +176,7 @@ html[data-theme="light"] body .pv .pv-ytbtn.on { background: rgba(255, 0, 0, .08
 
 /* ---------- 올가미 도구 줄 ---------- */
 html body .pv .pv-lassorow { display: flex; align-items: center; gap: 6px; }
-html body .pv .pv-lassocount { font-size: 12.5px; font-weight: 800; color: var(--lg-a-text, #FFC18F); white-space: nowrap; padding: 0 4px; }
+html body .pv .pv-lassocount { font-size: 12.5px; font-weight: 800; color: var(--lg-a-text, #E3D0AB); white-space: nowrap; padding: 0 4px; }
 
 /* ---------- v12 — 떠 있는 창마다 ✕ (닫기) · 「⋯」 메뉴의 "떠 있는 창" 칸 ---------- */
 html body .pv .pv-fx {
@@ -188,7 +188,7 @@ html body .pv .pv-fx::after { content: ''; position: absolute; inset: -9px; }   
 html body .pv .pv-fx .yi { width: 13px; height: 13px; }
 html body .pv .pv-fx:hover { background: var(--lg-ctl-hov, rgba(255, 255, 255, .12)); color: var(--lg-ink, #F5F5F7); }
 html body .pv .pv-fx:active { transform: scale(.9); }
-html body .pv .pv-fx:focus-visible { outline: 2px solid var(--lg-a-text, #FFC18F); outline-offset: 2px; }
+html body .pv .pv-fx:focus-visible { outline: 2px solid var(--lg-a-text, #E3D0AB); outline-offset: 2px; }
 html body .pv .pv-form { padding-right: 12px; }
 html body .pv.pv-compact .pv-metro .pv-fx { width: 24px; height: 24px; margin-left: 0; }
 html body .pv .pv-fltlabel { display: none; }
@@ -200,5 +200,5 @@ html body .pv.pv-compact .pv-acts .pv-flt[data-k="tools"] { display: none !impor
 html body .pv .pv-metro .pv-fx { order: 99; }                                                /* 메트로놈 창은 내용이 나중에 들어와도 ✕ 는 맨 오른쪽 위 */
 html body .pv.pv-compact .pv-metro .pv-fx { position: absolute; top: -13px; right: 10px; margin: 0; width: 26px; height: 26px; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); background: var(--lg-glass, #1d1e26); }   /* 폰: 창 폭이 화면을 꽉 채워서 ✕ 는 윗변에 걸치게 */
 html body .pv .pv-help:empty { display: none; }
-html body .pv .pv-yt.pv-yt-sel { outline: 2px solid var(--lg-a-text, #FFC18F); outline-offset: -2px; }       /* 선택된 유튜브 창 — ← → 가 영상 이동 */
+html body .pv .pv-yt.pv-yt-sel { outline: 2px solid var(--lg-a-text, #E3D0AB); outline-offset: -2px; }       /* 선택된 유튜브 창 — ← → 가 영상 이동 */
 

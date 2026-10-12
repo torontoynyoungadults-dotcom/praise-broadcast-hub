@@ -4,14 +4,14 @@
    이 앱의 라이브 악보 화면은 따로 떨어진 화면이라 똑같이 보이도록 여기에 모았습니다 (줄 번호는 Theme.html 기준).
    ============================================================ */
 /* views/Worship.html 7행 — 찬양 허브 화면의 강조색 */
-:root { --accent: #F2A074; --tone-rgb: 242,160,116; }
+:root { --accent: #D2B377; --tone-rgb: 242,160,116; }
 /* Theme.html 12–69 */
 :root {
   /* 강조색 — 페이지에서 --accent 와 --tone-rgb 로 정합니다.
      (--tone-rgb 는 여기서 값을 정하지 않습니다. 정해버리면 페이지 설정을 덮어씁니다) */
-  --tone: var(--accent, #C05931);
-  --tone-soft: rgba(var(--tone-rgb, 192,89,49), .10);
-  --tone-line: rgba(var(--tone-rgb, 192,89,49), .28);
+  --tone: var(--accent, #B58D3C);
+  --tone-soft: rgba(var(--tone-rgb, 181,141,60), .10);
+  --tone-line: rgba(var(--tone-rgb, 181,141,60), .28);
 
   /* 글자 */
   --ink-1: #11201D;
@@ -36,8 +36,8 @@
 
   /* 상태색 */
   --good: #1D7A56;  --good-bg: #E6F2EC;
-  --warn: #7E3B1E;  --warn-bg: #FBF2E1;
-  --bad:  #994825;  --bad-bg:  #FBEADF;
+  --warn: #A17D36;  --warn-bg: #FBF2E1;
+  --bad:  #a17d36;  --bad-bg:  #F2EAD9;
 
   /* 그림자 */
   --sh-1: 0 1px 2px rgba(17,32,29,.05);
@@ -57,7 +57,7 @@
   --orange: var(--tone);
   --danger: var(--bad);
   --low: var(--bad);
-  --mid: #A14822;
+  --mid: #A17D36;
   --mid-bg: var(--bad-bg);
   --absent: var(--bad);
   --absent-bg: var(--bad-bg);
@@ -101,11 +101,11 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
    (따로 꾸민 체크박스는 더 구체적인 규칙이 그대로 이깁니다) */
 input[type="checkbox"], input[type="radio"] {
   -webkit-appearance: auto; appearance: auto; padding: 0; width: 18px; height: 18px; min-height: 0;
-  flex: none; box-shadow: none; accent-color: var(--tone, #F4A272); cursor: pointer; vertical-align: middle;
+  flex: none; box-shadow: none; accent-color: var(--tone, #D6B97F); cursor: pointer; vertical-align: middle;
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--tone) !important;
-  box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 192,89,49), .15);
+  box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 181,141,60), .15);
 }
 input::placeholder, textarea::placeholder { color: var(--ink-4); }
 input:disabled, select:disabled, textarea:disabled {
@@ -125,11 +125,11 @@ html[data-theme="light"] {
   --lt-bg: #F2F7F4; --lt-card: #FFFFFF; --lt-card-2: #F9FBFA; --lt-sunk: #ECF5F1;
   --lt-ink: #122722; --lt-ink-2: #2c5c51; --lt-ink-3: #678880; --lt-ink-4: #9AB2AC;
   --lt-line: rgba(18,39,34,.09); --lt-line-2: rgba(18,39,34,.16);
-  --lt-or: #F39E70; --lt-or-ink: #A94B1F; --lt-or-soft: rgba(243,158,112,.14); --lt-on-or: #17302A;   /* v6.1 — 밝은 화면 메인 색 #F39E70 (글씨용은 진한 청록 #A94B1F · 색 칸 위 글씨 #17302A) */
+  --lt-or: #1F4A3F; --lt-or-ink: #8A5F22; --lt-or-soft: rgba(31,74,63,.14); --lt-on-or: #15211D;   /* v6.1 — 밝은 화면 메인 색 #F39E70 (글씨용은 진한 청록 #A94B1F · 색 칸 위 글씨 #17302A) */
   --lt-sh-1: 0 1px 2px rgba(18,39,34,.05);
   --lt-sh-2: 0 1px 2px rgba(18,39,34,.04), 0 6px 20px rgba(18,39,34,.06);
-  --lt-ring: 0 0 0 3px rgba(243,158,112,.32);
-  --accent: #F39E70 !important; --tone: #F39E70 !important; --tone-rgb: 243,158,112 !important;   /* v6.1 — 모든 페이지의 강조색이 밝은 화면에서는 #F39E70 (관리 화면이 영역마다 넣는 색보다 우선) */
+  --lt-ring: 0 0 0 3px rgba(31,74,63,.32);
+  --accent: #1F4A3F !important; --tone: #1F4A3F !important; --tone-rgb: 243,158,112 !important;   /* v6.1 — 모든 페이지의 강조색이 밝은 화면에서는 #F39E70 (관리 화면이 영역마다 넣는 색보다 우선) */
 }
 html[data-theme="light"] body { background: var(--lt-bg); color: var(--lt-ink); }
 /* Theme.html 1840–1846 */

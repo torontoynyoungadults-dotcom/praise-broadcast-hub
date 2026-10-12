@@ -14,7 +14,7 @@
   function applyTheme(t, auto) {
     root.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
     if (!auto) { if (window.PHThemeMode) window.PHThemeMode.setManual(theme()); else put(THEME_KEY, theme()); }
-    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#D6EDE3' : '#0D1A19');
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#F4F2EC' : '#0D1110');
     paint();
   }
 

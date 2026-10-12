@@ -1,131 +1,134 @@
-/* 찬양방송팀 허브 — V11 테마: 토론토영락교회 주일예배 배너 · 앱 아이콘의 팔레트
-   "푸른 청록(민트 · 세이지)이 바탕 + 크림 · 연한 주황 · 노랑이 보조 + 산호 주황이 포인트(주 단추 · 지금 탭 · 중요한 숫자)".
-   라이트 = 민트 → 크림 → 따뜻한 살구 하늘 위의 흰 유리 · 진한 숲색 글씨 / 다크 = 깊은 청록 먹색 유리 · 크림 글씨.
-   두 화면 모두 반투명 유리(블러 · 얇은 밝은 테두리 · 부드러운 그림자). 강하지 않게, 차분하고 고급스럽게.
-   아이콘 팔레트: 민트 #BFE6DA → 크림 #FCF3D2 → 살구 #F4A872 · 진한 숲색 #1F5A4C · 산호 #F08A5D */
+/* 찬양방송팀 허브 — V12 디자인 시스템 "Evergreen & Brass"
+   차분하고 단정한 고급스러움 — 따뜻한 상아색 종이 바탕 · 깊은 상록(에버그린) 잉크 · 절제된 황동(브라스) 포인트.
+   라이트 = 상아 종이 위 흰 카드(가는 선 + 부드러운 겹그림자) · 주 단추는 상록 / 다크 = 먹색 위 짙은 카드 · 주 단추는 샴페인 골드.
+   유리(블러) 효과는 걷어내고(태블릿에서 무겁고 글씨가 흐려짐) 불투명한 면 + 가는 선 + 섬세한 그림자로 깊이를 냅니다.
+   맨 위 배너(마스트헤드)는 두 화면 모두 깊은 상록 밤하늘 — 앱의 얼굴이 늘 같은 인상이 되도록. */
 
 :root {
   color-scheme: dark;
-  --bg: #0D1A19;
-  --bg-2: #132523;
-  --ink: #F4EEDC;
-  --sub: #C3CFC4;
-  --dim: #8FA69D;
-  --glass: rgba(190,235,220,.07);
-  --glass-2: rgba(190,235,220,.12);
-  --line: rgba(190,235,220,.16);
-  --line-hi: rgba(255,243,215,.30);
-  --inset-hi: rgba(255,243,215,.10);
-  --glass-blur: blur(18px) saturate(150%);
-  /* 포인트 = 산호 주황 (단추 · 지금 탭 · 중요한 숫자) · 보조 = 민트 · 살구 · 노랑 */
-  --accent: #F4A272;
-  --accent-2: #F8C48C;            /* 단추 그라데이션 끝 — 따뜻한 살구 노랑 */
-  --accent-ink: #F8BC93;          /* 글씨로 쓸 때 (어두운 화면에서는 밝은 산호) */
-  --accent-rgb: 244, 162, 114;
-  --on-accent: #17302A;           /* 산호 칸 위 진한 숲색 글씨 — 대비 6:1 이상 */
-  --mint: #8ED6C1;                /* 보조 강조 — 아이콘 · 머리글 · 가는 선 */
-  --mint-ink: #9ADBC8;
-  --mint-rgb: 142, 214, 193;
-  --good: #86E0B0;
-  --bad: #F27A70;
-  --on-bad: #3A1410;
-  --grid-line: rgba(190,235,220,.035);
-  --radius: 20px;
+  --bg: #0D1110;
+  --bg-2: #161C1A;                /* 입력칸 · 안쪽 면 */
+  --ink: #EDEAE2;
+  --sub: #B6BDB8;
+  --dim: #858F8A;
+  --glass: #131917;               /* 카드 면 (예전 이름 그대로 — 이제는 불투명) */
+  --glass-2: #1A211F;             /* 카드 안의 한 단 올라온 면 · 보조 단추 */
+  --line: rgba(237,234,226,.09);
+  --line-hi: rgba(237,234,226,.16);
+  --inset-hi: rgba(255,255,255,.035);
+  --glass-blur: none;
+  /* 주 강조 = 샴페인 골드 (주 단추 · 지금 탭 · 지금 주) */
+  --accent: #D6B97F;
+  --accent-2: #C9A869;
+  --accent-ink: #DDC28E;
+  --accent-rgb: 214, 185, 127;
+  --on-accent: #1A160E;
+  --brass: #C9A869;
+  --mint: #8EBFAE;                /* 보조 강조 — 아이콘 · 머리글 · 가는 선 */
+  --mint-ink: #9CC8B8;
+  --mint-rgb: 142, 191, 174;
+  --good: #7FCFA5;
+  --bad: #EA7B6E;
+  --on-bad: #1E0C09;
+  --grid-line: transparent;
+  --radius: 16px;
+  --radius-sm: 11px;
   --font-scale: 1;
-  --card-shadow: 0 12px 30px rgba(0,0,0,.30);
+  --card-shadow: 0 1px 0 rgba(255,255,255,.02), 0 18px 40px -24px rgba(0,0,0,.75);
+  --ease: cubic-bezier(.2,.7,.2,1);
 
-  /* 히어로 — 깊은 청록 밤하늘 + 지평선의 따뜻한 빛 (다크) */
-  --hero-sky-1: #0E2A2B;
-  --hero-sky-2: #2A6459;
-  --hero-sky-3: #E0A16E;
-  --hero-sun: #FFE3B8;
-  --hero-sun-glow: rgba(247,176,120,.56);
-  --hero-mtn-1: #1C4742;
-  --hero-mtn-2: #123530;
-  --hero-mtn-3: #0B2420;
-  --hero-win: .6;
-  --hero-scrim: rgba(7,22,20,.62);
-  --hero-scrim-mid: rgba(7,22,20,.28);
-  --hero-ink: #FFF8E8;
-  --hero-ink-sub: rgba(255,248,232,.86);
-  --hero-tool-ink: #FFF8E8;
+  /* 마스트헤드 — 깊은 상록 밤하늘 + 지평선의 은은한 황동빛 */
+  --hero-sky-1: #0B1A17;
+  --hero-sky-2: #14302A;
+  --hero-sky-3: #3E4A33;
+  --hero-sun: #E9D3A4;
+  --hero-sun-glow: rgba(214,185,127,.30);
+  --hero-mtn-1: #173229;
+  --hero-mtn-2: #10261F;
+  --hero-mtn-3: #0A1A15;
+  --hero-win: .55;
+  --hero-scrim: rgba(7,16,13,.78);
+  --hero-scrim-mid: rgba(7,16,13,.32);
+  --hero-ink: #F5F0E4;
+  --hero-ink-sub: rgba(245,240,228,.72);
+  --hero-tool-ink: #F5F0E4;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #EDF4E9;
-  --bg-2: #FBFCF6;
-  --ink: #153B31;
-  --sub: #3B5A50;
-  --dim: #587068;
-  --glass: rgba(255,255,255,.56);
-  --glass-2: rgba(255,255,255,.76);
-  --line: rgba(21,59,49,.14);
-  --line-hi: rgba(255,255,255,.9);
-  --inset-hi: rgba(255,255,255,.75);
-  --accent: #F29468;
-  --accent-2: #F7BC84;
-  --accent-ink: #A94B1F;          /* 밝은 화면에서 글씨로 쓰는 진한 산호 — 크림 바탕 위 대비 5:1 이상 */
-  --accent-rgb: 242, 148, 104;
-  --on-accent: #17302A;
-  --mint: #2F8F7E;
-  --mint-ink: #1F6B5D;
-  --mint-rgb: 47, 143, 126;
-  --good: #2A7F55;
-  --bad: #C2402F;
+  --bg: #F4F2EC;
+  --bg-2: #FCFBF8;
+  --ink: #15211D;
+  --sub: #48544F;
+  --dim: #7A847F;
+  --glass: #FFFFFF;
+  --glass-2: #F8F6F1;
+  --line: rgba(21,33,29,.10);
+  --line-hi: rgba(21,33,29,.16);
+  --inset-hi: rgba(255,255,255,.9);
+  --accent: #1F4A3F;              /* 상록 — 주 단추 · 지금 탭 */
+  --accent-2: #2A5C4F;
+  --accent-ink: #8A5F22;          /* 글씨로 쓰는 강조 = 진한 황동 (상아 바탕 위 대비 5:1 이상) */
+  --accent-rgb: 31, 74, 63;
+  --on-accent: #FBF8F1;
+  --brass: #A67C3A;
+  --mint: #2E6A5B;
+  --mint-ink: #245548;
+  --mint-rgb: 46, 106, 91;
+  --good: #2A7552;
+  --bad: #B8432F;
   --on-bad: #FFFFFF;
-  --grid-line: rgba(21,59,49,.04);
-  --card-shadow: 0 12px 28px rgba(31,90,76,.10);
+  --grid-line: transparent;
+  --card-shadow: 0 1px 2px rgba(21,33,29,.04), 0 12px 32px -18px rgba(21,33,29,.18);
 
-  /* 히어로 — 민트 하늘 → 크림 → 살구 (라이트) · 연한 숲색 스카이라인 */
-  --hero-sky-1: #BDE3D8;
-  --hero-sky-2: #F7EFCB;
-  --hero-sky-3: #F2B07C;
-  --hero-sun: #FFF4D6;
-  --hero-sun-glow: rgba(255,208,150,.75);
-  --hero-mtn-1: #B2D3C7;
-  --hero-mtn-2: #86B6A5;
-  --hero-mtn-3: #5E9B88;
-  --hero-win: .0;
-  --hero-scrim: rgba(246,243,222,.86);
-  --hero-scrim-mid: rgba(246,243,222,.46);
-  --hero-ink: #143A31;
-  --hero-ink-sub: #2D5246;
-  --hero-tool-ink: #17352D;
+  /* 마스트헤드 — 밝은 화면에서도 깊은 상록 (상아 바탕 위에서 또렷한 얼굴) */
+  --hero-sky-1: #10261F;
+  --hero-sky-2: #1C3E34;
+  --hero-sky-3: #4B5638;
+  --hero-sun: #EAD6A8;
+  --hero-sun-glow: rgba(222,193,135,.34);
+  --hero-mtn-1: #1E3D33;
+  --hero-mtn-2: #152F27;
+  --hero-mtn-3: #0E221C;
+  --hero-win: .5;
+  --hero-scrim: rgba(9,22,18,.74);
+  --hero-scrim-mid: rgba(9,22,18,.28);
+  --hero-ink: #F7F2E6;
+  --hero-ink-sub: rgba(247,242,230,.74);
+  --hero-tool-ink: #F7F2E6;
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+html { background: var(--bg); }
 body {
   margin: 0;
   overflow-x: hidden; /* 안전장치: 자식 요소 폭 계산이 잘못돼도 화면 전체가 가로로 밀리지 않게 */
   background:
-    radial-gradient(1000px 640px at 10% -10%, rgba(var(--mint-rgb),.16), transparent 60%),
-    radial-gradient(900px 620px at 92% 112%, rgba(var(--accent-rgb),.10), transparent 58%),
-    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 30px),
-    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 30px),
+    radial-gradient(1100px 520px at 50% -180px, rgba(var(--accent-rgb),.10), transparent 70%),
     var(--bg);
-  background-attachment: fixed;
   color: var(--ink);
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
   font-size: calc(17px * var(--font-scale));
-  line-height: 1.65;
+  line-height: 1.62;
   min-height: 100vh;
-  letter-spacing: -.003em;
+  letter-spacing: -.011em;
+  word-break: keep-all;             /* 한글이 낱자 단위로 끊기지 않게 ("어쿠기/타" → "어쿠기타") */
+  overflow-wrap: break-word;        /* 대신 아주 긴 낱말(링크 등)은 칸 안에서 접힘 (칸 최소 폭은 그대로) */
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* 라이트: 민트 → 크림 → 따뜻한 살구 하늘 (주일예배 배너처럼, 아주 은은하게) */
+/* 라이트: 상아 종이 — 맨 위만 아주 옅은 따뜻한 빛 */
 :root[data-theme="light"] body {
   background:
-    radial-gradient(900px 560px at 88% 4%, rgba(255,236,190,.55), transparent 62%),
-    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 30px),
-    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 30px),
-    linear-gradient(180deg, #D3EDE3 0%, #E6F1DD 30%, #F6EFD2 64%, #F9E1C5 100%);
-  background-attachment: fixed;
+    radial-gradient(1100px 520px at 50% -200px, rgba(166,124,58,.09), transparent 70%),
+    var(--bg);
 }
+::selection { background: rgba(var(--accent-rgb),.22); }
 
 input[type=checkbox], input[type=radio], input[type=range] { accent-color: var(--accent); }
 a { color: var(--accent-ink); text-decoration: none; }
-:where(:root:not([data-theme="light"])) a { color: var(--mint-ink); }
+:where(:root:not([data-theme="light"])) a { color: var(--accent-ink); }
 
 /* ---------- 작은 유리 단추 (공개 콘티의 ‹ › 등) — 예전 상단바는 없애고 도구를 맨 위 배너 안으로 옮겼습니다 ---------- */
 .ph-icon-btn {
@@ -585,11 +588,11 @@ a { color: var(--accent-ink); text-decoration: none; }
 .ph-eqitemname { font-weight: 800; font-size: 15px; }
 .ph-eqresults { display: flex; gap: 6px; margin-top: 8px; }
 .ph-eqresbtn { flex: 1; min-height: 38px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--glass-2); color: var(--sub); font-weight: 700; font-size: 13.5px; cursor: pointer; }
-.ph-eqresbtn.on.ok { background: #1f8a4c; border-color: #1f8a4c; color: #fff; }
+.ph-eqresbtn.on.ok { background: var(--good); border-color: var(--good); color: #fff; }
 .ph-eqresbtn.on.bad { background: var(--bad); border-color: var(--bad); color: var(--on-bad); }
 .ph-eqresbtn.on:not(.ok):not(.bad) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .ph-eqbadge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--glass-2); border: 1px solid var(--line); color: var(--sub); margin-left: 6px; vertical-align: middle; }
-.ph-eqbadge.ok { background: color-mix(in srgb, #1f8a4c 18%, var(--bg-2)); border-color: #1f8a4c; color: #1f8a4c; }
+.ph-eqbadge.ok { background: color-mix(in srgb, var(--good) 18%, var(--bg-2)); border-color: var(--good); color: var(--good); }
 .ph-eqbadge.bad { background: color-mix(in srgb, var(--bad) 15%, var(--bg-2)); border-color: var(--bad); color: var(--bad); }
 .ph-eqpri { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--bad); color: var(--on-bad); margin-left: 6px; }
 .ph-eqphotos { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
@@ -690,16 +693,16 @@ a { color: var(--accent-ink); text-decoration: none; }
    다크 글래스모피즘 · 주황 포인트 — 자체 변수(--g-*, --c-*)를 쓰므로 바깥 테마와 안 겹침.
    ============================================================ */
 .fb, .fp {
-  --g-bg: rgba(16, 33, 30, .76); --g-bg2: rgba(28, 54, 49, .62); --g-solid: #101f1c;
-  --g-line: rgba(190, 235, 220, .16); --g-line2: rgba(190, 235, 220, .27);
-  --g-ink: #F4EEDC; --g-sub: #C3CFC4; --g-dim: #94ABA2;
-  --g-a: #F4A272; --g-a2: #F8BC93; --g-a-rgb: 244, 162, 114; --g-ok: #86E0B0; --g-bad: #F27A70;
+  --g-bg: #161C1A; --g-bg2: #1C2321; --g-solid: #121715;
+  --g-line: rgba(237, 234, 226, .09); --g-line2: rgba(237, 234, 226, .16);
+  --g-ink: #EDEAE2; --g-sub: #B6BDB8; --g-dim: #858F8A;
+  --g-a: #D6B97F; --g-a2: #DDC28E; --g-a-rgb: 214, 185, 127; --g-ok: #7FCFA5; --g-bad: #EA7B6E;
 }
 :root[data-theme="light"] .fb, :root[data-theme="light"] .fp {
-  --g-bg: rgba(255, 255, 255, .86); --g-bg2: rgba(255, 255, 255, .7); --g-solid: #FFFFFF;
-  --g-line: rgba(21, 59, 49, .13); --g-line2: rgba(21, 59, 49, .22);
-  --g-ink: #153B31; --g-sub: #3B5A50; --g-dim: #587068;
-  --g-a: #F29468; --g-a2: #A94B1F; --g-a-rgb: 242, 148, 104; --g-ok: #2A7F55; --g-bad: #B3382A;
+  --g-bg: #FFFFFF; --g-bg2: #F8F6F1; --g-solid: #FFFFFF;
+  --g-line: rgba(21, 33, 29, .10); --g-line2: rgba(21, 33, 29, .17);
+  --g-ink: #15211D; --g-sub: #48544F; --g-dim: #7A847F;
+  --g-a: #1F4A3F; --g-a2: #8A5F22; --g-a-rgb: 31, 74, 63; --g-ok: #2A7552; --g-bad: #B8432F;
 }
 .fb button, .fp button { font-family: inherit; }
 .fb { color: var(--g-ink); background: rgba(16, 33, 30, .5); border: 1px solid var(--g-line2); border-radius: 16px; padding: 12px; backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); }
@@ -734,14 +737,14 @@ a { color: var(--accent-ink); text-decoration: none; }
 /* ---------- @태그 칩 + 유튜브 검색 보조 (church-app conti.js 스타일) ---------- */
 /* 곡 칩 · 폼 칩 · @태그 색 — 청록 · 세이지 · 살구 · 모래 · 하늘 · 회청색 (분홍 · 보라 없이 서로 구분되게) */
 :root {
-  --c-bg: rgba(16, 33, 30, .76); --c-bg2: rgba(28, 54, 49, .62); --c-line: rgba(190, 235, 220, .17); --c-line2: rgba(190, 235, 220, .28);
-  --c-ink: #F4EEDC; --c-sub: #C3CFC4; --c-dim: #94ABA2; --c-a: #F4A272; --c-a2: #F8BC93; --c-a-rgb: 244, 162, 114; --c-ok: #86E0B0; --c-bad: #F58A7E;
-  --c-sky: #8CC6E4; --c-lav: #AEB9D6; --c-rose: #C9D88F; --c-mint: #8ED6C1; --c-sun: #F2D488;
+  --c-bg: #161C1A; --c-bg2: #1C2321; --c-line: rgba(237, 234, 226, .10); --c-line2: rgba(237, 234, 226, .17);
+  --c-ink: #EDEAE2; --c-sub: #B6BDB8; --c-dim: #858F8A; --c-a: #D6B97F; --c-a2: #DDC28E; --c-a-rgb: 214, 185, 127; --c-ok: #7FCFA5; --c-bad: #EA7B6E;
+  --c-sky: #93BCD6; --c-lav: #AEB4CF; --c-rose: #BFCB94; --c-mint: #8EBFAE; --c-sun: #D9C08A;
 }
 :root[data-theme="light"] {
-  --c-bg: rgba(255, 255, 255, .86); --c-bg2: rgba(255, 255, 255, .7); --c-line: rgba(21, 59, 49, .13); --c-line2: rgba(21, 59, 49, .22);
-  --c-ink: #153B31; --c-sub: #3B5A50; --c-dim: #587068; --c-a: #F29468; --c-a2: #A94B1F; --c-a-rgb: 242, 148, 104; --c-ok: #2A7F55; --c-bad: #B3382A;
-  --c-sky: #2F6F99; --c-lav: #53638F; --c-rose: #5F7A2E; --c-mint: #1F7A6A; --c-sun: #8F6A0D;
+  --c-bg: #FFFFFF; --c-bg2: #F8F6F1; --c-line: rgba(21, 33, 29, .10); --c-line2: rgba(21, 33, 29, .17);
+  --c-ink: #15211D; --c-sub: #48544F; --c-dim: #7A847F; --c-a: #1F4A3F; --c-a2: #8A5F22; --c-a-rgb: 31, 74, 63; --c-ok: #2A7552; --c-bad: #B8432F;
+  --c-sky: #2F6585; --c-lav: #4E5A82; --c-rose: #56702A; --c-mint: #24624F; --c-sun: #87651A;
 }
 .cn-mention { margin-top: 10px; }
 .cn-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -1504,3 +1507,287 @@ button.ph-annolink:disabled { opacity: .6; cursor: progress; }
 .ph-stagebtn small { font-size: 12px; font-weight: 650; opacity: .82; }
 .ph-stagebtn .yi { width: 1.1em; height: 1.1em; vertical-align: -0.2em; }
 @media (max-width: 420px) { .ph-livebtns { grid-template-columns: 1fr; } }
+
+/* ======================================================================
+   V12 — 디자인 다듬기 (Evergreen & Brass)
+   맨 위 토큰만 바꾸면 안 바뀌는 곳(배너 · 탭 · 단추 · 달력 띠 · 아바타 · 곡 카드)을 한곳에서 정리합니다.
+   원칙: ① 그라데이션 단추 → 단색 면  ② 유리 블러 → 불투명 면 + 가는 선  ③ 둥근 정도 통일(카드 16 · 칸 11 · 칩 999)
+         ④ 굵기 한 단계 낮추고 자간을 좁혀 단정하게  ⑤ 숫자는 고정폭(tabular)  ⑥ 초점 표시는 또렷하게
+   ====================================================================== */
+
+/* ---------- 글자 · 제목 ---------- */
+.ph-h1 { font-weight: 750; letter-spacing: -.03em; }
+.ph-h2 { font-size: 19px; font-weight: 720; letter-spacing: -.025em; margin-bottom: 12px; }
+.ph-h3 { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--dim); }
+.ph-sub { color: var(--sub); font-size: 15px; line-height: 1.7; }
+b, strong { font-weight: 700; }
+:where(.ph-wstrip-day, .ph-wstrip-ratio, .lu-head b, .ph-pr-main b, .cn-kb, .ph-sctable, .ph-chipname) { font-variant-numeric: tabular-nums; }
+a { transition: color .15s var(--ease); }
+:where(.ph-card) a:not([class]):hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- 마스트헤드(맨 위 배너) — 두 화면 모두 깊은 상록 ---------- */
+.ph-hero, :root[data-theme="light"] .ph-hero {
+  border-radius: 20px; border: 1px solid rgba(255,255,255,.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 24px 48px -28px rgba(8,20,16,.55);
+  isolation: isolate;
+}
+.ph-hero::after {                          /* 아주 옅은 비네트 + 위쪽 하이라이트 — 종이 위 인쇄물 같은 깊이 */
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; border-radius: inherit;
+  background: radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.06), transparent 55%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.ph-fill-mtn1 { opacity: .9; }
+.ph-hero-art circle.ph-fill-sun { opacity: .32; }          /* 해(달)는 은은하게 — 빛무리만 남기고 면은 옅게 */
+.ph-stroke-sun { opacity: .3; }
+.ph-hero-text { padding: 22px 26px 22px; }
+.ph-hero-eyebrow, :root[data-theme="light"] .ph-hero-eyebrow {
+  background: transparent; border: 0; padding: 0; border-radius: 0; margin-bottom: 8px;
+  color: var(--hero-sun); font-size: 12px; font-weight: 650; letter-spacing: .14em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.ph-hero-eyebrow::before { content: ""; width: 18px; height: 1px; background: currentColor; opacity: .7; }
+.ph-hero-title, :root[data-theme="light"] .ph-hero-title { font-size: 30px; font-weight: 700; letter-spacing: -.035em; line-height: 1.2; text-shadow: none; }
+.ph-hero-sub { font-size: 14px; letter-spacing: -.005em; margin-top: 8px; }
+
+/* 배너 안 도구 — 두 화면 모두 어두운 유리 위의 미니멀한 원 */
+.ph-fs, .ph-themesw, .ph-hero-btn,
+:root[data-theme="light"] .ph-fs, :root[data-theme="light"] .ph-themesw, :root[data-theme="light"] .ph-hero-btn {
+  color: var(--hero-tool-ink); background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
+  box-shadow: none; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); height: 36px;
+}
+.ph-hero-btn { width: 36px; transition: background .15s var(--ease); }
+.ph-hero-btn:hover, :root[data-theme="light"] .ph-hero-btn:hover { background: rgba(255,255,255,.14); }
+.ph-hero-btn svg { width: 17px; height: 17px; }
+.ph-themesw { width: 66px; }
+.ph-themesw-i { width: 32px; height: 32px; }
+.ph-themesw-i svg { width: 15px; height: 15px; }
+.ph-themesw-knob, :root[data-theme="light"] .ph-themesw-knob { top: 2px; left: 2px; width: 30px; height: 30px; background: #F3EBDA; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.ph-themesw[aria-checked="true"] .ph-themesw-knob { transform: translateX(30px); }
+.ph-themesw[aria-checked="false"] .ph-themesw-i.dark,
+:root[data-theme="light"] .ph-themesw[aria-checked="true"] .ph-themesw-i.light, .ph-themesw[aria-checked="true"] .ph-themesw-i.light { opacity: 1; color: #1A2420; }
+:root[data-theme="light"] .ph-themesw-i.dark, .ph-themesw-i { color: var(--hero-tool-ink); }
+
+/* 환영 인사 */
+.ph-hero-who { gap: 10px 12px; margin-top: 16px; }
+.ph-who-av { width: 40px; height: 40px; background: #E9DDC2; box-shadow: 0 0 0 1.5px rgba(233,214,168,.65), 0 0 0 4px rgba(233,214,168,.12); }
+.ph-who-ini { color: #1C2A25; font-size: 16px; font-weight: 700; }
+.ph-who-hi, :root[data-theme="light"] .ph-who-hi { font-size: 16.5px; font-weight: 500; text-shadow: none; letter-spacing: -.02em; }
+.ph-who-hi b { font-weight: 700; }
+.ph-who-links { gap: 4px; }
+.ph-who-links a, :root[data-theme="light"] .ph-who-links a {
+  height: 30px; padding: 0 12px; font-size: 13px; font-weight: 600; color: var(--hero-ink-sub);
+  background: transparent; border: 1px solid rgba(255,255,255,.14); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+  transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
+}
+.ph-who-links a:hover, :root[data-theme="light"] .ph-who-links a:hover { background: rgba(255,255,255,.09); color: var(--hero-ink); border-color: rgba(255,255,255,.24); }
+.ph-who-links .ph-who-admin { color: var(--hero-sun) !important; border-color: rgba(233,214,168,.35) !important; }
+@media (max-width: 480px) {
+  .ph-hero { min-height: 0; }
+  .ph-hero-tools { margin: 12px 12px 0; }
+  .ph-hero-text { padding: 26px 18px 18px; }
+  .ph-hero-title, :root[data-theme="light"] .ph-hero-title { font-size: 25px; }
+  .ph-hero-sub { font-size: 13.5px; }
+  .ph-hero-who { margin-top: 14px; gap: 10px; }
+  .ph-who-av { width: 34px; height: 34px; }
+  .ph-who-ini { font-size: 14px; }
+  .ph-who-hi, :root[data-theme="light"] .ph-who-hi { font-size: 15px; }
+  .ph-who-links { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+  .ph-who-links::-webkit-scrollbar { display: none; }
+  .ph-who-links a { height: 28px; padding: 0 10px; font-size: 12.5px; flex: none; }
+}
+
+/* ---------- 카드 ---------- */
+.ph-card { border-radius: var(--radius); padding: 24px; box-shadow: var(--card-shadow); }
+.ph-card.top-accent::before { height: 2px; left: 24px; right: 24px; border-radius: 0 0 2px 2px; background: linear-gradient(90deg, var(--brass), color-mix(in srgb, var(--brass) 20%, transparent)); }
+@media (max-width: 480px) { .ph-card { padding: 20px 18px; } }
+.ph-list-item, .ph-eqitem, .cn-song, .ph-rr, .lu, .ph-row-edit .ph-inlineform, .cn-splitrow, .fb { box-shadow: none; }
+.ph-list-item { border-radius: var(--radius-sm); background: var(--glass-2); }
+.ph-eqitem { border-radius: 14px; background: var(--glass-2); }
+.ph-notice.pinned { border-color: color-mix(in srgb, var(--brass) 45%, var(--line)); background: color-mix(in srgb, var(--brass) 6%, var(--glass-2)); }
+
+.ph-badge { font-weight: 650; letter-spacing: .06em; color: var(--accent-ink); background: color-mix(in srgb, var(--brass) 10%, transparent); border-color: color-mix(in srgb, var(--brass) 30%, transparent); }
+
+/* ---------- 단추 ---------- */
+.ph-btn {
+  min-height: 48px; padding: 11px 18px; border-radius: 12px; border: 1px solid var(--line-hi);
+  background: var(--glass); color: var(--ink); font-size: 15.5px; font-weight: 650; letter-spacing: -.015em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: background .15s var(--ease), border-color .15s var(--ease), box-shadow .2s var(--ease), transform .1s var(--ease);
+}
+.ph-btn:hover { background: var(--glass-2); border-color: color-mix(in srgb, var(--ink) 22%, transparent); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 16px -10px rgba(0,0,0,.3); }
+.ph-btn.pri { background: var(--accent); color: var(--on-accent); border-color: transparent; box-shadow: 0 1px 0 rgba(255,255,255,.12) inset, 0 8px 20px -12px rgba(var(--accent-rgb),.9); }
+.ph-btn.pri:hover { background: var(--accent-2); }
+.ph-btn:active { transform: translateY(1px); }
+.ph-livebtn, .ph-stagebtn { min-height: 64px; }
+.ph-livebtn small, .ph-stagebtn small { font-size: 12px; font-weight: 500; opacity: .72; letter-spacing: 0; }
+.ph-row-del, .ph-row-edit > summary { border-radius: 9px; }
+.ph-row-edit[open] > summary { background: var(--ink); color: var(--bg); }
+
+/* 작은 단추(cn-mini) — 도구 줄 · 링크 단추 */
+.cn-mini { min-height: 40px; border-radius: 10px; border: 1px solid var(--line-hi); background: var(--glass); color: var(--ink); font-weight: 600; gap: 6px; transition: background .15s var(--ease), border-color .15s var(--ease); }
+.cn-mini:hover { background: var(--glass-2); border-color: color-mix(in srgb, var(--ink) 22%, transparent); }
+.cn-kakaobtn { background: var(--glass); border-color: var(--line-hi); }
+.cn-kakaobtn .yi { color: var(--brass); }
+.cn-chip { border-color: var(--line-hi); background: var(--glass); font-weight: 600; }
+
+/* ---------- 입력칸 ---------- */
+.ph-field label { font-size: 13.5px; font-weight: 650; letter-spacing: -.005em; }
+.ph-field input[type=text], .ph-field input[type=tel], .ph-field select, .ph-teamswitch select, .ph-weekdate input[type=date],
+.ph-inlineform input[type=text], .ph-inlineform input[type=date], .ph-inlineform select, .ph-inlineform textarea {
+  border: 1px solid var(--line-hi); border-radius: 11px; background: var(--bg-2);
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+}
+.ph-field input:focus, .ph-field select:focus, .ph-inlineform input:focus, .ph-inlineform select:focus, .ph-inlineform textarea:focus, .ph-teamswitch select:focus {
+  outline: none; border-color: color-mix(in srgb, var(--accent) 70%, transparent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.16);
+}
+.ph-teamswitch select { font-weight: 650; min-height: 44px; }
+::placeholder { color: var(--dim); opacity: .85; }
+.ph-chip span { border: 1px solid var(--line-hi); background: var(--glass); font-weight: 600; box-shadow: none; }
+.ph-chip input:checked + span { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+/* ---------- 탭 바 — 단정한 세그먼트 ---------- */
+.ph-hubnav, :root[data-theme="light"] .ph-hubnav {
+  border-radius: 14px; padding: 4px; top: 8px;
+  background: color-mix(in srgb, var(--glass) 88%, transparent); border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 28px -18px rgba(0,0,0,.35);
+  backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px);
+}
+.ph-hubtab { padding: 9px 15px; border-radius: 10px; font-weight: 550; font-size: 14.5px; color: var(--sub); }
+.ph-hubtab:hover, :root[data-theme="light"] .ph-hubtab:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.ph-hubtab.on, :root[data-theme="light"] .ph-hubtab.on {
+  background: var(--accent); color: var(--on-accent); font-weight: 650; border-color: transparent;
+  box-shadow: 0 1px 0 rgba(255,255,255,.12) inset;
+}
+.ph-hubtab.on::after { display: none; }
+@media (min-width: 900px) and (orientation: landscape) { .ph-hubtab { padding: 10px 20px; } }
+
+/* ---------- 달력 띠 ---------- */
+.ph-wstrip-scroll { gap: 6px; scrollbar-width: none; }
+.ph-wstrip-cell {
+  width: 62px; padding: 9px 4px 8px; border-radius: 13px; border: 1px solid var(--line); background: var(--glass); box-shadow: none; gap: 1px;
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+.ph-wstrip-cell:hover { border-color: var(--line-hi); background: var(--glass-2); }
+.ph-wstrip-month { font-size: 10.5px; font-weight: 600; letter-spacing: .02em; color: var(--dim); opacity: 1; }
+.ph-wstrip-day { font-size: 21px; font-weight: 700; color: var(--ink); letter-spacing: -.03em; }
+.ph-wstrip-ratio { font-size: 10.5px; font-weight: 600; color: var(--dim); opacity: 1; }
+.ph-wstrip-cell.on { background: var(--accent); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(var(--accent-rgb),.9); }
+.ph-wstrip-cell.on :is(.ph-wstrip-month, .ph-wstrip-day, .ph-wstrip-ratio, .ph-wstrip-evname) { color: var(--on-accent); }
+.ph-wstrip-cell.on .ph-wstrip-month, .ph-wstrip-cell.on .ph-wstrip-ratio { opacity: .75; }
+.ph-wstrip-jump { color: var(--accent-ink); border-style: dashed; }
+.ph-wstrip-callabel { color: var(--sub); }
+
+/* ---------- 보기 전환(카드/테이블) · 세그먼트 ---------- */
+.ph-viewtoggle { padding: 3px; border-radius: 11px; background: var(--glass-2); }
+.ph-vtbtn { border-radius: 8px; font-weight: 600; padding: 6px 14px; }
+.ph-vtbtn.on { background: var(--glass); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--line); }
+
+/* ---------- 연습일 ---------- */
+.ph-pr-ic { border-radius: 11px; color: var(--brass); background: color-mix(in srgb, var(--brass) 10%, transparent); border-color: color-mix(in srgb, var(--brass) 26%, transparent); }
+.ph-pr-label { font-weight: 650; letter-spacing: .1em; }
+.ph-pr-main b { font-weight: 700; }
+
+/* ---------- 주일 편성 ---------- */
+.lu { border-radius: 14px; background: var(--glass); }
+.lu-head { background: var(--glass-2); padding: 13px 16px; }
+.lu-head b { font-weight: 700; letter-spacing: -.035em; }
+.lu-hint { font-weight: 500; }
+.ph-poslabel { font-weight: 650; }
+.lu-grid .ph-chipname, .ph-chipname { font-weight: 650; }
+.ph-posicon, .ph-tblicon { color: var(--brass); }
+.ph-posgrouplabel, .ph-tblcaption { font-weight: 650; letter-spacing: .1em; }
+
+/* ---------- 아바타 — 사진이 없을 땐 단정한 돌색 원 + 이니셜 ---------- */
+.ph-avatar { background: color-mix(in srgb, var(--brass) 16%, var(--glass-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brass) 30%, transparent); }
+.ph-avatar-txt { color: var(--ink); font-weight: 650; }
+.ph-avatar-badge { border-color: var(--glass); }
+.ph-avatar-badge.ph-g-m { background: #6F8FA6; }
+.ph-avatar-badge.ph-g-f { background: #B48A5E; }
+.ph-roletag { font-weight: 600; background: var(--glass-2); }
+.ph-roletag .yi { color: var(--brass); }
+
+/* ---------- 예배콘티 — 곡 카드 ---------- */
+.cn-song { padding: 12px 14px 11px; border-radius: 14px; background: var(--glass); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.cn-song.fin { border-color: color-mix(in srgb, var(--brass) 40%, var(--line)); background: color-mix(in srgb, var(--brass) 5%, var(--glass)); }
+.cn-no { width: 28px; height: 28px; border-radius: 8px; font-size: 14px; font-weight: 700; background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.cn-ti { font-weight: 700; letter-spacing: -.03em; }
+.cn-kb { font-weight: 700; padding: 2px 8px; }
+.cn-fc b { font-weight: 750; } .cn-fc em { font-weight: 750; }
+.cn-snote { border-left-color: color-mix(in srgb, var(--brass) 55%, transparent); }
+@media (max-width: 480px) {                  /* 좁은 화면: Key · BPM 배지는 제목 아래 줄로 — 제목이 세 줄로 접히지 않게 */
+  .cn-shead { flex-wrap: wrap; row-gap: 6px; }
+  .cn-tb { flex-basis: calc(100% - 40px); }
+  .cn-badges { margin-left: 36px; justify-content: flex-start; }
+}
+
+/* ---------- 송폼 빌더 · 유튜브 ---------- */
+.fb { background: var(--glass-2); border-color: var(--line); backdrop-filter: none; -webkit-backdrop-filter: none; }
+:root[data-theme="light"] .fb { background: var(--glass-2); }
+.fb-chip.on, .fb-t.on, .fb-t.primary, .fp-chip.on { background: var(--accent); }
+
+/* ---------- 장비 ---------- */
+.ph-eqresbtn { border: 1px solid var(--line-hi); background: var(--glass); font-weight: 600; border-radius: 9px; }
+.ph-eqresbtn.on.ok { background: var(--good); border-color: var(--good); color: #fff; }
+
+/* ---------- 스케줄 테이블 ---------- */
+.ph-sctable thead th { font-weight: 650; letter-spacing: .06em; }
+
+/* ---------- 바닥글 ---------- */
+.ph-footer { margin-top: 40px; padding-top: 28px; position: relative; letter-spacing: -.005em; }
+.ph-footer::before { content: ""; position: absolute; top: 0; left: 50%; width: 40px; height: 1px; margin-left: -20px; background: var(--brass); opacity: .6; }
+.ph-footer .tag { font-weight: 600; letter-spacing: .02em; }
+
+/* ---------- 홈 화면 추가 안내 · 기타 그라데이션 정리 ---------- */
+.a2-badge, .a2-install { background: var(--accent); }
+
+/* ---------- 따로 꾸밈이 없던 입력칸(관리 · 시간 설정 등)도 같은 모양으로 ---------- */
+.ph-card :where(input[type=text], input[type=tel], input[type=number], input[type=url], input[type=email], input[type=date], input[type=time], select, textarea):where(:not([class])) {
+  min-height: 40px; padding: 7px 11px; border-radius: 10px; border: 1px solid var(--line-hi); background: var(--bg-2); color: var(--ink);
+  font: inherit; font-size: 15px; vertical-align: middle; transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+}
+.ph-card :where(input, select, textarea):where(:not([class])):focus { outline: none; border-color: color-mix(in srgb, var(--accent) 70%, transparent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.16); }
+
+/* ---------- 관리 — 팀원관리 · 설정 · 허브로 (한 줄 세그먼트) ---------- */
+.ph-admintabs { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; padding: 6px; }
+.ph-admintabs .ph-btn { min-height: 44px; padding: 8px 14px; font-size: 14.5px; box-shadow: none; white-space: nowrap; }
+.ph-admintabs .ph-btn:not(.pri) { border-color: transparent; background: transparent; color: var(--sub); }
+.ph-admintabs .ph-btn:not(.pri):hover { background: var(--glass-2); color: var(--ink); }
+@media (max-width: 420px) { .ph-admintabs .ph-btn { font-size: 13.5px; padding: 8px 10px; } }
+
+/* ---------- 공지 — 전체 · 공지 · 기도제목 거르기 (세그먼트) ---------- */
+.ph-card .pv-songtabs { display: inline-flex; gap: 2px; margin-top: 12px; padding: 3px; border-radius: 11px; background: var(--glass-2); border: 1px solid var(--line); }
+.ph-card .pv-songtabs .pv-tab { padding: 6px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--sub); text-decoration: none; }
+.ph-card .pv-songtabs .pv-tab:hover { color: var(--ink); text-decoration: none; }
+.ph-card .pv-songtabs .pv-tab.on { background: var(--glass); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--line); }
+.ph-teamswitch + .pv-songtabs { margin-top: 12px; }
+
+/* ---------- 목록 한 줄 — 글은 남는 폭을 다 쓰고, 단추는 늘 오른쪽에 ---------- */
+.ph-list-item > .ph-li-main { flex: 1 1 0; }
+.ph-li-title { font-weight: 700; letter-spacing: -.02em; }
+.ph-li-sub { color: var(--dim); }
+
+/* ---------- 장비 점검 — 결과 단추는 한 줄 3등분, 보관 단추는 오른쪽 위 ---------- */
+.ph-eqitem { position: relative; }
+.ph-eqitemhead { padding-right: 40px; }
+.ph-eqitemname { font-weight: 700; }
+.ph-eqresults { gap: 6px; }
+.ph-eqresults > form { flex: 1 1 0; display: flex !important; }
+.ph-eqresults > form .ph-eqresbtn { flex: 1; min-height: 40px; }
+.ph-eqitem > form[action$="/archive"] { position: absolute; top: 10px; right: 10px; margin: 0 !important; }
+.ph-eqitem > form[action$="/archive"] .ph-row-del { width: 30px; height: 30px; }
+.ph-eqmemo input[type=text] { border: 1px solid var(--line-hi); }
+.ph-eqmemo input[type=text]:focus { border-color: color-mix(in srgb, var(--accent) 70%, transparent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.16); }
+
+/* ---------- 파일 고르기 단추 ---------- */
+.ph-card input[type=file] { font-size: 14px; color: var(--sub); max-width: 100%; }
+.ph-card input[type=file]::file-selector-button {
+  margin-right: 12px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--line-hi); background: var(--glass-2); color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s var(--ease);
+}
+.ph-card input[type=file]::file-selector-button:hover { background: var(--glass); }
+
+/* ---------- 바닥글 — 전화 · 주소는 낱말째 줄바꿈 ---------- */
+.ph-footer a { white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }

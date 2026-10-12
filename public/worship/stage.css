@@ -1,7 +1,7 @@
 /* 방송팀 화면 (stage.js) — 어두운 부스에서도 멀리서 읽히게: 아주 큰 글씨 · 높은 대비 · 폰/태블릿/컴퓨터 모두 */
 :root {
   --bg: #060B0A; --bg2: #0E1917; --bg3: #15252210; --card: #101D1A; --line: rgba(255, 255, 255, .14); --line2: rgba(255, 255, 255, .26);
-  --ink: #FFF8EC; --sub: #CFD8D2; --dim: #8FA69D; --a: #F4A272; --a2: #F8C48C; --a-rgb: 244, 162, 114; --mint: #8ED6C1; --ok: #86E0B0; --bad: #F27A70; --on-a: #17302A;
+  --ink: #FFF8EC; --sub: #CFD8D2; --dim: #8FA69D; --a: #D6B97F; --a2: #E1CCA3; --a-rgb: 244, 162, 114; --mint: #8ED6C1; --ok: #86E0B0; --bad: #F27A70; --on-a: #1A160E;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }

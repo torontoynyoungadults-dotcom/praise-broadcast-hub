@@ -10,7 +10,7 @@
   --tp-ctl: var(--lg-ctl, rgba(255, 255, 255, .06));
   --tp-ctl-hov: var(--lg-ctl-hov, rgba(255, 255, 255, .11));
   --tp-ink: var(--lg-ink, #F5F5F7); --tp-sub: var(--lg-sub, #A9ABB6); --tp-dim: var(--lg-dim, #6F7280);
-  --tp-a: var(--lg-a, #FF8A3D); --tp-a-soft: var(--lg-a-soft, rgba(255, 138, 61, .16));
+  --tp-a: var(--lg-a, #CFAE6E); --tp-a-soft: var(--lg-a-soft, rgba(207, 174, 110, .16));
   --tp-shadow: var(--lg-shine, inset 0 1px 0 rgba(255, 255, 255, .08)), 0 24px 60px -14px rgba(0, 0, 0, .6), 0 6px 18px -8px rgba(0, 0, 0, .45);
 }
 
@@ -125,7 +125,7 @@ html .pv .pv-sympop.tp-symv2 {
 .tp-sym img { width: 34px; height: 34px; pointer-events: none; }
 .tp-sym span { font-size: 9.5px; color: #333; }
 .tp-sym:active { transform: scale(.92); }
-.tp-sym.on { box-shadow: 0 0 0 2px var(--tp-a), 0 4px 12px -4px rgba(255, 122, 40, .6); border-color: transparent; }
+.tp-sym.on { box-shadow: 0 0 0 2px var(--tp-a), 0 4px 12px -4px rgba(201, 165, 94, .6); border-color: transparent; }
 .tp-symv2.folded .tp-cats, .tp-symv2.folded .tp-grid { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .pv .tp-pop { transition: none; } }

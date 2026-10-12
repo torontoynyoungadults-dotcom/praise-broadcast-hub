@@ -10,10 +10,14 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { b
 .yn.yn-main #body { min-width: 0; }
 
 /* 강조색 — 어두운 화면: 부드러운 산호 · 밝은 화면: 진한 산호(글씨) / 연한 산호(칸) · 칸 위 글씨는 진한 숲색 */
-.yn.yn-main, .yn.yn-portal { --accent: #F4A272; --tone: #F4A272; --tone-rgb: 244, 162, 114; --on-tone: #17302A; }
+.yn.yn-main, .yn.yn-portal { --accent: #D6B97F; --tone: #D6B97F; --tone-rgb: 214, 185, 127; --on-tone: #1A160E; }   /* V12 — 어두운 화면: 샴페인 골드 */
 html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
-  --accent: #BE5528 !important; --tone: #BE5528 !important; --tone-rgb: 242, 148, 104 !important; --on-tone: #17302A;
-  --lt-or: #F39E70; --lt-or-ink: #A94B1F; --lt-or-soft: rgba(242, 148, 104, .2); --lt-on-or: #17302A; --lt-ring: 0 0 0 3px rgba(242, 148, 104, .36);
+  --accent: #1F4A3F !important; --tone: #1F4A3F !important; --tone-rgb: 31, 74, 63 !important; --on-tone: #FBF8F1;   /* V12 — 밝은 화면: 상록 */
+  --lt-bg: #F4F2EC; --lt-card: #FFFFFF; --lt-card-2: #FBFAF7; --lt-sunk: #F4F2EC;
+  --lt-ink: #15211D; --lt-ink-2: #2E4A42; --lt-ink-3: #6D7873; --lt-ink-4: #9AA39F;
+  --lt-line: rgba(21, 33, 29, .10); --lt-line-2: rgba(21, 33, 29, .17);
+  --lt-sh-2: 0 1px 2px rgba(21, 33, 29, .04), 0 12px 32px -18px rgba(21, 33, 29, .18);
+  --lt-or: #1F4A3F; --lt-or-ink: #8A5F22; --lt-or-soft: rgba(31, 74, 63, .12); --lt-on-or: #FBF8F1; --lt-ring: 0 0 0 3px rgba(31, 74, 63, .22);
 }
 
 /* 산호 칸(지금 고른 것 · 주 단추) — 어두운 화면 · 밝은 화면 모두 칸은 부드러운 산호, 그 위 글씨는 진한 숲색.
@@ -26,8 +30,8 @@ html[data-theme="light"] .yn :is(.wk.on, .sesbar button.on, .pick.on, .evseg but
   .panel .submit, #cropper .cbtns button.go, .st td.dc.sel, .stc.sel .stch .ck, .submit, .pwsubmit, .dirbtn) { background: var(--lt-or) !important; border-color: transparent !important; }
 
 /* 통계 막대 · 숫자 막대 — 밝은 화면에서도 진한 산호 대신 부드러운 산호 + 살구 노랑 */
-html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: linear-gradient(90deg, var(--lt-or), #F7BC84); }
-html[data-theme="light"] .yn .mcol .mbar { background: linear-gradient(180deg, #F7BC84, var(--lt-or)); }
+html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: linear-gradient(90deg, var(--lt-or), #A67C3A); }
+html[data-theme="light"] .yn .mcol .mbar { background: linear-gradient(180deg, #A67C3A, var(--lt-or)); }
 /* 팀 고르기 (팀이 둘 이상일 때) */
 .ph-teamcard { padding: 14px 16px; }
 
@@ -68,7 +72,7 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #2F5348; }
   display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; border-radius: 13px;
   background: #F8FAF3; border: 1px solid rgba(21, 59, 49, .13); color: #153B31;
 }
-.yn .yc-sh .prchk:has(input:checked) { background: #FDEBDD; border-color: rgba(var(--tone-rgb), .6); }
+.yn .yc-sh .prchk:has(input:checked) { background: rgba(31, 74, 63, .08); border-color: rgba(var(--tone-rgb), .6); }
 .yn .yc-sh .prchk.dis { opacity: .42; cursor: not-allowed; }
 .yn .yc-sh .prchk input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--tone, #F39E70); }
 .yn .yc-sh .prchk .pcn { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -88,7 +92,7 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #2F5348; }
 }
 .yn .stoffbtn svg { width: 16px; height: 16px; flex: none; }
 .yn .stoffbtn:hover, .yn .stoffbtn.on { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .6); }
-.yn .stoffbtn .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--accent); color: #17302A; }
+.yn .stoffbtn .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--accent); color: var(--on-tone); }
 html[data-theme="light"] .yn .stoffbtn { color: #A94B1F; }
 .yn .stmine { margin: 2px 0 12px; }
 .yn .stmine-in { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 16px; background: rgba(var(--tone-rgb), .09); border: 1px solid rgba(var(--tone-rgb), .26); }
@@ -115,9 +119,10 @@ html[data-theme="light"] .yn .offchip { background: rgba(255, 255, 255, .7); }
 .yn .tn.off.pr { border-style: dashed; opacity: .85; }
 
 /* ---------- 스케줄표 테이블 — 네모칸이 또렷하게 ---------- */
-.yn { --grid: rgba(190, 235, 220, .42); --grid-hd: rgba(190, 235, 220, .62); --st-head: #1D3A35; --st-date: #17302C; --st-zebra: rgba(190, 235, 220, .045); --st-mrow: #234640; --st-ev: rgba(248, 196, 140, .10); }
-html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .34); --grid-hd: rgba(21, 59, 49, .55); --st-head: #DDEEE5; --st-date: #F8FBF4; --st-zebra: rgba(47, 143, 126, .06); --st-mrow: #F8E8CB; --st-ev: rgba(247, 188, 132, .24); }
-.yn .stwrap { border: 2px solid var(--grid-hd) !important; border-radius: 16px; }
+/* V12 — 표는 먹색 · 상아 위의 가는 선 (머리줄은 한 단 진하게, 달 구분 줄은 옅은 황동) */
+.yn { --grid: rgba(237, 234, 226, .13); --grid-hd: rgba(237, 234, 226, .24); --st-head: #1B2220; --st-date: #161C1A; --st-zebra: rgba(237, 234, 226, .025); --st-mrow: #262418; --st-ev: rgba(214, 185, 127, .09); }
+html[data-theme="light"] .yn { --grid: rgba(21, 33, 29, .13); --grid-hd: rgba(21, 33, 29, .26); --st-head: #F1EEE6; --st-date: #FBFAF7; --st-zebra: rgba(21, 33, 29, .022); --st-mrow: #F3EBDA; --st-ev: rgba(166, 124, 58, .10); }
+.yn .stwrap { border: 1px solid var(--grid-hd) !important; border-radius: 14px; }
 .yn table.st { border-collapse: separate; border-spacing: 0; }
 .yn .st th, .yn .st td { border-right: 1px solid var(--grid) !important; border-bottom: 1px solid var(--grid) !important; }
 .yn .st tr > :last-child { border-right: none !important; }
@@ -159,7 +164,7 @@ html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .34); --grid-hd: rgba(21
   border: 1px solid rgba(21, 59, 49, .18) !important; color-scheme: light;
 }
 .yn .yc-sh input::placeholder, .yn .yc-sh textarea::placeholder { color: #70877F !important; -webkit-text-fill-color: #70877F; }
-.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #E58E5F !important; box-shadow: 0 0 0 3px rgba(242, 148, 104, .32); outline: none; }
+.yn .yc-sh input:focus, .yn .yc-sh select:focus, .yn .yc-sh textarea:focus { border-color: #1F4A3F !important; box-shadow: 0 0 0 3px rgba(31, 74, 63, .18); outline: none; }
 
 /* 글씨 기본색 — church-app 은 body 글씨색이 밝은 화면 값(#1A1917)이라 어두운 유리 위 글씨를 "가독성 지킴이"(hub/contrast.js)가
    그린 뒤에 흰색으로 고칩니다. 여기서는 처음부터 .shell 의 글씨 변수(어두운 화면 = 흰색 · 밝은 화면 = 진한 남색)로 시작해
@@ -168,9 +173,9 @@ html[data-theme="light"] .yn { --grid: rgba(21, 59, 49, .34); --grid-hd: rgba(21
 
 /* 시트 안의 보통 단추 (완료 · 기본(금요일)으로 · 이 주는 연습 없음 …) — 흰 시트 위에서 처음부터 진한 글씨로 (가독성 지킴이가 고치기 전 깜빡임 없음) */
 .yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red) {
-  color: #153B31 !important; background: #F3F7EE !important; border: 1px solid rgba(21, 59, 49, .16) !important;
+  color: #15211D !important; background: #F8F6F1 !important; border: 1px solid rgba(21, 33, 29, .14) !important;
 }
-.yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red):hover { background: #E4EEE3 !important; }
+.yn .yc-sh .btn:not(.accent):not(.dark):not(.danger):not(.red):hover { background: #EFECE4 !important; }
 
 /* ---------- 태블릿 가로 (폭 900px 이상 · 가로 방향) — 한눈에 더 많이 ---------- */
 @media (min-width: 900px) and (orientation: landscape) {

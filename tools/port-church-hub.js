@@ -78,11 +78,12 @@ root.walkRules((rule) => {
 /* 색만 이 앱 것으로 — V11 테마: church-app 의 보라 · 주황 · 청록 · 남색 슬레이트 · 분홍을 이 앱의 "청록 + 연한 주황 · 노랑" 팔레트로
  * (모양 · 크기 · 배치는 그대로). 규칙은 tools/theme-remap.js — 색 계열 단위로 바꿉니다. */
 const { remapCss } = require('./theme-remap');
+const { remapV12 } = require('./theme-v12');   // V12 — 산호 → 상록 · 샴페인 골드 (화면별로)
 let css = root.toString();
-css = remapCss(css);
+css = remapV12(remapCss(css));
 fs.writeFileSync(path.join(OUT, 'yn.css'),
   '/* 자동 생성 — tools/port-church-hub.js (church-app views/Worship.html · views/Theme.html · public/worship/hub.css 를 .yn 안으로,\n' +
-  '   보라 · 주황 · 청록 → 이 앱 청록 + 산호 주황 팔레트, tools/theme-remap.js). 직접 고치지 마세요 — 이 앱에서 덧붙이는 규칙은 public/hub/yn-adapt.css */\n' + css + '\n');
+  '   보라 · 주황 · 청록 → 이 앱 팔레트, tools/theme-remap.js → tools/theme-v12.js). 직접 고치지 마세요 — 이 앱에서 덧붙이는 규칙은 public/hub/yn-adapt.css */\n' + css + '\n');
 console.log(`yn.css — 규칙 ${nRules}개 (.yn 안으로), 뺀 규칙 ${nDropped}개`);
 
 /* ================================================================ 2. JS — 이름으로 뽑기 */

@@ -9,8 +9,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#FCF3D2",
-  "theme_color": "#BFE6DA",
+  "background_color": "#F4F2EC",
+  "theme_color": "#1F4A3F",
   "categories": ["music", "productivity"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

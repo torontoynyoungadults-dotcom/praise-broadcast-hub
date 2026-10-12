@@ -214,7 +214,7 @@ ${early}<link rel="stylesheet" href="/worship/live-base.css${v}">
 <style>
   html, body { min-height: 100%; }
   .lv-fallback { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; max-width: 520px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }
-  .lv-fallback a { color: #F4A272; font-weight: 700; }
+  .lv-fallback a { color: #D6B97F; font-weight: 700; }
 </style>
 </head>
 <body>

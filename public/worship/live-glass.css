@@ -21,10 +21,10 @@ html .pv {
   --lg-ctl-hov: rgba(255, 255, 255, .10);
   --lg-ctl-edge: rgba(255, 255, 255, .07);
   --lg-ink: #F5F5F7; --lg-sub: #A9ABB6; --lg-dim: #6F7280;
-  --lg-a: #FF8A3D; --lg-a2: #FFB477; --lg-a-ink: #1A0E05;
-  --lg-a-soft: rgba(255, 138, 61, .15); --lg-a-edge: rgba(255, 150, 80, .45); --lg-a-text: #FFC18F;
-  --lg-a-grad: linear-gradient(135deg, #FFB067 0%, #FF8A3D 55%, #F26B1F 100%);
-  --lg-a-glow: 0 8px 24px -6px rgba(255, 122, 40, .55);
+  --lg-a: #CFAE6E; --lg-a2: #DDC699; --lg-a-ink: #1A0E05;
+  --lg-a-soft: rgba(207, 174, 110, .15); --lg-a-edge: rgba(211, 182, 124, .45); --lg-a-text: #E3D0AB;
+  --lg-a-grad: linear-gradient(135deg, #D9C08D 0%, #CFAE6E 55%, #C49C4D 100%);
+  --lg-a-glow: 0 8px 24px -6px rgba(201, 165, 94, .55);
 
   /* hub.css 의 토큰도 같은 값으로 (토큰을 쓰는 곳은 저절로 바뀜) */
   --v6-bg: var(--lg-bg); --v6-sf: var(--lg-glass); --v6-sf2: var(--lg-ctl); --v6-sf3: var(--lg-ctl-hov);
@@ -36,7 +36,7 @@ html .pv {
 
   color: var(--lg-ink);
   background:
-    radial-gradient(900px 520px at 88% -8%, rgba(255, 138, 61, .13), transparent 62%),
+    radial-gradient(900px 520px at 88% -8%, rgba(207, 174, 110, .13), transparent 62%),
     radial-gradient(760px 560px at -8% 108%, rgba(120, 140, 255, .09), transparent 60%),
     radial-gradient(600px 400px at 45% 55%, rgba(255, 255, 255, .025), transparent 70%),
     var(--lg-bg);
@@ -56,10 +56,10 @@ html[data-theme="light"] .pv {
   --lg-ctl-hov: rgba(15, 23, 42, .08);
   --lg-ctl-edge: rgba(15, 23, 42, .06);
   --lg-ink: #111827; --lg-sub: #4B5563; --lg-dim: #8A93A3;
-  --lg-a: #F2711F; --lg-a2: #C2520B; --lg-a-ink: #FFFFFF;
-  --lg-a-soft: rgba(242, 113, 31, .12); --lg-a-edge: rgba(226, 100, 20, .40); --lg-a-text: #B2470A;
-  --lg-a-grad: linear-gradient(135deg, #FF9F57 0%, #F57A26 55%, #E5600F 100%);
-  --lg-a-glow: 0 8px 22px -8px rgba(229, 96, 15, .55);
+  --lg-a: #204B40; --lg-a2: #8A5F22; --lg-a-ink: #FFFFFF;
+  --lg-a-soft: rgba(32, 75, 64, .12); --lg-a-edge: rgba(138, 95, 34, .40); --lg-a-text: #8A5F22;
+  --lg-a-grad: linear-gradient(135deg, #265A4C 0%, #214D42 55%, #8A5F22 100%);
+  --lg-a-glow: 0 8px 22px -8px rgba(138, 95, 34, .55);
 
   --v6-bg: var(--lg-bg); --v6-sf: var(--lg-glass); --v6-sf2: var(--lg-ctl); --v6-sf3: var(--lg-ctl-hov);
   --v6-line: rgba(15, 23, 42, .07); --v6-line2: var(--lg-edge); --v6-ink: var(--lg-ink); --v6-sub: var(--lg-sub); --v6-dim: var(--lg-dim);
@@ -70,7 +70,7 @@ html[data-theme="light"] .pv {
 
   color: var(--lg-ink);
   background:
-    radial-gradient(900px 520px at 88% -8%, rgba(255, 160, 90, .22), transparent 62%),
+    radial-gradient(900px 520px at 88% -8%, rgba(39, 90, 77, .22), transparent 62%),
     radial-gradient(760px 560px at -8% 108%, rgba(120, 150, 255, .16), transparent 60%),
     var(--lg-bg);
 }
@@ -151,7 +151,7 @@ html .pv .pv-bs-c.off { opacity: .38; pointer-events: none; }         /* 3·2·1
 html .pv .pv-bs-save { border-radius: 8px; border: 1px solid var(--lg-edge); color: var(--lg-sub); }
 html .pv .pv-bs-save.dirty { background: var(--lg-a-grad); color: var(--lg-a-ink); border-color: transparent; box-shadow: var(--lg-a-glow); }
 html .pv .pv-bs-dots i { background: var(--lg-ctl-hov); }
-html .pv .pv-bs-dots i.on { background: var(--lg-a); box-shadow: 0 0 0 3px var(--lg-a-soft), 0 0 14px rgba(255, 138, 61, .7); }
+html .pv .pv-bs-dots i.on { background: var(--lg-a); box-shadow: 0 0 0 3px var(--lg-a-soft), 0 0 14px rgba(207, 174, 110, .7); }
 
 /* 송폼 창 */
 html .pv .pv-form .pv-fb-t { background: var(--lg-ctl); border: 1px solid var(--lg-ctl-edge); border-radius: 8px; }
@@ -174,7 +174,7 @@ html[data-theme="light"] .pv .pv-btn2.primary, html[data-theme="light"] .pv .pv-
 }
 html .pv .pv-big, html[data-theme="light"] .pv .pv-big {
   border-radius: 18px; background: var(--lg-a-grad); color: var(--lg-a-ink); letter-spacing: -.01em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 14px 34px -10px rgba(255, 122, 40, .6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 14px 34px -10px rgba(34, 80, 68, .6);
 }
 html .pv .pv-big.on, html[data-theme="light"] .pv .pv-big.on { background: linear-gradient(135deg, #F47A6E, #D63E33); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 14px 34px -10px rgba(214, 62, 51, .6); }
 html .pv .pv-sel, html .pv .pv-side select, html .pv .pv-side input[type="text"], html .pv .pv-side input[type="number"] {
@@ -190,7 +190,7 @@ html .pv .pv-help, html .pv .pv-chk small { color: var(--lg-sub); }
 /* 큰 박 원 (메트로놈 탭) */
 html .pv .pv-beat { background: var(--lg-ctl); border: 1.5px solid var(--lg-edge-hi); box-shadow: var(--lg-shine); }
 html .pv .pv-beat.acc { background: var(--lg-a-soft); border-color: var(--lg-a-edge); }
-html .pv .pv-beat.on { background: var(--lg-a-grad); color: var(--lg-a-ink); border-color: transparent; box-shadow: 0 0 0 4px var(--lg-a-soft), 0 0 26px rgba(255, 138, 61, .6); }
+html .pv .pv-beat.on { background: var(--lg-a-grad); color: var(--lg-a-ink); border-color: transparent; box-shadow: 0 0 0 4px var(--lg-a-soft), 0 0 26px rgba(207, 174, 110, .6); }
 html .pv .pv-beat.on.ci { background: linear-gradient(135deg, #A8D8FF, #6FB4F2); box-shadow: 0 0 0 4px rgba(111, 180, 242, .2), 0 0 24px rgba(111, 180, 242, .6); }
 
 /* 스크롤 막대 (얇고 은은하게) */
