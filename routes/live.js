@@ -615,6 +615,106 @@ const FNS = {
   },
 };
 
+/* ================================================================ v12 악보 화질 보정
+ * 브라우저(public/worship/sheetfix.js)가 사진 · 스캔 악보를 보정한 PDF 를 보내면 새 파일로 올리고, 이 파일을 쓰는 악보저장소 줄을 모두 새 링크로,
+ * 필기(팀 · 사람마다 · 화음)는 새 파일로 복사합니다 — 쪽 수 · 쪽 모양이 같아서 0~1 비율 필기가 그대로 맞습니다.
+ * 원본은 지우지 않고 '악보보정' 탭에 남겨 되돌릴 수 있게 합니다. 되돌릴 때도 원본을 새 파일로 다시 올려(옛 ID 를 다시 쓰지 않음) 실시간 필기 캐시가 꼬이지 않게 합니다.
+ * 머리말을 단 악보(메모의 헤더 기록)는 곡 정보가 바뀌면 원본에서 다시 만들어져 보정이 사라지므로 받지 않습니다. */
+const FIX_TAB = '악보보정';
+function fixUser(token) {
+  const u = liveAuth.verify(token);
+  if (u.ro || u.guest || !u.canEdit) throw new Error('악보 화질 보정은 팀원만 할 수 있어요.');
+  return u;
+}
+async function fixRowsOf(team, fileId) {
+  const rows = await sheetsDb.readAll('악보저장소', { fresh: true });
+  return rows.filter((r) => r['팀ID'] === team && r['파일링크'] && liveStore.sheetIdOf(team, r['파일링크']) === fileId);
+}
+async function fixReg(team, fileId) {
+  return (await sheetsDb.readAll(FIX_TAB, { fresh: true })).find((r) => r['팀ID'] === team && r['새파일'] === fileId) || null;
+}
+async function pdfPageCount(buf) {
+  if (buf.slice(0, 5).toString('latin1') !== '%PDF-') return 1;                         // 사진 악보 = 한 쪽
+  const { PDFDocument } = require('pdf-lib');
+  return (await PDFDocument.load(buf, { ignoreEncryption: true, updateMetadata: false })).getPageCount();
+}
+function fixNotify(team, rows) {
+  const seen = new Set();
+  rows.forEach((r) => { const sc = r['행사ID'] ? { event: r['행사ID'] } : { date: r['날짜'] }, k = JSON.stringify(sc); if (seen.has(k)) return; seen.add(k); songsChanged(team, sc, 'saveSheetSplit'); });
+}
+function fixFlushAnno() { try { if (rt) rt.flushAll(); } catch (e) { console.error('[필기 먼저 저장 실패]', e && e.message); } }
+const fixFail = (res, e) => { if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[악보 화질 보정]', e); res.status(400).json({ ok: false, msg: (e && e.message && /[가-힣]/.test(e.message)) ? e.message : '처리하지 못했습니다. 잠시 뒤 다시 해 주세요.' }); };
+
+router.post('/live/sheetfix/info', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const b = req.body || {}, u = fixUser(b.token), file = String(b.file || '').trim();
+    const rows = await fixRowsOf(u.team, file);
+    if (!rows.length) throw new Error('이 악보를 찾지 못했어요. 악보를 다시 열어 주세요.');
+    const reg = await fixReg(u.team, file);
+    const headed = !reg && rows.some((r) => { const h = sheetHeaders.parse(r); return !!(h && h.header); });
+    res.json({ ok: true, fixed: !!reg, headed });
+  } catch (e) { fixFail(res, e); }
+});
+router.post('/live/sheetfix', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const b = req.body || {}, u = fixUser(b.token), file = String(b.file || '').trim();
+    const rows = await fixRowsOf(u.team, file);
+    if (!rows.length) throw new Error('이 악보를 찾지 못했어요. 악보를 다시 열어 주세요.');
+    if (await fixReg(u.team, file)) throw new Error('이미 화질 보정을 한 악보예요. 원본으로 되돌린 뒤 다시 해 주세요.');
+    if (rows.some((r) => { const h = sheetHeaders.parse(r); return !!(h && h.header); })) throw new Error('머리말을 단 악보는 먼저 「자르기·헤더」에서 원본으로 되돌린 뒤 보정하고, 머리말을 다시 달아 주세요.');
+    const out = Buffer.from(String(b.pdf || ''), 'base64');
+    if (out.length < 100 || out.slice(0, 5).toString('latin1') !== '%PDF-') throw new Error('보정한 파일이 PDF 가 아니에요. 다시 해 주세요.');
+    if (out.length > 20 * 1024 * 1024) throw new Error('보정한 파일이 20MB 를 넘어요. 곡별로 나눈 뒤 보정해 주세요.');
+    const cur = await sheetBytes(file, rows[0]);
+    const [nNew, nOld] = await Promise.all([pdfPageCount(out), pdfPageCount(cur.buf)]);
+    if (nNew !== nOld) throw new Error(`보정한 파일의 쪽 수(${nNew})가 원본(${nOld})과 달라요. 다시 해 주세요.`);
+    const oldLink = rows[0]['파일링크'];
+    const link = await sheetHeaders.uploadPdf(rows[0]['제목'] || '악보', out);
+    const newId = liveStore.sheetIdOf(u.team, link);
+    fixFlushAnno(); await liveStore.loadAnnos();
+    liveStore.copyAnnos(u.team, file, newId);                                     // 쪽 모양이 같으니 필기 · 화음 그대로
+    const memo = rows.map((r) => { const h = sheetHeaders.parse(r); return { row: r.__row, memo: h ? String(r['메모'] || '') : null }; });
+    await sheetsDb.appendRow(FIX_TAB, { 'ID': require('crypto').randomBytes(6).toString('hex'), '팀ID': u.team, '새파일': newId, '원래링크': oldLink, '줄': JSON.stringify(memo), '보정시각': new Date().toISOString(), '보정자': u.name });
+    const cells = [];
+    rows.forEach((r) => {
+      cells.push({ row: r.__row, header: '파일링크', value: link });
+      if (sheetHeaders.parse(r)) cells.push({ row: r.__row, header: '메모', value: '' });   // 자르기 · 나누기 기록 → 이제 보정한 파일이 원본 (되돌리면 다시 살아남)
+    });
+    await sheetsDb.updateCells('악보저장소', cells);
+    fixNotify(u.team, rows);
+    res.json({ ok: true, fileId: newId, pages: nNew });
+  } catch (e) { fixFail(res, e); }
+});
+router.post('/live/sheetfix/revert', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const b = req.body || {}, u = fixUser(b.token), file = String(b.file || '').trim();
+    const reg = await fixReg(u.team, file);
+    if (!reg) throw new Error('화질 보정을 한 악보가 아니에요.');
+    const rows = await fixRowsOf(u.team, file);
+    let buf = await require('../lib/fileBytes').get(reg['원래링크']);
+    if (!buf) throw new Error('원본 악보를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.');
+    if (buf.slice(0, 5).toString('latin1') !== '%PDF-') buf = Buffer.from(await require('../lib/sheetSearch').imagesToPdf([buf]));
+    const link = await sheetHeaders.uploadPdf((rows[0] && rows[0]['제목']) || '악보', buf);
+    const newId = liveStore.sheetIdOf(u.team, link);
+    fixFlushAnno(); await liveStore.loadAnnos();
+    liveStore.copyAnnos(u.team, file, newId);
+    let memo = []; try { memo = JSON.parse(reg['줄'] || '[]'); } catch (e) { memo = []; }
+    const cells = [];
+    rows.forEach((r) => {
+      cells.push({ row: r.__row, header: '파일링크', value: link });
+      const m = memo.find((x) => x && x.row === r.__row);
+      if (m && m.memo) cells.push({ row: r.__row, header: '메모', value: m.memo });
+    });
+    if (cells.length) await sheetsDb.updateCells('악보저장소', cells);
+    await sheetsDb.deleteRow(FIX_TAB, reg.__row);
+    fixNotify(u.team, rows);
+    res.json({ ok: true, fileId: newId });
+  } catch (e) { fixFail(res, e); }
+});
+
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 router.post('/api/:fn', async (req, res) => {
   const fn = req.params.fn;

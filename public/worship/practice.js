@@ -211,6 +211,7 @@
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
         '<div class="pv-acts" role="group" aria-label="더 보기 동작">' +
           (opts.canEdit && opts.onSheetEdit ? '<button class="pv-b pv-editsheet" data-a="editsheet" title="이 악보 편집 — 위쪽 머리말 자르기 · 페이지 삭제" aria-label="이 악보 편집">✂<span class="pv-mt">악보 편집 (자르기 · 페이지 삭제)</span></button>' : '') +
+          (opts.canEdit && opts.sheetFix ? '<button class="pv-b pv-fixsheet" data-a="fixsheet" title="사진 · 스캔 악보를 선명하게 (컴퓨터 · iPad Pro 에서, 예배 전에 미리)" aria-label="악보 화질 보정">✨<span class="pv-mt">악보 화질 보정</span></button>' : '') +
           '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + themeBtnHtml(doc.documentElement.getAttribute('data-theme') === 'light') + '</button>' +
           '<button class="pv-b pv-mpdf" data-a="pdf" title="필기 포함 PDF 저장 (악보 전체 한 파일)" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-mt">필기 포함 PDF 저장</span></button>' +
         '</div>' +
@@ -1157,6 +1158,40 @@
       if (curNew) newSheetNotice([curNew], cur);
       else if (added.length) newSheetNotice(added);
       else if (swapped.length) toast('🎼 악보가 새로 바뀌었어요: ' + (swapped[0].to.name || '악보') + (swapped.length > 1 ? ' 외 ' + (swapped.length - 1) + '개' : ''), false, 3500);
+    }
+    /* v12 — 악보 화질 보정: 누를 때만 sheetfix.js(그리고 그 창이 AI 도구)를 불러옵니다 — 라이브 악보 자체는 아무것도 더 불러오지 않음 */
+    var fixLoad = null;
+    function openSheetFix() {
+      var f = sheets[S.sheetIdx]; if (!f || !opts.sheetFix || f.mine) { toast('이 악보는 화질 보정을 할 수 없어요.', true); return; }
+      if (!fixLoad) fixLoad = new Promise(function (ok, no) {
+        if (root.YNSheetFix && root.YNSheetFix.open) return ok();
+        var ps = doc.querySelector('script[src*="/worship/practice.js"]'), pm = ps && /[?&]v=([^&]+)/.exec(ps.src);          // 라이브 악보와 같은 판 (캐시)
+        var sc = doc.createElement('script'); sc.src = '/worship/sheetfix.js?v=' + encodeURIComponent(opts.fixV || (pm ? pm[1] : '12')); sc.async = true;
+        sc.onload = function () { root.YNSheetFix && root.YNSheetFix.open ? ok() : no(new Error('x')); }; sc.onerror = function () { fixLoad = null; no(new Error('x')); };
+        doc.head.appendChild(sc);
+      });
+      fixLoad.then(function () {
+        if (S.dead) return;
+        var id = f.id, fx = opts.sheetFix;
+        root.YNSheetFix.open({ id: id, name: f.name || '악보', fetchUrl: '/sheet/' + encodeURIComponent(id),
+          info: function () { return fx.info ? fx.info(id) : {}; }, apply: function (bytes) { return fx.apply(id, bytes); }, revert: fx.revert ? function () { return fx.revert(id); } : null,
+          onDone: function (newId, how) { afterSheetFix(id, newId, how); } });
+      }, function () { toast('화질 보정 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.', true); });
+    }
+    function afterSheetFix(oldId, newId, how) {
+      if (!newId || S.dead || !opts.callServer) return;
+      var pg = S.page;
+      opts.callServer('worshipLiveSheets', [opts.token, S.room], function (r) {
+        if (S.dead || !r || !Array.isArray(r.sheets)) return;
+        replaceSheets(r.sheets);
+        if (nsEl) nsEl.classList.remove('show');
+        var i = -1; sheets.forEach(function (x, k) { if (x.id === newId) i = k; });
+        if (i < 0) { toast('바뀐 악보를 찾지 못했습니다. 악보를 다시 열어 주세요.', true); return; }
+        var oi = -1; sheets.forEach(function (x, k) { if (x.id === oldId) oi = k; });
+        if (oi >= 0 && oi !== i) { sheets.splice(oi, 1); if (oi < i) i--; }
+        loadSheet(i, pg, true); paintSheetSel(); P.emit('sheets', sheets.slice(), []);
+        toast(how === 'revert' ? '원본 악보로 되돌렸어요. 필기는 그대로예요.' : '✨ 화질 보정한 악보로 바꿨어요. 필기는 그대로예요.', false, 3200);
+      }, function () { toast('악보 목록을 다시 받지 못했습니다. 악보를 다시 열어 주세요.', true); });
     }
     var nsEl = null, nsT = 0;
     function newSheetNotice(added, replacing) {
@@ -2163,6 +2198,7 @@
       var a = b.dataset.a;
       if (a === 'more') { setMore(!el.classList.contains('pv-moreopen')); return; }
       if (a === 'drawer-close') setDrawer(false); else if (a === 'drawer-panel') { setDrawer(false); toggleSide(true); }
+      else if (a === 'fixsheet') { setMore(false); setDrawer(false); openSheetFix(); }
       else if (a === 'close') api.close(); else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
       else if (a === 'spread') toggleSpread();

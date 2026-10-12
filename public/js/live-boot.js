@@ -51,6 +51,20 @@
   }
   callServer.pending = function () { return 0; };
   window.callServer = callServer;
+  /* v12 — 라이브 악보 ⋯ 「악보 화질 보정」 이 부르는 통로 (routes/live.js /live/sheetfix*) */
+  function sheetFixApi() {
+    function post(path, body) {
+      body.token = B.token;
+      return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+        .then(function (r) { return r.json().catch(function () { return null; }).then(function (j) { if (!r.ok || !j || !j.ok) throw new Error((j && j.msg) || '처리하지 못했습니다. 잠시 뒤 다시 해 주세요.'); return j; }); });
+    }
+    function b64(u8) { var s = '', CH = 0x8000; for (var i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH)); return btoa(s); }
+    return {
+      info: function (id) { return post('/live/sheetfix/info', { file: id }); },
+      apply: function (id, bytes) { return post('/live/sheetfix', { file: id, pdf: b64(bytes) }); },
+      revert: function (id) { return post('/live/sheetfix/revert', { file: id }); }
+    };
+  }
 
   function themeNow() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
   function themeSet(t) {
@@ -72,7 +86,7 @@
     if (!window.YNPractice) { fallback('라이브 악보 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
     var api = window.YNPractice.open({
       token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: B.start, startPage: B.startPage || 1,
-      canEdit: !B.ro, readOnly: !!B.ro, callServer: callServer, recs: B.recs || [], lineup: B.lineup || [],
+      canEdit: !B.ro, readOnly: !!B.ro, callServer: callServer, sheetFix: B.ro || B.guest ? null : sheetFixApi(), recs: B.recs || [], lineup: B.lineup || [],
       onClose: function () { location.href = B.back || '/conti'; }
     });
     try {                                                                              // 오프라인용 다운로드를 해 둔 기기라면, 빠진 것만 조용히 채움 (6시간에 한 번)
