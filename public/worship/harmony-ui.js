@@ -50,7 +50,7 @@
     '.hm-legend span{margin-right:12px;font-size:12.5px;color:var(--g-sub,#d4cfc7)}' +
     '.hm-pop{position:absolute;z-index:8;pointer-events:none;padding:7px 11px 6px;border-radius:13px;background:rgba(14,14,22,.95);border:1.5px solid #ff8a2a;color:#fff;box-shadow:0 8px 26px rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translate(-50%,-100%);white-space:nowrap;transition:opacity .25s}' +
     '.hm-pop b{display:block;font:900 17px -apple-system,Helvetica,Arial,sans-serif;color:#FFB066}.hm-pop span{display:block;margin-top:2px;font:700 12px -apple-system,Helvetica,Arial,sans-serif;color:#e8e3da}.hm-pop i{font-style:normal;color:#9aa0ab;font-weight:600}' +
-    '.hm-pop b{transition:transform .12s}.hm-pop b.on{transform:scale(1.06)}.hm-poptones em{display:inline-block;min-width:22px;padding:1px 5px;margin:2px 1px 0;border-radius:7px;font-style:normal;font-size:14px;font-weight:800;color:#e8e3da;background:rgba(255,255,255,.08);transition:background .1s,color .1s}.hm-poptones em.on{background:#FFB066;color:#1a1208}' +
+    '.hm-pop b{transition:transform .12s}.hm-pop b.on{transform:scale(1.06)}.hm-pop:not(.off) .hm-poptones em,.hm-pop:not(.off) .hm-popfix{pointer-events:auto}.hm-pophd{display:flex;align-items:center;gap:10px;justify-content:space-between}.hm-popfix{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:9px;border:1px solid rgba(255,176,102,.5);background:rgba(255,176,102,.12);color:#FFB066;font:800 12.5px -apple-system,Helvetica,Arial,sans-serif;cursor:pointer;touch-action:manipulation}.hm-popfix svg,.hm-popfix .yi{width:14px;height:14px}.hm-poptones{display:flex!important;gap:5px;margin-top:6px!important}.hm-poptones em{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:34px;padding:0 8px;border-radius:9px;font-style:normal;font-size:15px;font-weight:800;color:#e8e3da;background:rgba(255,255,255,.1);cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;transition:background .1s,color .1s}.hm-poptones em.on{background:#FFB066;color:#1a1208}' +
     'html[data-theme=light] .hm-pop{background:rgba(255,255,255,.97);color:#111;border-color:#46BDC6}html[data-theme=light] .hm-pop b{color:#0E7C86}html[data-theme=light] .hm-pop span{color:#333}';
   function injectCss() {
     if (!doc || doc.getElementById('yn-harm-css')) return;
@@ -826,13 +826,50 @@
     }
     var popEl = null, popT = 0;
     function showPop(cd, name, v, arp, total) {
-      if (!popEl) { popEl = doc.createElement('div'); popEl.className = 'hm-pop'; popEl.setAttribute('aria-live', 'polite'); }
-      if (popEl.parentNode !== box) box.appendChild(popEl);
-      var W = box.clientWidth, Hh = box.clientHeight, nm = S.flats ? ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-      var tones = (arp || []).map(function (m, i) { return '<em data-i="' + i + '">' + h(nm[((m % 12) + 12) % 12]) + '</em>'; }).join(' ');
-      popEl.innerHTML = '<b class="on">' + h(name) + '</b>' + (tones ? '<span class="hm-poptones">' + tones + '</span>' : '<span>' + v.degs.map(function (g) { return h(g.name) + ' <i>' + h(g.d) + '</i>'; }).join(' · ') + '</span>');
-      popEl.style.left = clamp((cd.x + cd.w / 2) * W, 70, Math.max(70, W - 70)) + 'px'; popEl.style.top = Math.max(46, cd.y * Hh - 8) + 'px'; popEl.style.opacity = '1';
-      clearTimeout(popT); popT = setTimeout(function () { if (popEl) popEl.style.opacity = '0'; }, Math.max(1900, (total || 0) * 1000 - 500));
+      if (!popEl) { popEl = doc.createElement('div'); popEl.className = 'hm-pop'; popEl.setAttribute('aria-live', 'polite'); ['pointerdown', 'pointerup', 'click', 'touchstart', 'touchend', 'dblclick'].forEach(function (n) { popEl.addEventListener(n, popPointer); }); }
+      var host0 = P.el || box; if (popEl.parentNode !== host0) host0.appendChild(popEl);          // 화면 맨 위 층에 (떠 있는 도구 창 · 메트로놈 창에 가리지 않게)
+      var BR = box.getBoundingClientRect(), W = box.clientWidth, Hh = box.clientHeight, nm = S.flats ? ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      var tones = (arp || []).map(function (m, i) { return '<em data-i="' + i + '" data-m="' + m + '" role="button" tabindex="-1" aria-label="' + h(nm[((m % 12) + 12) % 12]) + ' 음 듣기">' + h(nm[((m % 12) + 12) % 12]) + '</em>'; }).join('');
+      popEl.innerHTML = '<div class="hm-pophd"><b class="on">' + h(name) + '</b><button type="button" class="hm-popfix" data-id="' + h(cd.id) + '" aria-label="이 코드 고치기">' + YI('pen') + '고치기</button></div>' + (tones ? '<span class="hm-poptones">' + tones + '</span>' : '<span>' + v.degs.map(function (g) { return h(g.name) + ' <i>' + h(g.d) + '</i>'; }).join(' · ') + '</span>');
+      var sx = BR.width / (W || 1), sy = BR.height / (Hh || 1), cxv = BR.left + (cd.x + cd.w / 2) * W * sx, topv = BR.top + cd.y * Hh * sy, botv = BR.top + (cd.y + cd.h) * Hh * sy, vw = root.innerWidth || 1000;
+      popEl.style.position = 'fixed'; popEl.style.zIndex = '60';
+      popEl.style.left = clamp(cxv, 100, Math.max(100, vw - 100)) + 'px'; var below = topv < 170; popEl.style.top = (below ? botv + 10 : topv - 8) + 'px'; popEl.style.transform = below ? 'translate(-50%,0)' : ''; popEl.style.opacity = '1'; popEl.classList.remove('off');     // 위쪽 코드는 말풍선을 아래에 (위 도구 막대에 가리지 않게)
+      popOn(); popLater(Math.max(8000, (total || 0) * 1000 + 6000));
+    }
+    /* 말풍선은 다른 곳을 누르거나(터치 · 마우스) 마우스가 멀어지면 닫힘 · 아무것도 안 하면 몇 초 뒤 저절로 닫힘 */
+    var popBox = null, popAway = false;
+    function popLater(ms) { clearTimeout(popT); popT = setTimeout(hidePop, ms); }
+    function hidePop() {
+      clearTimeout(popT); if (!popEl) return;
+      popEl.style.opacity = '0'; popEl.classList.add('off'); popBox = null;
+      if (popAway) { popAway = false; doc.removeEventListener('pointerdown', onPopAway, true); doc.removeEventListener('pointermove', onPopMove, true); doc.removeEventListener('wheel', hidePop, true); }
+    }
+    function popOn() {
+      popBox = null;
+      if (!popAway) { popAway = true; doc.addEventListener('pointerdown', onPopAway, true); doc.addEventListener('pointermove', onPopMove, true); doc.addEventListener('wheel', hidePop, { capture: true, passive: true }); }
+    }
+    function onPopAway(e) { if (popEl && !popEl.contains(e.target)) hidePop(); }
+    function onPopMove(e) {
+      if (e.pointerType !== 'mouse' || !popEl) return;
+      if (!popBox) { var r = popEl.getBoundingClientRect(); popBox = { l: r.left - 70, r: r.right + 70, t: r.top - 70, b: r.bottom + 90 }; }   // 코드를 누른 자리(말풍선 바로 아래)는 포함
+      if (e.clientX < popBox.l || e.clientX > popBox.r || e.clientY < popBox.t || e.clientY > popBox.b) hidePop();
+    }
+    function popPointer(e) {
+      e.stopPropagation(); if (e.type !== 'pointerdown') return;
+      var em = e.target.closest ? e.target.closest('.hm-poptones em') : null, fx = e.target.closest ? e.target.closest('.hm-popfix') : null;
+      if (em) { e.preventDefault(); playTone(+em.getAttribute('data-m')); Array.prototype.forEach.call(popEl.querySelectorAll('em'), function (x) { x.classList.toggle('on', x === em); }); var b0 = popEl.querySelector('b'); if (b0) b0.classList.remove('on'); popLater(8000); }
+      else if (fx) { e.preventDefault(); var id = fx.getAttribute('data-id'); stopChordSeq(); hidePop(); setTimeout(function () { if (!S.dead) openEditor(id); }, 0); }
+    }
+    /** 구성음 하나만 (깨끗한 피아노) — 울리던 코드 소리는 줄여 끊음 */
+    function playTone(m) {
+      try {
+        var a = ensureAudio(), ctx = a.ctx, t = ctx.currentTime + 0.02; stopChordSeq();
+        var g = ctx.createGain(); g.gain.value = 1; g.connect(a.master);
+        var syn = root.YNPitch && root.YNPitch.createSynth ? root.YNPitch.createSynth(ctx, g, { clean: true }) : fallbackSynth(ctx, g);
+        syn.on(m, 0.66, t).off(t + 1.3);
+        var q = au.seq = { g: g, timers: [] };
+        q.timers.push(setTimeout(function () { if (au.seq === q) { au.seq = null; try { g.disconnect(); } catch (x) {} } }, 2600));
+      } catch (e) { toast(e.message || '소리를 낼 수 없습니다.', true); }
     }
     /** 지금 울리는 음을 말풍선에서 밝게 (i = 구성음 순서, -1 = 다시 화음) */
     function popStep(i) {
@@ -852,13 +889,13 @@
       var name = semis ? HC.formatChord(cd.parsed, semis, S.flats) : cd.text;
       /* 깨끗한 피아노로: 화음 → 구성음을 아래에서 위로 하나씩 → 다시 화음 (예: C → C · E · G → C). 다른 코드를 누르면 앞의 소리는 바로 줄여 끊음 */
       var arp = (cd.parsed.bass != null && v.bass % 12 !== (v.notes[0] != null ? v.notes[0] % 12 : -1) ? [v.bass] : []).concat(v.notes);
-      var CH = 1.0, GAP = 0.16, STEP = 0.42, NOTE = 0.6, END = 1.9, total = 0;
+      var CH = 1.0, GAP = 0.16, STEP = 0.42, NOTE = 0.78, END = 1.9, total = 0;           // 한 음은 다음 음과 살짝 겹치게 (페달처럼 이어짐)
       try {
         var a = ensureAudio(), ctx = a.ctx, t0 = ctx.currentTime + 0.03;
         stopChordSeq();
         var g = ctx.createGain(); g.gain.value = 1; g.connect(a.master);
         var syn = root.YNPitch && root.YNPitch.createSynth ? root.YNPitch.createSynth(ctx, g, { clean: true }) : fallbackSynth(ctx, g);
-        var chord = function (t, len) { v.all.forEach(function (m, i) { syn.on(m, i === 0 ? 0.62 : 0.56, t + i * 0.012).off(t + len); }); };
+        var chord = function (t, len) { v.all.forEach(function (m, i) { syn.on(m, i === 0 ? 0.56 : 0.5, t + i * 0.012).off(t + len); }); };
         chord(t0, CH);
         var tA = t0 + CH + GAP;
         arp.forEach(function (m, i) { syn.on(m, 0.62, tA + i * STEP).off(tA + i * STEP + NOTE); });
@@ -1185,7 +1222,7 @@
     }
 
     /* ---------- 연습 화면 이벤트 ---------- */
-    P.on('page', function () { if (S.dead) return; if (S.playing) stop(); S.sel = null; S.statMsg = ''; if (S.editor) closeEditor(true); computeModel(); redraw(); syncPanel(); if (pShift()) { noteState(); maybeAuto(); } });
+    P.on('page', function () { if (S.dead) return; try { hidePop(); } catch (e) {} if (S.playing) stop(); S.sel = null; S.statMsg = ''; if (S.editor) closeEditor(true); computeModel(); redraw(); syncPanel(); if (pShift()) { noteState(); maybeAuto(); } });
     P.on('sheet', function () { if (S.dead) return; if (S.fid && S.data) saveNow(); S.statMsg = ''; loadFile(); if (pShift()) { noteState(); maybeAuto(); } });
     P.on('keyshift', function (n) { if (S.dead || S.reflecting) return; applyShift(n); });                    // 유튜브 카드 · 재생 카드가 연습 키를 바꿈
     P.on('song', function () { if (S.dead) return; applyShift(pShift()); });                                    // 곡이 바뀌면 그 곡의 연습 키로
@@ -1198,7 +1235,7 @@
       try { clearInterval(pullTimer); if (doc) doc.removeEventListener('visibilitychange', onVis); } catch (e) {}
       try { if (ro) ro.disconnect(); root.removeEventListener('resize', redraw); } catch (e) {}
       try { cv.remove(); } catch (e) {} try { if (S.editor) S.editor.inp.remove(); } catch (e) {}
-      try { stopChordSeq(); } catch (e) {}
+      try { stopChordSeq(); hidePop(); if (popEl) popEl.remove(); } catch (e) {}
       try { if (au.ctx && au.ctx.close) au.ctx.close(); } catch (e) {}
       try { if (S.worker) S.worker.then(function (w) { return w.terminate(); }).catch(function () {}); } catch (e) {}
     }

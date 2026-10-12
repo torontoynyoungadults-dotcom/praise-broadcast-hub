@@ -118,13 +118,15 @@
       var v = { midi: midi, dead: false, at: t };
       v.off = function (when2, quick) {
         if (v.dead) return; v.dead = true;
-        var t2 = Math.max(when2 == null ? ctx.currentTime : when2, t), rel = quick ? 0.05 : p.release;
+        var now = ctx.currentTime, t2 = Math.max(when2 == null ? now : when2, t), rel = quick ? 0.05 : p.release;
         try {
           env.gain.cancelScheduledValues(t2);
-          env.gain.setValueAtTime(Math.max(0.0001, env.gain.value), t2);
+          /* 미리 예약한 떼기(코드 들려주기처럼 몇 초 뒤): 그때의 실제 소리 크기에서 부드럽게 줄임.
+             예전에는 "지금" 값(아직 울리기 전이라 거의 0)을 그 시각에 박아 소리가 툭 끊겼습니다 ("띵.. 띵!") */
+          if (t2 <= now + 0.02) env.gain.setValueAtTime(Math.max(0.0001, env.gain.value), t2);
           env.gain.setTargetAtTime(0.0001, t2, rel / 3.5);
         } catch (e) {}
-        oscs.forEach(function (o) { try { o.stop(t2 + rel + 0.08); } catch (e) {} });
+        oscs.forEach(function (o) { try { o.stop(t2 + rel * 1.6 + 0.1); } catch (e) {} });      // 거의 0 이 된 뒤에 멈춤 (멈추는 순간 '틱' 소리 방지)
         var i = voices.indexOf(v); if (i >= 0) voices.splice(i, 1);
         var done = function () { try { env.disconnect(); lp.disconnect(); mix.disconnect(); } catch (e) {} };
         if (oscs[0]) oscs[0].onended = done;

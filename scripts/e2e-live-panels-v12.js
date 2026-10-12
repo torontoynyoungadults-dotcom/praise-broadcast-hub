@@ -139,6 +139,19 @@ global.fetch = async (url, opt) => {
   const run2 = await page.evaluate(() => { const b = [...document.querySelectorAll('.pv-mgo')].find((x) => x.offsetParent !== null); return { t: b.textContent, on: b.classList.contains('on') }; });
   ok(!run2.on && run2.t === '▶', '다시 누르면 멈춤 (▶)', run2);
 
+  console.log('■ 예약해 둔 떼기에서 소리가 툭 끊기지 않음 (실제 파형)');
+  const envl = await page.evaluate(async () => {
+    const SR = 44100, ctx = new OfflineAudioContext(1, SR * 2, SR);
+    const syn = YNPitch.createSynth(ctx, ctx.destination, { clean: true });
+    syn.on(64, 0.62, 0.2).off(0.2 + 0.78);                                   // 코드 들려주기처럼 미리 떼기를 예약
+    const d = (await ctx.startRendering()).getChannelData(0);
+    const rms = (a, b) => { let s = 0, n = 0; for (let i = Math.floor(a * SR); i < Math.floor(b * SR); i++) { s += d[i] * d[i]; n++; } return Math.sqrt(s / n); };
+    return { before: rms(0.95, 0.975), justAfter: rms(0.982, 0.997), later: rms(1.4, 1.45), end: rms(1.9, 1.99) };
+  });
+  ok(envl.before > 0.005, '음이 울림', envl);
+  ok(envl.justAfter > envl.before * 0.5, '떼는 순간 소리가 뚝 끊기지 않고 부드럽게 줄어듦', envl);
+  ok(envl.later < envl.before * 0.2 && envl.end < 1e-4, '떼고 나면 잦아들어 조용해짐', envl);
+
   ok(errs.length === 0, '화면 오류 없음', errs);
   await br.close(); await rt.close(); server.close();
   console.log(`\n통과 ${pass} · 실패 ${fail}`); if (fail) console.log('실패:', fails.join(' | '));
