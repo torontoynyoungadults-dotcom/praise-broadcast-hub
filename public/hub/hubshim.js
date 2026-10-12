@@ -309,8 +309,16 @@ function stOffCard() {
   var months = [], cur = null;
   rows.forEach(function (r) { var mo = r.date.slice(0, 7); if (!cur || cur.mo !== mo) { cur = { mo: mo, rows: [] }; months.push(cur); } cur.rows.push(r); });
   var n = rows.filter(function (r) { return mineSet[r.key]; }).length;
-  var html = '<div class="panel offcard"><div class="offc-h"><b>내가 안 되는 날</b>' + (n ? '<span class="offc-n">' + n + '일 표시됨</span>' : '') + '</div>' +
-    '<p class="offc-hint">안 되는 날을 누르세요 — 바로 저장돼요. 다시 누르면 취소.</p>';
+  var open = !!ST.offOpen;                                            // v12 — 평소엔 한 줄로 접어 두고, 누르면 펼쳐서 고름
+  var marked = rows.filter(function (r) { return mineSet[r.key]; });
+  var html = '<div class="panel offcard' + (open ? ' open' : '') + '"><button type="button" class="offc-h offc-tog" aria-expanded="' + open + '" onclick="offToggle()">' +
+    '<b>내가 안 되는 날</b>' + (n ? '<span class="offc-n">' + n + '일 표시됨</span>' : '<span class="offc-z">표시한 날 없음</span>') +
+    '<span class="offc-go">' + (open ? '접기' : (n ? '고치기' : '날짜 고르기')) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>';
+  if (!open) {
+    return html + (n ? '<div class="offc-peek">' + marked.slice(0, 6).map(function (r) { return '<span>' + esc(md(r.date)) + (r.event ? ' ' + esc(String(r.event.name || '').slice(0, 6)) : '') + '</span>'; }).join('') +
+      (marked.length > 6 ? '<span class="more">+' + (marked.length - 6) + '</span>' : '') + '</div>' : '') + '<p class="msg" id="offCardMsg"></p></div>';
+  }
+  html += '<p class="offc-hint">안 되는 날을 누르세요 — 바로 저장돼요. 다시 누르면 취소.</p>';
   months.forEach(function (m) {
     html += '<div class="offc-mon"><span class="offc-ml">' + Number(m.mo.split('-')[1]) + '월</span><div class="offc-days">' + m.rows.map(function (r) {
       var mi = mineSet[r.key], on = !!mi, d = dt(r.date);
@@ -334,6 +342,7 @@ function stOffCard() {
   return html + '<p class="msg" id="offCardMsg"></p></div>';
 }
 function offDone(mine, keys, msg) { stAfterOff(mine, keys); render(); if (msg) say('offCardMsg', msg, 'ok'); }
+function offToggle() { ST.offOpen = !ST.offOpen; if (!ST.offOpen) ST.offEdit = null; render(); }
 function offTap(key) {
   var had = stMineOf(key), keep = (ST.mine || []).slice();
   if (had) {                                                          // 다시 누름 → 취소

@@ -52,7 +52,12 @@ require.cache[honPath] = { id: honPath, filename: honPath, loaded: true, exports
     const ctx = await br.newContext({ viewport: { width: w, height: h }, locale: 'ko-KR', isMobile: nm === 'phone', hasTouch: nm === 'phone' });
     const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(nm + ': ' + e.message));
     await page.goto(BASE + '/schedule?team=' + TEAM);
-    ok(await page.waitForSelector('.offcard .offd', { timeout: 15000 }).then(() => true, () => false), '스케줄표 위에 "내가 안 되는 날" 카드 · 날짜 단추가 바로 보임');
+    ok(await page.waitForSelector('.offcard .offc-tog', { timeout: 15000 }).then(() => true, () => false), '스케줄표 위에 "내가 안 되는 날" 카드');
+    const shut = await page.evaluate(() => { const c = document.querySelector('.offcard'), cs = getComputedStyle(c); return { days: c.querySelectorAll('.offd').length, h: c.getBoundingClientRect().height, go: c.querySelector('.offc-go').textContent, pad: cs.padding, kids: [...c.children].map((k) => k.className + ':' + Math.round(k.getBoundingClientRect().height)) }; });
+    ok(shut.days === 0 && shut.h < 110 && /날짜 고르기/.test(shut.go), '처음엔 한 줄로 접혀 있음', shut);
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/praise-' + nm + '-shut.png' });
+    await page.click('.offc-tog');
+    ok(await page.waitForSelector('.offcard.open .offd', { timeout: 5000 }).then(() => true, () => false), '누르면 펼쳐져 날짜 단추가 보임');
     const info = await page.evaluate(() => { const c = document.querySelector('.offcard'), p = document.querySelector('.stpanel'); return { n: c.querySelectorAll('.offd').length, before: !!(c.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING), btn: !!document.querySelector('.stoffbtn'), hint: c.querySelector('.offc-hint').textContent }; });
     ok(info.n >= 10 && info.before && !info.btn, '앞으로 3개월 주일이 단추로 · 스케줄표보다 위 · 예전 "날짜 고르기" 단추 없음', info);
     if (nm === 'phone') { const fit = await page.evaluate(() => { const b = document.querySelectorAll('.offd'), r = b[b.length - 1].getBoundingClientRect(); return { right: r.right, w: innerWidth, h: r.height }; }); ok(fit.right <= fit.w && fit.h >= 44, '폰: 단추가 화면 안 · 누르기 쉬운 크기(44px 이상)', fit); }
@@ -90,6 +95,10 @@ require.cache[honPath] = { id: honPath, filename: honPath, loaded: true, exports
     ok(await page.evaluate(() => !document.querySelectorAll('.offd')[1].classList.contains('on')), '다시 누르면 바로 취소');
     await page.waitForFunction(() => /지웠어요/.test((document.getElementById('offCardMsg') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {});
     ok(!offRows().some((r) => String(r['날짜']) === k1), '서버에서도 지워짐');
+    await page.click('.offc-tog');
+    const peek = await page.evaluate(() => { const c = document.querySelector('.offcard'); return { open: c.classList.contains('open'), days: c.querySelectorAll('.offd').length, peek: c.querySelectorAll('.offc-peek span').length }; });
+    ok(!peek.open && peek.days === 0 && peek.peek === 2, '다시 누르면 접히고 · 표시한 날만 작게 보임', peek);
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/praise-' + nm + '-peek.png' });
     /* 스케줄표에도 반영 */
     const tag = await page.evaluate(() => (document.querySelector('.stpanel') || {}).textContent || '');
     ok(/나 불가|나 금요일 불가|나 주일 불가/.test(tag), '아래 스케줄표에도 "나 불가" 표시', tag.slice(0, 80));

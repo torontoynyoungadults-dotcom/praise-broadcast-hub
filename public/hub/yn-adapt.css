@@ -261,3 +261,20 @@ html[data-theme="light"] .rp-hd { border-color: rgba(15, 23, 42, .2); background
 html[data-theme="light"] .yg-day:hover { background: rgba(15, 23, 42, .05); }
 html[data-theme="light"] .ld-song { background: rgba(242, 121, 47, .08); border-color: rgba(210, 81, 31, .4); color: #0F172A; }
 html[data-theme="light"] .ld-row.on { background: rgba(242, 121, 47, .1); }
+
+/* v12 — 내가 안 되는 날: 접어 두고 누르면 펼침 */
+.yn .offcard:not(.open) { padding-top: 10px !important; padding-bottom: 10px !important; }
+.yn .offc-tog { width: 100%; min-height: 44px; padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; flex-wrap: nowrap; gap: 8px; -webkit-tap-highlight-color: transparent; }
+.yn .offc-tog b { white-space: nowrap; } .yn .offc-z, .yn .offc-tog .offc-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yn .offc-z { font-size: 13px; color: var(--ink-3, #8a8f9c); font-weight: 700; }
+.yn .offc-go { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 99px; border: 1px solid rgba(127,127,127,.35); font-size: 13.5px; font-weight: 800; white-space: nowrap; }
+.yn .offc-go svg { width: 15px; height: 15px; transition: transform .2s; }
+.yn .offcard.open .offc-go svg { transform: rotate(180deg); }
+.yn .offc-peek { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; }
+.yn .offc-peek span { padding: 3px 9px; border-radius: 99px; background: var(--bad-bg, rgba(214,69,65,.14)); color: var(--bad, #D64541); font-size: 12.5px; font-weight: 800; }
+.yn .offc-peek span.more { background: rgba(127,127,127,.14); color: inherit; }
+html[data-theme="light"] .yn .offc-go { color: #17302A; border-color: rgba(23,48,42,.25); background: #fff; }
+html[data-theme="light"] .yn .offc-z { color: #4E625D; }
+html[data-theme="light"] .yn .offc-peek span { background: #FBE7E4; color: #B23A30; } html[data-theme="light"] .yn .offc-peek span.more { background: #EEF1F0; color: #17302A; }
+.yn .offcard:not(.open) .msg:empty { display: none; }
+@media (max-width: 420px) { .yn .offc-z { display: none; } }
