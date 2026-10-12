@@ -30,12 +30,23 @@
   var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'P', 'C', 'C2', 'B', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
   var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', P: '프리코러스', C: '후렴', C2: '후렴 2', B: '브릿지', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
   /** 글꼴 — 글자 · 코드 · 글자 모양 기호(음표 도장 · 다이내믹)에 씁니다. 서버는 이 키(sans · serif · hand)만 받습니다 */
-  var FONT_KEYS = ['sans', 'pretendard', 'seoyun', 'positive', 'serif', 'hand', 'pen', 'dodum'];
-  var FONT_NAMES = { sans: '고딕 (기기 글꼴)', pretendard: '프리텐다드', seoyun: '이서윤체', positive: '온글잎 긍정체', serif: '명조 (Serif)', hand: '손글씨 (기기 글꼴)', pen: '나눔 펜 손글씨', dodum: '고운돋움 (손글씨체)' };
+  var FONT_KEYS = ['sans', 'paperlogy', 'pretendard', 'scdream', 'gowunbatang', 'suit', 'kopubdotum', 'chosungu', 'seoyun', 'yuntaeng', 'yeeun', 'popcorn', 'konkon', 'goding', 'positive', 'serif', 'hand', 'pen', 'dodum'];
+  var FONT_NAMES = { sans: '고딕 (기기 글꼴)', paperlogy: '페이퍼로지', pretendard: '프리텐다드', scdream: '에스코어 드림', gowunbatang: '고운바탕', suit: '수트', kopubdotum: 'KoPub 돋움', chosungu: '조선굴림체', seoyun: '이서윤체', yuntaeng: '온글잎 윤탱체', yeeun: '그리운 예은체', popcorn: '그리운 팝콘체', konkon: '온글잎 콘콘체', goding: '고딕 아니고 고딩', positive: '온글잎 긍정체', serif: '명조 (Serif)', hand: '손글씨 (기기 글꼴)', pen: '나눔 펜 손글씨', dodum: '고운돋움 (손글씨체)' };
   /** 한글 손글씨 웹폰트 (구글 폰트) — 화면 글자 · 코드에 고를 수 있고, 못 받으면 아래 대체 글꼴로 보입니다 */
   var WEBFONT_URL = 'https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gowun+Dodum&display=swap';
   var WEBFONT_FACES = ['Nanum Pen Script', 'Gowun Dodum'];
   var FONTS = {
+    paperlogy: '"YN Paperlogy","Apple SD Gothic Neo","Malgun Gothic",sans-serif',
+    scdream: '"YN SCDream","Apple SD Gothic Neo","Malgun Gothic",sans-serif',
+    gowunbatang: '"YN GowunBatang","Noto Serif KR","Apple Myungjo","Batang",serif',
+    suit: '"YN SUIT","Apple SD Gothic Neo","Malgun Gothic",sans-serif',
+    kopubdotum: '"YN KoPubDotum","Apple SD Gothic Neo","Malgun Gothic",sans-serif',
+    yuntaeng: '"YN Yuntaeng","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
+    yeeun: '"YN Yeeun","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
+    popcorn: '"YN Popcorn","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
+    konkon: '"YN Konkon","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
+    goding: '"YN Goding","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
+    chosungu: '"YN Chosungu","Gulim","Apple SD Gothic Neo",sans-serif',
     pretendard: '"YN Pretendard","Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Arial,sans-serif',
     seoyun: '"YN Seoyun","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
     positive: '"YN Positive","Nanum Pen Script","Apple SD Gothic Neo","Malgun Gothic",cursive',
@@ -71,7 +82,19 @@
   var LOCAL_FONTS = {
     pretendard: { fam: 'YN Pretendard', faces: [['Pretendard-SemiBold.woff2', '100 700'], ['Pretendard-Bold.woff2', '701 900']] },
     seoyun: { fam: 'YN Seoyun', faces: [['LeeSeoyun.woff2', null]] },
-    positive: { fam: 'YN Positive', faces: [['OwnglyphPositive.woff2', null]] }
+    positive: { fam: 'YN Positive', faces: [['OwnglyphPositive.woff2', null]] },
+    /* v9.26 — 선교 문서와 같은 글꼴 파일 (public/fonts/doc) */
+    paperlogy: { fam: 'YN Paperlogy', faces: [['/fonts/doc/paperlogy-400.woff2', '100 550'], ['/fonts/doc/paperlogy-700.woff2', '551 900']] },
+    scdream: { fam: 'YN SCDream', faces: [['/fonts/doc/scdream-400.woff2', null]] },
+    gowunbatang: { fam: 'YN GowunBatang', faces: [['/fonts/doc/gowunbatang-400.woff2', '100 550'], ['/fonts/doc/gowunbatang-700.woff2', '551 900']] },
+    suit: { fam: 'YN SUIT', faces: [['/fonts/doc/suit-400.woff2', '100 550'], ['/fonts/doc/suit-700.woff2', '551 900']] },
+    kopubdotum: { fam: 'YN KoPubDotum', faces: [['/fonts/doc/kopubdotum-400.woff2', '100 550'], ['/fonts/doc/kopubdotum-700.woff2', '551 900']] },
+    chosungu: { fam: 'YN Chosungu', faces: [['/fonts/doc/chosungu-400.woff2', null]] },
+    yuntaeng: { fam: 'YN Yuntaeng', faces: [['/fonts/doc/yuntaeng-400.woff2', null]] },
+    yeeun: { fam: 'YN Yeeun', faces: [['/fonts/doc/yeeun-400.woff2', null]] },
+    popcorn: { fam: 'YN Popcorn', faces: [['/fonts/doc/popcorn-400.woff2', null]] },
+    konkon: { fam: 'YN Konkon', faces: [['/fonts/doc/konkon-400.woff2', null]] },
+    goding: { fam: 'YN Goding', faces: [['/fonts/doc/goding-400.woff2', null]] }
   };
   var _lf = {}, _lfT = {}, _lfSubs = [];
   function _lfNotify() { _lfSubs.slice().forEach(function (f) { try { f(); } catch (e) {} }); }
@@ -87,7 +110,7 @@
     _lf[key] = 1;
     try {
       Promise.all(d.faces.map(function (f) {
-        var ff = new FontFace(d.fam, 'url(' + LOCAL_FONT_BASE + f[0] + ') format("woff2")', f[1] ? { weight: f[1] } : {});
+        var ff = new FontFace(d.fam, 'url(' + (f[0].charAt(0) === '/' ? '' : LOCAL_FONT_BASE) + f[0] + ') format("woff2")', f[1] ? { weight: f[1] } : {});
         return ff.load().then(function (x) { document.fonts.add(x); });
       })).then(function () { _lf[key] = 2; _lfNotify(); }, function () { _lf[key] = 3; _lfT[key] = Date.now(); });
     } catch (e) { _lf[key] = 3; _lfT[key] = Date.now(); }
