@@ -177,3 +177,25 @@ html[data-theme="light"] body .pv .pv-ytbtn.on { background: rgba(255, 0, 0, .08
 /* ---------- 올가미 도구 줄 ---------- */
 html body .pv .pv-lassorow { display: flex; align-items: center; gap: 6px; }
 html body .pv .pv-lassocount { font-size: 12.5px; font-weight: 800; color: var(--lg-a-text, #FFC18F); white-space: nowrap; padding: 0 4px; }
+
+/* ---------- v12 — 떠 있는 창마다 ✕ (닫기) · 「⋯」 메뉴의 "떠 있는 창" 칸 ---------- */
+html body .pv .pv-fx {
+  position: relative; flex: none; align-self: flex-start; box-sizing: border-box; width: 26px; height: 26px; min-width: 0; margin: -1px -3px 0 2px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  border: 1px solid var(--lg-ctl-edge, rgba(255, 255, 255, .1)); background: var(--lg-ctl, rgba(255, 255, 255, .06)); color: var(--lg-dim, #8A8D9A); transition: background .12s, color .12s, transform .1s;
+}
+html body .pv .pv-fx::after { content: ''; position: absolute; inset: -9px; }                 /* 눈에 띄지 않게 작게, 손가락에는 44px 가깝게 */
+html body .pv .pv-fx .yi { width: 13px; height: 13px; }
+html body .pv .pv-fx:hover { background: var(--lg-ctl-hov, rgba(255, 255, 255, .12)); color: var(--lg-ink, #F5F5F7); }
+html body .pv .pv-fx:active { transform: scale(.9); }
+html body .pv .pv-fx:focus-visible { outline: 2px solid var(--lg-a-text, #FFC18F); outline-offset: 2px; }
+html body .pv .pv-form { padding-right: 12px; }
+html body .pv.pv-compact .pv-metro .pv-fx { width: 24px; height: 24px; margin-left: 0; }
+html body .pv .pv-fltlabel { display: none; }
+html body .pv .pv-acts .pv-fltlabel {
+  display: block; margin: 8px 0 2px; padding: 10px 12px 4px; border-top: 1px solid var(--lg-edge, rgba(255, 255, 255, .08));
+  font-size: 11.5px; font-weight: 800; letter-spacing: .02em; color: var(--lg-dim, #8A8D9A);
+}
+html body .pv.pv-compact .pv-acts .pv-flt[data-k="tools"] { display: none !important; }      /* 폰은 필기 도구가 떠 있는 창이 아니라 서랍 */
+html body .pv .pv-metro .pv-fx { order: 99; }                                                /* 메트로놈 창은 내용이 나중에 들어와도 ✕ 는 맨 오른쪽 위 */
+html body .pv.pv-compact .pv-metro .pv-fx { position: absolute; top: -13px; right: 10px; margin: 0; width: 26px; height: 26px; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); background: var(--lg-glass, #1d1e26); }   /* 폰: 창 폭이 화면을 꽉 채워서 ✕ 는 윗변에 걸치게 */

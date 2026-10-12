@@ -441,6 +441,7 @@
       toolsBtn.querySelector('.ic').innerHTML = I(show ? 'up' : 'pen');
       toolsBtn.querySelector('.nm').textContent = show ? '도구' : '도구 열기';
       if (save) ls('tools', show ? '1' : '0');
+      try { paintShows(); } catch (e) { /* 메뉴 칸이 아직 없으면 나중에 */ }
       renderSoon(60);            // 넓어진(좁아진) 칸에 맞춰 악보를 다시 그림
     }
     toolsBtn.onclick = function () { if (S.pillMoved && Date.now() - S.pillMoved < 400) return; setTools(el.classList.contains('pv-toolshide'), true); };
@@ -2469,6 +2470,9 @@
        · 좁은 화면(폰 · 서랍 메뉴)에서는 예전 배치 그대로 (도구는 서랍 · 메트로놈은 빠른 버튼). */
     var mainEl = $('.pv-main'), FL = {};
     var GRIP = '<span class="pv-grip" data-drag aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
+    /* 모든 떠 있는 창의 ✕ — 눌러서 닫고, 다시 켜는 단추는 「⋯」 메뉴의 "떠 있는 창" 칸에 있습니다 (자리 · 크기는 그대로 기억) */
+    var FLNAME = { form: '송폼 · 곡 정보', metro: '메트로놈', tools: '필기 도구', timer: '예배 타이머' };
+    function fxHtml(k) { return '<button type="button" class="pv-fx" data-fx="' + k + '" aria-label="' + (FLNAME[k] || '') + ' 창 닫기" title="' + (FLNAME[k] || '') + ' 창 닫기 (「⋯」 메뉴에서 다시 켤 수 있어요)">' + I('close') + '</button>'; }
     function flPos(k) { try { var v = JSON.parse(ls('pos.' + k) || 'null'); if (v && isFinite(v.x) && isFinite(v.y)) return v; } catch (e) {} return null; }
     /** 떠 있는 창이 다닐 수 있는 곳 = 악보 칸 (오른쪽 패널 위로는 가지 않음) */
     function flArea() { return { x: stage.offsetLeft, y: stage.offsetTop, w: Math.max(80, stage.offsetWidth), h: Math.max(80, stage.offsetHeight) }; }
@@ -2488,6 +2492,13 @@
       if (opt.whole) node.setAttribute('data-drag', '');
       if (!opt.keep && node.parentNode !== mainEl) mainEl.appendChild(node);
       FL[k] = { node: node, def: def };
+      if (opt.closable) {
+        if (!node.querySelector('.pv-fx')) node.insertAdjacentHTML('beforeend', fxHtml(k));
+        node.addEventListener('click', function (e) {
+          var x = e.target.closest ? e.target.closest('.pv-fx') : null; if (!x || !node.contains(x)) return;
+          e.preventDefault(); e.stopPropagation(); closeFloat(k);
+        });
+      }
       var drag = null;
       node.addEventListener('pointerdown', function (e) {
         var g = e.target.closest ? e.target.closest('[data-drag]') : null;
@@ -2563,21 +2574,31 @@
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
     var SHOWS = [['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];        // v9.7 — 예배 타이머 단추 뺌
     var SHOW_DEF = { timer: false, form: true, metro: false };            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
+    /** 떠 있는 창이 지금 보이는지 (필기 도구 = 막대가 펴져 있는지 · 타이머 = 저장된 값) */
+    function winOn(k) { if (k === 'tools') return !el.classList.contains('pv-toolshide'); if (k === 'timer') return ls('show.timer') !== '0'; return showOn(k); }
+    /** ✕ — 창 하나를 닫음 (악보 · 필기 · 메트로놈 동작에는 영향 없음, 보이기만 끔) */
+    function closeFloat(k) {
+      if (S.dead) return;
+      if (k === 'tools') setTools(false, true); else { ls('show.' + k, '0'); paintShows(); }
+      toast((FLNAME[k] || '') + ' 창을 닫았습니다 — 「⋯」 메뉴 › 떠 있는 창에서 다시 켤 수 있어요', false, 2800);
+    }
     function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; if (S.compact) return k === 'metro'; return SHOW_DEF[k] !== false; }     // V836 — 폰(좁은 화면)은 처음에 메트로놈 창만 떠 있음
     function paintShows() {
       SHOWS.forEach(function (s) {
-        var on = showOn(s[0]); el.classList.toggle('pv-hide-' + s[0], !on);
+        var on = winOn(s[0]); if (s[0] !== 'tools') el.classList.toggle('pv-hide-' + s[0], !on);
         var b = el.querySelector('.pv-flt[data-k="' + s[0] + '"]'); if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.title = s[2] + (on ? ' 숨기기' : ' 보이기'); }
       });
     }
     var fltGrp = doc.createElement('div'); fltGrp.className = 'pv-grp pv-flts'; fltGrp.setAttribute('role', 'group'); fltGrp.setAttribute('aria-label', '떠 있는 창 보이기');
-    fltGrp.innerHTML = SHOWS.map(function (s) { return '<button type="button" class="pv-b pv-flt" data-k="' + s[0] + '" aria-pressed="true" aria-label="' + s[2] + ' 창" title="' + s[2] + '">' + I(s[1]) + '<span class="pv-mt">' + s[2] + ' 창</span></button>'; }).join('');
+    SHOWS.push(['tools', 'pen', '필기 도구']);
+    fltGrp.innerHTML = '<div class="pv-fltlabel" role="presentation">떠 있는 창</div>' + SHOWS.map(function (s) { return '<button type="button" class="pv-b pv-flt" data-k="' + s[0] + '" aria-pressed="true" aria-label="' + s[2] + ' 창" title="' + s[2] + '">' + I(s[1]) + '<span class="pv-mt">' + s[2] + ' 창</span></button>'; }).join('');
     (function () { var ac = el.querySelector('.pv-acts'); if (ac) ac.insertBefore(fltGrp, ac.querySelector('.pv-mpdf')); else $('.pv-top').insertBefore(fltGrp, $('.pv-fsbtn')); })();     // v9.16 — 떠 있는 창 보이기는 「⋯」 안에
     fltGrp.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('.pv-flt') : null; if (!b) return;
-      var k = b.getAttribute('data-k'), on = !showOn(k); ls('show.' + k, on ? '1' : '0'); paintShows();
-      if (on) requestAnimationFrame(function () { flPlace(k); });
-      toast((SHOWS.filter(function (s) { return s[0] === k; })[0] || [])[2] + (on ? ' 보이기' : ' 숨김') + (on ? '' : ' — 위 막대의 같은 단추로 다시 켭니다'), false, 1400);
+      var k = b.getAttribute('data-k'), on = !winOn(k);
+      if (k === 'tools') setTools(on, true); else { ls('show.' + k, on ? '1' : '0'); paintShows(); }
+      if (on && k !== 'tools') requestAnimationFrame(function () { flPlace(k); });
+      toast((SHOWS.filter(function (s) { return s[0] === k; })[0] || [])[2] + (on ? ' 창 보이기' : ' 창 숨김') + (on ? '' : ' — 「⋯」 메뉴에서 다시 켭니다'), false, 1400);
     });
     /* 송폼 · 곡 정보 창 (악보 본문 대신 떠 있는 카드) */
     var formEl = doc.createElement('div'); formEl.className = 'pv-form'; formEl.setAttribute('aria-live', 'polite');
@@ -2601,7 +2622,7 @@
       var h2 = i2 >= 0 && i2 !== i ? '<div class="pv-form-2"><b>' + h((songs[i2] || {}).title || '') + '</b>' + formBadgeHtml(i2) + '</div>' : '';
       var html = s ? '<div class="pv-form-h"><b>' + h(s.title || '') + '</b>' + (meta ? '<small>' + meta + '</small>' : '') + '</div>' + (formBadgeHtml(i) || '<span class="pv-form-none">송폼 없음</span>') + h2 : '<span class="pv-form-none">곡을 고르면 송폼이 여기에 보입니다</span>';
       if (formEl.getAttribute('data-h') !== html) {
-        formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div><span class="pv-rsz" aria-hidden="true" title="끌어서 크기 조절 (두 번 누르면 처음 크기)"></span>'; formEl.setAttribute('data-h', html);
+        formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div>' + fxHtml('form') + '<span class="pv-rsz" aria-hidden="true" title="끌어서 크기 조절 (두 번 누르면 처음 크기)"></span>'; formEl.setAttribute('data-h', html);
         if (S.formCur && S.formCur.s === i) { var cn = formEl.querySelector('.pv-fb-t[data-i="' + S.formCur.i + '"]'); if (cn) cn.classList.add('cur'); }
         paintLeadPos();
         if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 메트로놈 동그라미
@@ -2704,10 +2725,12 @@
     })();
     function setupFloats() {
       makeFloat('tools', toolsEl, function () { return { x: 0.5, y: 0.012 }; }, { keep: true });
-      makeFloat('metro', metroEl, function () { return { x: 0.02, y: 0.985 }; });
-      makeFloat('form', formEl, function () { return S.compact ? { x: 0.98, y: 0.86 } : S.narrow ? { x: 0.985, y: 0.075 } : { x: 0.985, y: 0.1 }; });
+      makeFloat('metro', metroEl, function () { return { x: 0.02, y: 0.985 }; }, { closable: true });
+      makeFloat('form', formEl, function () { return S.compact ? { x: 0.98, y: 0.86 } : S.narrow ? { x: 0.985, y: 0.075 } : { x: 0.985, y: 0.1 }; }, { closable: true });
       if (timerBar && timerBar.el) {
-        makeFloat('timer', timerBar.el, function () { return S.compact ? { x: 0.02, y: 0.985 } : { x: 0.985, y: 0.985 }; });
+        makeFloat('timer', timerBar.el, function () { return S.compact ? { x: 0.02, y: 0.985 } : { x: 0.985, y: 0.985 }; }, { closable: true });
+        SHOWS.push(['timer', 'timer', '예배 타이머']);
+        fltGrp.insertAdjacentHTML('beforeend', '<button type="button" class="pv-b pv-flt" data-k="timer" aria-pressed="true" aria-label="예배 타이머 창" title="예배 타이머">' + I('timer') + '<span class="pv-mt">예배 타이머 창</span></button>');
         try { if (S.compact && timerBar.miniSaved() === null) timerBar.setMini(true, false); } catch (e) {}     // 좁은 화면은 처음에 작게 (예배 경과만)
       }
       P.on('toolsrender', function (host) { if (host && !host.querySelector(':scope > .pv-grip')) host.insertAdjacentHTML('afterbegin', GRIP); addToolsRsz(host); });
