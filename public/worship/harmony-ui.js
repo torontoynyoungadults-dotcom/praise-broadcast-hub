@@ -12,7 +12,7 @@
  *
  *  · 연습 키 이동 연동 (Feature 2): 연습 화면의 P.keyShift() (곡별 −3 ~ +3 반음, 유튜브 카드 · 키 바꿔 듣기 카드가 바꿈) = "목표 조 − 원래 조".
  *      - 'keyshift' / 'song' 이벤트를 들으면 목표 조 = 원래 조를 n 반음 옮긴 조 로 맞추고 코드를 다시 그립니다 (화음 탭을 한 번도 안 열었어도 practice.js 의 P.ensureTab 이 이 모듈을 화면 없이 만들어 줌).
- *      - 이 페이지이 아직 분석 전이면 (PDF 글자층 ▸ 없으면 OCR) 자동으로 한 번 분석합니다 — 쪽 · 악보마다 세션에 한 번, 화면을 막지 않음, 오프라인이면 안내만.
+ *      - 이 페이지이 아직 분석 전이면 (PDF 글자층 ▸ 없으면 OCR) 자동으로 한 번 분석합니다 — 페이지 · 악보마다 세션에 한 번, 화면을 막지 않음, 오프라인이면 안내만.
  *      - 이 탭의 "목표 조" 를 손으로 바꾸면 ±3 반음 안일 때 연습 키 이동에 되돌려 반영합니다 (되먹임 고리 없음).
  */
 (function (root) {
@@ -106,7 +106,7 @@
       S.fid = fid(); S.data = S.fid ? loadData(S.fid) : freshData(); S.undo = []; S.sel = null; stop(); linkFromP(); computeModel(); redraw(); syncPanel();
       S.shareHash = sharedHash(S.data); pullShared();
     }
-    /* ---------- V865 — 팀 공유: 분석 결과(쪽마다 오선 · 음표 · 코드) · 손으로 고친 화음 · 고친 코드 · 쓸 오선 · 원래 조를 서버에 저장해
+    /* ---------- V865 — 팀 공유: 분석 결과(페이지마다 오선 · 음표 · 코드) · 손으로 고친 화음 · 고친 코드 · 쓸 오선 · 원래 조를 서버에 저장해
        팀 모두가 같은 화음을 봅니다. 팀장 · 인도자(P.canEdit)가 고치면 자동 저장, 다른 분은 열 때(그리고 1분 30초마다) 받아 옵니다.
        보기 설정(알토/테너 보이기 · 소리 · 볼륨 · 목표 조 · 연습 키)은 기기마다 그대로. 서버가 없거나 실패해도 이 기기 저장은 계속 */
     function sharedPart(d) { return { pages: d.pages, ov: d.ov, use: d.use, orig: d.orig }; }
@@ -254,7 +254,7 @@
       roundRect(c, x - w / 2, y - 26, w, 24, 8); c.fillStyle = 'rgba(14,14,22,.95)'; c.fill(); c.lineWidth = 1.5; c.strokeStyle = color; c.stroke();
       c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, x, y - 14); c.restore();
     }
-    /** 한 쪽의 덧그림을 그립니다 — W · Hh 는 그리는 곳의 픽셀 크기(화면 · 내보내기 공용). o.hits 이면 눌러 볼 수 있는 자리를 모아 둡니다 */
+    /** 한 페이지의 덧그림을 그립니다 — W · Hh 는 그리는 곳의 픽셀 크기(화면 · 내보내기 공용). o.hits 이면 눌러 볼 수 있는 자리를 모아 둡니다 */
     function draw(c, W, Hh, pg, o) {
       o = o || {}; var d = S.data, pd = d && d.pages[pg]; if (!pd) return;
       var sh = d.show, hits = o.hits ? [] : null;
@@ -262,7 +262,7 @@
       /* 1) 코드: 원래 글자를 종이 색으로 덮고 새 코드를 유리 칩으로 */
       if (sh.chords && !sh.orig) {
         var rowsSorted = (pd.chords || []).filter(function (x) { return x.parsed; }).sort(function (a, b) { return a.y - b.y || a.x - b.x; });
-        /* V865 — 키를 바꿔도 코드 크기가 들쭉날쭉하지 않게: 한 쪽의 모든 코드를 같은 글자 크기 · 같은 칩 높이로,
+        /* V865 — 키를 바꿔도 코드 크기가 들쭉날쭉하지 않게: 한 페이지의 모든 코드를 같은 글자 크기 · 같은 칩 높이로,
            같은 줄의 코드는 같은 높이(줄 가운데)에 맞춥니다. 길어진 코드는 줄이지 않고 칩을 옆으로 늘립니다 */
         var fsAll = rowsSorted.map(function (cd) { return Math.max(9, (cd.fs || cd.h) * Hh); }).sort(function (a, b) { return a - b; });
         var F = fsAll.length ? fsAll[Math.floor(fsAll.length / 2)] : 12; F = Math.max(10, Math.min(F, 26));
@@ -460,7 +460,7 @@
        · 줄(7) → 낱말(8) → 한 글자(10) 순서로 읽어 코드로 읽힌 것 중 확신이 가장 높은 것을 고름
        · 흑백 기준을 그림마다 계산(Otsu) · 붙어 버린 두 코드는 빈 열에서 갈라 다시 읽음
        · 오선 위 띠에서 찾은 코드는 같은 줄(높이)에 모인 것만 남김 — 윗단 가사가 섞이지 않게
-       · 오선이 없는 코드 악보(가사 위에 코드)는 쪽 전체를 읽어 "코드 줄"을 찾은 뒤, 그 줄의 낱말을 하나씩 다시 읽음 */
+       · 오선이 없는 코드 악보(가사 위에 코드)는 페이지 전체를 읽어 "코드 줄"을 찾은 뒤, 그 줄의 낱말을 하나씩 다시 읽음 */
     var WL = 'ABCDEFGabdgijlmnostuM#+-/()0123456789';
     function setP(w, psm, wl) { return w.setParameters({ tessedit_pageseg_mode: psm, preserve_interword_spaces: '1', tessedit_char_whitelist: wl || '', user_defined_dpi: '300' }); }
     function otsuThr(d) {
@@ -546,7 +546,7 @@
         return setP(w, '11', '').then(function () { return w.recognize(binCanvas(c)); }).then(function (r) { var k = HC.findKeyText((r.data && r.data.text) || ''); return k ? k.name : ''; });
       }).catch(function () { return ''; });
     }
-    /** 오선 위 띠마다 글자 덩어리를 하나씩 잘라 읽음 (쪽 전체를 한꺼번에 읽으면 C · G 같은 한 글자 코드를 자주 놓침) — 코드로 읽히는 것만 남김 */
+    /** 오선 위 띠마다 글자 덩어리를 하나씩 잘라 읽음 (페이지 전체를 한꺼번에 읽으면 C · G 같은 한 글자 코드를 자주 놓침) — 코드로 읽히는 것만 남김 */
     function ocrChords(cv0, om, W, Hh, only) {
       return getWorker().then(function (w) {
         var melodyStaves = (only || om.staves.filter(function (s) { return s.melody; })), out = [], big = cv0.getContext('2d');
@@ -647,7 +647,7 @@
             });
           });
         });
-        return seq.then(function () { if (out.length || only) return out; return pageLevel(); });          // 오선 위에서 하나도 못 찾으면 쪽 전체에서 한 번 더
+        return seq.then(function () { if (out.length || only) return out; return pageLevel(); });          // 오선 위에서 하나도 못 찾으면 페이지 전체에서 한 번 더
       });
     }
     function samplePaper(rgba) {
@@ -719,7 +719,7 @@
         S.autoRun = false; if (S.autoPend) { S.autoPend = false; maybeAuto(); }
       });
     }
-    /** 연습 키 이동이 0 이 아닌데 이 페이지이 아직 분석 전이면 자동으로 한 번 분석 (쪽 · 악보마다 세션에 한 번). 화면을 막지 않고, 오프라인 + 글자층 없음이면 안내만 */
+    /** 연습 키 이동이 0 이 아닌데 이 페이지이 아직 분석 전이면 자동으로 한 번 분석 (페이지 · 악보마다 세션에 한 번). 화면을 막지 않고, 오프라인 + 글자층 없음이면 안내만 */
     function maybeAuto() {
       if (S.dead || !S.data || !S.autoOn || !pShift()) return;
       var pg = P.page(), key = S.fid + ':' + pg;
@@ -748,7 +748,7 @@
       if (S.data.tshift !== n) { S.data.tshift = n; S.statMsg = ''; commit(); } else { computeModel(); redraw(); syncPanel(); }
       noteState(); maybeAuto();
     }
-    /** 지금 쪽의 상태를 유튜브 · 재생 카드의 "악보:" 줄에 알림 */
+    /** 지금 페이지의 상태를 유튜브 · 재생 카드의 "악보:" 줄에 알림 */
     function noteState() {
       var n = pShift(), pg = pgKey(), pd = S.data && S.data.pages[pg];
       if (n === 0) { note('원래 키 그대로 — 악보 코드를 바꾸지 않습니다.'); return; }

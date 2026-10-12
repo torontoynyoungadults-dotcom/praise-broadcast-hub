@@ -9,7 +9,7 @@
  *   GET  /audio/:id                    팀 녹음 (키 바꿔 듣기) — 드라이브 녹음만
  *   POST /api/worshipTimerGet · worshipTimerCmd                예배 타이머 (웹소켓이 막혔을 때의 대체 통로, lib/realtime.js 와 같은 상태)
  *   POST /api/worshipAnnoLoad · worshipAnnoSaveMine            필기 읽기 · 나만 보기 필기 저장
- *   POST /api/worshipCfgLoad · worshipCfgSave                  쪽↔곡 연결 · 곡별 메트로놈 · 나만 보는 곡 정보 · 따라가기
+ *   POST /api/worshipCfgLoad · worshipCfgSave                  페이지↔곡 연결 · 곡별 메트로놈 · 나만 보는 곡 정보 · 따라가기
  *   POST /api/worshipSongsOf · worshipSongPatch                곡 목록 다시 받기 · BPM/송폼/유튜브 링크 고치기 ('찬양콘티' 그 줄)
  *   모든 /api/* 는 church-app 처럼 { args:[token, …] } → { ok, result } | { ok:false, error } 입니다.
  */
@@ -126,7 +126,7 @@ async function eventFor(team, id) {
   return rows.find((r) => r['팀ID'] === team && r['ID'] === id) || null;
 }
 
-/** 라이브러리(곡 · 악보 / 악보 파일)에서 악보를 열 때 — 그 악보가 걸린 예배의 라이브 악보로, 그 악보 · 그 쪽부터.
+/** 라이브러리(곡 · 악보 / 악보 파일)에서 악보를 열 때 — 그 악보가 걸린 예배의 라이브 악보로, 그 악보 · 그 페이지부터.
  *  라이브러리에만 올린 악보(날짜 없음)는 저장소 날짜(없으면 이번 주)의 라이브 악보에 끼워 넣어 엶 (lib=). 닫으면 라이브러리로 */
 router.get('/library/live', requireTeam, async (req, res) => {
   const team = req.ctx.current;
@@ -180,7 +180,7 @@ async function renderLive(req, res, o) {
     token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
     pastors: Array.from(pastors),
     lineup, sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
-    startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 쪽부터
+    startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 페이지부터
   };
   const v = `?v=${LIVE_V}`;
   const title = `${team} · ${ev ? ev['이름'] : week.labelKo(date)} 라이브 악보`;
@@ -277,7 +277,7 @@ router.get('/conti/stage', requireTeam, async (req, res) => {
   return renderStage(req, res, { team, ev, date, back, member: ctx.member, isAdmin: ctx.isAdmin, ro: false });
 });
 
-/** 방송팀 화면의 곡 목록 — 곡마다 연결된 악보(곡별로 저장한 쪽 범위 포함) + 이 예배에 올린 악보 전체 (악보 보기 · 새 악보 알림에 씀) */
+/** 방송팀 화면의 곡 목록 — 곡마다 연결된 악보(곡별로 저장한 페이지 범위 포함) + 이 예배에 올린 악보 전체 (악보 보기 · 새 악보 알림에 씀) */
 async function stageSongs(team, scope) {
   const room = liveStore.roomOf(scope);
   const [songs, songRows, sheetRows] = await Promise.all([liveStore.songsOf(team, room), sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('악보저장소')]);
@@ -425,7 +425,7 @@ router.get('/sheet/:id', fileAccess, async (req, res) => {
   }
 });
 
-/** 패키지 악보에서 한 곡의 쪽만 담은 PDF — /sheet/<악보id>/part?p=3-5,8 (곡별 악보로 저장해 둔 줄을 열 때). PDF 가 아니거나 쪽이 맞지 않으면 원본 그대로 */
+/** 패키지 악보에서 한 곡의 페이지만 담은 PDF — /sheet/<악보id>/part?p=3-5,8 (곡별 악보로 저장해 둔 줄을 열 때). PDF 가 아니거나 페이지가 맞지 않으면 원본 그대로 */
 const PARTS = new Map(), PARTS_MAX = 40;
 router.get('/sheet/:id/part', fileAccess, async (req, res) => {
   const id = String(req.params.id || '');
@@ -447,7 +447,7 @@ router.get('/sheet/:id/part', fileAccess, async (req, res) => {
     const name = String(req.query.n || hit['제목'] || '악보').replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim().slice(0, 80) || '악보';
     res.set({
       'Content-Type': out ? 'application/pdf' : rec.type, 'Content-Length': String((out || rec.buf).length), 'Cache-Control': 'private, max-age=600',
-      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name + (out ? ' (' + spec + '쪽)' : ''))}${out || /pdf/i.test(rec.type) ? '.pdf' : ''}`,
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name + (out ? ' (' + spec + '페이지)' : ''))}${out || /pdf/i.test(rec.type) ? '.pdf' : ''}`,
     });
     res.send(out || rec.buf);
   } catch (e) {
@@ -502,7 +502,7 @@ function harmClean(data) {
   const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
   const ov = obj(data.ov);
   const out = { pages: obj(data.pages), ov: { alto: obj(ov.alto), tenor: obj(ov.tenor) }, use: obj(data.use), orig: String(data.orig || 'auto').slice(0, 12) };
-  if (JSON.stringify(out).length > HARM_MAX) throw new Error('화음 자료가 너무 큽니다. 쓰지 않는 쪽의 분석을 지운 뒤 다시 저장해주세요.');
+  if (JSON.stringify(out).length > HARM_MAX) throw new Error('화음 자료가 너무 큽니다. 쓰지 않는 페이지의 분석을 지운 뒤 다시 저장해주세요.');
   return out;
 }
 
@@ -539,9 +539,9 @@ const FNS = {
     if (layer === 'team' && rt) rt.broadcast(room, 'cfg', { kind, key, value: clean, by: u.name, cid: String(cid || '').slice(0, 40), layer: 'team' }, u.team);
     return { ok: true, layer, kind, key, value: clean, by: u.name };
   },
-  /** 라이브 악보에서 정한 "쪽 ↔ 곡" 을 곡별 악보로 저장 — byIdx = { '곡 번호(0부터)': [쪽, 쪽, …] }.
-   *  이 예배의 그 악보 파일(패키지)을 곡마다 "곡ID + 쪽 범위" 줄로 저장해 두면, 콘티 · 라이브러리에서 곡 악보로 쓰이고
-   *  다른 주 콘티로 곡을 가져올 때 쪽 범위도 함께 따라가며 라이브 악보에서 쪽 ↔ 곡이 자동으로 연결됩니다. 다시 저장하면 이전 저장을 바꿔 놓습니다. */
+  /** 라이브 악보에서 정한 "페이지 ↔ 곡" 을 곡별 악보로 저장 — byIdx = { '곡 번호(0부터)': [페이지, 페이지, …] }.
+   *  이 예배의 그 악보 파일(패키지)을 곡마다 "곡ID + 페이지 범위" 줄로 저장해 두면, 콘티 · 라이브러리에서 곡 악보로 쓰이고
+   *  다른 주 콘티로 곡을 가져올 때 페이지 범위도 함께 따라가며 라이브 악보에서 페이지 ↔ 곡이 자동으로 연결됩니다. 다시 저장하면 이전 저장을 바꿔 놓습니다. */
   async worshipSheetSplit(u, room, fileId, byIdx) {
     if (!u.canEdit) throw new Error('곡별 악보 저장은 팀장 · 인도자만 할 수 있습니다.');
     const scope = liveStore.scopeOfRoom(room);
@@ -559,9 +559,9 @@ const FNS = {
         const i = Number(k), row = Number.isInteger(i) ? ordered[i] : null, pages = pageSpec.cleanPages(byIdx[k]);
         if (row && pages.length) plan.push({ i, row, pages, spec: pageSpec.pagesToSpec(pages) });
       });
-      if (!plan.length) throw new Error('곡에 연결된 쪽이 없습니다. 먼저 "이 쪽부터 곡 선택" 으로 쪽을 곡에 연결해주세요.');
+      if (!plan.length) throw new Error('곡에 연결된 페이지가 없습니다. 먼저 "이 페이지부터 곡 선택" 으로 페이지를 곡에 연결해주세요.');
       plan.sort((a, b) => a.i - b.i);
-      // 이 파일의 이전 곡별 저장(쪽 있는 줄)은 지우고 새로
+      // 이 파일의 이전 곡별 저장(페이지 있는 줄)은 지우고 새로
       const olds = here.filter((r) => String(r['쪽'] || '').trim()).sort((a, b) => b.__row - a.__row);
       for (const r of olds) await sheetsDb.deleteRow('악보저장소', r.__row);
       const base = Date.now().toString(36);

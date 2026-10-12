@@ -662,7 +662,7 @@
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
         '<div class="pv-sec"><h4>화면 설정</h4><div class="pv-radio" data-g="layout"><button data-v="tablet">' + I('tablet') + '태블릿</button><button data-v="computer">' + I('laptop') + '컴퓨터</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="lefty"> 왼손잡이 (도구 막대를 왼쪽에)</label>' +
-          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 2 3) · 1 1박 다시 맞추기 · M 인스트루멘탈 · E 엔딩 · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더 · K 키 업 · U 빌드 업 · D 다이 다운 · N 숫자로 세기 · Enter 송폼 순서대로.</p></div>';
+          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 페이지 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 페이지, Alt+P 펜, Alt+H 형광펜, Alt+T 글자, Alt+C 코드, Alt+E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈). 콜아웃 단축키: I 인트로 · V 절(누를 때마다 1→2→3절, 또는 2 3) · 1 1박 다시 맞추기 · M 인스트루멘탈 · E 엔딩 · C 후렴 · P 프리코러스 · B 브릿지 · R 코러스 반복 · T 태그 · Shift+P 기도 · Shift+R 한 번 더 · K 키 업 · U 빌드 업 · D 다이 다운 · N 숫자로 세기 · Enter 송폼 순서대로.</p></div>';
       var an = function () { return P.anno(); };
       function paint() {
         [['scope', P.getScope()], ['layout', P.layout()]].forEach(function (x) {
@@ -719,14 +719,14 @@
         chk.checked = a.showAuthors(); var f = a.authorFilter(), list = a.authors();
         whoEl.innerHTML = list.length ? list.map(function (x) {
           var on = f === x.name;
-          return '<div class="pv-logrow' + (on ? ' on' : '') + '"><b>' + h(x.name || '알 수 없음') + '</b><small>' + x.n + '개 · ' + (x.pages.length > 4 ? x.pages.slice(0, 4).join(', ') + '…' : x.pages.join(', ')) + '쪽 · ' + h(a.ago(x.last)) + (x.mine ? ' · 나만 보기 ' + x.mine : '') + '</small>' +
-            '<span><button type="button" class="pv-btn2" data-only="' + h(x.name) + '">' + (on ? '모두 보기' : '이 사람만') + '</button><button type="button" class="pv-btn2" data-pg="' + (x.pages[0] || 1) + '">쪽으로</button></span></div>';
+          return '<div class="pv-logrow' + (on ? ' on' : '') + '"><b>' + h(x.name || '알 수 없음') + '</b><small>' + x.n + '개 · ' + (x.pages.length > 4 ? x.pages.slice(0, 4).join(', ') + '…' : x.pages.join(', ')) + '페이지 · ' + h(a.ago(x.last)) + (x.mine ? ' · 나만 보기 ' + x.mine : '') + '</small>' +
+            '<span><button type="button" class="pv-btn2" data-only="' + h(x.name) + '">' + (on ? '모두 보기' : '이 사람만') + '</button><button type="button" class="pv-btn2" data-pg="' + (x.pages[0] || 1) + '">페이지로</button></span></div>';
         }).join('') + (f ? '<p class="pv-help pv-logf">지금 <b>' + h(f) + '</b> 님 필기만 보이는 중입니다.</p>' : '') : '<p class="pv-help">아직 이 악보에 필기가 없습니다.</p>';
         var items = []; ['team', 'mine'].forEach(function (ly) { (a.items(ly) || []).forEach(function (it) { items.push({ ly: ly, it: it }); }); });
         items.sort(function (x, y) { return (+y.it.ts || 0) - (+x.it.ts || 0); });
         recEl.innerHTML = items.length ? items.slice(0, 25).map(function (x) {
           var it = x.it, what = KIND[it.t] || it.t; if (it.t === 'text' && it.s) what += ' "' + String(it.s).slice(0, 14) + '"'; if (it.t === 'fbox' && it.k) what += ' ' + it.k;
-          return '<button type="button" class="pv-logit" data-ly="' + x.ly + '" data-id="' + h(it.id) + '" data-pg="' + it.pg + '"><i style="background:' + h(it.c || '#ff8a2a') + '"></i><b>' + h(it.by || '알 수 없음') + '</b><span>' + h(what) + ' · ' + it.pg + '쪽</span><small>' + h(a.ago(it.ts)) + '</small></button>';
+          return '<button type="button" class="pv-logit" data-ly="' + x.ly + '" data-id="' + h(it.id) + '" data-pg="' + it.pg + '"><i style="background:' + h(it.c || '#ff8a2a') + '"></i><b>' + h(it.by || '알 수 없음') + '</b><span>' + h(what) + ' · ' + it.pg + '페이지</span><small>' + h(a.ago(it.ts)) + '</small></button>';
         }).join('') : '<p class="pv-help">없음</p>';
       }
       host.addEventListener('click', function (e) {
@@ -1002,7 +1002,7 @@
         sync();
       });
       bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); act('bpm', v); rememberBpm(); });
-      /* 곡 자동 BPM — 악보 쪽을 넘겨 다음 곡이 되면 리더가 곡 정보에 넣어 둔 BPM 을 자동으로 적용합니다.
+      /* 곡 자동 BPM — 악보 페이지를 넘겨 다음 곡이 되면 리더가 곡 정보에 넣어 둔 BPM 을 자동으로 적용합니다.
          곡 정보에 BPM 이 없거나 현장에서 바꾸고 싶으면 그대로 고치면 됩니다 (−/＋ · 탭 · 직접 입력). 고친 값은 그 곡에만 기억되어 다시 돌아와도 유지됩니다. */
       var bpmOver = {}, curSongKey = '';
       /* V848 — 연주 중에 바꾼 BPM 은 저장하지 않습니다 ("저장" 단추를 누를 때만). 다른 곡에 갔다 오면 저장된 BPM 으로 */
@@ -1274,12 +1274,12 @@
           html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) {
             return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? YI('page') + ' ' : '') + (p.click ? YI('metronome') + ' ' : '') + h(p.name) +
               (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + (p.follow && p.follow.page === false ? ' <small class="pv-pf">· 페이지 따로</small>' : '') + '</li>'; }).join('') + '</ul></div>';
-          html += '<div class="pv-sec"><h4>' + I('page') + '페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
+          html += '<div class="pv-sec"><h4>' + I('page') + '페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
             (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
           html += '<div class="pv-sec pv-follows"><h4>따라가기</h4>' +
             '<label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>🔒 혼자 보기 — 남의 정보 안 받기</b></label>' +
-            '<p class="pv-help">켜면 다른 사람이 넘기는 쪽 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 쪽↔곡 연결이 내 화면을 바꾸지 않아요. 팀 필기와 나에게 온 요청 메시지는 그대로 보여요 (팀 필기는 「필기」 탭에서 숨길 수 있어요).</p>' +
-            '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 쪽이 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 쪽 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
+            '<p class="pv-help">켜면 다른 사람이 넘기는 페이지 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 페이지↔곡 연결이 내 화면을 바꾸지 않아요. 팀 필기와 나에게 온 요청 메시지는 그대로 보여요 (팀 필기는 「필기」 탭에서 숨길 수 있어요).</p>' +
+            '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 페이지가 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 페이지 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
             (!fp && lead && !mine ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
             '<p class="pv-help">메트로놈은 기기마다 따로 씁니다 (팀과 맞추지 않음).</p></div>';
           html += '<div class="pv-sec"><h4>큐(음성 안내)</h4><label class="pv-chk"><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '> 컨트롤일 때 큐를 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '> 컨트롤의 큐 받기</label></div>';

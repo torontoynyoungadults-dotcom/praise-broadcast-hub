@@ -434,8 +434,8 @@
   function staffPitchName(midi, key) { var f = keyUsesFlats(key); return (f ? FLAT : SHARP)[mod(midi, 12)] + (Math.floor(midi / 12) - 1); }
 
   /* ============================================================ 멜로디 음에 코드 붙이기 */
-  /** 멜로디 음(notes[i].staff, x, y) 마다 "지금 울리는 코드"를 찾습니다. 좌표는 모두 쪽 전체 기준 0~1.
-   *  staves[i] = { top, bottom, sp } (y 방향 0~1) · pageAspect = 쪽 너비 / 높이
+  /** 멜로디 음(notes[i].staff, x, y) 마다 "지금 울리는 코드"를 찾습니다. 좌표는 모두 페이지 전체 기준 0~1.
+   *  staves[i] = { top, bottom, sp } (y 방향 0~1) · pageAspect = 페이지 너비 / 높이
    *  chords[i] = { x0, x1, y0, y1, chord } — 같은 오선 위(위쪽 8칸 안)에 있는 코드만 그 오선에 붙습니다.
    *  반환: 각 음의 chordIdx (없으면 −1) */
   function assignChords(chords, staves, notes, pageAspect) {

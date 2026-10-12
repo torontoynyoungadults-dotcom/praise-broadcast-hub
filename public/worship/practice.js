@@ -4,7 +4,7 @@
  *  YNPractice.open({ token, room, sheets:[{id,name}], songs:[{title,key,bpm,form}], start:악보ID, canEdit, callServer })
  *
  *  · 레이아웃: 📱 태블릿(큰 버튼 · 펜 우선 · 화면 가장자리 탭으로 넘김 · 도구 막대 떠 있음)  /  💻 컴퓨터(위 도구줄 · 오른쪽 패널 · 단축키)
- *  · 페이지 컨트롤(구 리더) - 팔로워: 페이지 컨트롤이 넘기는 악보 · 쪽 · 확대를 모두가 따라감. "따라가기" 스위치로 사람마다 끌 수 있음 (끄면 내 화면은 그대로)
+ *  · 페이지 컨트롤(구 리더) - 팔로워: 페이지 컨트롤이 넘기는 악보 · 페이지 · 확대를 모두가 따라감. "따라가기" 스위치로 사람마다 끌 수 있음 (끄면 내 화면은 그대로)
  *  · 필기: anno.js (펜 · 형광펜 · 글자/코드 · 기호). 팀 공유는 rt.js(Socket.io)로 실시간, 나만 보기는 서버(구글 시트)에 저장
  *  · 패널(송폼 · 메트로놈 · 음정 · 함께)은 practice-panels.js 에 있습니다
  * 실시간 연결이 없어도(오프라인 · 서버 문제) 혼자 보기 · 나만 보기 필기는 그대로 동작합니다.
@@ -76,7 +76,7 @@
        "세션 / 연습 시작"을 눌렀을 때 내려받기를 기다리지 않습니다. 최근 BYTE_MAX 개만, 오래된 것부터 버림.
      · PDF 도구(pdf.js)도 한가할 때 미리 불러 둡니다 (처음 열 때 큰 스크립트를 읽느라 멈칫하던 부분)
      · 휴대폰으로 찍은 큰 사진 악보(예: 4000×3000)는 화면에 필요한 크기(긴 변 IMG_MAX)로 한 번만 줄여 둡니다.
-       필기 좌표는 쪽 전체 기준(0~1)이라 줄여도 필기 위치 · 다른 사람 화면과의 동기화는 그대로입니다. */
+       필기 좌표는 페이지 전체 기준(0~1)이라 줄여도 필기 위치 · 다른 사람 화면과의 동기화는 그대로입니다. */
   var BYTES = new Map(), BYTE_MAX = 12, IMG_MAX = 2800, PROG = {};          // v9.9 — 6 → 12 (한 주 악보 전부를 기억해 두어 2 · 3번째 악보도 바로)
   function mbText(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB'; }
   function sheetBytes(id) {
@@ -190,27 +190,27 @@
     el.className = 'pv';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '라이브 악보');
     el.innerHTML =
-      /* v9.16 — 위 막대 다이어트 (청년부 앱과 같은 구성): 악보 · 이 쪽의 곡을 한 칸(알약)으로 · 쪽 넘기기 작게 · 자주 안 쓰는 단추(밝기 · 떠 있는 창 · 화면 배치 · 여백 · 두 쪽 · PDF)는 「⋯」 안으로 ·
-         메트로놈 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 악보 · 쪽 · (요청) · 메트로놈 · ⋯ 만 */
+      /* v9.16 — 위 막대 다이어트 (청년부 앱과 같은 구성): 악보 · 이 페이지의 곡을 한 칸(알약)으로 · 페이지 넘기기 작게 · 자주 안 쓰는 단추(밝기 · 떠 있는 창 · 화면 배치 · 여백 · 두 페이지 · PDF)는 「⋯」 안으로 ·
+         메트로놈 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 악보 · 페이지 · (요청) · 메트로놈 · ⋯ 만 */
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
         '<div class="pv-title pv-songpill"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select>' +
-          '<label class="pv-sheetwrap" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."><span class="pv-sheetic" aria-hidden="true">' + I('note') + '</span><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)"></select></label><span class="pv-songinfo"></span></div>' +
-        '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)" aria-label="다음 쪽">' + I('next') + '</button></div>' +
-        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" aria-label="여백 자동 맞춤" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + '<span class="pv-tx"> 여백</span></button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" aria-label="두 쪽 나란히 보기" title="두 쪽 나란히 보기 (컴퓨터 화면)">' + I('spread') + '<span class="pv-tx"> 두 쪽</span></button></div>' +
+          '<label class="pv-sheetwrap" title="이 페이지가 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 페이지면 다음 곡이 나올 때까지 같은 곡으로 봅니다."><span class="pv-sheetic" aria-hidden="true">' + I('note') + '</span><select class="pv-sel pv-songsel" style="display:none" aria-label="이 페이지의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)"></select></label><span class="pv-songinfo"></span></div>' +
+        '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 페이지 (←)" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지 (→)" aria-label="다음 페이지">' + I('next') + '</button></div>' +
+        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" aria-label="여백 자동 맞춤" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + '<span class="pv-tx"> 여백</span></button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" aria-label="두 페이지 나란히 보기" title="두 페이지 나란히 보기 (컴퓨터 화면)">' + I('spread') + '<span class="pv-tx"> 두 페이지</span></button></div>' +
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
         '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="메트로놈 켜기" title="메트로놈 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
         '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button>' +
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="메뉴 열기 (도구 · 보기 · 더 보기)" title="메뉴 열기 / 닫기"><span class="ic">' + I('more') + '</span><span class="nm">메뉴</span></button>' +
-        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="더 보기 (화면 배치 · 밝기 · 떠 있는 창)" title="더 보기 — 화면 배치 · 여백 · 두 쪽 · 밝기 · 떠 있는 창">' + I('more') + '</button>' +
+        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="더 보기 (화면 배치 · 밝기 · 떠 있는 창)" title="더 보기 — 화면 배치 · 여백 · 두 페이지 · 밝기 · 떠 있는 창">' + I('more') + '</button>' +
       '</header>' +
       '<div class="pv-morepop" role="group" aria-label="더 보기">' +
         '<div class="pv-mp-view"></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
         '<div class="pv-acts" role="group" aria-label="더 보기 동작">' +
-          (opts.canEdit && opts.onSheetEdit ? '<button class="pv-b pv-editsheet" data-a="editsheet" title="이 악보 편집 — 위쪽 머리말 자르기 · 쪽 삭제" aria-label="이 악보 편집">✂<span class="pv-mt">악보 편집 (자르기 · 쪽 삭제)</span></button>' : '') +
+          (opts.canEdit && opts.onSheetEdit ? '<button class="pv-b pv-editsheet" data-a="editsheet" title="이 악보 편집 — 위쪽 머리말 자르기 · 페이지 삭제" aria-label="이 악보 편집">✂<span class="pv-mt">악보 편집 (자르기 · 페이지 삭제)</span></button>' : '') +
           '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + themeBtnHtml(doc.documentElement.getAttribute('data-theme') === 'light') + '</button>' +
           '<button class="pv-b pv-mpdf" data-a="pdf" title="필기 포함 PDF 저장 (악보 전체 한 파일)" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-mt">필기 포함 PDF 저장</span></button>' +
         '</div>' +
@@ -220,12 +220,12 @@
       '<div class="pv-main">' +
         '<div class="pv-tools" role="toolbar" aria-label="필기 도구"></div>' +
         '<div class="pv-stage"><div class="pv-pagebox"><canvas class="pv-pdf"></canvas><canvas class="pv-anno"></canvas></div>' +
-          '<div class="pv-pagebox pv-pagebox2" style="display:none" title="오른쪽 쪽 (보기 전용) — 눌러서 왼쪽으로 가져오면 필기할 수 있습니다"><canvas class="pv-pdf2"></canvas></div>' +
+          '<div class="pv-pagebox pv-pagebox2" style="display:none" title="오른쪽 페이지 (보기 전용) — 눌러서 왼쪽으로 가져오면 필기할 수 있습니다"><canvas class="pv-pdf2"></canvas></div>' +
           '<div class="pv-loading">악보를 불러오는 중…</div><div class="pv-toast" role="status" aria-live="polite"></div><div class="pv-sympop"></div></div>' +
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 쪽" aria-label="이전 쪽">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽" aria-label="다음 쪽">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
@@ -380,13 +380,13 @@
         if (S.layout === 'computer' && ls('side') === '1') el.classList.add('pv-sideopen');
       }
     }
-    function autoFit() {                                              // 폰을 옆으로 눕히면 한 쪽이 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
-      if (S.fitUser) return; var f = (S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'width' : 'page';   // 기본은 "한 쪽 맞춤" (Step 2.11) — 폰을 눕힌 낮은 화면만 가로 폭 맞춤
+    function autoFit() {                                              // 폰을 옆으로 눕히면 한 페이지가 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
+      if (S.fitUser) return; var f = (S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'width' : 'page';   // 기본은 "한 페이지 맞춤" (Step 2.11) — 폰을 눕힌 낮은 화면만 가로 폭 맞춤
       if (f !== S.fit) { S.fit = f; S.zoom = 1; if (S.doc) renderPage(); }
     }
-    /* v6.1 — 아이패드 세로처럼 폭이 1100px 보다 좁은 (서랍이 아닌) 화면: 위 막대를 한 줄로 — 확대 · 여백 · 두 쪽 · 화면 배치는 "⋯" 안으로 */
+    /* v6.1 — 아이패드 세로처럼 폭이 1100px 보다 좁은 (서랍이 아닌) 화면: 위 막대를 한 줄로 — 확대 · 여백 · 두 페이지 · 화면 배치는 "⋯" 안으로 */
     var moreEl = $('.pv-morepop'), moreBtn = $('.pv-morebtn'), moreHold = [];
-    /* v9.16 — 접는 단계: 0 = 모두 위 막대 · 1 = 확대(−/맞춤/+ · 여백 · 두 쪽)를 「⋯」 안으로 · 2 = 실시간 알약도 「⋯」 안으로 (폭을 실제로 재서 정함) */
+    /* v9.16 — 접는 단계: 0 = 모두 위 막대 · 1 = 확대(−/맞춤/+ · 여백 · 두 페이지)를 「⋯」 안으로 · 2 = 실시간 알약도 「⋯」 안으로 (폭을 실제로 재서 정함) */
     var mpView = moreEl.querySelector('.pv-mp-view');
     function applyNarrow(level) {
       level = S.compact ? 0 : (level === true ? 1 : level === false ? 0 : (+level || 0));
@@ -456,7 +456,7 @@
     if (!(root.__YN_KEEP_TOOLS && ls('tools') === '1')) setTools(false, false);   // V838 — 라이브 악보를 열 때마다 도구는 늘 접힌 채로 시작 (열어 쓰는 동안만 펴짐). __YN_KEEP_TOOLS 는 옛 기본값으로 시험하는 시험 전용
     /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
        ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
-       악보를 한 번 톡 누르면 위쪽에 얇은 메뉴(나가기 · 쪽 · 맞춤 · 도구 · 패널)가 나타났다 5초 뒤 사라지고, 필기 중에는 위 가운데 작은 손잡이로 부릅니다. */
+       악보를 한 번 톡 누르면 위쪽에 얇은 메뉴(나가기 · 페이지 · 맞춤 · 도구 · 패널)가 나타났다 5초 뒤 사라지고, 필기 중에는 위 가운데 작은 손잡이로 부릅니다. */
     S.fs = false; S.fsT = 0; S.fsSide = false; S.fsTools = true;
     function fsBar(on) {
       clearTimeout(S.fsT); el.classList.toggle('pv-fsbar-on', !!on);
@@ -540,7 +540,7 @@
           drawRegion: function (cv, scale, ox, oy) { var v = p.getViewport({ scale: scale }); return p.render({ canvasContext: cv.getContext('2d'), viewport: v, transform: [1, 0, 0, 1, -ox, -oy] }); } };
       });
     }
-    /** 어떤 쪽이든 canvas 에 그려 줍니다 (화면 · 내보내기 공용). scale = 원본 1 기준 배율 */
+    /** 어떤 페이지든 canvas 에 그려 줍니다 (화면 · 내보내기 공용). scale = 원본 1 기준 배율 */
     function renderTo(cv, d, pg, scale) {
       return pageInfo(d, pg).then(function (info) {
         cv.width = Math.max(1, Math.round(info.w * scale)); cv.height = Math.max(1, Math.round(info.h * scale));
@@ -549,8 +549,8 @@
       });
     }
     /* ------------------------------------------------------------ 자동 여백 맞춤 (악보를 화면에 최대한 크게)
-       쪽의 "글자 · 음표가 있는 부분"만 찾아(작은 그림으로 훑어서) 그 부분이 화면을 꽉 채우도록 확대하고, 스크롤 위치를 그 부분 시작점에 맞춥니다.
-       여백을 자르지 않고 "확대 + 스크롤 위치"만 쓰기 때문에 필기 좌표(쪽 전체 기준 0~1)와 다른 사람 화면과의 동기화는 그대로입니다. 여백은 스크롤하면 보입니다. */
+       페이지의 "글자 · 음표가 있는 부분"만 찾아(작은 그림으로 훑어서) 그 부분이 화면을 꽉 채우도록 확대하고, 스크롤 위치를 그 부분 시작점에 맞춥니다.
+       여백을 자르지 않고 "확대 + 스크롤 위치"만 쓰기 때문에 필기 좌표(페이지 전체 기준 0~1)와 다른 사람 화면과의 동기화는 그대로입니다. 여백은 스크롤하면 보입니다. */
     S.crop = ls('crop') !== '0';
     var cropBtn = $('.pv-cropbtn');
     function syncCropUi() { cropBtn.classList.toggle('on', !!S.crop); cropBtn.setAttribute('aria-pressed', S.crop ? 'true' : 'false'); }
@@ -572,7 +572,7 @@
       return t.promise.then(function () {
         var b = null; try { b = inkBounds(c.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height); } catch (e) {}
         if (b) { b.x0 = Math.max(0, b.x0 - CROP_PAD); b.y0 = Math.max(0, b.y0 - CROP_PAD); b.x1 = Math.min(1, b.x1 + CROP_PAD); b.y1 = Math.min(1, b.y1 + CROP_PAD);
-          if ((b.x1 - b.x0) > 0.94 && (b.y1 - b.y0) > 0.94) b = null; }                // 이미 꽉 찬 쪽은 그대로
+          if ((b.x1 - b.x0) > 0.94 && (b.y1 - b.y0) > 0.94) b = null; }                // 이미 꽉 찬 페이지는 그대로
         d.crops[pg] = b; return b;
       }, function () { d.crops[pg] = null; return null; });
     }
@@ -581,16 +581,16 @@
     var DOCK_PAD = 54;
     function fitScale(info, cr) {
       var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' && !S.compact ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8 - dockPad());
-      if (spreadOn()) aw = Math.max(150, (aw - 12) / 2);                 // 두 쪽 : 각 쪽이 가로 절반
+      if (spreadOn()) aw = Math.max(150, (aw - 12) / 2);                 // 두 페이지 : 각 페이지가 가로 절반
       function one(w, h) { var fw = aw / w, fh = ah / h; return S.fit === 'page' ? Math.min(fw, fh) : fw; }
       var full = one(info.w, info.h); if (!cr) return full;
       var up = one(info.w * (cr.x1 - cr.x0), info.h * (cr.y1 - cr.y0));
       return up < full * CROP_MIN_GAIN ? full : Math.min(up, full * CROP_MAX_UP);
     }
-    /* ------------------------------------------------------------ 두 쪽 나란히 (컴퓨터 화면)
-       왼쪽 = 지금 쪽 (필기 · 실시간 동기화는 이 쪽에만 — 기존 그대로). 오른쪽 = 다음 쪽 (보기 전용, 눌러서 왼쪽으로 가져오면 필기 가능). */
+    /* ------------------------------------------------------------ 두 페이지 나란히 (컴퓨터 화면)
+       왼쪽 = 지금 페이지 (필기 · 실시간 동기화는 이 페이지에만 — 기존 그대로). 오른쪽 = 다음 페이지 (보기 전용, 눌러서 왼쪽으로 가져오면 필기 가능). */
     var box2 = $('.pv-pagebox2'), pdf2 = $('.pv-pdf2'), spreadBtn = $('.pv-spreadbtn');
-    /* 허브 v5 — 아이패드를 가로로 눕힌 태블릿 화면(라이브 모드)에서도 두 쪽을 나란히 (넓은 가로 화면에서만) */
+    /* 허브 v5 — 아이패드를 가로로 눕힌 태블릿 화면(라이브 모드)에서도 두 페이지를 나란히 (넓은 가로 화면에서만) */
     function landscapeWide() { var w = root.innerWidth || 0, hh = root.innerHeight || 0; return w > hh && w >= 1000; }
     function spreadAllowed() { return S.layout === 'computer' || (S.layout === 'tablet' && landscapeWide()); }
     function spreadOn() { return !!S.spread && spreadAllowed() && stage.clientWidth >= 860; }
@@ -600,16 +600,56 @@
       spreadBtn.classList.toggle('on', on); spreadBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
       if (!on) box2.style.display = 'none';
     }
-    /** 두 쪽 보기 오른쪽(다음) 쪽 — 저장소에 있으면 붙이기만, 없으면 따로 그린 뒤 붙입니다.
+    /* v11 — 두 페이지 보기는 "파일 하나" 안에서만 짝을 짓지 않고, 악보 파일이 여러 개로 나뉘어 있어도 이어서 두 페이지씩 보입니다.
+       오른쪽 페이지 = 같은 파일의 다음 페이지 · 파일 끝이면 다음 악보 파일의 첫 페이지 (넘기는 순서와 같은 순서). */
+    function sheetIdxOf(d) { if (!d) return -1; for (var i = 0; i < sheets.length; i++) if (sheets[i].id === d.fid) return i; return -1; }
+    function stepSheet(si, dir) { var j = si + dir; return j >= 0 && j < sheets.length ? j : -1; }
+    function rightPosOf(d, pg) {
+      var si = sheetIdxOf(d); if (si < 0) return null;
+      if (pg < d.n) return { s: si, p: pg + 1 };
+      var ns = stepSheet(si, 1); return ns >= 0 ? { s: ns, p: 1 } : null;
+    }
+    function docAt(i) { var f = sheets[i]; if (!f) return null; return i === S.sheetIdx && S.doc ? S.doc : (S.cache[f.id] || null); }
+    function withDoc(i, cb) {
+      var d = docAt(i); if (d) { cb(d); return; }
+      fetchDoc(sheets[i]).then(function (d2) { if (!S.dead && !S.loadingTo) cb(d2); }, function () { /* 못 열면 그대로 */ });
+    }
+    function goPos(t, user) { if (t.s === S.sheetIdx) goPage(t.p, user); else loadSheet(t.s, t.p, user); }
+    /** 두 페이지 보기에서 "다음": 지금 보이는 오른쪽 페이지의 그다음으로 (파일 경계를 넘어서도). 처리했으면 true */
+    function spreadNext(user) {
+      var R = S.doc ? rightPosOf(S.doc, S.page) : null; if (!R) return false;
+      withDoc(R.s, function (dR) {
+        var T = R.p < dR.n ? { s: R.s, p: R.p + 1 } : null;
+        if (!T) { var j = stepSheet(R.s, 1); if (j >= 0) T = { s: j, p: 1 }; }
+        if (T) goPos(T, user);
+      });
+      return true;
+    }
+    /** 두 페이지 보기에서 "이전": 두 페이지 뒤로 (앞 파일로 넘어가도 앞 두 페이지가 짝으로 보이게) */
+    function spreadPrev(user) {
+      if (S.page > 2) { goPage(S.page - 2, user); return true; }
+      if (S.page === 2) { goPage(1, user); return true; }
+      var s1 = stepSheet(S.sheetIdx, -1); if (s1 < 0) return true;
+      withDoc(s1, function (d1) {
+        if (d1.n > 1) { goPos({ s: s1, p: d1.n - 1 }, user); return; }
+        var s2 = stepSheet(s1, -1); if (s2 < 0) { goPos({ s: s1, p: 1 }, user); return; }
+        withDoc(s2, function (d2) { goPos({ s: s2, p: d2.n }, user); });
+      });
+      return true;
+    }
+    /** 두 페이지 보기 오른쪽(다음) 페이지 — 저장소에 있으면 붙이기만, 없으면 따로 그린 뒤 붙입니다.
      *  v9.5: 예전에는 화면 canvas 에 바로 그리면서 앞 작업을 멈추지 않아, 빨리 넘기면 "같은 canvas 에 두 번 그리기" 오류로 오른쪽이 비곤 했습니다 */
     var rightTask = null;
     function renderRight(id, pg, d, base, dpr) {
       syncSpreadUi();
       if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
-      if (!spreadOn() || pg >= d.n) { box2.style.display = 'none'; return; }
-      pageInfo(d, pg + 1).then(function (info) {
-        if (id !== S.rid || !spreadOn()) return;
-        var L = sideLayout(info, base), w = L.cssW, hh = L.cssH, sig = pcSig(d, pg + 1, w, hh, L.dpr);
+      var rp = spreadOn() ? rightPosOf(d, pg) : null;
+      if (!rp) { box2.style.display = 'none'; return; }
+      var rdoc = rp.s === sheetIdxOf(d) ? Promise.resolve(d) : fetchDoc(sheets[rp.s]);
+      rdoc.then(function (d2) { if (id !== S.rid || !spreadOn()) return; return pageInfo(d2, rp.p).then(function (info) { return [d2, info]; }); }).then(function (di) {
+        if (!di || id !== S.rid || !spreadOn()) return;
+        var d2 = di[0], info = di[1], rn = rp.p;
+        var L = sideLayout(info, base), w = L.cssW, hh = L.cssH, sig = pcSig(d2, rn, w, hh, L.dpr);
         var paint = function (src) {
           if (id !== S.rid || !spreadOn()) return;
           box2.style.display = ''; box2.style.width = w + 'px'; box2.style.height = hh + 'px';
@@ -618,7 +658,7 @@
           var c = pdf2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0);
         };
         var hit = pcGet(sig); if (hit) { paint(hit.cv); return; }
-        (S.pre.get(sig) || prerender(d, pg + 1, base)).then(function () {
+        (S.pre.get(sig) || prerender(d2, rn, base)).then(function () {
           var h2 = pcGet(sig); if (h2) { paint(h2.cv); return; }
           if (id !== S.rid || !spreadOn()) return;                                          // 저장소에 자리가 없을 때만 — 따로 그려서 붙임
           var off = doc.createElement('canvas'); off.width = Math.round(w * L.dpr); off.height = Math.round(hh * L.dpr);
@@ -628,17 +668,17 @@
         });
       }, function () { box2.style.display = 'none'; });
     }
-    box2.onclick = function () { if (S.page < S.pages) goPage(S.page + 1, true); toast('필기하려면 이 쪽이 왼쪽에 옵니다. 다음 쪽은 오른쪽에 보입니다.'); };
-    S.spread = ls('spread') === '1' || (ls('spread') === null && S.layout === 'tablet' && landscapeWide());   // 태블릿 가로 화면은 처음에 두 쪽 (직접 끄면 기억)
+    box2.onclick = function () { var rp = S.doc ? rightPosOf(S.doc, S.page) : null; if (rp) goPos(rp, true); toast('필기하려면 이 페이지가 왼쪽에 옵니다. 다음 페이지는 오른쪽에 보입니다.'); };
+    S.spread = ls('spread') === '1' || (ls('spread') === null && S.layout === 'tablet' && landscapeWide());   // 태블릿 가로 화면은 처음에 두 페이지 (직접 끄면 기억)
     function toggleSpread() {
-      if (!spreadAllowed() || stage.clientWidth < 860) { toast('두 쪽 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
+      if (!spreadAllowed() || stage.clientWidth < 860) { toast('두 페이지 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
       S.spread = !S.spread; ls('spread', S.spread ? '1' : '0'); S.zoom = 1; renderPage();
     }
-    /* ------------------------------------------------------------ 그려 둔 쪽 그림 저장소
-       쪽을 넘기거나 앞뒤로 되돌아갈 때, 또는 화면 크기가 그대로인 채 패널만 열고 닫을 때 PDF 를 처음부터 다시 그리지 않도록
-       "이미 그려 둔 쪽 그림"을 메모리에 둡니다. 키 = 악보 + 쪽 + 화면 크기 + 화소 배율 (하나라도 다르면 새로 그림).
-       · 메모리는 64MB · 10쪽까지만 (오래 안 쓴 것부터 버림) — 아이패드 같은 기기가 느려지지 않게
-       · 지금 쪽을 그린 뒤 한가한 때 앞 · 뒤 쪽을 미리 그려 둡니다 (쪽 넘기기가 바로 됨) */
+    /* ------------------------------------------------------------ 그려 둔 페이지 그림 저장소
+       페이지를 넘기거나 앞뒤로 되돌아갈 때, 또는 화면 크기가 그대로인 채 패널만 열고 닫을 때 PDF 를 처음부터 다시 그리지 않도록
+       "이미 그려 둔 페이지 그림"을 메모리에 둡니다. 키 = 악보 + 페이지 + 화면 크기 + 화소 배율 (하나라도 다르면 새로 그림).
+       · 메모리는 64MB · 10페이지까지만 (오래 안 쓴 것부터 버림) — 아이패드 같은 기기가 느려지지 않게
+       · 지금 페이지를 그린 뒤 한가한 때 앞 · 뒤 페이지를 미리 그려 둡니다 (페이지 넘기기가 바로 됨) */
     S.pcache = new Map(); S.pcBytes = 0; S.pcCur = ''; S.drawnSig = null; S.drawnOk = false; S.pending = null;
     /* 폰 · 작은 태블릿은 화면 그림 자체가 메모리를 많이 쓰므로 저장소를 더 작게 (48MB), 컴퓨터는 96MB */
     var TOUCHY = !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches);
@@ -648,7 +688,7 @@
     function pcGet(sig) { var e = S.pcache.get(sig); if (!e) return null; S.pcache.delete(sig); S.pcache.set(sig, e); return e; }      // 방금 쓴 것을 맨 뒤로 (가장 오래 안 쓴 것이 앞)
     function pcDrop(k) { var e = S.pcache.get(k); if (!e) return; S.pcache.delete(k); S.pcBytes -= e.bytes; try { e.cv.width = e.cv.height = 0; } catch (x) {} }
     function pcClear() { Array.from(S.pcache.keys()).forEach(pcDrop); S.pcBytes = 0; }
-    /** bytes 가 들어갈 자리를 만듭니다 — 가장 오래 안 쓴 것부터 버리되 지금 보는 쪽(S.pcCur)은 지키고, 그래도 안 되면 false */
+    /** bytes 가 들어갈 자리를 만듭니다 — 가장 오래 안 쓴 것부터 버리되 지금 보는 페이지(S.pcCur)은 지키고, 그래도 안 되면 false */
     function pcRoom(bytes) {
       var keys = Array.from(S.pcache.keys()), i = 0;
       while ((S.pcBytes + bytes > PC_MAX_BYTES || S.pcache.size >= PC_MAX_N) && i < keys.length) { var k = keys[i++]; if (k !== S.pcCur) pcDrop(k); }
@@ -665,7 +705,7 @@
       try { c2.getContext('2d').drawImage(src, 0, 0); } catch (e) { return; }
       pcAdd(sig, c2);
     }
-    /** 쪽 크기 · 화면 크기 · 배율에서 나오는 그림 크기 (그리기 · 미리 그리기 · 저장소 키가 같은 계산을 쓰도록 한 곳에) */
+    /** 페이지 크기 · 화면 크기 · 배율에서 나오는 그림 크기 (그리기 · 미리 그리기 · 저장소 키가 같은 계산을 쓰도록 한 곳에) */
     function layoutOf(info, cr) {
       var base = fitScale(info, cr) * S.zoom, cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
       return { base: base, cssW: cssW, cssH: cssH, dpr: capDpr(cssW, cssH) };
@@ -679,17 +719,17 @@
       return dpr;
     }
     function cropFor(d, pg, info) { return S.crop && !spreadOn() ? cropOf(d, pg, info) : Promise.resolve(null); }
-    /* ------------------------------------------------------------ v9.5 미리 그리기 (예배 중 쪽 넘김이 바로 되도록)
-       · 지금 쪽을 그린 뒤 바로(한가할 때를 오래 기다리지 않고) 다음 쪽 → 그다음 쪽 → 앞 쪽 순서로 그려 둡니다
-       · 마지막 쪽 근처면 다음 악보(곡별로 나눈 악보)의 첫 쪽까지, 첫 쪽이면 앞 악보의 마지막 쪽까지 미리 그려 둡니다
+    /* ------------------------------------------------------------ v9.5 미리 그리기 (예배 중 페이지 넘김이 바로 되도록)
+       · 지금 페이지를 그린 뒤 바로(한가할 때를 오래 기다리지 않고) 다음 페이지 → 그다음 페이지 → 앞 페이지 순서로 그려 둡니다
+       · 마지막 페이지 근처면 다음 악보(곡별로 나눈 악보)의 첫 페이지까지, 첫 페이지면 앞 악보의 마지막 페이지까지 미리 그려 둡니다
          (예전에는 파일이 바뀌는 넘김마다 처음부터 그려서 0.5초 ~ 몇 초씩 멈췄습니다)
-       · 두 쪽 나란히 보기에서도 다음 두 쪽을 미리 그려 둡니다 (예전에는 늘 새로 그림)
-       · 이미 그리고 있는 쪽으로 넘기면 같은 그림을 두 번 그리지 않고 끝나기를 기다렸다 붙입니다 (S.pre)
+       · 두 페이지 나란히 보기에서도 다음 두 페이지를 미리 그려 둡니다 (예전에는 늘 새로 그림)
+       · 이미 그리고 있는 페이지로 넘기면 같은 그림을 두 번 그리지 않고 끝나기를 기다렸다 붙입니다 (S.pre)
        · 넘긴 뒤에 끝난 미리 그리기도 버리지 않고 저장해 둡니다 (되돌아올 때 바로) */
     S.pre = new Map();
     /** v9.7 — 지금 펜 · 지우개로 긋는 중인가 (그동안 무거운 일을 미룸) */
     function inking() { try { return !!(an && an.busy && an.busy()); } catch (e) { return false; } }
-    /** d 의 n 쪽을 화면 크기에 맞춰 그려 저장소에 넣습니다 → Promise(sig). base 를 주면 그 배율로 (두 쪽 보기의 오른쪽 쪽) */
+    /** d 의 n 페이지를 화면 크기에 맞춰 그려 저장소에 넣습니다 → Promise(sig). base 를 주면 그 배율로 (두 페이지 보기의 오른쪽 페이지) */
     function prerender(d, n, base) {
       if (S.dead || !d || n < 1 || n > d.n) return Promise.resolve(null);
       return pageInfo(d, n).then(function (info) {
@@ -699,7 +739,7 @@
           if (S.pcache.has(sig)) return sig;
           if (S.pre.has(sig)) return S.pre.get(sig);
           var pw = Math.round(L.cssW * L.dpr), ph = Math.round(L.cssH * L.dpr), pb = pw * ph * 4;
-          if (pb > PC_ONE_MAX || !pcRoom(pb)) return null;                                  // 자리가 없으면 미리 그리지 않음 (지금 쪽 그림은 지킴)
+          if (pb > PC_ONE_MAX || !pcRoom(pb)) return null;                                  // 자리가 없으면 미리 그리지 않음 (지금 페이지 그림은 지킴)
           var off = doc.createElement('canvas'); off.width = pw; off.height = ph;
           var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pw, ph);
           var t; try { t = info.draw(off, L.base * L.dpr); } catch (e) { return null; }
@@ -710,12 +750,12 @@
         });
       }).catch(function () { return null; });
     }
-    /** 두 쪽 보기 오른쪽 쪽의 크기 (왼쪽 쪽과 같은 배율) */
+    /** 두 페이지 보기 오른쪽 페이지의 크기 (왼쪽 페이지와 같은 배율) */
     function sideLayout(info, base) {
       var cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
       return { base: base, cssW: cssW, cssH: cssH, dpr: capDpr(cssW, cssH) };
     }
-    /** 다음에 볼 가능성이 큰 쪽들 — [{ d, n, pairOf }] (pairOf: 두 쪽 보기에서 그 쪽의 왼쪽 쪽 번호) */
+    /** 다음에 볼 가능성이 큰 페이지들 — [{ d, n, pairOf }] (pairOf: 두 페이지 보기에서 그 페이지의 왼쪽 페이지 번호) */
     function upcoming(d, pg0) {
       var out = [], sp = spreadOn(), step = sp ? 2 : 1;
       var add = function (dd, n, pairOf) { if (dd && n >= 1 && n <= dd.n) out.push({ d: dd, n: n, pairOf: pairOf || 0 }); };
@@ -732,18 +772,19 @@
         var list = upcoming(d, pg0), edge = list.edge;
         var chain = list.reduce(function (p, it) {
           return p.then(function () {
-            if (id !== S.rid || S.dead) return;                                             // 그새 넘겼으면 새 쪽 기준으로 다시 시작 (이미 끝난 그림은 저장소에 남음)
+            if (id !== S.rid || S.dead) return;                                             // 그새 넘겼으면 새 페이지 기준으로 다시 시작 (이미 끝난 그림은 저장소에 남음)
             if (inking()) return new Promise(function (r) { (function w() { if (!inking() || S.dead) r(); else setTimeout(w, 250); }()); }).then(function () { if (id !== S.rid || S.dead) return; return it.pairOf ? pageInfo(it.d, it.pairOf).then(function (li) { return prerender(it.d, it.n, layoutOf(li, null).base); }) : prerender(it.d, it.n); });
             if (!it.pairOf) return prerender(it.d, it.n);
             return pageInfo(it.d, it.pairOf).then(function (li) { return prerender(it.d, it.n, layoutOf(li, null).base); });
           });
         }, Promise.resolve());
-        /* 곡별로 나눈 악보: 이 파일 끝 근처면 다음 악보 첫 쪽(두 쪽 보기면 첫 두 쪽) · 처음이면 앞 악보 마지막 쪽 */
+        /* 곡별로 나눈 악보: 이 파일 끝 근처면 다음 악보 첫 페이지(두 페이지 보기면 첫 두 페이지) · 처음이면 앞 악보 마지막 페이지 */
         chain.then(function () {
           if (id !== S.rid || S.dead) return;
           var jobs = [];
           if (edge.next && S.sheetIdx < sheets.length - 1) jobs.push([S.sheetIdx + 1, 'first']);
           if (edge.prev && S.sheetIdx > 0) jobs.push([S.sheetIdx - 1, 'last']);
+          if (spreadOn()) { var R0 = rightPosOf(d, pg0); if (R0 && R0.s !== S.sheetIdx) { var n2 = stepSheet(R0.s, 1); if (n2 >= 0 && !jobs.some(function (x) { return x[0] === n2; })) jobs.push([n2, 'first']); } }      // v11 — 오른쪽이 다음 파일이면 그다음 파일도 미리
           return jobs.reduce(function (p, j) {
             return p.then(function () {
               if (id !== S.rid || S.dead) return;
@@ -759,10 +800,10 @@
           }, Promise.resolve());
         }).catch(function () { /* 미리 그리기는 실패해도 화면에 영향 없음 */ });
       };
-      setTimeout(go, 16);                                                                   // 지금 쪽이 화면에 나온 다음 프레임에 바로 (예전: 한가할 때까지 최대 1.5초)
+      setTimeout(go, 16);                                                                   // 지금 페이지가 화면에 나온 다음 프레임에 바로 (예전: 한가할 때까지 최대 1.5초)
     }
     /* ------------------------------------------------------------ v9.7 확대했을 때 "보이는 부분만 선명하게"
-       쪽 전체 그림(pdfCv)은 메모리 한도 안의 해상도로 두고, 화면에 보이는 부분만 기기 화소 그대로 따로 그려 위에 덮습니다 (PDF 보기 앱 방식).
+       페이지 전체 그림(pdfCv)은 메모리 한도 안의 해상도로 두고, 화면에 보이는 부분만 기기 화소 그대로 따로 그려 위에 덮습니다 (PDF 보기 앱 방식).
        스크롤 · 확대가 멈춘 뒤 0.2초에 한 번 · 필기 중에는 미룸 · 실패해도 아래 그림은 그대로라 악보가 사라지지 않음 */
     var hiCv = doc.createElement('canvas'); hiCv.className = 'pv-pdfhi'; hiCv.setAttribute('aria-hidden', 'true');
     hiCv.style.cssText = 'display:none;pointer-events:none;z-index:1';
@@ -804,8 +845,8 @@
       }, function () { /* 그대로 (아래 그림) */ });
     }
     stage.addEventListener('scroll', function () { if (S.lay && S.zoom > 1.01) hiSchedule(220); }, { passive: true });
-    /** 지금 쪽을 화면에 그립니다.
-     *   · 같은 쪽 · 같은 크기를 이미 그려 뒀으면 아무것도 하지 않음 (리사이즈 · 패널 열고 닫기 · 도구 막대 접기가 여러 번 불러도 한 번만 그림)
+    /** 지금 페이지를 화면에 그립니다.
+     *   · 같은 페이지 · 같은 크기를 이미 그려 뒀으면 아무것도 하지 않음 (리사이즈 · 패널 열고 닫기 · 도구 막대 접기가 여러 번 불러도 한 번만 그림)
      *   · 같은 그림을 이미 그리는 중이면 그 작업을 그대로 이어받음
      *   · 저장소에 있으면 그림을 붙이기만 함 — 없으면 PDF 를 그리고 저장
      *   force=true 이면 무조건 다시 그림 */
@@ -857,18 +898,18 @@
           }, function (e) {
             if (S.pending && S.pending.id === id) S.pending = null;
             if (e && e.name === 'RenderingCancelledException') return;
-            if (id !== S.rid) return;                                                         // 이미 다른 쪽으로 넘어갔으면 알리지 않음
-            loading.style.display = 'none'; toast('이 쪽을 그리지 못했습니다.', true);
+            if (id !== S.rid) return;                                                         // 이미 다른 페이지로 넘어갔으면 알리지 않음
+            loading.style.display = 'none'; toast('이 페이지를 그리지 못했습니다.', true);
           });
         };
         renderRight(id, pg, d, base, dpr);
-        var inflight = S.pre.get(key);                                               // v9.5 — 미리 그리는 중인 쪽이면 같은 그림을 다시 그리지 않고 끝나기를 기다림
+        var inflight = S.pre.get(key);                                               // v9.5 — 미리 그리는 중인 페이지면 같은 그림을 다시 그리지 않고 끝나기를 기다림
         var pr = inflight ? inflight.then(fresh, fresh) : fresh();
         S.pending = { sig: sig, id: id, p: pr };
         return pr;
-      }, function () { loading.style.display = 'none'; toast('이 쪽을 읽지 못했습니다.', true); });
+      }, function () { loading.style.display = 'none'; toast('이 페이지를 읽지 못했습니다.', true); });
     }
-    /* v9.5 — 쪽 넘김 걸린 시간 기록 (누른 순간 → 그 쪽 그림이 화면에 다 그려진 순간). 최근 40번 — 시험 · 진단용 */
+    /* v9.5 — 페이지 넘김 걸린 시간 기록 (누른 순간 → 그 페이지 그림이 화면에 다 그려진 순간). 최근 40번 — 시험 · 진단용 */
     S.turns = []; S.turnAt = 0;
     function turnStart() { S.turnAt = root.performance ? root.performance.now() : Date.now(); }
     function turnDone(how) {
@@ -889,7 +930,7 @@
       flushMine(); an.closeEditor();
       S.sheetIdx = idx; paintSheetSel(); S.loadingTo = lid; S.loadWant = page || 1;
       mineLayerSync(true);                                                                // v9.13 — 나만 보는 악보에는 내 필기만 (팀으로 보내지 않음)
-      /* v9.5 — 이미 받아 둔 악보(미리 그려 둔 쪽)면 "불러오는 중" 가림막을 띄우지 않습니다 — 넘김이 번쩍이지 않게. 오래 걸릴 때만 보임 */
+      /* v9.5 — 이미 받아 둔 악보(미리 그려 둔 페이지)면 "불러오는 중" 가림막을 띄우지 않습니다 — 넘김이 번쩍이지 않게. 오래 걸릴 때만 보임 */
       loading.textContent = S.cache[f.id] ? '악보를 그리는 중…' : '악보를 불러오는 중…';
       clearTimeout(S.ldT);
       if (S.cache[f.id]) S.ldT = setTimeout(function () { if (lid === S.loadId && !S.dead && !S.drawnOk) loading.style.display = 'flex'; }, 250);
@@ -940,12 +981,12 @@
       }, 200);
     }
     function goPage(n, fromUser) {
-      if (S.loadingTo) { S.loadWant = n | 0 || 1; return; }                             // v9.5 — 악보를 불러오는 중이면 그 악보의 몇 쪽을 열지만 바꿈 (앞 악보에 넘기지 않게)
+      if (S.loadingTo) { S.loadWant = n | 0 || 1; return; }                             // v9.5 — 악보를 불러오는 중이면 그 악보의 몇 페이지를 열지만 바꿈 (앞 악보에 넘기지 않게)
       if (!S.doc) return; n = clamp(n | 0, 1, S.pages); if (n === S.page) return;
       turnStart(); S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); syncSongForPage(); renderPage(); P.emit('page', n);
       if (fromUser) sendNav();
     }
-    /* v9.5 — 다른 악보를 불러오는 동안 누른 넘김은 모아 두었다가 불러온 뒤 그대로 적용 (예전: 앞 악보 쪽 수로 계산해 쪽을 건너뛰었음) */
+    /* v9.5 — 다른 악보를 불러오는 동안 누른 넘김은 모아 두었다가 불러온 뒤 그대로 적용 (예전: 앞 악보 페이지 수로 계산해 페이지를 건너뛰었음) */
     S.navQ = 0; S.loadingTo = 0;
     function flushNavQ(user) {
       var q = S.navQ; S.navQ = 0;
@@ -953,11 +994,13 @@
     }
     function nextPage(user) {
       if (S.loadingTo) { S.navQ++; return; }
+      if (spreadOn() && S.doc && spreadNext(user)) return;
       if (S.page < S.pages) goPage(S.page + (spreadOn() && S.page + 1 < S.pages ? 2 : 1), user);
       else if (S.sheetIdx < sheets.length - 1) loadSheet(S.sheetIdx + 1, 1, user);
     }
     function prevPage(user) {
       if (S.loadingTo) { S.navQ--; return; }
+      if (spreadOn() && S.doc && spreadPrev(user)) return;
       if (S.page > 1) goPage(S.page - (spreadOn() && S.page > 2 ? 2 : 1), user);
       else if (S.sheetIdx > 0) { var pi = S.sheetIdx - 1; loadSheet(pi, 9999, user); }
     }
@@ -972,12 +1015,12 @@
     }
     function scrollFrac() { var sh = stage.scrollHeight - stage.clientHeight; return sh > 4 ? clamp(stage.scrollTop / sh, 0, 1) : 0; }
 
-    /* ------------------------------------------------------------ 쪽 ↔ 곡 연결
-       PDF 한 파일에 여러 곡이 들어 있을 수 있으므로 BPM · 송폼은 "파일"이 아니라 "쪽"에 붙습니다.
-       ① 쪽 위쪽 글자에서 곡 제목을 찾아 자동 연결 (제목이 없는 쪽은 앞 쪽의 곡이 이어짐)  ② 사진 악보 · 글자가 없는 PDF 는 파일 이름으로 짐작
-       ③ 틀리면 위 드롭다운으로 그 쪽의 곡을 직접 고름 (기기에 기억) — 고친 쪽부터 다음 제목이 나올 때까지 이어집니다. */
+    /* ------------------------------------------------------------ 페이지 ↔ 곡 연결
+       PDF 한 파일에 여러 곡이 들어 있을 수 있으므로 BPM · 송폼은 "파일"이 아니라 "페이지"에 붙습니다.
+       ① 페이지 위쪽 글자에서 곡 제목을 찾아 자동 연결 (제목이 없는 페이지는 앞 페이지의 곡이 이어짐)  ② 사진 악보 · 글자가 없는 PDF 는 파일 이름으로 짐작
+       ③ 틀리면 위 드롭다운으로 그 페이지의 곡을 직접 고름 (기기에 기억) — 고친 페이지부터 다음 제목이 나올 때까지 이어집니다. */
     /* ------------------------------------------------------------ 설정 팀 공유 (Step 2.9)
-       쪽↔곡 연결 · 곡별 메트로놈 · 곡 정보(BPM · 송폼 · 유튜브)를 서버(시트)에 저장하고 같은 방 사람들에게 실시간으로 나눕니다.
+       페이지↔곡 연결 · 곡별 메트로놈 · 곡 정보(BPM · 송폼 · 유튜브)를 서버(시트)에 저장하고 같은 방 사람들에게 실시간으로 나눕니다.
        · "나만 보기" 를 켜거나 팀장 · 인도자가 아니면 → 내 설정(mine)으로만 저장, 전달하지 않음
        · 팀 설정(team)은 팀장 · 인도자만 바꿀 수 있고, 저장되는 즉시 웹소켓으로 팀 화면에 반영됩니다
        · 내 설정이 팀 설정보다 우선합니다 (내가 "나만 보기" 로 바꿔 둔 것은 팀 값이 바뀌어도 그대로) */
@@ -1015,7 +1058,7 @@
       var keep = songIdentity(songs[S.songIdx]);
       songs.length = 0; (list || []).forEach(function (x) { songs.push(x); });
       applySongCfg();
-      S.maps = {};                                                       // 곡 순서가 바뀌었을 수 있어 쪽↔곡 연결을 다시 계산
+      S.maps = {};                                                       // 곡 순서가 바뀌었을 수 있어 페이지↔곡 연결을 다시 계산
       var ni = -1; songs.forEach(function (x, i) { if (ni < 0 && songIdentity(x) === keep) ni = i; });
       if (ni < 0) ni = S.songIdx >= 0 && S.songIdx < songs.length ? S.songIdx : -1;
       renderSongSel(); if (S.doc) { scanTitles(S.doc, sheets[S.sheetIdx]); var idx = resolveSong(sheets[S.sheetIdx], S.page); if (idx >= 0) ni = idx; }
@@ -1047,7 +1090,7 @@
       var k = ck(m.kind, m.key);
       if (m.value == null) delete S.cfg.team[k]; else S.cfg.team[k] = m.value;
       if (m.kind === 'map' && S.manual) { P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by, solo: true }); return; }   // 혼자 보기 — 저장만, 지금 곡은 그대로
-      if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast(YNHon.say(m.by || '팀') + ' 쪽 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
+      if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast(YNHon.say(m.by || '팀') + ' 페이지 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
       P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by });
     }
     function applySongPatch(kind, seq, patch, by, remote) {
@@ -1073,7 +1116,7 @@
       }, 400);
     }
     /* 예배 중에 콘티에 악보를 올리거나 지우면(songs:changed) — 악보 목록을 다시 받아, 새 악보는 목록에 넣고 "새 악보 열기" 안내를 띄웁니다.
-       지금 보고 있는 악보는 그대로 두고(지워졌어도 화면은 유지), 쪽 ↔ 곡 연결이 바뀐 악보만 다시 계산합니다. */
+       지금 보고 있는 악보는 그대로 두고(지워졌어도 화면은 유지), 페이지 ↔ 곡 연결이 바뀐 악보만 다시 계산합니다. */
     function refetchSheets() {
       if (!opts.callServer || !S.room || S.dead) return;
       opts.callServer('worshipLiveSheets', [opts.token, S.room], function (r) { if (!S.dead && r && Array.isArray(r.sheets)) replaceSheets(r.sheets); }, function () {});
@@ -1084,7 +1127,7 @@
       var cur = sheets[S.sheetIdx], had = {}, mapChanged = false;
       sheets.forEach(function (x) { had[x.id] = x; });
       var added = list.filter(function (x) { return x && x.id && !had[x.id]; });
-      /* v9.13 — "바뀐" 악보: 머리말 다시 만들기 · 쪽 지우기 · 자르기처럼 같은 악보가 새 파일로 바뀌면 목록에서 빠진 악보와 같은 이름의 새 악보가 들어옵니다.
+      /* v9.13 — "바뀐" 악보: 머리말 다시 만들기 · 페이지 지우기 · 자르기처럼 같은 악보가 새 파일로 바뀌면 목록에서 빠진 악보와 같은 이름의 새 악보가 들어옵니다.
          새 악보로 따로 알리지 않고 그 자리에서 바꿔 끼웁니다 (같은 악보가 두 개 보이지 않게). 지금 보고 있는 악보면 「새로 보기」 안내 */
       var inNew = {}; list.forEach(function (x) { if (x && x.id) inNew[x.id] = 1; });
       var nk = function (x) { return String((x && x.name) || '').replace(/\.(pdf|png|jpe?g|webp|gif|heic)$/i, '').trim().toLowerCase(); };
@@ -1124,7 +1167,7 @@
           if (id) {
             var i = -1; sheets.forEach(function (x, k) { if (x.id === id) i = k; });
             if (i >= 0) {
-              var pg = old && sheets[S.sheetIdx] && sheets[S.sheetIdx].id === old ? S.page : 1;          // v9.13 — 바뀐 악보는 보던 쪽 그대로
+              var pg = old && sheets[S.sheetIdx] && sheets[S.sheetIdx].id === old ? S.page : 1;          // v9.13 — 바뀐 악보는 보던 페이지 그대로
               loadSheet(i, pg, true);
               if (old) { var oi = -1; sheets.forEach(function (x, k) { if (x.id === old) oi = k; }); if (oi >= 0 && oi !== S.sheetIdx) { var curF = sheets[S.sheetIdx]; sheets.splice(oi, 1); S.sheetIdx = Math.max(0, sheets.indexOf(curF)); paintSheetSel(); P.emit('sheets', sheets.slice(), []); } }   // 옛 파일은 목록에서 뺌
             }
@@ -1166,7 +1209,7 @@
       if (!m) {
         var saved = {}, shared = cfgGet('map', f.id);
         if (shared) saved = JSON.parse(JSON.stringify(shared)); else { try { saved = JSON.parse(ls('map.' + (S.room || '') + '.' + f.id) || '{}') || {}; } catch (e) { saved = {}; } }
-        if (!shared && !Object.keys(saved).length && f.map) { saved = {}; Object.keys(f.map).forEach(function (p) { saved[p] = f.map[p]; }); }       // 곡별 악보로 저장해 둔 쪽 범위가 기본 연결
+        if (!shared && !Object.keys(saved).length && f.map) { saved = {}; Object.keys(f.map).forEach(function (p) { saved[p] = f.map[p]; }); }       // 곡별 악보로 저장해 둔 페이지 범위가 기본 연결
         m = S.maps[f.id] = { auto: {}, manual: saved, scanned: false, scanning: false, base: guessSong(f.name, songs) };
       }
       return m;
@@ -1182,7 +1225,7 @@
       return cur;
     }
     function autoSongAt(f, pg) { var m = mapOf(f), cur = m.base; for (var p = 1; p <= pg; p++) if (m.auto[p] != null) cur = m.auto[p]; return cur; }
-    /** v9.5 — 쪽 제목 읽기는 그리기와 같은 PDF 작업자를 씁니다. 화면을 다 그린 뒤 · 그리는 중이 아닐 때만 한 쪽씩 (넘김을 막지 않게) */
+    /** v9.5 — 페이지 제목 읽기는 그리기와 같은 PDF 작업자를 씁니다. 화면을 다 그린 뒤 · 그리는 중이 아닐 때만 한 페이지씩 (넘김을 막지 않게) */
     function scanTitlesSoon(d, f) { setTimeout(function () { if (!S.dead) scanTitles(d, f); }, 400); }
     function pdfIdle() {
       var t0 = Date.now();
@@ -1211,7 +1254,7 @@
     function songLabel(i) { return i >= 0 && songs[i] ? (i + 1) + '. ' + songs[i].title : '없음'; }
     function renderSongSel() {
       var sel = $('.pv-songsel'); if (!sel) return;
-      el.classList.toggle('pv-nosub', !songs.length);                                // v9.16 — 곡이 없으면 이 쪽의 곡 칸을 숨김 (알약 = 악보 칸)
+      el.classList.toggle('pv-nosub', !songs.length);                                // v9.16 — 곡이 없으면 이 페이지의 곡 칸을 숨김 (알약 = 악보 칸)
       if (!songs.length) { sel.style.display = 'none'; return; }
       var f = sheets[S.sheetIdx], m = mapOf(f), man = m.manual[S.page], auto = autoSongAt(f, S.page);
       var html = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('') +
@@ -1227,7 +1270,7 @@
       renderSongSel(); updateFormBadge();
     }
     /* 송폼 배지 (Step 2.15) — 콘티에 송폼이 정해져 있으면 그 곡 악보의 맨 위에 "V1 – C – V2 – B – C – Out" 을 유리 알약으로 띄웁니다.
-       악보 그림(캔버스) 위의 HTML 덮개일 뿐이라 필기 좌표 · 실시간 동기화 · PNG/PDF 내보내기에는 영향이 없습니다. 쪽 안에서 스크롤해도 화면 위에 붙어 따라옵니다(sticky). */
+       악보 그림(캔버스) 위의 HTML 덮개일 뿐이라 필기 좌표 · 실시간 동기화 · PNG/PDF 내보내기에는 영향이 없습니다. 페이지 안에서 스크롤해도 화면 위에 붙어 따라옵니다(sticky). */
     var fbadge1 = doc.createElement('div'), fbadge2 = doc.createElement('div');
     fbadge1.className = 'pv-formbadge'; fbadge2.className = 'pv-formbadge'; fbadge1.setAttribute('aria-live', 'polite');
     box.insertBefore(fbadge1, box.firstChild);
@@ -1245,22 +1288,23 @@
         '<svg class="pv-fb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
         t.map(function (x, i) { return (i ? '<b class="pv-fb-sep" aria-hidden="true">–</b>' : '') + '<span class="pv-fb-t' + (x.custom ? ' cu' : '') + (fbCall(x.k) ? ' call' : '') + '" data-s="' + idx + '" data-i="' + i + '" data-k="' + h(x.k) + '">' + h(fbDisp(x.k)) + (x.rep > 1 ? '<sub>×' + x.rep + '</sub>' : '') + '</span>'; }).join('') + '</span>';
     }
+    function rightBadgeIdx() { var R = S.fbadge !== false && S.doc ? rightPosOf(S.doc, S.page) : null; return R ? resolveSong(sheets[R.s], R.p) : -1; }
     function badgeIdx(pg) { return S.fbadge !== false && S.doc && pg >= 1 && pg <= (S.pages || 1) ? resolveSong(sheets[S.sheetIdx], pg) : -1; }
     function updateFormBadge() {
       if (S.dead) return;
       var h1 = formBadgeHtml(badgeIdx(S.page)); if (fbadge1.getAttribute('data-h') !== h1) { fbadge1.innerHTML = h1; fbadge1.setAttribute('data-h', h1); }
-      var h2 = spreadOn() ? formBadgeHtml(badgeIdx(S.page + 1)) : ''; if (fbadge2.getAttribute('data-h') !== h2) { fbadge2.innerHTML = h2; fbadge2.setAttribute('data-h', h2); }
+      var h2 = spreadOn() ? formBadgeHtml(rightBadgeIdx()) : ''; if (fbadge2.getAttribute('data-h') !== h2) { fbadge2.innerHTML = h2; fbadge2.setAttribute('data-h', h2); }
     }
-    /** 배지가 쪽 맨 위를 가리지 않게, 글자가 시작하는 곳을 배지 아래로 (컴퓨터 화면은 배지가 오른쪽 위 빈 곳에 뜨므로 그대로) */
-    function badgePad() { return 0; }                                  // v6 — 송폼은 악보 위가 아니라 떠 있는 "송폼" 창에 (쪽 맨 위를 가리지 않음)
-    /** 지금 악보의 쪽 ↔ 곡 연결(자동 + 직접 고른 것)을 곡별 악보(곡 + 쪽 범위)로 저장 — 다음에 그 곡을 콘티에 가져오면 쪽 범위도 같이 따라옵니다 */
+    /** 배지가 페이지 맨 위를 가리지 않게, 글자가 시작하는 곳을 배지 아래로 (컴퓨터 화면은 배지가 오른쪽 위 빈 곳에 뜨므로 그대로) */
+    function badgePad() { return 0; }                                  // v6 — 송폼은 악보 위가 아니라 떠 있는 "송폼" 창에 (페이지 맨 위를 가리지 않음)
+    /** 지금 악보의 페이지 ↔ 곡 연결(자동 + 직접 고른 것)을 곡별 악보(곡 + 페이지 범위)로 저장 — 다음에 그 곡을 콘티에 가져오면 페이지 범위도 같이 따라옵니다 */
     function splitBtnPaint(state) {            // state: 'dirty' | 'saving' | 'saved'
       var b = $('.pv-splitbtn'); if (!b) return;
       var show = canTeam() && opts.callServer && S.room && songs.length; b.style.display = show ? '' : 'none';
       b.textContent = state === 'saving' ? '저장 중…' : state === 'saved' ? '✓ 곡별 저장됨' : '💾 곡별 저장'; b.classList.toggle('on', state === 'saved'); b.disabled = state === 'saving';
     }
     var splitT = 0;
-    /** auto=true: 직접 고른 쪽 ↔ 곡이 바뀐 뒤 잠깐 있다가 조용히 저장 (확인창 · 오류 알림 없음) · false: [💾 곡별 저장] 단추 */
+    /** auto=true: 직접 고른 페이지 ↔ 곡이 바뀐 뒤 잠깐 있다가 조용히 저장 (확인창 · 오류 알림 없음) · false: [💾 곡별 저장] 단추 */
     function saveSplit(auto) {
       clearTimeout(splitT);
       var f = sheets[S.sheetIdx], total = S.pages || 0;
@@ -1268,13 +1312,13 @@
       var by = {}, i, pg;
       for (pg = 1; pg <= total; pg++) { i = resolveSong(f, pg); if (i != null && i >= 0 && songs[i]) (by[i] = by[i] || []).push(pg); }
       var keys = Object.keys(by);
-      if (!keys.length) { if (!auto) toast('곡에 연결된 쪽이 없습니다. "이 쪽부터 곡 선택" 으로 먼저 연결해주세요.', true); return; }
+      if (!keys.length) { if (!auto) toast('곡에 연결된 페이지가 없습니다. "이 페이지부터 곡 선택" 으로 먼저 연결해주세요.', true); return; }
       function spec(a) { var o = [], j = 0; while (j < a.length) { var k = j; while (k + 1 < a.length && a[k + 1] === a[k] + 1) k++; o.push(k > j ? a[j] + '–' + a[k] : String(a[j])); j = k + 1; } return o.join(', '); }
       splitBtnPaint('saving');
       opts.callServer('worshipSheetSplit', [opts.token, S.room, f.id, by], function (r) {
         splitBtnPaint('saved');
         var n = (r && r.songs && r.songs.length) || keys.length;
-        toast((auto ? '쪽 ↔ 곡 연결을 곡별 악보로 저장했어요' : '곡별 악보로 저장했습니다') + ' (' + n + '곡) — 다음에 이 곡을 쓰면 그대로 따라옵니다.', false, 2800);
+        toast((auto ? '페이지 ↔ 곡 연결을 곡별 악보로 저장했어요' : '곡별 악보로 저장했습니다') + ' (' + n + '곡) — 다음에 이 곡을 쓰면 그대로 따라옵니다.', false, 2800);
       }, function (e) { splitBtnPaint('dirty'); if (!auto) toast((e && e.message) || '저장하지 못했습니다.', true); });
     }
     function splitLater() { if (!(canTeam() && opts.callServer && S.room)) return; splitBtnPaint('dirty'); clearTimeout(splitT); splitT = setTimeout(function () { saveSplit(true); }, 2500); }
@@ -1285,7 +1329,7 @@
       if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
       saveManual(f); var idx = resolveSong(f, S.page);
       if (idx >= 0) setSong(idx, true); renderSongSel(); sendNav(); splitLater();
-      toast(v === 'auto' ? '이 쪽을 자동 연결로 되돌렸습니다.' : '이 쪽부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
+      toast(v === 'auto' ? '이 페이지를 자동 연결로 되돌렸습니다.' : '이 페이지부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
     };
 
     function setSong(i, silent) {
@@ -1366,7 +1410,7 @@
         if (!rt || !(rt.isLeader || rt.isClicker) || !S.sendCue || !rt.online || S.manual) return Promise.resolve(false);
         return rt.call('cue', { label: id, kind: 'cue' }).then(function () { return true; }, function (e) { toast('큐를 팀에 보내지 못했습니다: ' + e.message, true); return false; });
       },
-      /** 동기화 끄기 (수동) — 켜 두면 남이 넘기는 쪽 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시하고, 내 것도 보내지 않습니다 */
+      /** 동기화 끄기 (수동) — 켜 두면 남이 넘기는 페이지 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시하고, 내 것도 보내지 않습니다 */
       manual: function () { return S.manual; }, setManual: function (b) { setManual(b); },
       claimClick: function (force) { return claimClick(force); }, releaseClick: function () { return releaseClick(); },
       follow: function () { return S.follow; }, setFollow: function (b) { setFollow(b); }, followMetro: function () { return S.followM; }, setFollowMetro: function (b) { setFollowM(b); }, followNow: function () { followNow(); },
@@ -1588,7 +1632,7 @@
       else if (S.follow && rt && rt.nav && !rt.isLeader) applyNav(rt.nav, true);
       else if (S.follow && rt && rt.isLeader) sendNav();
       renderChips(); P.emit('follow', S.follow); if (wasManual !== S.manual) P.emit('manual', S.manual);
-      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '🔒 혼자 보기 — 남이 넘기는 쪽 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.')); }
+      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '🔒 혼자 보기 — 남이 넘기는 페이지 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.')); }
     }
     function setFollowM(b, quiet) {
       return;                                                             // v6 — 메트로놈 따라가기 없앰 (예전 호출은 아무 일도 하지 않음)
@@ -1607,7 +1651,7 @@
         else if (rt && rt.isLeader) sendNav();
       }
       renderChips(); P.emit('follow', S.follow); if (m0 !== S.followM) P.emit('followm', S.followM); P.emit('manual', b); pushPrefs();
-      toast(b ? '🔒 혼자 보기 — 남이 넘기는 쪽 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.' : '함께 보기 — 팀과 같은 화면으로 맞춥니다.', false, 2600);
+      toast(b ? '🔒 혼자 보기 — 남이 넘기는 페이지 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.' : '함께 보기 — 팀과 같은 화면으로 맞춥니다.', false, 2600);
     }
     function followNow() { var n = S.pendingNav || (rt && rt.nav); if (n) applyNav(n, true); else toast('페이지 컨트롤이 아직 화면을 넘기지 않았습니다.'); }
     function claim(force) {
@@ -1634,7 +1678,7 @@
       if (on) {
         x += '<div class="pv-rt-sec"><b>' + YI('page') + ' 페이지 리드</b><small>' + (mine ? '내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 리드 중입니다.' : '아직 리드하는 사람이 없습니다.') + '</small>' +
           (can ? (mine ? '<button type="button" class="pv-btn2" data-r="release">리드 내려놓기</button>' : lead ? '<button type="button" class="pv-btn2 warn" data-r="force">리드 넘겨받기</button>' : '<button type="button" class="pv-btn2 primary" data-r="claim">📄 내가 페이지 리드하기</button>') : '<small>팀장 · 인도자만 리드할 수 있습니다.</small>') + '</div>';
-        x += '<div class="pv-rt-sec pv-solo' + (S.manual ? ' on' : '') + '"><label class="pv-chk"><input type="checkbox" data-r="solo"' + (S.manual ? ' checked' : '') + '> <b>🔒 혼자 보기 — 남의 정보 안 받기</b></label><small>켜면 다른 사람이 넘기는 쪽 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 쪽↔곡 연결이 내 화면을 바꾸지 않아요.' + (mine ? ' 내 넘김도 팀에 보내지 않아요.' : '') + ' (팀 필기와 나에게 온 요청 메시지는 그대로 보여요)</small>' +
+        x += '<div class="pv-rt-sec pv-solo' + (S.manual ? ' on' : '') + '"><label class="pv-chk"><input type="checkbox" data-r="solo"' + (S.manual ? ' checked' : '') + '> <b>🔒 혼자 보기 — 남의 정보 안 받기</b></label><small>켜면 다른 사람이 넘기는 페이지 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 페이지↔곡 연결이 내 화면을 바꾸지 않아요.' + (mine ? ' 내 넘김도 팀에 보내지 않아요.' : '') + ' (팀 필기와 나에게 온 요청 메시지는 그대로 보여요)</small>' +
           (!S.follow && lead && !mine ? '<button type="button" class="pv-btn2" data-r="now">리드 화면으로 한 번만 가기</button>' : '') + '</div>';
         x += '<div class="pv-rt-sec"><label class="pv-chk"><input type="checkbox" data-r="send"' + (S.sendCue ? ' checked' : '') + '> 리드일 때 콜아웃을 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-r="recv"' + (S.recvCue ? ' checked' : '') + '> 리드의 콜아웃 받기</label></div>';
       }
@@ -1703,13 +1747,13 @@
         clk.style.display = 'none'; clk.innerHTML = rt.isClicker ? I('metronome') + '내가 클릭 컨트롤' : cn ? I('metronome') + h(cn) : '클릭 컨트롤 없음'; clk.className = 'pv-chip pv-click' + (rt.isClicker ? ' me' : cn ? ' has' : '');
         clk.title = '메트로놈(클릭)을 조절하는 사람 — 눌러서 설정 열기';
       } else { lead.style.display = 'none'; clk.style.display = 'none'; }
-      if (st === 'online' && S.manual && !(rt.leader && !rt.isLeader)) {      // v6 — 수동 = 페이지 따라가기 끔. 컨트롤이 있으면 아래에서 "컨트롤 N쪽" 안내
+      if (st === 'online' && S.manual && !(rt.leader && !rt.isLeader)) {      // v6 — 수동 = 페이지 따라가기 끔. 컨트롤이 있으면 아래에서 "컨트롤 N페이지" 안내
         fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.innerHTML = chipTx('🔒 혼자 보기', '🔒 혼자'); fol.setAttribute('aria-pressed', 'false');
         fol.title = '남의 페이지 · BPM · 콜아웃을 받지 않는 중 — 눌러서 다시 함께 보기';
       } else if (st === 'online' && rt.leader && !rt.isLeader) {
         fol.style.display = ''; fol.className = 'pv-chip pv-follow ' + (S.follow ? 'on' : 'off'); fol.title = '페이지 컨트롤 화면 따라가기 켜기/끄기';
         var behind = !S.follow && S.pendingNav && (S.pendingNav.page !== S.page || S.pendingNav.file !== fileId());
-        fol.innerHTML = S.follow ? chipTx('따라가는 중', '따라감') : (behind ? chipTx('🔒 혼자 보기 · 컨트롤 ' + S.pendingNav.page + '쪽', '🔒 ' + S.pendingNav.page + '쪽') : chipTx('🔒 혼자 보기', '🔒 혼자'));
+        fol.innerHTML = S.follow ? chipTx('따라가는 중', '따라감') : (behind ? chipTx('🔒 혼자 보기 · 컨트롤 ' + S.pendingNav.page + '페이지', '🔒 ' + S.pendingNav.page + '페이지') : chipTx('🔒 혼자 보기', '🔒 혼자'));
         fol.setAttribute('aria-pressed', S.follow ? 'true' : 'false');
       } else if (st === 'online') {                                       // 컨트롤이 없거나 내가 컨트롤 — 눌러서 「혼자 보기」 켜기
         fol.style.display = ''; fol.className = 'pv-chip pv-follow on together'; fol.innerHTML = chipTx('함께 보기', '함께'); fol.setAttribute('aria-pressed', 'true');
@@ -1851,7 +1895,7 @@
         fontRow = nL ? '<div class="pv-tg pv-lassorow"><span class="pv-lassocount">' + nL + '개 선택</span><button type="button" class="pv-tool sm pv-del" data-a="lassodel" title="고른 필기 모두 지우기 (Delete)"><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button><button type="button" class="pv-tool sm" data-a="lassooff" title="선택 해제 (Esc)"><span class="ic">' + I('close') + '</span><span class="nm">해제</span></button></div>'
           : '<div class="pv-tg pv-selhint">악보 위에 고리를 그려 그 안의 필기를 한꺼번에 고르세요. 고른 뒤 끌면 옮겨지고, 모서리 손잡이로 크기, ✕ 로 지웁니다.</div>';
       }
-      /* 복사 · 붙여넣기 — 선택한 것을 복사하고, 복사해 둔 것이 있으면 어느 쪽에서든 붙여넣기 (키보드: Ctrl/⌘+C · V · D) */
+      /* 복사 · 붙여넣기 — 선택한 것을 복사하고, 복사해 둔 것이 있으면 어느 페이지에서든 붙여넣기 (키보드: Ctrl/⌘+C · V · D) */
       var canClip = !opts.readOnly && an.copySelected, hasClip = canClip && an.hasClip();
       var clipRow = !canClip || (!sel && !(hasClip && S.tool !== 'none')) ? '' : '<div class="pv-tg pv-cliprow">' +
         (sel ? '<button type="button" class="pv-tool sm" data-a="copysel" title="선택한 것 복사 (Ctrl/⌘+C)"><span class="ic">' + I('copy') + '</span><span class="nm">복사</span></button>' : '') +
@@ -2082,7 +2126,7 @@
       if (!S.doc) { toast('악보가 열려 있어야 합니다.', true); return Promise.resolve(); }
       toast('그림 파일을 만드는 중…');
       return composite(S.doc, S.page, 2).then(function (r) { return new Promise(function (res, rej) { r.cv.toBlob(function (b) { b ? res(b) : rej(new Error('그림을 만들지 못했습니다')); }, 'image/png'); }); })
-        .then(function (b) { saveBlob(b, fname('png', '-' + S.page + '쪽')); toast('필기가 들어간 그림을 저장했습니다.'); }, function (e) { toast('저장하지 못했습니다: ' + e.message, true); });
+        .then(function (b) { saveBlob(b, fname('png', '-' + S.page + '페이지')); toast('필기가 들어간 그림을 저장했습니다.'); }, function (e) { toast('저장하지 못했습니다: ' + e.message, true); });
     }
     function exportPdf(printIt) {
       if (!S.doc) { toast('악보가 열려 있어야 합니다.', true); return Promise.resolve(); }
@@ -2119,7 +2163,7 @@
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
       else if (a === 'spread') toggleSpread();
       else if (a === 'crop') { S.crop = !S.crop; ls('crop', S.crop ? '1' : '0'); S.zoom = 1; syncCropUi(); renderPage(); sendNav(); toast(S.crop ? '여백을 줄여 악보를 크게 보여 줍니다' : '종이 전체를 보여 줍니다'); }
-      else if (a === 'zfit') { S.fitUser = true; S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
+      else if (a === 'zfit') { S.fitUser = true; S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 페이지가 다 보이게 맞춤' : '가로 폭에 맞춤'); }
       else if (a === 'theme') {                                                  // v6.3 — 라이브 악보도 ☀️ / 🌙 (포털 · 허브와 같은 설정)
         var toLight = doc.documentElement.getAttribute('data-theme') !== 'light';
         try { if (window.YNTheme && window.YNTheme.set) window.YNTheme.set(toLight ? 'light' : 'dark', b); else { if (toLight) doc.documentElement.setAttribute('data-theme', 'light'); else doc.documentElement.removeAttribute('data-theme'); localStorage.setItem('ynTheme', toLight ? 'light' : 'dark'); } } catch (e) {}
@@ -2133,22 +2177,22 @@
       var r = box.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width;
       if (fx < 0.18) prevPage(true); else if (fx > 0.82) nextPage(true);
     });
-    /* ---- 손가락 제스처 (폰 · 태블릿) — 옆으로 쓸기 = 쪽 넘기기, 두 손가락 벌리기 · 좁히기 = 확대 · 축소 ----
-       · 왼쪽으로 쓸면 다음 쪽, 오른쪽으로 쓸면 이전 쪽 (확대해서 보는 중에는 원래대로 화면을 옮김)
+    /* ---- 손가락 제스처 (폰 · 태블릿) — 옆으로 쓸기 = 페이지 넘기기, 두 손가락 벌리기 · 좁히기 = 확대 · 축소 ----
+       · 왼쪽으로 쓸면 다음 페이지, 오른쪽으로 쓸면 이전 페이지 (확대해서 보는 중에는 원래대로 화면을 옮김)
        · 필기 도구를 쓰는 중에는 손가락 한 개는 그리기에 쓰이므로 쓸어 넘기기는 꺼집니다 (펜슬 전용 모드에서는 손가락이 넘기기 · 화면 이동)
        · 두 손가락은 언제나 확대 · 축소 (그리던 획은 버림) */
     var T = null;
-    var SWIPE_MIN_DX = 60, SWIPE_MAX_SLOPE = 0.5, SWIPE_ZOOM = 1.05;            // 옆으로 60px 넘게, 세로는 가로의 절반 미만일 때만 쪽 넘김
-    /** 쪽 넘김 + 부드러운 슬라이드 — 손가락을 따라 악보가 끌려다니지 않고, 넘어간 뒤 새 쪽이 옆에서 미끄러져 들어옵니다 */
+    var SWIPE_MIN_DX = 60, SWIPE_MAX_SLOPE = 0.5, SWIPE_ZOOM = 1.05;            // 옆으로 60px 넘게, 세로는 가로의 절반 미만일 때만 페이지 넘김
+    /** 페이지 넘김 + 부드러운 슬라이드 — 손가락을 따라 악보가 끌려다니지 않고, 넘어간 뒤 새 페이지가 옆에서 미끄러져 들어옵니다 */
     var slideT = 0;
     function slideFlip(dir) {
       var before = S.page + ':' + S.sheetIdx; dir > 0 ? nextPage(true) : prevPage(true);
-      if (before === S.page + ':' + S.sheetIdx) return;                                           // 첫 쪽 · 마지막 쪽이라 안 넘어감
+      if (before === S.page + ':' + S.sheetIdx) return;                                           // 첫 페이지 · 마지막 페이지라 안 넘어감
       if (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       box.classList.remove('pv-slide-n', 'pv-slide-p'); void box.offsetWidth; box.classList.add(dir > 0 ? 'pv-slide-n' : 'pv-slide-p');
       clearTimeout(slideT); slideT = setTimeout(function () { box.classList.remove('pv-slide-n', 'pv-slide-p'); }, 320);
     }
-    /** 브라우저가 악보 칸을 스스로 밀지 않게 — 한 쪽이 화면에 다 들어오면(확대 전 · 가로로 넘치지 않음) 터치 스크롤을 아예 끕니다 (아이패드 고무줄 당김 방지) */
+    /** 브라우저가 악보 칸을 스스로 밀지 않게 — 한 페이지가 화면에 다 들어오면(확대 전 · 가로로 넘치지 않음) 터치 스크롤을 아예 끕니다 (아이패드 고무줄 당김 방지) */
     function syncTouch() {
       if (S.dead) return;
       var hx = stage.scrollWidth > stage.clientWidth + 2, vy = stage.scrollHeight > stage.clientHeight + 2, free = S.zoom <= SWIPE_ZOOM && (!hx || !!S.cropNow);   // v6.1 — 여백 자동 맞춤으로 종이 가장자리만 넘치는 것은 "확대"가 아님 → 쓸어 넘기기 그대로
@@ -2157,7 +2201,7 @@
     function tdist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
     function tmid(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
     function fingerFree() { return S.tool === 'none' || (an.fingerDraws && !an.fingerDraws()); }        // 손가락 한 개를 "쓸기 · 화면 이동"에 써도 되는가
-    /* v6.1 — 쓸어 넘기기를 사진 앱처럼: 끄는 동안 쪽이 손가락을 따라오고, 놓으면 넘어가거나 제자리로 돌아옵니다 */
+    /* v6.1 — 쓸어 넘기기를 사진 앱처럼: 끄는 동안 페이지가 손가락을 따라오고, 놓으면 넘어가거나 제자리로 돌아옵니다 */
     function canFlip(dir) { return dir > 0 ? (S.page < S.pages || S.sheetIdx < sheets.length - 1) : (S.page > 1 || S.sheetIdx > 0); }
     var dragT = 0;
     function dragMove(x) { clearTimeout(dragT); box.style.transition = 'none'; box.style.transform = 'translateX(' + Math.round(x) + 'px)'; }
@@ -2167,7 +2211,7 @@
       box.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1)'; box.style.transform = 'translateX(0)';
       dragT = setTimeout(function () { box.style.transition = ''; box.style.transform = ''; }, 240);
     }
-    function dragFlip(dir) { clearTimeout(dragT); box.style.transition = ''; box.style.transform = ''; slideFlip(dir); }   // 놓는 순간 넘기고 새 쪽이 옆에서 미끄러져 들어옴
+    function dragFlip(dir) { clearTimeout(dragT); box.style.transition = ''; box.style.transform = ''; slideFlip(dir); }   // 놓는 순간 넘기고 새 페이지가 옆에서 미끄러져 들어옴
     var lastTap = null;
     function dblTap(t) {
       var now = Date.now();
@@ -2190,7 +2234,7 @@
       if (!pvRaf) pvRaf = root.requestAnimationFrame ? root.requestAnimationFrame(applyPreview) : (applyPreview(), 0);
     }
     /* ---- 애플 펜슬 손바닥 무시 (Step 2.12) ----
-       펜슬이 화면에 닿아 있거나 위에 떠 있는 동안(끝난 뒤 700ms 까지), 그리고 닿는 면이 넓은 터치(손바닥)는 쪽 넘기기 · 화면 이동 · 확대에 쓰지 않고 브라우저 스크롤도 막습니다.
+       펜슬이 화면에 닿아 있거나 위에 떠 있는 동안(끝난 뒤 700ms 까지), 그리고 닿는 면이 넓은 터치(손바닥)는 페이지 넘기기 · 화면 이동 · 확대에 쓰지 않고 브라우저 스크롤도 막습니다.
        그리는 캔버스는 처음부터 touch-action:none 이고, 필기 중에는 악보 칸 전체도 잠깁니다(.pv-penlock). */
     var penT = 0, penLockT = 0;
     function penNear() { return Date.now() - penT < 700; }
@@ -2222,7 +2266,7 @@
       if (T.pinch) {
         if (e.touches.length < 2) return;
         var mm = tmid(e.touches[0], e.touches[1]); T.mx = mm.x; T.my = mm.y;
-        T.scale = clamp(tdist(e.touches[0], e.touches[1]) / T.d0, 0.3, 5) ; T.scale = clamp(T.z0 * T.scale, 0.5, 5) / T.z0;      // v6.1 — 사진 앱처럼: 줄이면 잠깐 작아졌다가 놓으면 한 쪽 맞춤으로 돌아옴
+        T.scale = clamp(tdist(e.touches[0], e.touches[1]) / T.d0, 0.3, 5) ; T.scale = clamp(T.z0 * T.scale, 0.5, 5) / T.z0;      // v6.1 — 사진 앱처럼: 줄이면 잠깐 작아졌다가 놓으면 한 페이지 맞춤으로 돌아옴
         if (!T.zoomed && Math.abs(T.scale - 1) < 0.05) {                                          // 두 손가락 이동 = 화면 밀기 (스크롤) — 손가락 간격이 거의 그대로일 때
           stage.scrollLeft = T.sl0 - (mm.x - T.mx0); stage.scrollTop = T.st0 - (mm.y - T.my0); pinchPreview(1);
         } else {                                                                                   // 간격이 변하면 확대 · 축소 — 손가락 사이 지점을 중심으로, 손가락이 움직인 만큼 함께 이동
@@ -2234,7 +2278,7 @@
       if (e.touches.length !== 1) return;
       var t = e.touches[0]; T.moved = T.moved || Math.abs(t.clientX - T.x0) > 8 || Math.abs(t.clientY - T.y0) > 8;
       /* 축 고정 (Step 2.14) — 10px 이상 움직인 순간 한 번만 정합니다: 세로 흔들림이 가로의 절반 미만(|dy/dx| < 0.5)이면 "가로 쓸기".
-         가로 쓸기로 정해지면 (확대하지 않았고 가로로 밀 자리가 없을 때) 브라우저 스크롤 · 고무줄 당김을 막아 악보 쪽이 제자리에 그대로 있습니다. */
+         가로 쓸기로 정해지면 (확대하지 않았고 가로로 밀 자리가 없을 때) 브라우저 스크롤 · 고무줄 당김을 막아 악보 페이지가 제자리에 그대로 있습니다. */
       var adx = Math.abs(t.clientX - T.x0), ady = Math.abs(t.clientY - T.y0);
       if (!T.axis && (adx > 10 || ady > 10)) T.axis = adx > 10 && ady < adx * 0.5 ? 'h' : 'v';
       if (T.free && T.axis === 'h' && S.zoom <= SWIPE_ZOOM && S.noHx) {                            // v6.1 — 사진 앱처럼 악보가 손가락을 따라 옆으로 움직임
@@ -2255,7 +2299,7 @@
         if (e.touches.length >= 2) return;
         var sc = T.scale, tt = T; T = null; pinchPreview(1);
         if (tt.zoomed && Math.abs(sc - 1) > 0.02) {
-          var nz = S.zoom * sc; if (nz < 1) nz = 1;                                               // 사진 앱처럼 — 한 쪽보다 작게 놓으면 한 쪽 맞춤으로
+          var nz = S.zoom * sc; if (nz < 1) nz = 1;                                               // 사진 앱처럼 — 한 페이지보다 작게 놓으면 한 페이지 맞춤으로
           S.anchor = { fx: tt.fx, fy: tt.fy, cx: tt.mx, cy: tt.my, t: Date.now() };              // 다시 그린 뒤 손가락 사이 지점이 손가락이 놓인 자리에 오도록 스크롤 맞춤
           if (Math.abs(nz - S.zoom) > 0.01) setZoom(nz, true);
         }
@@ -2264,13 +2308,13 @@
       var me = T; if (e.touches.length) return; T = null;
       if (e.type === 'touchcancel' || !me.free || !e.changedTouches.length) { if (me.drag) dragReset(true); return; }
       var t = e.changedTouches[0], dx = t.clientX - me.x0, dy = t.clientY - me.y0, dt = Date.now() - me.t0;
-      if (me.drag) {                                                                               // 따라 움직이던 쪽: 충분히 밀었거나 빠르게 튕겼으면 넘기고, 아니면 제자리로
+      if (me.drag) {                                                                               // 따라 움직이던 페이지: 충분히 밀었거나 빠르게 튕겼으면 넘기고, 아니면 제자리로
         var wv = stage.clientWidth || 800, dir = dx < 0 ? 1 : -1;
         var go = (Math.abs(dx) > SWIPE_MIN_DX && Math.abs(dy) < Math.abs(dx) * SWIPE_MAX_SLOPE && dt < 800) || Math.abs(dx) > wv * 0.35;   // 빠르게 쓸었거나, 천천히라도 화면의 1/3 넘게 끌었으면
         if (go && canFlip(dir)) dragFlip(dir); else dragReset(true);
         return;
       }
-      if (!me.moved && S.tool === 'none' && e.changedTouches.length === 1) { dblTap(t); return; }   // v6.1 — 두 번 톡 = 확대 / 한 쪽 맞춤 (사진 앱처럼)
+      if (!me.moved && S.tool === 'none' && e.changedTouches.length === 1) { dblTap(t); return; }   // v6.1 — 두 번 톡 = 확대 / 한 페이지 맞춤 (사진 앱처럼)
       if (S.zoom <= SWIPE_ZOOM && Math.abs(dx) > SWIPE_MIN_DX && Math.abs(dy) < Math.abs(dx) * SWIPE_MAX_SLOPE && dt < 800) { slideFlip(dx < 0 ? 1 : -1); }
     }
     stage.addEventListener('touchend', touchDone, { passive: true });
@@ -2384,7 +2428,7 @@
       var t = an.copySelected(); lastClipTxt = t || '[악보 필기]';
       if (evt && evt.clipboardData) { try { evt.clipboardData.setData('text/plain', lastClipTxt); evt.preventDefault(); } catch (x) { /* 무시 */ } }
       else if (root.navigator && navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(lastClipTxt).catch(function () {}); }
-      toast('복사했습니다 — 붙여넣기(Ctrl/⌘+V)로 이 쪽이나 다른 쪽 · 다른 악보에 붙일 수 있어요.', false, 2000); renderTools(); return true;
+      toast('복사했습니다 — 붙여넣기(Ctrl/⌘+V)로 이 페이지나 다른 페이지 · 다른 악보에 붙일 수 있어요.', false, 2000); renderTools(); return true;
     }
     function doPaste(text) {
       if (opts.readOnly) return false;
@@ -2553,7 +2597,7 @@
       var i = S.songIdx, s = i >= 0 ? songs[i] : null;
       // V842 → V844 — 지금 BPM 은 따로 칸(pv-form-bpm)에 넣고 그 자리만 바꿉니다 (BPM 이 바뀔 때마다 송폼 창 전체를 다시 그리면 −/+ 를 누르고 있던 손이 풀린 걸 못 알아채 BPM 이 계속 내려가던 문제)
       var meta = s ? [s.key ? 'Key ' + h(s.key) : '', '<span class="pv-form-bpm"></span>', S.leadBy ? '리드 ' + h(S.leadBy) : ''].filter(Boolean).join(' · ') : '';
-      var i2 = spreadOn() ? badgeIdx(S.page + 1) : -1;
+      var i2 = spreadOn() ? rightBadgeIdx() : -1;
       var h2 = i2 >= 0 && i2 !== i ? '<div class="pv-form-2"><b>' + h((songs[i2] || {}).title || '') + '</b>' + formBadgeHtml(i2) + '</div>' : '';
       var html = s ? '<div class="pv-form-h"><b>' + h(s.title || '') + '</b>' + (meta ? '<small>' + meta + '</small>' : '') + '</div>' + (formBadgeHtml(i) || '<span class="pv-form-none">송폼 없음</span>') + h2 : '<span class="pv-form-none">곡을 고르면 송폼이 여기에 보입니다</span>';
       if (formEl.getAttribute('data-h') !== html) {
@@ -2764,7 +2808,7 @@
     } catch (e) { /* 타이머 막대가 없어도 세션 화면은 그대로 */ }
     try { setupFloats(); } catch (e) { /* 떠 있는 창을 못 만들어도 악보 · 필기는 그대로 */ }
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
-    loadSheet(S.sheetIdx, Math.max(1, opts.startPage | 0) || 1, false);   // 라이브러리에서 곡별로 나눈 악보를 열면 그 곡 첫 쪽부터
+    loadSheet(S.sheetIdx, Math.max(1, opts.startPage | 0) || 1, false);   // 라이브러리에서 곡별로 나눈 악보를 열면 그 곡 첫 페이지부터
     if (S.layout === 'computer' && ls('side') === '1' && P.tabs.length) showTab(P.tabs[0].id);
     return api;
   }

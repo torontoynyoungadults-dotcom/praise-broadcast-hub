@@ -252,7 +252,7 @@
     });
     /* 끌기 — transform 으로만 움직여(합성만) 끄는 동안 레이아웃 계산 없음, 놓을 때 자리를 저장 */
     el.addEventListener('pointerdown', function (e) {
-      e.stopPropagation();                                                                   // 팔레트를 눌러도 악보 쪽 넘기기 · 필기가 시작되지 않게
+      e.stopPropagation();                                                                   // 팔레트를 눌러도 악보 페이지 넘기기 · 필기가 시작되지 않게
       var bar = e.target.closest ? e.target.closest('.tp-symhead') : null;
       if (!bar || e.target.closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
       var r = el.getBoundingClientRect(), B = box();

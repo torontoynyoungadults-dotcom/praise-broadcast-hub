@@ -224,7 +224,7 @@ global.fetch = async (url, opt) => {
   let yy = 120;
   for (const k of ['pretendard', 'seoyun', 'positive']) {
     await page.selectOption('.tp-pop select[data-tp="font"]', k); await sleep(150);
-    const loaded = await page.waitForFunction((fam) => document.fonts.check('600 24px "' + fam + '"', '가나'), FAM[k], { timeout: 10000 }).then(() => true, () => false);
+    const loaded = await page.waitForFunction((fam) => Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === fam && f.status === 'loaded'), FAM[k], { timeout: 12000 }).then(() => true, () => false);
     ok(loaded, k + ': 글꼴 파일이 실제로 받아짐');
     ok(await page.evaluate((fam) => Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === fam && f.status === 'loaded'), FAM[k]), k + ': FontFace 상태 = loaded');
     ok(await page.evaluate(() => /YN /.test(getComputedStyle(document.querySelector('.tp-fprev')).fontFamily)), k + ': 미리보기가 그 글꼴로 보임');

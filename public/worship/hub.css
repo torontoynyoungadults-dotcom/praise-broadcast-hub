@@ -419,7 +419,7 @@ input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
 .yt-msg { font-size: 12px; color: #f7c49b; min-height: 1.2em; } .yt-msg.bad { color: #f8b4a6; }
 .pv-tablet .pv-yt { width: min(440px, calc(100% - 28px)); }
 
-/* (6) 두 쪽 나란히 보기 (컴퓨터 화면) */
+/* (6) 두 페이지 나란히 보기 (컴퓨터 화면) */
 .pv-spreadbtn { white-space: nowrap; margin-left: 6px; }
 .pv-spreadbtn.on { background: linear-gradient(135deg, #f8b684, #f2966b); color: #0b1412; border-color: rgba(255, 255, 255, .3); }
 .pv-spread .pv-stage { justify-content: center; align-items: flex-start; gap: 12px; }
@@ -550,7 +550,7 @@ body.ht-lock { overflow: hidden; }
 .ht-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .ht-cnt { font-size: 13.5px; font-weight: 800; color: var(--g-a2); }
 
-/* ---- 쪽 미리보기 (악보 자르기) ---- */
+/* ---- 페이지 미리보기 (악보 자르기) ---- */
 .ht-thumbs { display: flex; flex-wrap: wrap; gap: 9px; max-height: 250px; overflow: auto; padding: 8px; border-radius: 14px; background: rgba(0, 0, 0, .3); border: 1px solid var(--g-line); margin: 8px 0; }
 .ht-th { position: relative; padding: 0; width: 96px; border-radius: 10px; border: 2px solid var(--g-line2); background: #fff; cursor: pointer; overflow: hidden; }
 .ht-th canvas { display: block; width: 100%; height: auto; background: #fff; } .ht-th i { position: absolute; left: 4px; bottom: 4px; min-width: 24px; padding: 1px 6px; border-radius: 999px; background: rgba(0, 0, 0, .75); color: #fff; font-size: 12px; font-style: normal; font-weight: 800; }
@@ -722,9 +722,9 @@ body.ht-lock { overflow: hidden; }
 .fb-t.primary { background: linear-gradient(135deg, #f8b684, #f2966b); color: #0b1412; border-color: transparent; font-weight: 800; }
 .pv-stage.pv-penlock { touch-action: none !important; overscroll-behavior: none; }          /* 애플 펜슬로 쓰는 동안 손바닥이 닿아도 악보가 움직이지 않음 */
 
-/* ===== Step 2.14 — 스와이프 축 고정 · 쪽 슬라이드 · 태블릿 위 캡슐 도크 ===== */
+/* ===== Step 2.14 — 스와이프 축 고정 · 페이지 슬라이드 · 태블릿 위 캡슐 도크 ===== */
 /* (1) 악보 칸: 고무줄 당김(바운스) · 바깥으로 번지는 스크롤 차단.
-   한 쪽이 화면에 다 들어오면(확대 전 · 가로로 안 넘침) 화면 쪽 JS(syncTouch)가 터치 스크롤을 아예 끕니다 → 쓸어도 악보가 밀려 다니지 않음 */
+   한 페이지가 화면에 다 들어오면(확대 전 · 가로로 안 넘침) 화면 쪽 JS(syncTouch)가 터치 스크롤을 아예 끕니다 → 쓸어도 악보가 밀려 다니지 않음 */
 .pv-stage { overscroll-behavior: contain; overscroll-behavior-x: none; }
 .pv-stage.pv-gest.pv-tx-none { touch-action: none; }
 .pv-stage.pv-gest.pv-tx-y { touch-action: pan-y; }
@@ -829,7 +829,7 @@ body.ht-lock { overflow: hidden; }
 .pv-tablet:not(.pv-compact) .pv-live button { height: 36px; }
 .pv-tablet:not(.pv-compact) .pv-lv-go { width: 40px; }
 
-/* 송폼 배지 — 악보 맨 위에 붙는 유리 알약 (쪽 안에서 스크롤해도 화면 위에 따라옴) */
+/* 송폼 배지 — 악보 맨 위에 붙는 유리 알약 (페이지 안에서 스크롤해도 화면 위에 따라옴) */
 .pv-formbadge { position: sticky; top: 8px; z-index: 5; height: 0; overflow: visible; display: flex; justify-content: center; pointer-events: none; }
 .pv-formbadge:empty { display: none; }
 .pv-tablet:not(.pv-compact):not(.pv-toolshide):not(.pv-fs) .pv-formbadge { top: 58px; }
@@ -1126,7 +1126,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv:not(.pv-compact).pv-dockmore .pv-tools.pv-float .pv-tg.pv-colors { display: flex; }
 .pv:not(.pv-compact) .pv-tools.pv-float .pv-pills { flex-direction: row; }
 
-/* 송폼 창은 보기만 하는 카드 — 손잡이 말고는 눌러도 밑의 악보로 (필기 · 쪽 넘김을 막지 않게) */
+/* 송폼 창은 보기만 하는 카드 — 손잡이 말고는 눌러도 밑의 악보로 (필기 · 페이지 넘김을 막지 않게) */
 .pv .pv-form { pointer-events: none; }
 .pv .pv-form .pv-grip { pointer-events: auto; }
 /* 도구 창은 한 줄 (넘치면 옆으로 밀어 보기) — 악보를 덜 가리게 */
@@ -1138,7 +1138,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv:not(.pv-compact) .pv-tools.pv-float .pv-size { width: 32px; height: 32px; }
 .pv:not(.pv-compact) .pv-tools.pv-float .pv-pill, .pv:not(.pv-compact) .pv-tools.pv-float .pv-mineonly { min-height: 32px; height: 32px; padding: 0 11px; display: inline-flex; align-items: center; white-space: nowrap; }
 
-/* ===== v6.1 — 아이패드 세로 · 좁은 창(700~1100px): 위 막대를 한 줄로 — 확대 · 여백 · 두 쪽 · 화면 배치는 "⋯" 안으로 ===== */
+/* ===== v6.1 — 아이패드 세로 · 좁은 창(700~1100px): 위 막대를 한 줄로 — 확대 · 여백 · 두 페이지 · 화면 배치는 "⋯" 안으로 ===== */
 .pv .pv-morebtn, .pv .pv-morepop { display: none; }
 .pv.pv-narrow .pv-morebtn { display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; letter-spacing: .05em; }
 .pv.pv-narrow.pv-moreopen .pv-morebtn { background: var(--v6-a, #f4a272) !important; color: #0A1211 !important; border-color: transparent !important; }
@@ -1771,7 +1771,7 @@ html[data-theme="light"] body .pvgo:not(.pvstartbtn) { background: linear-gradie
 .pv-dh b .yi { width: 18px; height: 18px; vertical-align: -4px; margin-right: 6px; }
 .pv-chip .yi { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 
-/* v18 — [💾 곡별 저장] : 쪽 ↔ 곡 연결을 곡별 악보로 저장 (유튜브 단추와 같은 알약, 색만 청록) */
+/* v18 — [💾 곡별 저장] : 페이지 ↔ 곡 연결을 곡별 악보로 저장 (유튜브 단추와 같은 알약, 색만 청록) */
 .pv-splitbtn { background: rgba(60, 186, 160, .20) !important; border-color: rgba(60, 186, 160, .55) !important; color: #CFF5EA !important; white-space: nowrap; }
 .pv-splitbtn:hover { background: rgba(60, 186, 160, .32) !important; }
 .pv-splitbtn.on { background: rgba(60, 186, 160, .12) !important; color: #8FDCC7 !important; }

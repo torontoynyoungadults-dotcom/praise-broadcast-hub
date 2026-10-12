@@ -310,7 +310,7 @@
     if (send && rt && rt.online && rt.clearMsgs) rt.clearMsgs().catch(function () {});
   }
 
-  /* ---------- 악보 보기 — 곡에 연결된 악보(쪽 범위)를 화면 안에서 (PDF 는 pdf.js, 사진은 그대로) ---------- */
+  /* ---------- 악보 보기 — 곡에 연결된 악보(페이지 범위)를 화면 안에서 (PDF 는 pdf.js, 사진은 그대로) ---------- */
   var SV = { open: false, zoom: 1, cur: null, seq: 0, pdfP: null, cache: {} };
   function sheetsOf(s) { return s && Array.isArray(s.sheets) ? s.sheets : []; }
   function loadPdfjs() {
@@ -337,7 +337,7 @@
     var sv = $('.st-sv'); SV.open = true; sv.hidden = false; el.classList.add('sv-on');
     var all = B.sheets || [];
     sv.innerHTML = '<div class="st-svbar"><b class="st-svttl">' + h(s ? s.title : '악보') + '</b><button type="button" class="st-tb" data-a="sv-close" aria-label="닫기">✕</button></div>' +
-      '<div class="st-svpick">' + (list.length ? '<p>이 곡에 연결된 악보가 여러 개예요.</p>' + list.map(function (x) { return '<button type="button" class="st-svopt" data-svopen="' + h(x.id + '|' + x.pages.join(',')) + '">' + h(x.name || '악보') + (x.pages.length ? ' (' + x.pages.join(', ') + '쪽)' : '') + '</button>'; }).join('')
+      '<div class="st-svpick">' + (list.length ? '<p>이 곡에 연결된 악보가 여러 개예요.</p>' + list.map(function (x) { return '<button type="button" class="st-svopt" data-svopen="' + h(x.id + '|' + x.pages.join(',')) + '">' + h(x.name || '악보') + (x.pages.length ? ' (' + x.pages.join(', ') + '페이지)' : '') + '</button>'; }).join('')
         : '<p>이 곡에 따로 연결된 악보가 없어요. 이 예배에 올린 악보 중에서 골라 주세요.</p>' + (all.length ? all.map(function (x) { return '<button type="button" class="st-svopt" data-svopen="' + h(x.id + '|') + '">' + h(x.name || '악보') + '</button>'; }).join('') : '<p class="st-empty">올린 악보가 없어요.</p>')) + '</div>';
   }
   function showSheet(f, s) {
@@ -375,7 +375,7 @@
         if (my !== SV.seq) return;
         return SV.pdf.getPage(p).then(function (pg) {
           if (my !== SV.seq) return;
-          var v1 = pg.getViewport({ scale: 1 }), W = Math.min(bw, bh * v1.width / v1.height) * SV.zoom;   // 맞춤 = 한 쪽이 화면에 다 보이게 (가로 화면에서도)
+          var v1 = pg.getViewport({ scale: 1 }), W = Math.min(bw, bh * v1.width / v1.height) * SV.zoom;   // 맞춤 = 한 페이지가 화면에 다 보이게 (가로 화면에서도)
           var sc = W / v1.width, vp = pg.getViewport({ scale: sc * dpr });
           var box = body.querySelector('.st-svpage[data-p="' + p + '"]'), cv = box && box.querySelector('canvas'); if (!cv) return;
           cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); cv.style.width = Math.round(vp.width / dpr) + 'px'; cv.style.height = Math.round(vp.height / dpr) + 'px';

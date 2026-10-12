@@ -2,8 +2,8 @@
    v9.16 — 라이브 악보 위 막대 다이어트 · 폰 전용(최소) 모드 · 올가미
    · hub.css · live-glass.css 다음에 불러옵니다 (두 앱 — 청년부 앱 · 찬양방송팀 허브 — 이 파일은 똑같습니다)
    · 위 막대는 늘 한 줄: 단추 · 글자가 겹치거나 줄바꿈되지 않게 (넘치면 practice.js 가 단계적으로 「⋯」 안으로 접음)
-   · 곡 · 악보 = 알약 하나 · 쪽 넘기기 작게 · 메트로놈 켜기/끄기 · 유튜브(빨간 아이콘) · 나머지는 「⋯」
-   · 폰(.pv-compact): 닫기 · 곡 알약 · 쪽 · 메트로놈 · ⋯(서랍) 만
+   · 곡 · 악보 = 알약 하나 · 페이지 넘기기 작게 · 메트로놈 켜기/끄기 · 유튜브(빨간 아이콘) · 나머지는 「⋯」
+   · 폰(.pv-compact): 닫기 · 곡 알약 · 페이지 · 메트로놈 · ⋯(서랍) 만
    ============================================================ */
 
 /* ---------- 위 막대: 한 줄 · 넘침 없음 ---------- */
@@ -31,7 +31,7 @@ html body .pv .pv-top .pv-songpill .pv-sheetwrap .pv-sel { flex: 1 1 auto; width
 html body .pv .pv-top .pv-songpill .pv-sel:focus-visible { outline: 2px solid var(--lg-a2, #ffb066); outline-offset: -2px; }
 html body .pv .pv-top .pv-songpill .pv-sel option { color: #111827; }
 html body .pv .pv-top .pv-songpill .pv-songinfo { display: none !important; }
-/* 보조 칸이 필요 없으면(.pv-nosub — 찬양방송팀 허브: 이 쪽의 곡 칸이 없음) 알약 = 주 칸 하나 */
+/* 보조 칸이 필요 없으면(.pv-nosub — 찬양방송팀 허브: 이 페이지의 곡 칸이 없음) 알약 = 주 칸 하나 */
 html body .pv.pv-nosub .pv-top .pv-songpill .pv-sheetwrap { display: none; }
 /* 곡이 없는 예배(곡 칸이 숨겨짐) — 악보 칸이 알약 전체 */
 html body .pv .pv.pv-nosong .pv-top .pv-songpill .pv-sheetwrap { flex: 1 1 auto; border-left: 0; }
@@ -44,12 +44,12 @@ html body .pv.pv-tight .pv-top .pv-songpill .pv-sheetic, html body .pv.pv-compac
 html body .pv.pv-tight.pv-nosong .pv-top .pv-songpill .pv-sheetic,
 html body .pv.pv-compact.pv-nosong .pv-top .pv-songpill .pv-sheetic { left: 10px; transform: translateY(-50%); }
 
-/* ---------- 쪽 넘기기 (작게) ---------- */
+/* ---------- 페이지 넘기기 (작게) ---------- */
 html body .pv .pv-top .pv-pager { padding: 1px; gap: 0; height: 38px; }
 html body .pv .pv-top .pv-pager .pv-b { min-width: 32px; width: 32px; height: 34px; padding: 0; }
 html body .pv .pv-top .pv-pg { min-width: 40px; padding: 0 2px; font-size: 13px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
 
-/* ---------- 확대 묶음: 여백 · 두 쪽은 넓은 화면에서만 글자 ---------- */
+/* ---------- 확대 묶음: 여백 · 두 페이지는 넓은 화면에서만 글자 ---------- */
 html body .pv .pv-top .pv-zoom .pv-b { min-width: 34px; padding: 0 8px; }
 html body .pv .pv-zoom .pv-tx { display: none; }
 @media (min-width: 1440px) { html body .pv:not(.pv-compact) .pv-top .pv-zoom .pv-tx { display: inline; } }
@@ -159,7 +159,7 @@ html body .pv .pv-drawer .pv-ds-acts .pv-dslot { display: flex; flex-direction: 
 html body .pv .pv-drawer .pv-hx { display: flex; flex-direction: column; gap: 2px; background: transparent !important; border: 0 !important; padding: 0; }
 html body .pv .pv-drawer .pv-ytbtn .pv-yticon { width: 24px; height: 17px; }
 html body .pv:not(.pv-compact) .pv-drawer .pv-ds-acts { display: none; }
-/* 아주 좁은 폰(≤360px): 곡 알약이 너무 좁아지지 않게 쪽 넘기기 단추를 조금 더 작게 */
+/* 아주 좁은 폰(≤360px): 곡 알약이 너무 좁아지지 않게 페이지 넘기기 단추를 조금 더 작게 */
 @media (max-width: 360px) {
   html body .pv.pv-compact .pv-top { gap: 4px; }
   html body .pv.pv-compact .pv-top .pv-pager .pv-b { min-width: 26px; width: 26px; }

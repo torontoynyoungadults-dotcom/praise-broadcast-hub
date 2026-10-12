@@ -1,7 +1,7 @@
 /**
  * 악보 필기 엔진 — PDF 위에 펜 · 형광펜 · 글자/코드 · 음악 기호를 얹고, 팀과 실시간으로 나눕니다
  * ------------------------------------------------------------
- *  · 모든 좌표는 "쪽 크기에 대한 비율(0~1)"로 저장 → 화면 크기 · 확대 · 다른 기기에서도 같은 자리에 그려짐
+ *  · 모든 좌표는 "페이지 크기에 대한 비율(0~1)"로 저장 → 화면 크기 · 확대 · 다른 기기에서도 같은 자리에 그려짐
  *  · 필기 항목 형식은 서버(lib/realtime.js cleanItem)와 같습니다 — { id, t:'pen'|'hl'|'text'|'sym', pg, c, w, p[], x, y, sz, s, chord, k, w2 … }
  *  · 층(layer): 'team' = 모두에게 보임(실시간 공유) / 'mine' = 나만 보임
  *  · 이 파일은 (1) 순수 함수(좌표 · 판정 · 기호 그리기) (2) create() 엔진(포인터 입력 · 되돌리기 · 그리기)으로 되어 있습니다
@@ -307,7 +307,7 @@
       c.bezierCurveTo(p1x + (p2x - p0x) / 6, p1y + (p2y - p0y) / 6, p2x - (p3x - p1x) / 6, p2y - (p3y - p1y) / 6, p2x, p2y);
     }
   }
-  /** 항목 하나를 ctx 에 그림. W,H = 그릴 쪽의 픽셀 크기. o.alpha = 전체 투명도 */
+  /** 항목 하나를 ctx 에 그림. W,H = 그릴 페이지의 픽셀 크기. o.alpha = 전체 투명도 */
   function drawItem(c, it, W, H, o) {
     o = o || {};
     c.save();
@@ -470,7 +470,7 @@
     }
     function inkCur() { var c = S.cur; return !!(c && (c.kind === 'pen' || c.kind === 'hl')); }
     /* v10 — 형광펜 층 (굿노트 방식): 확정된 형광펜만 따로 그린 캔버스를 필기 캔버스 바로 밑에 두고 mix-blend-mode:multiply 로 악보와 곱합니다.
-       → 검은 음표 · 글자는 흐려지지 않고 흰 종이만 물듦. 그 쪽에 형광펜이 없으면 캔버스를 비워(0×0) 메모리를 쓰지 않고,
+       → 검은 음표 · 글자는 흐려지지 않고 흰 종이만 물듦. 그 페이지에 형광펜이 없으면 캔버스를 비워(0×0) 메모리를 쓰지 않고,
        형광펜이 바뀔 때만 다시 그립니다 (펜을 긋는 동안 · 화면을 넘기는 동안에는 손대지 않음). o.hlBlend 를 켠 화면(라이브 악보)에서만. */
     var HB = !!o.hlBlend && typeof document !== 'undefined', hlc = null, hctx = null, HLS = { sig: '', on: false };
     function hlEnsure() {
@@ -546,7 +546,7 @@
     /** 옮기기 · 크기 바꾸기 중인 항목 번호 (없으면 null) — 올가미로 여러 개를 옮기는 중이면 그 묶음의 표시 */
     function movingId() { var c = S.cur; return c && (c.kind === 'move' || c.kind === 'resize') && c.item ? c.item.id : c && (c.kind === 'lmove' || c.kind === 'lscale') ? 'L' + c.ptr : null; }
     function movingSkip() { var c = S.cur; if (c && c.origs) { var m = {}; c.origs.forEach(function (x) { m[x.orig.id] = 1; }); return m; } return movingId(); }
-    /** 확정된 필기를 따로 그려 두는 그림 — 필기가 많은 쪽(30개↑)에서 획을 긋는 동안만 씁니다 (적은 쪽은 그냥 다시 그리는 게 더 쌉니다) */
+    /** 확정된 필기를 따로 그려 두는 그림 — 필기가 많은 페이지(30개↑)에서 획을 긋는 동안만 씁니다 (적은 페이지는 그냥 다시 그리는 게 더 쌉니다) */
     function baseWorth() {
       if (!S.cur && !S.live.size) return false;
       if (cv.width * cv.height > 12e6 || typeof document === 'undefined') return false;
@@ -861,7 +861,7 @@
     /* ---- v9.16 올가미(lasso) — 손으로 고리를 그려 그 안의 필기(펜 · 형광펜 획 · 글자 · 코드 · 기호 · 송폼 라벨)를 한꺼번에 고릅니다 ----
        고른 뒤: 상자 안을 끌면 함께 옮기기 · 오른쪽 아래 손잡이로 함께 크기 바꾸기 · 오른쪽 위 ✕ 로 함께 지우기. 한 번의 동작은 되돌리기 한 번으로 돌아갑니다.
        저장 형식은 그대로입니다 (항목마다 좌표 · 크기만 바뀌어 예전처럼 하나씩 저장 · 실시간 전파). 다른 사람이 쓴 필기는 고칠 권한이 있을 때만 고릅니다. */
-    function mselList() {                                                          // 지금 쪽에 남아 있는 고른 항목들 [{ layer, it }] (지워진 것은 빼고)
+    function mselList() {                                                          // 지금 페이지에 남아 있는 고른 항목들 [{ layer, it }] (지워진 것은 빼고)
       var m = S.msel; if (!m) return [];
       var out = [];
       m.items = m.items.filter(function (x) { var it = S.layers[x.layer] && S.layers[x.layer].get(x.id); if (!it || it.pg !== S.page) return false; if (S.vis[x.layer]) out.push({ layer: x.layer, it: it }); return true; });
@@ -1030,7 +1030,7 @@
       byTag(c2, g.x, g.y - 22, '◌ ' + g.list.length + '개 선택', true);
       drawHandle(c2, g.tr, '#e5484d', 'del'); drawHandle(c2, g.br, '#ff8a2a', 'size');
     }
-    /** 그리던 것 · 옮기던 것을 버리고 원래 모양으로 (도구 · 쪽을 바꾸거나 두 번째 손가락이 닿았을 때) */
+    /** 그리던 것 · 옮기던 것을 버리고 원래 모양으로 (도구 · 페이지를 바꾸거나 두 번째 손가락이 닿았을 때) */
     function dropCur() { clearTimeout(S.holdT); S.holdT = 0; var c = S.cur; S.cur = null; if (W8.on) wetEnd(); if (c && (c.kind === 'move' || c.kind === 'resize') && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); if (c && (c.kind === 'lmove' || c.kind === 'lscale')) lassoRestore(c); rectC = null; }
     /** 방금 만든 글자 · 기호 · 송폼 라벨을 바로 선택 상태(테두리 + 손잡이)로 — 곧바로 끌어서 옮기거나 크기를 바꿀 수 있음 */
     /* v6 — 자동 선택·이동: 글자 · 코드 · 기호 · 라벨 · 펜을 한 번 쓴 뒤 악보의 빈 곳을 톡 치면 선택·이동 도구로 바뀝니다 */
@@ -1169,7 +1169,7 @@
         c.moved = true;
         var qm = norm(e), o0 = c.orig, it0 = c.item, dx = qm.x - c.x0, dy = qm.y - c.y0;
         if (o0.t === 'fbox') { it0.x = r4(clamp(o0.x + dx, 0, 1 - (o0.w || 0))); it0.y = r4(clamp(o0.y + dy, 0, 1 - (o0.h || 0))); }
-        else if (isStroke(o0)) {                                                                                  // V848 — 획 옮기기: 모든 점을 같이 (쪽 밖으로 나가지 않게)
+        else if (isStroke(o0)) {                                                                                  // V848 — 획 옮기기: 모든 점을 같이 (페이지 밖으로 나가지 않게)
           var bb0 = c.bb || (c.bb = strokeBB(o0.p)) || { x1: 0, y1: 0, x2: 1, y2: 1 };
           var mx = clamp(dx, -bb0.x1, 1 - bb0.x2), my = clamp(dy, -bb0.y1, 1 - bb0.y2);
           it0.p = (o0.p || []).map(function (v, k) { return r4(v + (k % 2 ? my : mx)); });
@@ -1208,7 +1208,7 @@
       }
       else if (c.kind === 'sym' && c.stretch) { var q2 = norm(e); c.item.w2 = r4(clamp(Math.abs(q2.x - c.x0), 0.02, 0.5)); invalidate(true); }
     }
-    /** 입력 안정화 — 직전에 그린 점에서 새 점으로 "일부만" 이동 (거리가 짧을수록 더 많이 누름). 화면 픽셀 기준이라 확대 · 쪽 크기와 무관 */
+    /** 입력 안정화 — 직전에 그린 점에서 새 점으로 "일부만" 이동 (거리가 짧을수록 더 많이 누름). 화면 픽셀 기준이라 확대 · 페이지 크기와 무관 */
     function stabilize(c, q) {
       var n = c.p.length; if (n < 2) return q;
       var dx = (q.x - c.p[n - 2]) * S.W, dy = (q.y - c.p[n - 1]) * S.H, d = Math.hypot(dx, dy);
@@ -1402,7 +1402,7 @@
         var sw = S.W + 'px', sh = S.H + 'px'; if (cv.style.width !== sw) cv.style.width = sw; if (cv.style.height !== sh) cv.style.height = sh;
         rectC = null; invalidate();
       },
-      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; S.msel = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
+      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; S.msel = null; freeBase(); invalidate(); },      // 같은 페이지를 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
       setTool: function (t) { closeEditor(true); S.placed = false; if (t !== 'eraser') S.holdArmed = null; S.tool = ['none', 'pen', 'hl', 'white', 'select', 'lasso', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.tool !== 'lasso') S.msel = null; if (S.fresh) { S.sel = null; S.fresh = null; }      /* 방금 만들어서 자동 선택된 것은 도구를 바꾸면 선택을 풀어 예전처럼 */
       if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.tool !== 'sym' && S.tool !== 'fbox') { S.sel = null; S.fresh = null; } changed(); refreshTouch(); invalidate(); },
       setColor: function (c) {
@@ -1458,7 +1458,7 @@
       lassoGeom: function () { var g = S.msel ? mselGeom() : null; return g ? { x: g.x, y: g.y, w: g.w, h: g.h, tr: g.tr, br: g.br, n: g.list.length } : null; },
       lassoDelete: function () { return lassoDelete(); },
       lassoSelect: function (poly) { if (!poly || poly.length < 6) return 0; var r = lassoPick(poly); S.msel = r.items.length ? { items: r.items } : null; invalidate(true); changed(); return r.items.length; },
-      /** 복사 — 선택한 글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 기억 (다른 쪽 · 다른 악보에도 붙일 수 있게 모듈 전체에서 하나). 붙일 때 쓰는 글(있으면)을 돌려줌 */
+      /** 복사 — 선택한 글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 기억 (다른 페이지 · 다른 악보에도 붙일 수 있게 모듈 전체에서 하나). 붙일 때 쓰는 글(있으면)을 돌려줌 */
       copySelected: function () {
         var it = selItem(); if (!it) return null;
         CLIP.item = JSON.parse(JSON.stringify(it)); CLIP.n = 0; CLIP.pg = it.pg;
@@ -1470,7 +1470,7 @@
       /** 바깥 글을 붙일 자리 = 악보에서 마지막으로 누른 곳 (화면 좌표) — practice.js 가 악보 칸의 pointerdown 에서 알려줌 */
       markPoint: function (cx, cy) { var r = cv.getBoundingClientRect(); if (!r.width || cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return; S.lastPt = { x: (cx - r.left) / r.width, y: (cy - r.top) / r.height, pg: S.page, n: 0 }; },
       clipText: function () { return CLIP.item ? CLIP.text : ''; },
-      /** 붙여넣기 — 기억한 항목을 지금 쪽 · 지금 칸(팀 공유 / 나만 보기)에 새로 만듦. 같은 자리에 겹치지 않게 조금씩 비켜 놓음. 만든 항목을 바로 선택 */
+      /** 붙여넣기 — 기억한 항목을 지금 페이지 · 지금 칸(팀 공유 / 나만 보기)에 새로 만듦. 같은 자리에 겹치지 않게 조금씩 비켜 놓음. 만든 항목을 바로 선택 */
       paste: function () {
         if (!CLIP.item) return null;
         var src = CLIP.item, it = JSON.parse(JSON.stringify(src));
@@ -1526,7 +1526,7 @@
         return gone.length;
       },
       items: function (ly) { return Array.from(S.layers[ly].values()); },
-      /* V842 — 필기 기록: 쓴 사람별 개수 · 쪽 · 마지막 시각 / 이름표 보이기 / 한 사람 필기만 보기 */
+      /* V842 — 필기 기록: 쓴 사람별 개수 · 페이지 · 마지막 시각 / 이름표 보이기 / 한 사람 필기만 보기 */
       authors: function () {
         var m = {}; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (it) {
           var k = it.by || ''; var a = m[k] || (m[k] = { name: k, n: 0, pages: {}, last: 0, mine: 0 });
