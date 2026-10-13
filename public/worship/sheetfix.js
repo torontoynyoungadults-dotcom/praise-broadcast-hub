@@ -26,7 +26,8 @@
     patch: 128, pad: 10,   // AI 조각 · 겹침
     jpegQ: 0.9, maxBytes: 19 * 1048576,
     aiMaxMs: 70000,        // 한 쪽에 AI 가 이보다 오래 걸릴 것 같으면 (느린 기기) 그 쪽부터 일반 보정으로 — 멈춘 것처럼 보이지 않게
-    levels: 'mid'
+    levels: 'mid',
+    mode: 'sharp'          // 보정 세기 — soft(자연스럽게: 예전 방식) · sharp(선명하게) · bold(아주 진하게)
   };
 
   /* ---------------------------------------------------------------- 불러오기 */
@@ -201,26 +202,133 @@
     });
   }
 
+  /* ---------------------------------------------------------------- 선명하게 · 아주 진하게 (v12)
+   * 악보는 「흰 종이 위 검은 잉크」라서, 사진처럼 부드럽게 다듬기보다 잉크 · 종이를 또렷이 갈라 주는 쪽이 훨씬 잘 보입니다.
+   *  ① 3×3 중앙값으로 잡티만 지우고(가장자리는 그대로) ② 큰 반경 언샤프로 글자 · 음표 윤곽을 세우고
+   *  ③ 오츠(Otsu) 문턱 둘레만 1~2px 부드럽게 남기고 잉크는 새까맣게 · 종이는 새하얗게
+   *  ④ 가는 획(코드 · 가사 · 오선)을 아주 조금 굵게 ⑤ 외딴 점(먼지 · 얼룩) 지우기 */
+  function median3(g, w, h) {
+    var o = new Uint8ClampedArray(g.length), a = new Array(9);
+    o.set(g);
+    for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) {
+      var i = y * w + x, k = 0;
+      for (var dy = -w; dy <= w; dy += w) { a[k++] = g[i + dy - 1]; a[k++] = g[i + dy]; a[k++] = g[i + dy + 1]; }
+      for (var p = 1; p < 9; p++) { var v = a[p], q = p - 1; while (q >= 0 && a[q] > v) { a[q + 1] = a[q]; q--; } a[q + 1] = v; }
+      o[i] = a[4];
+    }
+    return o;
+  }
+  /** 상자 흐림 (가로 → 세로, 누적합 — 반경에 상관없이 빠름) */
+  function boxBlur(g, w, h, r) {
+    var t = new Float32Array(g.length), o = new Float32Array(g.length), x, y, s, n = 2 * r + 1;
+    for (y = 0; y < h; y++) {
+      var row = y * w; s = 0;
+      for (x = -r; x <= r; x++) s += g[row + Math.min(w - 1, Math.max(0, x))];
+      for (x = 0; x < w; x++) { t[row + x] = s / n; s += g[row + Math.min(w - 1, x + r + 1)] - g[row + Math.max(0, x - r)]; }
+    }
+    for (x = 0; x < w; x++) {
+      s = 0;
+      for (y = -r; y <= r; y++) s += t[Math.min(h - 1, Math.max(0, y)) * w + x];
+      for (y = 0; y < h; y++) { o[y * w + x] = s / n; s += t[Math.min(h - 1, y + r + 1) * w + x] - t[Math.max(0, y - r) * w + x]; }
+    }
+    return o;
+  }
+  function otsu(g) {
+    var hist = new Float64Array(256), n = 0, i;
+    for (i = 0; i < g.length; i += 2) { hist[g[i]]++; n++; }
+    var sum = 0; for (i = 0; i < 256; i++) sum += i * hist[i];
+    var sb = 0, wb = 0, best = 0, t = 128;
+    for (i = 0; i < 256; i++) {
+      wb += hist[i]; if (!wb) continue; var wf = n - wb; if (!wf) break;
+      sb += i * hist[i]; var mb = sb / wb, mf = (sum - sb) / wf, between = wb * wf * (mb - mf) * (mb - mf);
+      if (between > best) { best = between; t = i; }
+    }
+    return t;
+  }
+  /** 회색 침식(3×3 최솟값을 섞음) — 어두운 획이 사방으로 조금 굵어짐. k: 0~1 */
+  function embolden(g, w, h, k) {
+    var o = new Uint8ClampedArray(g.length); o.set(g);
+    for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) {
+      var i = y * w + x, m = g[i], v;
+      v = g[i - 1]; if (v < m) m = v; v = g[i + 1]; if (v < m) m = v; v = g[i - w]; if (v < m) m = v; v = g[i + w]; if (v < m) m = v;
+      v = g[i - w - 1]; if (v < m) m = v; v = g[i - w + 1]; if (v < m) m = v; v = g[i + w - 1]; if (v < m) m = v; v = g[i + w + 1]; if (v < m) m = v;
+      o[i] = g[i] + (m - g[i]) * k;
+    }
+    return o;
+  }
+  /** 외딴 점 지우기 — 진한 점들을 이어진 덩어리로 묶어, 아주 작은 덩어리(먼지 · 잡티)만 하얗게. 스타카토 · 점음표는 이보다 커서 남음 */
+  function despeckle(g, w, h, thr, minA) {
+    var n = g.length, lab = new Int32Array(n), par = [0], area = [0], i, x, y, nxt = 1;
+    function find(a) { while (par[a] !== a) { par[a] = par[par[a]]; a = par[a]; } return a; }
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      i = y * w + x; if (g[i] >= thr) continue;
+      var up = y ? lab[i - w] : 0, lf = x ? lab[i - 1] : 0, ul = x && y ? lab[i - w - 1] : 0, ur = y && x < w - 1 ? lab[i - w + 1] : 0, m = 0;
+      [up, lf, ul, ur].forEach(function (L) { if (L) { L = find(L); if (!m) m = L; else if (L !== m) { if (L < m) { par[m] = L; m = L; } else par[L] = m; } } });
+      if (!m) { m = nxt++; par.push(m); area.push(0); }
+      lab[i] = m;
+    }
+    for (i = 0; i < n; i++) if (lab[i]) area[find(lab[i])]++;
+    for (i = 0; i < n; i++) if (lab[i] && area[find(lab[i])] < minA) {          // 지운 점 둘레의 옅은 테두리까지 하얗게
+      g[i] = 255;
+    }
+    return g;
+  }
+  /** 잉크 모드 마무리 — mode: 'sharp' | 'bold', scale: 원본 대비 몇 배 키웠는지 (획 굵기 기준) */
+  function inkFinish(g, w, h, mode, scale) {
+    var bold = mode === 'bold';
+    var r = Math.max(2, Math.round(1.6 * Math.max(1, scale))), bl = boxBlur(g, w, h, r), amt = bold ? 1.6 : 1.3, i, n = g.length;
+    for (i = 0; i < n; i++) { var v = g[i] + (g[i] - bl[i]) * amt; g[i] = v < 0 ? 0 : v > 255 ? 255 : v; }
+    // 잉크 · 종이 밝기를 재고, 종이보다 조금이라도 어두운 것(옅은 회색 가사 · 코드 포함)은 거듭제곱 곡선으로 진하게.
+    // 문턱 하나로 자르지 않아 회색 글자가 부서지지 않고, 가장자리는 부드럽게 남음.
+    var hist = new Uint32Array(256), cnt = 0; for (i = 0; i < n; i += 3) { hist[g[i]]++; cnt++; }
+    var pct = function (p) { var want = cnt * p, c = 0; for (var v = 0; v < 256; v++) { c += hist[v]; if (c >= want) return v; } return 255; };
+    var ink = pct(0.005), paper = pct(0.6), t = otsu(g);
+    // 어둡기 d = (종이 − 값) / (종이 − 잉크). d 가 a 아래면 종이(흰색), b 위면 잉크(검정), 그 사이는 부드럽게.
+    // 문턱을 낮게 잡아 옅은 회색 글자의 가운데도 까맣게 되고, 종이 잡티(아주 옅음)는 하얗게 남음.
+    var a = bold ? 0.07 : 0.10, b2 = bold ? 0.38 : 0.44, span = Math.max(30, paper - ink), lut = new Uint8ClampedArray(256), lo = paper - span * b2, hi = paper - span * a;
+    for (var v2 = 0; v2 < 256; v2++) { var d = (paper - v2) / span, f = Math.max(0, Math.min(1, (d - a) / (b2 - a))); lut[v2] = Math.round(255 * (1 - f * f * (3 - 2 * f))); }
+    for (i = 0; i < n; i++) g[i] = lut[g[i]];
+    g = embolden(g, w, h, bold ? 0.5 : 0.15);
+    despeckle(g, w, h, 170, Math.max(6, Math.round(1.6 * scale * scale)));
+    return { g: g, lv: { ink: ink, paper: paper, lo: lo, hi: hi, t: t, mode: mode } };
+  }
+
   /**
-   * 그림 한 장(캔버스) → 보정한 캔버스 { cv, ai, scale, lv }
-   *   opt.ai = true 이면 AI 를 써 보고(못 쓰면 일반 확대), onTick(0~1) · isStop()
+   * 그림 한 장(캔버스) → 키운 회색 그림 (보정 세기와 상관없는 앞부분 — 세기만 바꿀 때는 이것을 다시 씀)
    */
-  function processCanvas(src, opt) {
+  function upscaleCanvas(src, opt) {
     opt = opt || {};
     var w = src.width, h = src.height, long = Math.max(w, h), want = Math.min(CFG.target / long, 4), useAi = opt.ai && want >= CFG.aiMin && AI.model;
-    var g = flatten(canvasGray(src), w, h);
+    var g = median3(flatten(canvasGray(src), w, h), w, h);                         // 키우기 전에 잡티(JPEG · 먼지 한 점)를 지움 — 키우고 나면 덩어리가 되어 지우기 어려움
     var step = useAi && !AI.slow ? aiUpscale(g, w, h, opt.onTick, opt.isStop).then(function (up) { return up === 'slow' ? { g: g, w: w, h: h, ai: false, slow: true } : up ? { g: up, w: w * 2, h: h * 2, ai: true } : null; })
       : Promise.resolve({ g: g, w: w, h: h, ai: false });
     return step.then(function (r) {
       if (!r) return null;
       var W = Math.round(w * Math.max(1, want)), H = Math.round(h * Math.max(1, want)), cv = grayToCanvas(r.g, r.w, r.h);
       if (cv.width !== W || cv.height !== H) { var c2 = resizeCanvas(cv, W, H); if (c2 !== cv) { free(cv); cv = c2; } }
-      var g2 = canvasGray(cv);
-      if (CFG.denoise !== false) g2 = soften(g2, W, H);                         // 종이 잡티 · JPEG 얼룩을 살짝 눌러 가는 선(오선)이 점선처럼 끊기지 않게
-      if (!r.ai && want > 1.15) g2 = unsharp(g2, W, H, 0.6);
-      var lv = levels(g2); free(cv);
-      return { cv: grayToCanvas(g2, W, H), ai: r.ai, slow: !!r.slow, scale: W / w, lv: lv };
+      var g2 = canvasGray(cv); free(cv);
+      return { g: g2, W: W, H: H, ai: r.ai, slow: !!r.slow, scale: W / w, want: want };
     });
+  }
+  /** 키운 회색 그림 → 보정 세기대로 마무리한 캔버스 (원본 base.g 는 건드리지 않음) */
+  function finishBase(base, mode) {
+    mode = mode || CFG.mode || 'sharp';
+    var W = base.W, H = base.H, g2 = new Uint8ClampedArray(base.g), lv;
+    if (mode === 'soft') {
+      if (CFG.denoise !== false) g2 = soften(g2, W, H);                         // 종이 잡티 · JPEG 얼룩을 살짝 눌러 가는 선(오선)이 점선처럼 끊기지 않게
+      if (!base.ai && base.want > 1.15) g2 = unsharp(g2, W, H, 0.6);
+      lv = levels(g2);
+    } else { var fin = inkFinish(g2, W, H, mode, base.scale); g2 = fin.g; lv = fin.lv; }
+    return { cv: grayToCanvas(g2, W, H), ai: base.ai, slow: base.slow, scale: base.scale, lv: lv, mode: mode };
+  }
+
+  /**
+   * 그림 한 장(캔버스) → 보정한 캔버스 { cv, ai, scale, lv }
+   *   opt.ai = true 이면 AI 를 써 보고(못 쓰면 일반 확대), onTick(0~1) · isStop()
+   */
+  function processCanvas(src, opt) {
+    opt = opt || {};
+    return upscaleCanvas(src, opt).then(function (base) { return base ? finishBase(base, opt.mode) : null; });
   }
 
   /* ---------------------------------------------------------------- 파일 → 쪽 */
@@ -320,6 +428,7 @@
     '.sf-pg{min-width:64px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}' +
     '.sf-prog{margin-top:10px}.sf-bar{height:8px;border-radius:99px;background:var(--sf);overflow:hidden;border:1px solid var(--ln)}.sf-bar i{display:block;height:100%;width:0;background:var(--a);transition:width .2s}' +
     '.sf-st{margin-top:6px;color:var(--dim);font-size:13px;min-height:19px}.sf-st.bad{color:#ff7b72;font-weight:700}' +
+    '.sf-mode .sf-ml{font-weight:800;color:var(--dim);margin-right:2px}.sf-mode small{font-weight:600;opacity:.75}.sf-mh{flex-basis:100%;color:var(--dim);font-size:12.5px}' +
     '.sf-chk{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--ink);font-size:13.5px}.sf-chk small{color:var(--dim)}' +
     '.sf-f{display:flex;align-items:center;gap:8px;padding:10px 16px 14px;border-top:1px solid var(--ln)}.sf-f .sp{flex:1}' +
     '@media (max-width:560px){.sf-stage{height:46vh}.sf-f{flex-wrap:wrap}}';
@@ -339,7 +448,9 @@
   function open(o) {
     if (cur) return cur;
     css();
-    var st = { stop: false, src: null, res: [], page: 0, zoom: false, cx: 0.5, cy: 0.35, wipe: 0.5, busy: false, done: false, info: null, prevTok: 0 };
+    var MODES = [['soft', '자연스럽게'], ['sharp', '선명하게'], ['bold', '아주 진하게']], MODE0 = 'sharp';
+    try { var mm = root.localStorage.getItem('yn.sf.mode'); if (mm === 'soft' || mm === 'sharp' || mm === 'bold') MODE0 = mm; } catch (e) { /* 무시 */ }
+    var st = { mode: MODE0, base: [], stop: false, src: null, res: [], page: 0, zoom: false, cx: 0.5, cy: 0.35, wipe: 0.5, busy: false, done: false, info: null, prevTok: 0 };
     var back = doc.createElement('div'); back.className = 'sf-back';
     back.innerHTML = '<div class="sf" role="dialog" aria-modal="true" aria-label="악보 화질 보정">' +
       '<div class="sf-h"><b>✨ 악보 화질 보정</b><span class="sf-name">' + esc(o.name || '') + '</span><button type="button" class="sf-x" data-a="close" aria-label="닫기">✕</button></div>' +
@@ -348,6 +459,8 @@
         '<div class="sf-stage"><canvas class="sf-cv"></canvas><span class="sf-lb l">원본</span><span class="sf-lb r">보정본</span><div class="sf-empty" data-r="empty">보정 시작을 누르면 쪽마다 보정해서 원본과 나란히 보여 드려요.</div></div>' +
         '<div class="sf-row"><button type="button" class="sf-btn sm" data-a="prev" aria-label="이전 쪽">◀</button><span class="sf-pg" data-r="pg">–</span><button type="button" class="sf-btn sm" data-a="next" aria-label="다음 쪽">▶</button>' +
           '<input type="range" min="0" max="100" value="50" data-r="wipe" aria-label="원본 · 보정본 경계"><button type="button" class="sf-btn sm" data-a="zoom" aria-pressed="false">🔍 확대</button></div>' +
+        '<div class="sf-row sf-mode" role="radiogroup" aria-label="보정 세기"><span class="sf-ml">세기</span>' + MODES.map(function (m) { return '<button type="button" class="sf-btn sm' + (st.mode === m[0] ? ' on' : '') + '" role="radio" aria-checked="' + (st.mode === m[0]) + '" data-a="mode" data-m="' + m[0] + '">' + m[1] + (m[0] === 'sharp' ? ' <small>(추천)</small>' : '') + '</button>'; }).join('') +
+          '<span class="sf-mh" data-r="mh"></span></div>' +
         '<label class="sf-chk"><input type="checkbox" data-r="ai" checked> AI 2배 키우기 <small>해상도가 낮은 쪽만 · 기기가 느리면 자동으로 일반 보정</small></label>' +
         '<div class="sf-prog"><div class="sf-bar"><i data-r="bar"></i></div><div class="sf-st" data-r="st" role="status" aria-live="polite"></div></div>' +
       '</div>' +
@@ -412,6 +525,7 @@
       else if (a === 'prev' && k > 0) showPage(r[k - 1]);
       else if (a === 'next' && k >= 0 && k < r.length - 1) showPage(r[k + 1]);
       else if (a === 'zoom') { st.zoom = !st.zoom; b.classList.toggle('on', st.zoom); b.setAttribute('aria-pressed', st.zoom ? 'true' : 'false'); redraw(); }
+      else if (a === 'mode') setMode(b.getAttribute('data-m'));
       else if (a === 'start') start();
       else if (a === 'apply') apply();
       else if (a === 'revert') revert();
@@ -419,9 +533,31 @@
     function onKey(e) { if (e.key === 'Escape' && !st.busy) { e.stopPropagation(); close(); } else e.stopPropagation(); }
     back.addEventListener('keydown', onKey, true);
 
-    function lock(on) { st.busy = on; ['start', 'apply', 'revert'].forEach(function (a) { var x = btn(a); if (x) x.disabled = on; }); }
+    function lock(on) { st.busy = on; ['start', 'apply', 'revert'].forEach(function (a) { var x = btn(a); if (x) x.disabled = on; }); [].forEach.call(back.querySelectorAll('[data-a="mode"]'), function (x) { x.disabled = on; }); }
+    var MODE_HINT = { soft: '예전 방식 — 원본 느낌 그대로 살짝만', sharp: '음표 · 코드 · 가사를 또렷하고 진하게 · 종이는 하얗게', bold: '흐리거나 작은 글씨를 더 굵고 진하게 (빽빽한 악보는 글자가 뭉칠 수 있어요)' };
+    function paintMode() {
+      [].forEach.call(back.querySelectorAll('[data-a="mode"]'), function (x) { var on = x.getAttribute('data-m') === st.mode; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      $('[data-r="mh"]').textContent = MODE_HINT[st.mode] || '';
+    }
+    /** 세기 바꾸기 — 이미 키워 둔 그림(st.base)이 있으면 AI 를 다시 돌리지 않고 마무리만 새로 (쪽마다 1~2초) */
+    function setMode(m) {
+      if (st.busy || m === st.mode) return;
+      st.mode = m; paintMode(); try { root.localStorage.setItem('yn.sf.mode', m); } catch (e) { /* 무시 */ }
+      var idx = st.base.map(function (b, i) { return b ? i : -1; }).filter(function (i) { return i >= 0; });
+      if (!idx.length) { if (st.res.some(function (x) { return x && x.jpg; })) { btn('apply').hidden = true; btn('start').hidden = false; btn('start').disabled = false; btn('start').textContent = '이 세기로 다시 보정'; st.res = st.res.map(function () { return null; }); after = null; showPage(st.page); say('세기를 바꿨어요. 「이 세기로 다시 보정」을 눌러 주세요.'); } return; }
+      lock(true); prog(0); var n = 0, chain = Promise.resolve();
+      idx.forEach(function (i) {
+        chain = chain.then(function () {
+          say('「' + MODES.filter(function (x) { return x[0] === m; })[0][1] + '」로 다시 만드는 중… ' + (n + 1) + ' / ' + idx.length);
+          return frame().then(function () { var out = finishBase(st.base[i], m); return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[i] = { jpg: jpg, ai: out.ai }; }); })
+            .then(function () { n++; prog(n / idx.length); if (st.page === i) showPage(i); });
+        });
+      });
+      chain.then(function () { lock(false); say('세기를 바꿨어요. 원본과 비교해 보고 「보정본으로 바꾸기」를 눌러 주세요.'); }, function (e) { lock(false); say((e && e.message) || '다시 만들지 못했습니다.', true); });
+    }
+    paintMode();
     function close() {
-      st.stop = true; root.removeEventListener('resize', onResize);
+      st.stop = true; st.base = []; root.removeEventListener('resize', onResize);
       try { if (before && before.close) before.close(); if (after && after.close) after.close(); } catch (e) { /* 무시 */ }
       before = after = null; st.res = []; st.src = null;
       aiFree();                                                                                  // 그래픽 메모리까지 돌려줌
@@ -442,7 +578,7 @@
     }, function () { /* 상태를 몰라도 보정은 할 수 있음 */ });
 
     function start() {
-      lock(true); st.stop = false; AI.slow = false; prog(0); say('악보를 불러오는 중…');
+      lock(true); st.stop = false; AI.slow = false; st.base = []; prog(0); say('악보를 불러오는 중…');
       var useAi = $('[data-r="ai"]').checked, aiNote = '';
       root.fetch(o.fetchUrl, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('악보를 불러오지 못했습니다.'); return r.arrayBuffer(); })
         .then(function (ab) { return openSource(new Uint8Array(ab)); })
@@ -460,8 +596,10 @@
               if (st.stop) return;
               var p = st.src.pages[idx]; say((n + 1) + ' / ' + r.length + ' 쪽 보정 중…' + (aiNote ? ' (' + aiNote + ')' : ''));
               return p.get(p.srcLong).then(function (c) {
-                return processCanvas(c, { ai: useAi && !!AI.model, isStop: function () { return st.stop; }, onTick: function (f) { prog((n + f) / r.length); } }).then(function (out) {
-                  free(c); if (!out) return;
+                return upscaleCanvas(c, { ai: useAi && !!AI.model, isStop: function () { return st.stop; }, onTick: function (f) { prog((n + f) / r.length); } }).then(function (base) {
+                  free(c); if (!base) return;
+                  if (r.length <= 12) st.base[idx] = base;                                      // 세기만 바꿀 때 다시 씀 (쪽이 많으면 메모리 때문에 두지 않음)
+                  var out = finishBase(base, st.mode);
                   if (out.slow && !aiNote) aiNote = '이 기기에서 AI 가 느려 일반 보정으로 바꿨어요';
                   return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[idx] = { jpg: jpg, ai: out.ai }; });
                 });
@@ -518,5 +656,5 @@
   root.YNSheetFix = root.YNSheetFix || {};
   root.YNSheetFix.open = open;
   root.YNSheetFix.current = function () { return cur; };
-  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
+  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
 })(typeof window !== 'undefined' ? window : this);
