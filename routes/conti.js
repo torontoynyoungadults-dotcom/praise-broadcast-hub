@@ -101,9 +101,9 @@ function lineupCell(scope, team, posKey, names, roster, infoMap) {
   const isP = (n) => lead || honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
   const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !honorific.isPastorRoles((infoMap[n] || {}).역할)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
   const chipName = (n) => (isP(n) ? honorific.withTitle(n) : shortOf(n));       // 목회자 · 인도자는 항상 "윤정환 목사"(줄이지 않음)
-  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
+  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md', { noBadge: true })}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
-  const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}</span>
+  const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm', { noBadge: true })}<span>${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}</span>
       <form method="post" action="/conti/lineup/unassign">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
         <button type="submit" aria-label="빼기">${ui.icon('close')} 빼기</button>
