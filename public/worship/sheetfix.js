@@ -27,7 +27,7 @@
     jpegQ: 0.9, maxBytes: 19 * 1048576,
     aiMaxMs: 70000,        // 한 쪽에 AI 가 이보다 오래 걸릴 것 같으면 (느린 기기) 그 쪽부터 일반 보정으로 — 멈춘 것처럼 보이지 않게
     levels: 'mid',
-    mode: 'sharp'          // 보정 세기 — soft(자연스럽게: 예전 방식) · sharp(선명하게) · bold(아주 진하게)
+    mode: 'clean'          // 보정 세기 — clean(PDF처럼 깔끔하게) · sharp(선명하게) · bold(아주 진하게) · soft(자연스럽게: 예전 방식)
   };
 
   /* ---------------------------------------------------------------- 불러오기 */
@@ -285,10 +285,10 @@
     var ink = pct(0.005), paper = pct(0.6), t = otsu(g);
     // 어둡기 d = (종이 − 값) / (종이 − 잉크). d 가 a 아래면 종이(흰색), b 위면 잉크(검정), 그 사이는 부드럽게.
     // 문턱을 낮게 잡아 옅은 회색 글자의 가운데도 까맣게 되고, 종이 잡티(아주 옅음)는 하얗게 남음.
-    var a = bold ? 0.07 : 0.10, b2 = bold ? 0.38 : 0.44, span = Math.max(30, paper - ink), lut = new Uint8ClampedArray(256), lo = paper - span * b2, hi = paper - span * a;
+    var clean = mode === 'clean', a = bold ? 0.07 : clean ? 0.12 : 0.10, b2 = bold ? 0.38 : clean ? 0.48 : 0.44, span = Math.max(30, paper - ink), lut = new Uint8ClampedArray(256), lo = paper - span * b2, hi = paper - span * a;
     for (var v2 = 0; v2 < 256; v2++) { var d = (paper - v2) / span, f = Math.max(0, Math.min(1, (d - a) / (b2 - a))); lut[v2] = Math.round(255 * (1 - f * f * (3 - 2 * f))); }
     for (i = 0; i < n; i++) g[i] = lut[g[i]];
-    g = embolden(g, w, h, bold ? 0.5 : 0.15);
+    if (!clean) g = embolden(g, w, h, bold ? 0.5 : 0.15);
     despeckle(g, w, h, 170, Math.max(6, Math.round(1.6 * scale * scale)));
     return { g: g, lv: { ink: ink, paper: paper, lo: lo, hi: hi, t: t, mode: mode } };
   }
@@ -311,8 +311,151 @@
     });
   }
   /** 키운 회색 그림 → 보정 세기대로 마무리한 캔버스 (원본 base.g 는 건드리지 않음) */
+  /* ---------------------------------------------------------------- PDF 처럼 깔끔하게 (v12.1)
+   * 스캔 · 사진 악보를 「컴퓨터로 만든 악보」처럼: ① 기울기 바로잡기 ② 잉크 · 종이 가르기 ③ 오선을 찾아 지우고
+   * 같은 굵기의 곧은 선으로 새로 긋기 ④ 음표 · 글자 가장자리의 울퉁불퉁함을 매끈하게 ⑤ 먼지 지우기.
+   * 글자를 다른 글꼴로 바꾸지는 않음 (잘못 읽으면 가사 · 코드가 틀려지므로) — 모양은 그대로 두고 가장자리만 다듬음. */
+  /** 기울기(도) — 진한 점들을 조금씩 기울여 가로줄 모으기가 가장 뚜렷한 각도 */
+  function skewAngle(g, w, h) {
+    var k = Math.max(1, Math.floor(w / 1000)), sw = Math.floor(w / k), sh = Math.floor(h / k), pts = [];
+    for (var y = 0; y < sh; y++) for (var x = 0; x < sw; x++) if (g[(y * k) * w + x * k] < 110) pts.push(x, y);
+    if (pts.length < 400) return 0;
+    var best = 0, bestA = 0, base0 = 0, rows = new Float64Array(sh + 400);
+    for (var a = -3; a <= 3.0001; a += 0.1) {
+      var t = Math.tan(a * Math.PI / 180); rows.fill(0);
+      for (var i = 0; i < pts.length; i += 2) { var yy = Math.round(pts[i + 1] + pts[i] * t) + 200; if (yy >= 0 && yy < rows.length) rows[yy]++; }
+      var sc = 0; for (var j = 0; j < rows.length; j++) sc += rows[j] * rows[j];
+      if (Math.abs(a) < 0.01) base0 = sc;
+      if (sc > best) { best = sc; bestA = a; }
+    }
+    return Math.abs(bestA) < 0.15 || best < base0 * 1.12 || Math.abs(bestA) > 2.95 ? 0 : bestA;       // 확실히 나아질 때만 · 끝값(±3°)은 잘못 잡은 것
+  }
+  function rotateGray(g, w, h, deg) {
+    var src = grayToCanvas(g, w, h), cv = doc.createElement('canvas'); cv.width = w; cv.height = h;
+    var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.imageSmoothingQuality = 'high';
+    cx.translate(w / 2, h / 2); cx.rotate(deg * Math.PI / 180); cx.drawImage(src, -w / 2, -h / 2);
+    free(src); var out = canvasGray(cv); free(cv); return out;
+  }
+  /**
+   * 오선(긴 가로줄) 찾기 → [{ pts:[[x,y]...], t }] — 찾은 줄은 g 에서 지움 (음표와 겹친 곳은 남김)
+   *  줄마다 64px 마다 가운데 높이를 재서, 사진이 살짝 휘어도 따라감
+   */
+  function staffLines(g, w, h, scale, also) {
+    var L = Math.round(w * 0.04), cov = new Float32Array(h), x, y;
+    for (y = 0; y < h; y++) {
+      var r = y * w, run = 0, sum = 0;
+      for (x = 0; x <= w; x++) { if (x < w && g[r + x] < 128) run++; else { if (run >= L) sum += run; run = 0; } }
+      cov[y] = sum;
+    }
+    var bands = [], y0 = -1;
+    for (y = 0; y <= h; y++) {
+      var on = y < h && cov[y] > w * 0.25;
+      if (on && y0 < 0) y0 = y;
+      if (!on && y0 >= 0) { bands.push([y0, y - 1]); y0 = -1; }
+    }
+    var maxT = Math.max(5, Math.round(scale * 3.2));
+    var edge = Math.round(h * 0.015);
+    bands = bands.filter(function (b) { return b[1] - b[0] + 1 <= maxT && b[0] > edge && b[1] < h - edge; });      // 종이 위아래 가장자리 그림자는 오선이 아님
+    if (!bands.length) return [];
+    var ts = bands.map(function (b) { return b[1] - b[0] + 1; }).sort(function (a, b) { return a - b; }), T = Math.max(2, ts[Math.floor(ts.length / 2)]);
+    var lines = [];
+    bands.forEach(function (b) {
+      var top = Math.max(0, b[0] - 2), bot = Math.min(h - 1, b[1] + 2), colOn = new Uint8Array(w);
+      for (x = 0; x < w; x++) for (y = top; y <= bot; y++) if (g[y * w + x] < 128) { colOn[x] = 1; break; }
+      var gap = Math.round(w * 0.015), segs = [], s0 = -1, last = -1;
+      for (x = 0; x < w; x++) if (colOn[x]) { if (s0 < 0) s0 = x; else if (x - last > gap) { segs.push([s0, last]); s0 = x; } last = x; }
+      if (s0 >= 0) segs.push([s0, last]);
+      segs.filter(function (sg) { return sg[1] - sg[0] > w * 0.12; }).forEach(function (sg) {
+        var pts = [], step = 64;
+        for (var cx = sg[0]; cx <= sg[1]; cx += step) {
+          var x1 = Math.min(sg[1], cx + step), ys = 0, n = 0;
+          for (var xx = cx; xx <= x1; xx += 2) {                                  // 이 칸에서 줄만 있는 곳(위아래로 짧은 곳)의 가운데
+            var a = -1, z = -1;
+            for (y = top; y <= bot; y++) if (g[y * w + xx] < 128) { if (a < 0) a = y; z = y; }
+            if (a >= 0 && z - a + 1 <= T + 2) { ys += (a + z) / 2; n++; }
+          }
+          if (n >= 3) pts.push([cx === sg[0] ? sg[0] : Math.min(sg[1], cx + step / 2), ys / n]);
+        }
+        if (pts.length < 2) return;
+        pts[0][0] = sg[0]; pts[pts.length - 1][0] = sg[1];
+        lines.push({ pts: pts, t: T, x0: sg[0], x1: sg[1], top: top, bot: bot });
+      });
+    });
+    // 줄 지우기 — 세로로 짧게(줄 굵기만큼)만 칠해진 곳. 음표 · 줄기와 겹친 곳은 그대로
+    lines.forEach(function (ln) {
+      for (x = ln.x0; x <= ln.x1; x++) {
+        var a = -1, z = -1;
+        for (y = Math.max(0, ln.top - 1); y <= Math.min(h - 1, ln.bot + 1); y++) if (g[y * w + x] < 170) { if (a < 0) a = y; z = y; }
+        if (a < 0) continue;
+        var up = a - 1, dn = z + 1;
+        var touch = (up >= 0 && g[up * w + x] < 128) || (dn < h && g[dn * w + x] < 128);
+        if (!touch && z - a + 1 <= T + 3) for (y = Math.max(0, a - 1); y <= Math.min(h - 1, z + 1); y++) { g[y * w + x] = 255; if (also) also[y * w + x] = 255; }
+      }
+    });
+    return lines;
+  }
+  /** 가장자리 매끈하게 — 살짝 흐린 뒤 다시 또렷한 문턱 (울퉁불퉁한 계단 · 깨진 테두리가 매끈한 곡선이 됨) */
+  function smoothEdges(g, w, h, scale) {
+    var r = 1, b = boxBlur(g, w, h, r), i;
+    var lo = 60, hi = 195;
+    for (i = 0; i < g.length; i++) { var f = Math.max(0, Math.min(1, (b[i] - lo) / (hi - lo))); g[i] = Math.round(255 * f * f * (3 - 2 * f)); }
+    return g;
+  }
+  /**
+   * 동네마다 문턱을 따로 (Sauvola) — 흰 종이 위 가는 선은 옅어도 잉크로 살리고, 빽빽한 작은 글자 사이 틈은 열어 둠.
+   * 결과는 문턱 둘레만 부드러운(안티에일리어싱) 잉크 / 종이 그림
+   */
+  function sauvola(g, w, h, r, paper, ink) {
+    var W1 = w + 1, S = new Float64Array(W1 * (h + 1)), Q = new Float64Array(W1 * (h + 1)), x, y;
+    for (y = 0; y < h; y++) { var rs = 0, rq = 0; for (x = 0; x < w; x++) { var v = g[y * w + x]; rs += v; rq += v * v; S[(y + 1) * W1 + x + 1] = S[y * W1 + x + 1] + rs; Q[(y + 1) * W1 + x + 1] = Q[y * W1 + x + 1] + rq; } }
+    var o = new Uint8ClampedArray(w * h), k = 0.2, R = 128, floorT = paper - (paper - ink) * 0.12, band = Math.max(10, (paper - ink) * 0.09);
+    for (y = 0; y < h; y++) {
+      var y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+      for (x = 0; x < w; x++) {
+        var x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), N = (y1 - y0) * (x1 - x0);
+        var s = S[y1 * W1 + x1] - S[y0 * W1 + x1] - S[y1 * W1 + x0] + S[y0 * W1 + x0], q = Q[y1 * W1 + x1] - Q[y0 * W1 + x1] - Q[y1 * W1 + x0] + Q[y0 * W1 + x0];
+        var m = s / N, sd = Math.sqrt(Math.max(0, q / N - m * m)), t = m * (1 + k * (sd / R - 1));
+        if (t > floorT) t = floorT;                                                // 빈 종이의 잡티는 잉크로 보지 않음
+        var f = (g[y * w + x] - t) / band + 0.5; f = f < 0 ? 0 : f > 1 ? 1 : f;
+        o[y * w + x] = Math.round(255 * f * f * (3 - 2 * f));
+      }
+    }
+    return o;
+  }
+  function cleanFinish(base) {
+    var W = base.W, H = base.H, n = W * H, sc = base.scale, i, g0 = new Uint8ClampedArray(base.g);
+    var bl = boxBlur(g0, W, H, Math.max(2, Math.round(1.2 * sc)));                 // 윤곽 세우기 (언샤프)
+    for (i = 0; i < n; i++) { var u = g0[i] + (g0[i] - bl[i]) * 0.9; g0[i] = u < 0 ? 0 : u > 255 ? 255 : u; }
+    var hist = new Uint32Array(256), cnt = 0; for (i = 0; i < n; i += 3) { hist[g0[i]]++; cnt++; }
+    var pct = function (p) { var want = cnt * p, c = 0; for (var v = 0; v < 256; v++) { c += hist[v]; if (c >= want) return v; } return 255; };
+    var ink = pct(0.005), paper = pct(0.6), span = Math.max(30, paper - ink);
+    // 선 찾기용: 옅은 오선까지 잉크로 (어둡기 0.3 이상) · 내용용: 어둡기 0.5 를 가운데로 부드럽게 (작은 가사 글자가 뭉치지 않게)
+    var gL = new Uint8ClampedArray(n), lutL = new Uint8ClampedArray(256);
+    for (var v = 0; v < 256; v++) lutL[v] = (paper - v) / span > 0.25 ? 0 : 255;
+    for (i = 0; i < n; i++) gL[i] = lutL[g0[i]];
+    var g = inkFinish(new Uint8ClampedArray(base.g), W, H, 'clean', sc).g;      // 내용: 「선명하게」와 같은 잉크 곡선 (굵게 하지는 않음) — 가는 줄기 · 임시표(#, b)가 끊기지 않게
+    var ang = skewAngle(gL, W, H); if (ang) { gL = rotateGray(gL, W, H, ang); g = rotateGray(g, W, H, ang); }
+    var lines = staffLines(gL, W, H, sc, g);
+    var fin = { lv: { ink: ink, paper: paper } };
+    g = smoothEdges(g, W, H, sc);
+    despeckle(g, W, H, 170, Math.max(8, Math.round(2 * sc * sc)));
+    var m = Math.max(3, Math.round(sc * 1.5)), x, y;                               // 종이 가장자리(그림자 · 테두리)는 하얗게
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (y < m || y >= H - m || x < m || x >= W - m) g[y * W + x] = 255;
+    var cv = grayToCanvas(g, W, H), cx = cv.getContext('2d');
+    cx.fillStyle = '#000'; cx.strokeStyle = '#000'; cx.lineCap = 'butt'; cx.lineJoin = 'round';
+    lines.forEach(function (ln) {                                                  // 오선을 같은 굵기의 곧은 선으로
+      cx.lineWidth = ln.t; cx.beginPath();
+      var p = ln.pts, ys = p.map(function (q) { return q[1]; });
+      var sm = ys.map(function (v, i) { var a = ys[Math.max(0, i - 1)], c = ys[Math.min(ys.length - 1, i + 1)]; return (a + 2 * v + c) / 4; });
+      cx.moveTo(p[0][0], sm[0] + 0.5); for (var i = 1; i < p.length; i++) cx.lineTo(p[i][0], sm[i] + 0.5);
+      cx.stroke();
+    });
+    return { cv: cv, ai: base.ai, slow: base.slow, scale: sc, lv: fin.lv, mode: 'clean', skew: ang, lines: lines.length };
+  }
+
   function finishBase(base, mode) {
     mode = mode || CFG.mode || 'sharp';
+    if (mode === 'clean') return cleanFinish(base);
     var W = base.W, H = base.H, g2 = new Uint8ClampedArray(base.g), lv;
     if (mode === 'soft') {
       if (CFG.denoise !== false) g2 = soften(g2, W, H);                         // 종이 잡티 · JPEG 얼룩을 살짝 눌러 가는 선(오선)이 점선처럼 끊기지 않게
@@ -448,8 +591,8 @@
   function open(o) {
     if (cur) return cur;
     css();
-    var MODES = [['soft', '자연스럽게'], ['sharp', '선명하게'], ['bold', '아주 진하게']], MODE0 = 'sharp';
-    try { var mm = root.localStorage.getItem('yn.sf.mode'); if (mm === 'soft' || mm === 'sharp' || mm === 'bold') MODE0 = mm; } catch (e) { /* 무시 */ }
+    var MODES = [['clean', 'PDF처럼 깔끔하게'], ['sharp', '선명하게'], ['bold', '아주 진하게'], ['soft', '자연스럽게']], MODE0 = 'clean';
+    try { var mm = root.localStorage.getItem('yn.sf.mode2'); if (mm === 'soft' || mm === 'sharp' || mm === 'bold' || mm === 'clean') MODE0 = mm; } catch (e) { /* 무시 */ }
     var st = { mode: MODE0, base: [], stop: false, src: null, res: [], page: 0, zoom: false, cx: 0.5, cy: 0.35, wipe: 0.5, busy: false, done: false, info: null, prevTok: 0 };
     var back = doc.createElement('div'); back.className = 'sf-back';
     back.innerHTML = '<div class="sf" role="dialog" aria-modal="true" aria-label="악보 화질 보정">' +
@@ -459,7 +602,7 @@
         '<div class="sf-stage"><canvas class="sf-cv"></canvas><span class="sf-lb l">원본</span><span class="sf-lb r">보정본</span><div class="sf-empty" data-r="empty">보정 시작을 누르면 쪽마다 보정해서 원본과 나란히 보여 드려요.</div></div>' +
         '<div class="sf-row"><button type="button" class="sf-btn sm" data-a="prev" aria-label="이전 쪽">◀</button><span class="sf-pg" data-r="pg">–</span><button type="button" class="sf-btn sm" data-a="next" aria-label="다음 쪽">▶</button>' +
           '<input type="range" min="0" max="100" value="50" data-r="wipe" aria-label="원본 · 보정본 경계"><button type="button" class="sf-btn sm" data-a="zoom" aria-pressed="false">🔍 확대</button></div>' +
-        '<div class="sf-row sf-mode" role="radiogroup" aria-label="보정 세기"><span class="sf-ml">세기</span>' + MODES.map(function (m) { return '<button type="button" class="sf-btn sm' + (st.mode === m[0] ? ' on' : '') + '" role="radio" aria-checked="' + (st.mode === m[0]) + '" data-a="mode" data-m="' + m[0] + '">' + m[1] + (m[0] === 'sharp' ? ' <small>(추천)</small>' : '') + '</button>'; }).join('') +
+        '<div class="sf-row sf-mode" role="radiogroup" aria-label="보정 세기"><span class="sf-ml">세기</span>' + MODES.map(function (m) { return '<button type="button" class="sf-btn sm' + (st.mode === m[0] ? ' on' : '') + '" role="radio" aria-checked="' + (st.mode === m[0]) + '" data-a="mode" data-m="' + m[0] + '">' + m[1] + (m[0] === 'clean' ? ' <small>(추천)</small>' : '') + '</button>'; }).join('') +
           '<span class="sf-mh" data-r="mh"></span></div>' +
         '<label class="sf-chk"><input type="checkbox" data-r="ai" checked> AI 2배 키우기 <small>해상도가 낮은 쪽만 · 기기가 느리면 자동으로 일반 보정</small></label>' +
         '<div class="sf-prog"><div class="sf-bar"><i data-r="bar"></i></div><div class="sf-st" data-r="st" role="status" aria-live="polite"></div></div>' +
@@ -534,7 +677,7 @@
     back.addEventListener('keydown', onKey, true);
 
     function lock(on) { st.busy = on; ['start', 'apply', 'revert'].forEach(function (a) { var x = btn(a); if (x) x.disabled = on; }); [].forEach.call(back.querySelectorAll('[data-a="mode"]'), function (x) { x.disabled = on; }); }
-    var MODE_HINT = { soft: '예전 방식 — 원본 느낌 그대로 살짝만', sharp: '음표 · 코드 · 가사를 또렷하고 진하게 · 종이는 하얗게', bold: '흐리거나 작은 글씨를 더 굵고 진하게 (빽빽한 악보는 글자가 뭉칠 수 있어요)' };
+    var MODE_HINT = { clean: '오선은 같은 굵기의 곧은 선으로 새로 긋고, 기울기를 바로잡고, 음표 · 코드 · 가사 가장자리를 매끈하게 — 컴퓨터로 만든 PDF 악보처럼', soft: '예전 방식 — 원본 느낌 그대로 살짝만', sharp: '음표 · 코드 · 가사를 또렷하고 진하게 · 종이는 하얗게', bold: '흐리거나 작은 글씨를 더 굵고 진하게 (빽빽한 악보는 글자가 뭉칠 수 있어요)' };
     function paintMode() {
       [].forEach.call(back.querySelectorAll('[data-a="mode"]'), function (x) { var on = x.getAttribute('data-m') === st.mode; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
       $('[data-r="mh"]').textContent = MODE_HINT[st.mode] || '';
@@ -542,7 +685,7 @@
     /** 세기 바꾸기 — 이미 키워 둔 그림(st.base)이 있으면 AI 를 다시 돌리지 않고 마무리만 새로 (쪽마다 1~2초) */
     function setMode(m) {
       if (st.busy || m === st.mode) return;
-      st.mode = m; paintMode(); try { root.localStorage.setItem('yn.sf.mode', m); } catch (e) { /* 무시 */ }
+      st.mode = m; paintMode(); try { root.localStorage.setItem('yn.sf.mode2', m); } catch (e) { /* 무시 */ }
       var idx = st.base.map(function (b, i) { return b ? i : -1; }).filter(function (i) { return i >= 0; });
       if (!idx.length) { if (st.res.some(function (x) { return x && x.jpg; })) { btn('apply').hidden = true; btn('start').hidden = false; btn('start').disabled = false; btn('start').textContent = '이 세기로 다시 보정'; st.res = st.res.map(function () { return null; }); after = null; showPage(st.page); say('세기를 바꿨어요. 「이 세기로 다시 보정」을 눌러 주세요.'); } return; }
       lock(true); prog(0); var n = 0, chain = Promise.resolve();
@@ -656,5 +799,5 @@
   root.YNSheetFix = root.YNSheetFix || {};
   root.YNSheetFix.open = open;
   root.YNSheetFix.current = function () { return cur; };
-  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
+  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
 })(typeof window !== 'undefined' ? window : this);

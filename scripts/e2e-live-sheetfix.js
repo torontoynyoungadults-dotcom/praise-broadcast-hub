@@ -135,12 +135,12 @@ global.fetch = async (url, opt) => {
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/sf-done.png' });
   /* 보정 세기 — 기본 「선명하게」 · 바꾸면 키운 그림을 다시 쓰고 마무리만 새로 */
   const md = await page.evaluate(() => ({ on: (document.querySelector('.sf [data-a="mode"].on') || {}).getAttribute && document.querySelector('.sf [data-a="mode"].on').getAttribute('data-m'), n: document.querySelectorAll('.sf [data-a="mode"]').length, hint: document.querySelector('.sf [data-r="mh"]').textContent, base: YNSheetFix.current()._st.base.filter(Boolean).length }));
-  ok(md.n === 3 && md.on === 'sharp' && /또렷/.test(md.hint) && md.base === 1, '세기 3가지 · 기본 「선명하게」 · 키운 그림 보관', md);
+  ok(md.n === 4 && md.on === 'clean' && /PDF 악보처럼/.test(md.hint) && md.base === 1, '세기 4가지 · 기본 「PDF처럼 깔끔하게」 · 키운 그림 보관', md);
   const j0 = await page.evaluate(() => YNSheetFix.current()._st.res[0].jpg.length);
   await page.click('.sf [data-a="mode"][data-m="bold"]');
   ok(await page.waitForFunction((n) => { const s = YNSheetFix.current()._st; return !s.busy && s.res[0] && s.res[0].jpg.length !== n && /세기를 바꿨어요/.test(document.querySelector('.sf [data-r="st"]').textContent); }, j0, { timeout: 20000 }).then(() => true, () => false), '「아주 진하게」로 바꾸면 바로 다시 만들어짐 (처음부터 다시 하지 않음)');
-  ok(await page.evaluate(() => localStorage.getItem('yn.sf.mode') === 'bold'), '고른 세기는 다음에도 기억');
-  await page.click('.sf [data-a="mode"][data-m="sharp"]');
+  ok(await page.evaluate(() => localStorage.getItem('yn.sf.mode2') === 'bold'), '고른 세기는 다음에도 기억');
+  await page.click('.sf [data-a="mode"][data-m="clean"]');
   await page.waitForFunction(() => !YNSheetFix.current()._st.busy && /세기를 바꿨어요/.test(document.querySelector('.sf [data-r="st"]').textContent), null, { timeout: 20000 }).catch(() => {});
   await page.click('.sf [data-a="zoom"]'); await sleep(200);
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/sf-zoom.png' });
