@@ -97,12 +97,13 @@ async function teamRoster(team) {
 
 function lineupCell(scope, team, posKey, names, roster, infoMap) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할, 객원: !!infoMap[n].객원 }));   // 객원은 팀원 선택에서 추천에 안 넣고 따로 모음
-  const isP = (n) => honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
-  const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !isP(n)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
-  const chipName = (n) => (isP(n) ? String(n) + honorific.SUFFIX : shortOf(n));       // 목회자는 항상 "윤정환 목사"(줄이지 않음)
-  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? n.이름 + honorific.SUFFIX : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
+  const lead = honorific.isLeadPos(posKey);       // 인도자 칸에 들어간 이름은 누구든(객원 포함) "OOO 목사"
+  const isP = (n) => lead || honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
+  const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !honorific.isPastorRoles((infoMap[n] || {}).역할)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
+  const chipName = (n) => (isP(n) ? honorific.withTitle(n) : shortOf(n));       // 목회자 · 인도자는 항상 "윤정환 목사"(줄이지 않음)
+  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md')}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
-  const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(isP(n.이름) ? n.이름 + honorific.SUFFIX : n.이름)}</span>
+  const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm')}<span>${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}</span>
       <form method="post" action="/conti/lineup/unassign">
         <input type="hidden" name="__row" value="${n.__row}"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
         <button type="submit" aria-label="빼기">${ui.icon('close')} 빼기</button>
@@ -716,8 +717,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
   const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet };
   // 카카오톡 요약 — 부를 이름(목회자는 "OOO 목사")으로 채운 한 주 자료
-  const honor = (n) => (honorific.isPastorRoles((infoMap[n] || {}).역할) ? n + honorific.SUFFIX : n);
-  const slotNames = {}; Object.keys(byPos).forEach((k) => { slotNames[k] = byPos[k].map((x) => honor(x.이름)); });
+  const honor = (n, pos) => honorific.forPos(pos, n, honorific.isPastorRoles((infoMap[n] || {}).역할));       // 인도자 자리는 누구든 "OOO 목사"
+  const slotNames = {}; Object.keys(byPos).forEach((k) => { slotNames[k] = byPos[k].map((x) => honor(x.이름, k)); });
   const kakao = kakaoLib.kakaoText({
     date, event: scope.event ? { name: eventRow['이름'] } : null, practice: pinfo.p && pinfo.p.date && !pinfo.p.none ? pinfo.p : null, slots: slotNames,
     songs: w.conti.map((r) => ({ title: r['제목'], team: r['팀'], key: r['Key'], form: kakaoLib.formText(r['송폼']), note: r['비고'], link: r['유튜브'] })),
@@ -845,9 +846,9 @@ async function makePackage(req, onProgress) {
     const w = await loadWeek(team, scope);
     const { byPos, infoMap } = await weekAssignments(team, scope);
     const pinfo = await practiceInfo(team, scope, date);
-    const honor = (n) => (honorific.isPastorRoles((infoMap[n] || {}).역할) ? n + honorific.SUFFIX : n);
-    const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
-    const annoOn = String(req.query.anno) !== '0';                // 라이브 악보 필기도 넣기 (기본) — ?anno=0 이면 악보만
+    const honor = (n, pos) => honorific.forPos(pos, n, honorific.isPastorRoles((infoMap[n] || {}).역할));       // 인도자 자리는 누구든 "OOO 목사"
+    const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름, k)) })).filter((m) => m.names.length);
+    const annoOn =String(req.query.anno) !== '0';                // 라이브 악보 필기도 넣기 (기본) — ?anno=0 이면 악보만
     if (annoOn) { try { const fl = req.app.get('rtFlush'); if (fl) fl(); } catch (e) { /* 실시간 필기 먼저 저장 — 안 되면 저장된 것까지만 */ } try { await liveStore.loadAnnos(); } catch (e) { /* 필기 없이 */ } }
     const annosOf = (link) => (annoOn ? teamAnnos(team, scope, link) : null);
     const used = new Set();
@@ -957,9 +958,9 @@ router.get('/conti/package/saved', requireTeam, async (req, res) => {
     if (!row) return res.json({ saved: false });
     const w = await loadWeek(team, scope);
     const { byPos, infoMap } = await weekAssignments(team, scope);
-    const honor = (n) => (honorific.isPastorRoles((infoMap[n] || {}).역할) ? n + honorific.SUFFIX : n);
-    const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름)) })).filter((m) => m.names.length);
-    const pinfo = await practiceInfo(team, scope, date);
+    const honor = (n, pos) => honorific.forPos(pos, n, honorific.isPastorRoles((infoMap[n] || {}).역할));       // 인도자 자리는 누구든 "OOO 목사"
+    const members = ALL_POSITIONS.map((k) => ({ pos: k, names: (byPos[k] || []).map((x) => honor(x.이름, k)) })).filter((m) => m.names.length);
+    const pinfo =await practiceInfo(team, scope, date);
     const pr = pinfo.p && (pinfo.p.none || pinfo.p.date) ? pinfo.p : null;
     const times = await timesFor(team, eventRow);
     try { await liveStore.loadAnnos(); } catch (e) { /* 필기 없이 비교 */ }

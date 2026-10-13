@@ -124,7 +124,7 @@ function pickGroups(p, picked, off, fn) {
     var on = picked.indexOf(m.name) !== -1;
     var why = off[m.name];
     return '<button type="button" class="pick' + (on ? ' on' : '') + (why ? ' off' : '') +
-      '" onclick="' + fn + '(\'' + esc(jsq(m.name)) + '\')">' + face(m.name) + esc(dispName(m.name)) +
+      '" onclick="' + fn + '(\'' + esc(jsq(m.name)) + '\')">' + face(m.name) + esc(on && p.key === LEAD_KEY ? leadTitle(m.name) : dispName(m.name)) +
       (why ? '<i>' + esc(why) + '</i>' : (m.role ? '<i>' + esc(m.role.split(' · ')[0]) + '</i>' : '')) + '</button>';
   }
   function group(label, list, cls) {
@@ -319,7 +319,7 @@ function schedTab() {
       var names = r.slots[p.key] || [];
       var inner = names.length ? names.map(function (n) {
         var cls = 'tn' + (off[n] ? ' off' : '') + (n === ST.hl ? ' hl' : '') + (kn[n] ? '' : ' guest');
-        return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — ' + off[n] : '')) + '">' + esc(shortName(n)) + '</span>';
+        return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — ' + off[n] : '')) + '">' + esc(shortName(n, p.key)) + '</span>';
       }).join('') : '<span class="tn none">·</span>';
       var edit = D.canEdit && !picking;
       return '<td class="c' + (edit ? ' ed' : '') + '"' +
@@ -398,7 +398,7 @@ function stCards(groups, kn, picking, mineSet) {
             '<span class="pl">' + ico(p.icon, 'pi') + esc(ST_SHORT[p.key] || p.label) + '</span>' +
             (names.length ? names.map(function (n) {
               var cls = 'tp' + (off[n] ? ' off' : '') + (n === ST.hl ? ' hl' : '') + (kn[n] ? '' : ' guest');
-              return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — 불가: ' + off[n] : '')) + '">' + face(n) + '<span class="t">' + esc(shortName(n)) + '</span></span>';
+              return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — 불가: ' + off[n] : '')) + '">' + face(n) + '<span class="t">' + esc(shortName(n, p.key)) + '</span></span>';
             }).join('') : '<span class="tn none">—</span>') + '</div>';
         }).join('') + '</div>';
       }).join('') +
@@ -419,7 +419,7 @@ function stDay(key) {
     return g[1].map(function (p) {
       var names = r.slots[p.key] || [];
       return '<div class="yc-r"><span class="stpl">' + esc(p.label) + '</span><div class="v">' +
-        (names.length ? names.map(function (n) { return '<span class="nm' + (off[n] ? ' off' : '') + '">' + face(n) + esc(dispName(n)) + '</span>'; }).join(' ')
+        (names.length ? names.map(function (n) { return '<span class="nm' + (off[n] ? ' off' : '') + '">' + face(n) + esc(dispSlot(n, p.key)) + '</span>'; }).join(' ')
                       : '<span class="tbd">미정</span>') + '</div></div>';
     }).join('');
   }).join('');
@@ -650,7 +650,7 @@ function statsTab() {
     seg('kind', [['all', '전체'], ['콘티', '콘티'], ['결단', '결단찬양']]) +
     '<select onchange="SS.lead=this.value;SS.more=false;render();"><option value="">인도자 전체</option>' +
       Object.keys(leads).sort().map(function (n) {
-        return '<option value="' + esc(n) + '"' + (SS.lead === n ? ' selected' : '') + '>' + esc(dispName(n)) + '</option>';
+        return '<option value="' + esc(n) + '"' + (SS.lead === n ? ' selected' : '') + '>' + esc(leadTitle(n)) + '</option>';
       }).join('') + '</select>' +
     '<input type="search" id="ssq" placeholder="곡 · 팀 검색" value="' + esc(SS.q) + '" ' +
       'oninput="SS.q=this.value;SS.more=false;statRedraw();">' +
@@ -732,7 +732,7 @@ function statView(list) {
     statServices(list).forEach(function (i) { lineup(i.key).lead.forEach(function (n) { bump(g, n, i); }); });
     var rows = sortN(g).map(function (r) { r.n = Object.keys(r.keys).length; return r; })
       .sort(function (a, b) { return b.n - a.n; });
-    return rows.length ? bars(rows, function (r) { return dispName(r.name); },
+    return rows.length ? bars(rows, function (r) { return leadTitle(r.name); },
       function (r) { return Object.keys(r.songs).length + '곡 · 자주: ' + topSongs(r.songs, 2); }, '번 인도')
       : '<p class="empty">편성에 인도자가 적힌 예배가 없습니다.</p>';
   }
@@ -834,10 +834,10 @@ function songSheet(c) {
     l.people.forEach(function (n) { ppl[n] = (ppl[n] || 0) + 1; });
     if (i.mkey) keys[i.mkey] = (keys[i.mkey] || 0) + 1;
   });
-  function chips(o, unit) {
+  function chips(o, unit, isLead) {
     var ks = Object.keys(o).sort(function (a, b) { return o[b] - o[a]; });
     return ks.length ? '<div class="sschips">' + ks.slice(0, 16).map(function (k) {
-      return '<span class="ssc">' + esc(dispName(k)) + ' <b>' + o[k] + unit + '</b></span>';
+      return '<span class="ssc">' + esc(isLead ? leadTitle(k) : dispName(k)) + ' <b>' + o[k] + unit + '</b></span>';
     }).join('') + '</div>' : '<p class="empty" style="margin:4px 0 0;">기록 없음</p>';
   }
   var spells = Object.keys(SS.spell[c] || {});
@@ -875,7 +875,7 @@ function songSheet(c) {
     '<div class="sstiles sm">' + tile(mine.length, rangeLabel()) + tile(all.length, '전체 기간') + '</div>' +
     (spells.length > 1 ? '<p class="gl2">함께 묶은 표기</p><div class="sschips">' + spells.map(function (s) {
       return '<span class="ssc">' + esc(s) + ' <b>' + SS.spell[c][s] + '</b></span>'; }).join('') + '</div>' : '') +
-    '<p class="gl2">인도자</p>' + chips(lead, '회') +
+    '<p class="gl2">인도자</p>' + chips(lead, '회', true) +
     '<p class="gl2">Key</p>' + chips(keys, '회') +
     '<p class="gl2">함께 섬긴 사람</p>' + chips(ppl, '') +
     '<p class="gl2">부른 날</p>' +
@@ -1194,9 +1194,9 @@ function rpSongs() {
   return list;
 }
 
-function rpOpts(map, cur, all) {
+function rpOpts(map, cur, all, isLead) {
   return '<option value="">' + all + '</option>' + Object.keys(map).sort(function (a, b) { return a.localeCompare(b, 'ko'); }).map(function (k) {
-    return '<option value="' + esc(k) + '"' + (cur === k ? ' selected' : '') + '>' + esc(dispName(k)) + '</option>'; }).join('');
+    return '<option value="' + esc(k) + '"' + (cur === k ? ' selected' : '') + '>' + esc(isLead ? leadTitle(k) : dispName(k)) + '</option>'; }).join('');
 }
 
 function rpFilterCount() { return (RP.key ? 1 : 0) + (RP.team ? 1 : 0) + (RP.theme ? 1 : 0) + (RP.leader ? 1 : 0) + (RP.onlySheet ? 1 : 0); }
@@ -1218,7 +1218,7 @@ function repoTab() {
       '<select onchange="RP.key=this.value;rpRedraw();">' + rpOpts(f.keys, RP.key, '모든 Key') + '</select>' +
       '<select onchange="RP.team=this.value;rpRedraw();">' + rpOpts(f.teams, RP.team, '모든 원곡팀') + '</select>' +
       '<select onchange="RP.theme=this.value;rpRedraw();">' + rpOpts(f.themes, RP.theme, '모든 주제') + '</select>' +
-      '<select onchange="RP.leader=this.value;rpRedraw();">' + rpOpts(f.leaders, RP.leader, '모든 인도자') + '</select>' +
+      '<select onchange="RP.leader=this.value;rpRedraw();">' + rpOpts(f.leaders, RP.leader, '모든 인도자', true) + '</select>' +
       '<label class="rp-chk"><input type="checkbox"' + (RP.onlySheet ? ' checked' : '') + ' onchange="RP.onlySheet=this.checked;rpRedraw();"> 악보 있는 곡만</label>' +
       (n ? '<button type="button" class="btn mini" onclick="RP.key=RP.team=RP.theme=RP.leader=\'\';RP.onlySheet=false;render();">필터 지우기</button>' : '') + '</div>' : '') +
     (RP.up && D.canEdit ? rpUpForm() : '') +
@@ -1278,7 +1278,7 @@ function rpDetail(s) {
   } else {
     h += '<div class="rp-info">' + (s.memo ? '<p>' + rpNl(s.memo) + '</p>' : '') +
       '<p class="hint">Key: ' + (Object.keys(s.keys).map(function (k) { return esc(k) + '(' + s.keys[k] + ')'; }).join(' ') || '—') +
-      ' · 인도자: ' + (Object.keys(s.leaders).map(function (k) { return esc(dispName(k)) + '(' + s.leaders[k] + ')'; }).join(' ') || '—') + '</p>' +
+      ' · 인도자: ' + (Object.keys(s.leaders).map(function (k) { return esc(leadTitle(k)) + '(' + s.leaders[k] + ')'; }).join(' ') || '—') + '</p>' +
       (D.canEdit ? '<button class="btn mini" onclick="rpEditSong(this)">원곡팀 · 주제 · 메모 고치기</button>' : '') + '</div>';
   }
   if (s.sheets.length) {
@@ -1293,7 +1293,7 @@ function rpDetail(s) {
           '<div class="sv-btns"><button class="btn mini" onclick="rpSheetSave(this)">저장</button><button class="btn mini" onclick="RP.editSheet=\'\';rpRedraw();">취소</button></div><p class="msg"></p></div>';
       }
       return '<div class="rp-sh" data-sid="' + esc(x.id) + '">' + sheetLink(x, 'repo', '📄 ' + esc(x.name || x.title)) + origLink(x) +
-        '<small>' + [x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.date && rpDay(x.date), dispList(x.leader), x.range ? x.range + '쪽' : (x.pages && x.pages + '쪽'), x.note].filter(Boolean).map(esc).join(' · ') + '</small>' +
+        '<small>' + [x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.date && rpDay(x.date), leadList(x.leader), x.range ? x.range + '쪽' : (x.pages && x.pages + '쪽'), x.note].filter(Boolean).map(esc).join(' · ') + '</small>' +
         (D.canEdit ? '<button class="btn mini" onclick="rpEditSheet(this)">정보 고치기</button>' : '') + '</div>';
     }).join('');
   } else h += '<p class="hint">올려 둔 악보 PDF가 없습니다.</p>';
@@ -1304,7 +1304,7 @@ function rpDetail(s) {
       var lead = x.leader || (x.leaders || []).join(', ');
       var dl = /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : '행사';
       return '<div class="rp-h">' + (typeof ldOpen === 'function' ? '<button type="button" class="rp-hd"' + ldBtnAttrs(x.wk || x.date, s.title) + ' title="그날 자세히"><b>' + esc(dl) + '</b><i aria-hidden="true">›</i></button>' : '<b>' + esc(dl) + '</b>') +
-        '<span>' + [x.kind === '결단' && '결단', x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.form, solo && '솔로 ' + solo, lead && '인도 ' + (typeof dispList === 'function' ? dispList(lead) : lead)].filter(Boolean).map(esc).join(' · ') + '</span>' +
+        '<span>' + [x.kind === '결단' && '결단', x.key && 'Key ' + x.key, x.bpm && 'BPM ' + x.bpm, x.form, solo && '솔로 ' + solo, lead && '인도 ' + (typeof leadList === 'function' ? leadList(lead) : lead)].filter(Boolean).map(esc).join(' · ') + '</span>' +
         (x.note ? '<em>' + esc(x.note) + '</em>' : '') + (x.link ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(x.link) + '">▶ 링크</a>' : '') + '</div>';
     }).join('') + '</div>' +
     (s.history.length > hs.length ? '<button type="button" class="btn mini rp-hmore" onclick="RP.histAll=RP.histAll||{};RP.histAll[\'' + esc(jsq(s.id)) + '\']=1;rpRedraw();">기록 더 보기 (' + (s.history.length - hs.length) + ')</button>' : '');

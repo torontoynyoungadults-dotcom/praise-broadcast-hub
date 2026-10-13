@@ -8,6 +8,9 @@ var LD = { cache: {}, at: {}, seq: 0, key: '', song: '' };
 var LD_TTL = 120000;
 
 function ldName(n) { return typeof dispName === 'function' ? dispName(n) : n; }
+/** 인도자 자리에 선 사람은 누구든(객원 포함) "강산 목사" — 이미 "목사" 가 붙어 있으면 그대로 */
+function ldLead(n) { n = String(n || '').trim(); return n && !/목사(님)?\s*$/.test(n) ? n + ' 목사' : n; }
+function ldIsLead(key) { return key === '인도자' || key === 'lead'; }      // praise: 인도자 · church: lead
 function ldNorm(t) { return typeof songNorm === 'function' ? songNorm(t) : String(t || '').replace(/\s+/g, '').toLowerCase(); }
 function ldDay(d) {
   var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
@@ -67,7 +70,7 @@ function ldShow(r, swapOnly) {
   var key = r.key, want = ldNorm(LD.song);
   var lead = (r.slots && (r.slots.lead || r.slots['인도자'])) || [];      // church: lead · praise: 인도자
   var title = r.event ? '<span class="evtag">' + esc(r.event.kind || '행사') + '</span>' + esc(r.event.name) : esc(ldDay(r.date));
-  var sub = [r.event ? ldDay(r.date) : '', r.event && r.event.place, lead.length ? '인도 ' + lead.map(ldName).join(', ') : ''].filter(Boolean);
+  var sub = [r.event ? ldDay(r.date) : '', r.event && r.event.place, lead.length ? '인도 ' + lead.map(ldLead).join(', ') : ''].filter(Boolean);
   var h = '<div class="yc-h"><h3>' + title + '</h3></div>' + (sub.length ? '<p class="stsub ld-sub">' + sub.map(esc).join(' · ') + '</p>' : '') + '<div class="ld">';
 
   // 1) 고른 곡 — 그날 이 곡은 어떻게 했는지
@@ -89,7 +92,7 @@ function ldShow(r, swapOnly) {
   var people = groups.map(function (g) {
     var rows = g[1].filter(function (p) { return ((r.slots || {})[p.key] || []).length; }).map(function (p) {
       return '<div class="yc-r"><span class="stpl">' + esc(p.label) + '</span><div class="v">' + r.slots[p.key].map(function (n) {
-        return '<span class="nm">' + (typeof face === 'function' ? face(n) : '') + esc(ldName(n)) + '</span>'; }).join(' ') + '</div></div>';
+        return '<span class="nm">' + (typeof face === 'function' ? face(n) : '') + esc(ldIsLead(p.key) ? ldLead(n) : ldName(n)) + '</span>'; }).join(' ') + '</div></div>';
     }).join('');
     return rows ? '<div class="ld-g"><div class="ld-gl">' + esc(g[0]) + '</div>' + rows + '</div>' : '';
   }).join('');

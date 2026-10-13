@@ -166,6 +166,22 @@ const PATCHES = [
   ['객원 직접 입력 — 위와 같음', '<span class="gsnote">교적에 없는 분</span>', '<span class="gsnote">명단에 없는 분</span>'],
   ['악보 칩 PDF/IMG — 이 앱 악보는 이름에 확장자가 없어 서버가 알려준 종류로', 'var pdf = /\\.pdf$/i.test(f.name);', 'var pdf = f.pdf != null ? !!f.pdf : /\\.pdf$/i.test(f.name);'],
   ['악보 파일 목록 PDF/IMG — 위와 같음', 'var pdf = /\\.pdf$/i.test(r.f.name);', 'var pdf = r.f.pdf != null ? !!r.f.pdf : /\\.pdf$/i.test(r.f.name);'],
+  /* 인도자 자리 호칭 — 인도자 칸에 들어간 이름은 누구든(객원 포함) "강산 목사" (hubshim.js: LEAD_KEY · leadTitle · dispSlot · leadList · shortName(n, key)) */
+  ['인도자 호칭 — 스케줄표 표 칸 (자리 키를 같이 넘김)', `'">' + esc(shortName(n)) + '</span>';`, `'">' + esc(shortName(n, p.key)) + '</span>';`],
+  ['인도자 호칭 — 스케줄표 카드 칸', `'<span class="t">' + esc(shortName(n)) + '</span></span>';`, `'<span class="t">' + esc(shortName(n, p.key)) + '</span></span>';`],
+  ['인도자 호칭 — 날짜 자세히 편성', `'">' + face(n) + esc(dispName(n)) + '</span>'; }).join(' ')`, `'">' + face(n) + esc(dispSlot(n, p.key)) + '</span>'; }).join(' ')`],
+  ['인도자 호칭 — 편성 고르기 (인도자 칸에 고른 사람)', `face(m.name) + esc(dispName(m.name)) +`, `face(m.name) + esc(on && p.key === LEAD_KEY ? leadTitle(m.name) : dispName(m.name)) +`],
+  ['인도자 호칭 — 통계 거르기 (인도자 고르기)', `(SS.lead === n ? ' selected' : '') + '>' + esc(dispName(n)) + '</option>';`, `(SS.lead === n ? ' selected' : '') + '>' + esc(leadTitle(n)) + '</option>';`],
+  ['인도자 호칭 — 통계 "인도자" 막대', `bars(rows, function (r) { return dispName(r.name); },`, `bars(rows, function (r) { return leadTitle(r.name); },`],
+  ['인도자 호칭 — 통계 곡 자세히의 칩 (인도자 칩만)', `  function chips(o, unit) {`, `  function chips(o, unit, isLead) {`],
+  ['인도자 호칭 — 통계 곡 자세히의 칩 이름', `return '<span class="ssc">' + esc(dispName(k)) + ' <b>'`, `return '<span class="ssc">' + esc(isLead ? leadTitle(k) : dispName(k)) + ' <b>'`],
+  ['인도자 호칭 — 통계 곡 자세히 "인도자" 칩', `chips(lead, '회')`, `chips(lead, '회', true)`],
+  ['인도자 호칭 — 악보 Repository 거르기 목록 (인도자만)', `function rpOpts(map, cur, all) {`, `function rpOpts(map, cur, all, isLead) {`],
+  ['인도자 호칭 — 악보 Repository 거르기 목록 이름', `(cur === k ? ' selected' : '') + '>' + esc(dispName(k)) + '</option>';`, `(cur === k ? ' selected' : '') + '>' + esc(isLead ? leadTitle(k) : dispName(k)) + '</option>';`],
+  ['인도자 호칭 — 악보 Repository "모든 인도자" 목록', `rpOpts(f.leaders, RP.leader, '모든 인도자')`, `rpOpts(f.leaders, RP.leader, '모든 인도자', true)`],
+  ['인도자 호칭 — 악보 Repository 곡 머리줄 인도자', `esc(dispName(k)) + '(' + s.leaders[k] + ')'`, `esc(leadTitle(k)) + '(' + s.leaders[k] + ')'`],
+  ['인도자 호칭 — 악보 Repository 악보 한 줄의 인도자', `dispList(x.leader)`, `leadList(x.leader)`],
+  ['인도자 호칭 — 악보 Repository 지난 콘티 기록의 인도자', `lead && '인도 ' + (typeof dispList === 'function' ? dispList(lead) : lead)`, `lead && '인도 ' + (typeof leadList === 'function' ? leadList(lead) : lead)`],
 ];
 /* 날짜 자세히 안의 "이 날 저는 어려워요" 칸 — 금요일 연습 · 주일 따로 고르는 칸(hubshim.js stMeBox)으로 통째로 바꿈 */
 {

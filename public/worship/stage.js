@@ -245,7 +245,8 @@
       var opt = function (v, l, dis) { return '<option value="' + h(v) + '"' + (to === v ? ' selected' : '') + (dis ? ' disabled' : '') + '>' + h(l) + '</option>'; };
       sh.innerHTML = '<div class="st-card"><div class="st-chd"><b>메시지 보내기</b><button type="button" class="st-x" data-a="close" aria-label="닫기">✕</button></div>' +
         '<label class="st-lab">받는 사람<select class="st-in st-to">' + opt('team', '찬양팀 전체 (라이브 악보)') +
-          people().map(function (p) { return opt(p.name, p.name + (p.on ? '' : ' — 접속 안 함'), !p.on); }).join('') + '</select></label>' +
+          people().map(function (p) { var nm = (p.pos === '인도자' && !/목사(님)?\s*$/.test(p.name)) ? p.name + ' 목사' : p.name;      // 인도자 자리는 누구든 "OOO 목사"
+            return opt(p.name, nm + (p.on ? '' : ' — 접속 안 함'), !p.on); }).join('') + '</select></label>' +
         '<textarea class="st-in st-text" rows="3" maxlength="200" placeholder="예) 인도자 마이크 배터리 교체할게요 — 30초만 기다려 주세요"></textarea>' +
         '<button type="button" class="st-send" data-a="dosend">보내기</button><p class="st-sres" role="status"></p></div>';
       var ta = sh.querySelector('.st-text'); if (ta) setTimeout(function () { ta.focus(); }, 30);

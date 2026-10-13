@@ -138,6 +138,13 @@ function isPastor(n) {
 function dispName(n) { n = String(n || '').trim(); return isPastor(n) ? n + ' 목사' : n; }
 /** "A, B" 처럼 쉼표로 이어진 이름들 각각에 호칭 */
 function dispList(str) { return String(str || '').split(/\s*,\s*/).filter(Boolean).map(dispName).join(', '); }
+/** 인도자 자리에 들어간 이름은 누구든(객원 포함) "강산 목사" — 이미 "목사" 가 붙어 있으면 그대로 (서버쪽: lib/honorific.js withTitle) */
+var LEAD_KEY = '인도자';
+function leadTitle(n) { n = String(n || '').trim(); return n && !/목사(님)?\s*$/.test(n) ? n + ' 목사' : n; }
+/** 자리(포지션 키)까지 알 때의 호칭 — 인도자 자리면 항상 "목사", 아니면 목회자일 때만 */
+function dispSlot(n, key) { return key === LEAD_KEY ? leadTitle(n) : dispName(n); }
+/** 인도자 이름들(쉼표로 이어진 글) 각각에 "목사" */
+function leadList(str) { return String(str || '').split(/\s*,\s*/).filter(Boolean).map(leadTitle).join(', '); }
 /** church-app 은 세 글자 이름의 성을 떼어 "정환"으로 줄여 씁니다 — 목회자만 성 · 호칭을 다 씁니다.
  *  줄였더니 다른 사람과 같아지면(조희영 · 김희영 → 희영) 성 + 이름 첫 글자로 (조희 · 김희), 그래도 같으면 이름 전체.
  *  같은 규칙의 서버쪽: lib/shortName.js (주일 편성 칩) */
@@ -163,8 +170,9 @@ function shortMapOf() {
   _shortC = { m: mem, r: rows, map: out };
   return out;
 }
-function shortName(n) {
+function shortName(n, key) {
   n = String(n || '').trim();
+  if (key === LEAD_KEY) return leadTitle(n);       // 인도자 자리 — 줄이지 않고 "강산 목사"
   if (isPastor(n)) return n + ' 목사';
   var m = shortMapOf();
   return Object.prototype.hasOwnProperty.call(m, n) ? m[n] : (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);

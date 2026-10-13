@@ -90,7 +90,7 @@ function lineupReadonly(rows, scope, team) {
   const by = {};
   rows.filter((r) => (scope.event ? r['행사ID'] === scope.event : (!r['행사ID'] && r['날짜'] === scope.date))).forEach((r) => {
     const p = canonicalPosition(String(r['포지션'] || '').trim()), n = String(r['이름'] || '').trim();
-    if (p && n) (by[p] = by[p] || []).push(honorific.forTeam(team, n));
+    if (p && n) (by[p] = by[p] || []).push(honorific.forSlot(team, p, n));       // 인도자 자리는 누구든 "OOO 목사"
   });
   const keys = ALL_POSITIONS.filter((k) => by[k] && by[k].length);
   if (!keys.length) return '';
@@ -239,7 +239,7 @@ router.get('/b/:token/schedule', gate, async (req, res) => {
     const pr = r.practice;
     const prTxt = pr && pr.none ? '연습 없음' : (pr && pr.date ? `연습 ${mdDow(pr.date)}` : '');
     return `<div class="ph-card gs-week${r.date < today ? ' past' : ''}"><div class="gs-head"><b>${esc(mdDow(r.date))}</b>${r.event ? `<span class="gs-evname">${esc(r.event.name)}</span>` : ''}${prTxt ? `<small>${esc(prTxt)}</small>` : ''}</div>
-      ${slots.length ? `<div class="gs-line">${slots.map((p) => `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(p.key)}</span><i>${esc(p.label)}</i><b>${esc(r.slots[p.key].map((n) => honorific.forTeam(team, n)).join(', '))}</b></span>`).join('')}</div>` : '<p class="ph-sub" style="margin:4px 0 0;">아직 편성이 없어요.</p>'}</div>`;
+      ${slots.length ? `<div class="gs-line">${slots.map((p) => `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(p.key)}</span><i>${esc(p.label)}</i><b>${esc(r.slots[p.key].map((n) => honorific.forSlot(team, p.key, n)).join(', '))}</b></span>`).join('')}</div>` : '<p class="ph-sub" style="margin:4px 0 0;">아직 편성이 없어요.</p>'}</div>`;
   }).join('');
   const tabs = Object.keys(RANGE_LABEL).map((k) => `<a class="gs-ev${k === range ? ' on' : ''}" href="${base}/schedule?range=${k}">${RANGE_LABEL[k]}</a>`).join('');
   await send(req, res, 'schedule', { eyebrow: `${team} · 방송팀`, title: '스케줄표', sub: '포지션 편성 · 연습일' },

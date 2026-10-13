@@ -178,7 +178,7 @@ async function renderLive(req, res, o) {
   const [pastors, lineup] = await Promise.all([honorific.pastorSet(team), lineupOf(team, scope)]);      // v9.9 — 나란히 (예전: 하나씩 기다림)
   const boot = {
     token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
-    pastors: Array.from(pastors),
+    pastors: Array.from(new Set(Array.from(pastors).concat(lineup.filter((x) => honorific.isLeadPos(x.pos)).map((x) => x.name)))),       // 그날 인도자 자리에 선 사람은 객원이어도 "OOO 목사"
     lineup, sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
     startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 페이지부터
   };
