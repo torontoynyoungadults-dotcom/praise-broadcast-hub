@@ -50,6 +50,7 @@
     '.hm-edbox{position:absolute;z-index:9;width:232px;padding:9px;border-radius:14px;border:2px solid #ff8a2a;background:rgba(14,14,22,.97);color:#f8f5f0;box-shadow:0 10px 30px rgba(0,0,0,.6);font:700 12.5px -apple-system,Helvetica,Arial,sans-serif}' +
     '.hm-edbox .hm-edit{position:static;display:block;width:100%;box-sizing:border-box;font-size:20px;padding:6px 10px}' +
     '.pv-stage{-webkit-touch-callout:none}' +
+    '.hm-capo{position:absolute;left:10px;top:10px;z-index:30;pointer-events:none;padding:4px 11px;border-radius:999px;background:rgba(14,14,22,.92);color:#FFB066;border:1.5px solid rgba(255,138,42,.9);font:800 13px -apple-system,Helvetica,Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35)}' +
     '.hm-edtitle{margin:0 0 6px;font-size:12px;color:#ffb066}' +
     '.hm-edseg{display:flex;gap:5px;margin-top:7px}.hm-edseg button{flex:1 1 0;min-height:34px;padding:4px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.07);color:#f8f5f0;font:800 12px -apple-system,Helvetica,Arial,sans-serif}' +
     '.hm-edseg button[aria-pressed=true]{background:linear-gradient(135deg,#ff9d47,#ff7a1c);color:#1a0f05;border-color:transparent}' +
@@ -282,12 +283,12 @@
         rowsSorted.forEach(function (cd, i) { var cy = (cd.y + cd.h / 2) * Hh; if (Math.abs(cy - lastY) > F * 0.8) { ri++; rowMid[ri] = []; } rowMid[ri].push(cy); rowOf[i] = ri; lastY = cy; });
         Object.keys(rowMid).forEach(function (k) { var a = rowMid[k].slice().sort(function (x, y) { return x - y; }); rowMid[k] = a[Math.floor(a.length / 2)]; });
         c.font = FONT;
-        var vis = [];
+        var vis = [], CAPO = capoAt(pg), dS = S.semis - CAPO, dF = CAPO ? false : S.flats;          // V871 — 카포를 쓰면 "모양" 코드로
         rowsSorted.forEach(function (cd, i) {
-          var user = cd.src === 'user'; if (S.semis === 0 && !user) return;
+          var user = cd.src === 'user'; if (dS === 0 && !user) return;
           var x = cd.x * W, y = cd.y * Hh, w = cd.w * W, hh = cd.h * Hh, pad = Math.max(2, hh * 0.14);
           if (!user || cd.cover) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2); }     // 손으로 넣은 코드도 인쇄된 글자 자리를 찾았으면 덮음
-          vis.push({ cd: cd, row: rowOf[i], txt: cd.pre + HC.formatChord(cd.parsed, S.semis, S.flats) + cd.post, x: x, w: w });
+          vis.push({ cd: cd, row: rowOf[i], txt: cd.pre + (CAPO ? capoChord(cd.parsed, dS) : HC.formatChord(cd.parsed, dS, dF)) + cd.post, x: x, w: w });
         });
         /* V870 — 키를 바꿔 코드가 길어져도(예: G → Ab, C → C#m7) 옆 코드와 겹치지 않게:
            ① 같은 줄의 칩을 왼쪽부터 놓으며 앞 칩과 겹치면 오른쪽으로 밀고, ② 많이 밀려야 하면 페이지 전체 글자를 조금씩(최대 78%) 줄여 맞추고,
@@ -366,6 +367,42 @@
       c.restore();
       if (hits) S.hits = hits;
     }
+
+    /* ---------- V871 — 기타 카포 보기 (이 기기에만): 바꾼 키의 코드를 "카포 N + 쉬운 모양" 으로 보여 줌.
+       자동이면 그 곡(같은 목표 조의 페이지들)의 코드가 가장 쉬운 모양(C · D · E · G · A · Am · Dm · Em)이 되는 카포를 고릅니다 */
+    S.capoPref = 'off'; try { S.capoPref = root.localStorage.getItem('yn.pv.harm.capo') || 'off'; } catch (e) { /* 기본 끔 */ }
+    S.capoPg = {};
+    function capoOn() { return S.capoPref && S.capoPref !== 'off'; }
+    var EASY_MAJ = { 0: 0, 2: 0, 4: 0, 7: 0, 9: 0, 5: 2, 11: 3 }, EASY_MIN = { 9: 0, 2: 0, 4: 0, 11: 1, 5: 2, 0: 2, 7: 2 };
+    function shapeCost(p, sh) { var r = mod12(p.root + sh), tab = p.triad === 'min' || p.triad === 'dim' ? EASY_MIN : EASY_MAJ, c = tab[r]; return c == null ? 3 : c; }
+    function bestCapo(ch, semis) {
+      if (!ch.length) return 0; var best = 0, bc = 1e9, c;
+      for (c = 0; c <= 7; c++) { var cost = c * 0.12; for (var i = 0; i < ch.length; i++) cost += shapeCost(ch[i], semis - c); if (cost < bc - 1e-9) { bc = cost; best = c; } }
+      return best;
+    }
+    function capoCalc() {
+      S.capoPg = {}; if (!capoOn() || !S.data || !S.pageKeys) return;
+      var groups = {};
+      Object.keys(S.data.pages).forEach(function (pg) {
+        var K = S.pageKeys[pg]; if (!K || !K.tkey) return; var g = K.tkey.tonic + (K.tkey.minor ? 'm' : '');
+        var G = groups[g] = groups[g] || { pgs: [], ch: [], semis: K.semis }; G.pgs.push(pg);
+        (S.data.pages[pg].chords || []).forEach(function (c) { var p = c.parsed || HC.parseChord(c.text); if (p) G.ch.push(p); });
+      });
+      Object.keys(groups).forEach(function (g) { var G = groups[g], cp = S.capoPref === 'auto' ? bestCapo(G.ch, G.semis) : clamp(Math.round(+S.capoPref) || 0, 0, 9); G.pgs.forEach(function (pg) { S.capoPg[pg] = cp; }); });
+    }
+    function capoAt(pg) { return (S.capoPg && S.capoPg[pg]) || 0; }
+    var computeModel0 = computeModel;
+    computeModel = function () { computeModel0(); capoCalc(); };
+    var capoEl = doc.createElement('div'); capoEl.className = 'hm-capo'; capoEl.style.display = 'none'; capoEl.setAttribute('aria-live', 'polite');
+    var capoStage = box.closest ? box.closest('.pv-stage') : null, capoHost = P.el || box; capoHost.appendChild(capoEl);      // 악보를 스크롤 · 확대해도 늘 보이는 자리 (악보 칸 왼쪽 위)
+    var GNAME = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];                      // 기타에서 흔히 부르는 이름
+    function capoChord(c, sh) { return GNAME[mod12(c.root + sh)] + c.suffix + (c.bass != null ? '/' + GNAME[mod12(c.bass + sh)] : ''); }
+    function paintCapo() {
+      var pg = pgKey(), c = capoAt(pg), d = S.data, on = !!(c > 0 && d && d.show.chords && !d.show.orig && d.pages[pg] && S.tkey);
+      capoEl.style.display = on ? '' : 'none';
+      if (on && capoStage && capoHost !== box) { var rs = capoStage.getBoundingClientRect(), rh = capoHost.getBoundingClientRect(); capoEl.style.left = Math.round(rs.left - rh.left + 10) + 'px'; capoEl.style.top = Math.round(rs.top - rh.top + 10) + 'px'; }
+      if (on) { var t = '카포 ' + c + ' · ' + GNAME[mod12(S.tkey.tonic - c)] + (S.tkey.minor ? 'm' : '') + ' 모양'; if (capoEl.textContent !== t) capoEl.textContent = t; }
+    }
     var rafDraw = 0;
     function redraw() {
       if (S.dead) return;
@@ -374,6 +411,7 @@
     }
     function doDraw() {
       rafDraw = 0; if (S.dead) return;
+      try { paintCapo(); } catch (e) { /* 카포 표시는 덤 */ }
       var w = box.clientWidth, hgt = box.clientHeight; if (!w || !hgt) return;
       var pw = Math.round(w * dpr), ph = Math.round(hgt * dpr);
       if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
@@ -409,8 +447,14 @@
       }
       return null;
     }
+    /* V871 — 분석할 악보: 보통은 지금 화면의 악보, 「예배 전 전체 준비」 중에는 다른 악보 (SRC) */
+    var SRC = null;
+    function sPdf() { return SRC ? SRC.pdf : (P.pdf && P.pdf()); }
+    function sSize(pg) { return SRC ? SRC.pageSize(pg) : P.pageSize(pg); }
+    function sRender(cv0, pg, sc) { return SRC ? SRC.renderPageTo(cv0, pg, sc) : P.renderPageTo(cv0, pg, sc); }
+    function sData() { return SRC ? SRC.data : S.data; }
     function textLayerChords(pg) {
-      var pdf = P.pdf && P.pdf(); if (!pdf) return Promise.resolve(null);
+      var pdf = sPdf(); if (!pdf) return Promise.resolve(null);
       return pdf.getPage(pg).then(function (page) {
         var vp = page.getViewport({ scale: 1 });
         return page.getTextContent().then(function (tc) {
@@ -689,13 +733,14 @@
       return n ? 'rgb(' + Math.round(r / n) + ',' + Math.round(g / n) + ',' + Math.round(b / n) + ')' : '#fff';
     }
     function analyzeOne(pg, forceOcr) {
-      return P.pageSize(pg).then(function (sz) {
+      var D = sData();
+      return sSize(pg).then(function (sz) {
         var sc = clamp(2000 / sz.w, 0.4, 6), cv0 = doc.createElement('canvas');
         setStat(pg + '페이지 그림을 준비하는 중…');
-        return P.renderPageTo(cv0, pg, sc).then(tick).then(function () {
+        return sRender(cv0, pg, sc).then(tick).then(function () {
           var W = cv0.width, Hh = cv0.height, img = cv0.getContext('2d').getImageData(0, 0, W, Hh);
           setStat(pg + '페이지 오선 · 멜로디를 찾는 중…');
-          var om = OM.analyze(img.data, W, Hh, { adaptive: !(P.pdf && P.pdf()) }), paper = samplePaper(img.data);
+          var om = OM.analyze(img.data, W, Hh, { adaptive: !sPdf() }), paper = samplePaper(img.data);
           return tick().then(function () { return forceOcr ? null : textLayerChords(pg); }).then(function (tl) {
             /* V849 — 글자층 코드는 오선 위 코드 자리에 있는 것만 (표지 · 송폼 줄의 "C" "B" 같은 글자는 코드가 아님).
                글자층에 코드가 없는 오선(악보가 그림으로 들어간 PDF — 콘티 묶음 등)은 그 오선만 OCR 로 */
@@ -713,14 +758,72 @@
             setStat('코드를 OCR 로 읽는 중… (처음에는 OCR 도구를 내려받느라 시간이 걸립니다)');
             return ocrChords(cv0, om, W, Hh).then(function (cs) {
               if (tl && tl.hasText) return { chords: cs, src: 'ocr', keyText: tl.keyText || '' };           // 글자층이 있으면 Key 글자도 거기서
-              return (pg === 1 || !Object.keys(S.data.pages).some(function (k) { return S.data.pages[k].keyText; }) ? ocrKeyText(cv0, om) : Promise.resolve('')).then(function (kt) { return { chords: cs, src: 'ocr', keyText: kt }; });
+              return (pg === 1 || !Object.keys(D.pages).some(function (k) { return D.pages[k].keyText; }) ? ocrKeyText(cv0, om) : Promise.resolve('')).then(function (kt) { return { chords: cs, src: 'ocr', keyText: kt }; });
             });
           }).then(function (cr) {
             var staves = om.staves.map(function (s) { return { top: s.top / Hh, bottom: s.bottom / Hh, sp: s.sp / Hh, x0: s.x0 / W, x1: s.x1 / W, sys: s.sys, melody: !!s.melody, hx: s.keySig && s.keySig.endX != null ? s.keySig.endX / W : null }; });
             var notes = om.notes.map(function (n) { return { id: uid(), staff: n.staff, x: n.x / W, step: n.step, open: !!n.open, beats: n.beats, rest: n.restAfter || 0, src: 'auto' }; });
-            var old = S.data.pages[pg]; if (old) { old.notes.forEach(function (n) { delete S.data.ov.alto[n.id]; delete S.data.ov.tenor[n.id]; }); Object.keys(S.data.use).forEach(function (k) { if (k.indexOf(pg + ':') === 0) delete S.data.use[k]; }); }
-            S.data.pages[pg] = { w: W, h: Hh, paper: paper, chords: cr.chords, staves: staves, notes: notes, src: cr.src, at: Date.now(), keyText: cr.keyText || '', sig: om.keySig ? { n: om.keySig.n, conf: om.keySig.conf } : null };
+            var old = D.pages[pg]; if (old) { old.notes.forEach(function (n) { delete D.ov.alto[n.id]; delete D.ov.tenor[n.id]; }); Object.keys(D.use).forEach(function (k) { if (k.indexOf(pg + ':') === 0) delete D.use[k]; }); }
+            D.pages[pg] = { w: W, h: Hh, paper: paper, chords: cr.chords, staves: staves, notes: notes, src: cr.src, at: Date.now(), keyText: cr.keyText || '', sig: om.keySig ? { n: om.keySig.n, conf: om.keySig.conf } : null };
             return { pg: pg, chords: cr.chords.length, staves: staves.length, notes: notes.length, src: cr.src, keyText: cr.keyText || '', sig: om.keySig };
+          });
+        });
+      });
+    }
+
+    /* ---------- V871 — 예배 전 「전체 준비」: 화면에 열지 않은 악보도 미리 분석해 이 기기 · 팀에 저장 (예배 중엔 무거운 분석 없음) ---------- */
+    function waitIdle(ms) {
+      var t0 = Date.now();
+      return new Promise(function (res) { (function w() { if (S.dead || (!S.busy && !S.editor && !S.drag) || Date.now() - t0 > (ms || 90000)) res(); else setTimeout(w, 200); }()); });
+    }
+    function saveFor(fid0, data) { try { root.localStorage.setItem(keyOf(fid0), JSON.stringify(data, function (k, v) { return k === 'parsed' ? undefined : v; })); } catch (e) { /* 공간 부족 */ } }
+    function pullFor(fid0, data) {
+      if (!(P.callServer && P.opts && P.opts.token)) return Promise.resolve(false);
+      return new Promise(function (res) {
+        var done = false, fin = function (v) { if (!done) { done = true; res(v); } }; setTimeout(function () { fin(false); }, 9000);
+        P.callServer('worshipHarmLoad', [P.opts.token, fid0], function (r) {
+          var sv = r && r.data, n = 0; if (!sv || !sv.pages) return fin(false);
+          var empty = !Object.keys(data.pages || {}).length;
+          Object.keys(sv.pages).forEach(function (pg) { if (!data.pages[pg]) { data.pages[pg] = sv.pages[pg]; n++; } });
+          if (empty) { data.ov = sv.ov || { alto: {}, tenor: {} }; data.ov.alto = data.ov.alto || {}; data.ov.tenor = data.ov.tenor || {}; data.use = sv.use || {}; data.orig = sv.orig || data.orig || 'auto'; data.sharedSig = hashStr(JSON.stringify(sv)); data.sharedAt = r.at; data.sharedBy = r.by || ''; }
+          fin(n > 0);
+        }, function () { fin(false); });
+      });
+    }
+    function pushFor(fid0, data) {
+      if (!(P.callServer && P.opts && P.opts.token) || !P.canEdit) return;
+      var body = JSON.parse(sharedJson(data)); if (!Object.keys(body.pages || {}).length) return;
+      P.callServer('worshipHarmSave', [P.opts.token, fid0, body], function (r) { data.sharedSig = hashStr(sharedJson(data)); data.sharedAt = (r && r.at) || Date.now(); data.sharedBy = (r && r.by) || ''; if (S.fid !== fid0) saveFor(fid0, data); }, function () { /* 다음에 그 악보를 열 때 다시 올림 */ });
+    }
+    /** o = { fid, pdf, pageSize(pg), renderPageTo(cv, pg, scale), pages: [1, 2, …], step(pg), cancelled() } → { ok, done, failed, pulled } */
+    function prepareFile(o) {
+      if (S.dead) return Promise.resolve({ ok: false });
+      return waitIdle().then(function () {
+        if (S.dead) return { ok: false };
+        var cur = o.fid === S.fid && S.data, data = cur ? S.data : loadData(o.fid), pulled = false;
+        return pullFor(o.fid, data).then(function (pl) {
+          pulled = pl;
+          var todo = o.pages.filter(function (pg) { return !data.pages[String(pg)]; }), done = 0, failed = 0;
+          var finish = function () {
+            SRC = null; S.busy = false;
+            if (S.fid === o.fid && S.data && S.data !== data) { Object.keys(data.pages).forEach(function (pg) { if (!S.data.pages[pg]) S.data.pages[pg] = data.pages[pg]; }); }
+            if (S.fid === o.fid && S.data) { saveNow(); computeModel(); redraw(); syncPanel(); if (P.canEdit && canShare()) { clearTimeout(S.pushT); S.pushT = setTimeout(pushShared, 800); } }
+            else { saveFor(o.fid, data); if (done) pushFor(o.fid, data); }
+            if (S.autoPend) { S.autoPend = false; setTimeout(maybeAuto, 0); }
+            return { ok: true, done: done, failed: failed, pulled: pulled, have: o.pages.length - todo.length };
+          };
+          if (!todo.length) return finish();
+          return waitIdle().then(function () {
+            S.busy = true; SRC = { pdf: o.pdf, pageSize: o.pageSize, renderPageTo: o.renderPageTo, data: data };
+            var seq = Promise.resolve();
+            todo.forEach(function (pg) {
+              seq = seq.then(function () {
+                if (S.dead || (o.cancelled && o.cancelled())) return;
+                try { if (o.step) o.step(pg); } catch (e) { /* 진행 표시는 덤 */ }
+                return analyzeOne(pg, false).then(function () { done++; }, function () { failed++; }).then(tick);
+              });
+            });
+            return seq.then(finish, function () { failed++; return finish(); });
           });
         });
       });
@@ -754,9 +857,13 @@
     }
     /** 연습 키 이동이 0 이 아닌데 이 페이지이 아직 분석 전이면 자동으로 한 번 분석 (페이지 · 악보마다 세션에 한 번). 화면을 막지 않고, 오프라인 + 글자층 없음이면 안내만 */
     function maybeAuto() {
-      if (S.dead || !S.data || !S.autoOn || !pShift()) return;
+      if (S.dead || !S.data || !S.autoOn || !(pShift() || capoOn())) return;
       var pg = P.page(), key = S.fid + ':' + pg;
       if (S.data.pages[String(pg)] || S.autoTried[key]) return;
+      if (P.worship && P.worship()) {                                                               // V871 — 예배 모드: 무거운 분석은 하지 않음 (「예배 전 전체 준비」에서 미리)
+        if (!S.wsWarned) { S.wsWarned = {}; } if (!S.wsWarned[key]) { S.wsWarned[key] = 1; note('예배 모드 — 이 페이지는 미리 준비되지 않아 코드를 바꾸지 않았습니다.', true); }
+        return;
+      }
       if (S.busy) { S.autoPend = true; return; }
       S.autoTried[key] = 1;
       var sheetNow = S.fid;
@@ -1199,6 +1306,7 @@
 
     function setMode(m) {
       if (S.editor) closeEditor(true);
+      if (m !== 'view' && P.worship && P.worship()) { toast('🔒 예배 모드에서는 고칠 수 없어요 — 위의 🔒 를 두 번 눌러 끄세요'); m = 'view'; }     // V871
       S.mode = m; S.sel = null; S.drag = null; cv.style.pointerEvents = m === 'view' ? 'none' : 'auto'; cv.style.cursor = m === 'view' ? '' : m === 'chord' ? 'text' : 'grab';
       redraw(); syncPanel();
     }
@@ -1217,6 +1325,7 @@
         '<div class="hm-keys"><label>원래 조<select class="pv-sel" data-o="orig" aria-label="원래 조"></select></label><span class="hm-arrow" aria-hidden="true">➔</span><label>목표 조<select class="pv-sel" data-o="target" aria-label="목표 조"></select></label></div>' +
         '<div class="hm-semis" aria-live="polite"></div>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="song-key" style="display:none"></button></div>' +
+        '<div class="hm-keys" style="margin-top:10px;grid-template-columns:1fr"><label>기타 카포 보기 <small>(이 기기만)</small><select class="pv-sel" data-o="capo" aria-label="기타 카포 보기"><option value="off">끄기 — 실제 코드</option><option value="auto">자동 — 쉬운 코드 모양으로</option><option value="1">카포 1</option><option value="2">카포 2</option><option value="3">카포 3</option><option value="4">카포 4</option><option value="5">카포 5</option><option value="6">카포 6</option><option value="7">카포 7</option></select></label></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="showorig"><span></span><b>원래 코드 그대로 보기</b></label>' +
         '<p class="pv-help">코드를 못 읽고 빠뜨렸다면 — 악보에서 그 코드 글자를 <b>길게 누르면</b> 직접 넣을 수 있어요. 악보에 적힌 대로(원래 조) 또는 바꾼 키로 입력할 수 있고, 팀과 함께 저장됩니다.</p>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="auto"><span></span><b>키를 바꾸면 이 페이지을 자동으로 분석</b></label>' +
@@ -1272,6 +1381,7 @@
       semisEl.innerHTML = S.semis === 0 ? '<i>' + h(HC.keyName(S.okey)) + '</i> 그대로 — 코드를 바꾸지 않습니다' : '<i>' + h(HC.keyName(S.okey)) + ' ➔ ' + h(HC.keyName(S.tkey)) + '</i> · ' + (S.semis > 0 ? '+' : '') + S.semis + ' 반음 (' + (S.semis > 0 ? '위로' : '아래로') + ') · 이 페이지 코드 ' + nChords + '개 변환';
       var sk = P.song && P.song() ? HC.parseKey(P.song().key) : null, tk = S.tkey;
       if (sk && S.okey && sk.tonic !== tk.tonic) { songBtn.style.display = ''; songBtn.textContent = '곡 정보의 Key (' + (P.song().key) + ') 로 맞추기'; } else songBtn.style.display = 'none';
+      var capoSel = host.querySelector('[data-o=capo]'); if (capoSel && doc.activeElement !== capoSel) capoSel.value = S.capoPref || 'off';
       host.querySelector('[data-o=showorig]').checked = !!d.show.orig; host.querySelector('[data-o=auto]').checked = !!S.autoOn;
       ['alto', 'tenor', 'link'].forEach(function (k) { host.querySelector('[data-o=' + k + ']').checked = !!d.show[k]; });
       var hasHarm = Object.keys(S.model || {}).some(function (k) { var mm = S.model[k]; return !!(mm && mm.notes && mm.notes.length); });
@@ -1339,6 +1449,7 @@
       if (o === 'orig') { S.data.orig = t.value; S.data.target = ''; delete S.data.tshift; S.statMsg = ''; linkFromP(); commit(); }          // 원래 조를 고치면 목표 조는 초기화 — 연습 키 이동이 있으면 새 원래 조 기준으로 다시 적용
       else if (o === 'target') { setTargetManual(t.value); }
       else if (o === 'auto') { S.autoOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.auto', S.autoOn ? '1' : '0'); } catch (e) { /* 저장이 막힌 브라우저 */ } if (S.autoOn) maybeAuto(); }
+      else if (o === 'capo') { S.capoPref = t.value || 'off'; try { root.localStorage.setItem('yn.pv.harm.capo', S.capoPref); } catch (e) { /* 저장이 막힌 브라우저 */ } commit(); maybeAuto(); var cpn = capoAt(pgKey()); toast(S.capoPref === 'off' ? '카포 보기를 껐습니다 — 실제 코드로 보여 줍니다.' : (S.data.pages[pgKey()] ? (cpn ? '카포 ' + cpn + ' 모양으로 보여 줍니다.' : '카포 없이 치는 게 가장 쉬워요 — 실제 코드 그대로입니다.') : '이 페이지 코드를 읽은 뒤 카포 모양으로 보여 줍니다.')); }
       else if (o === 'showorig') { S.data.show.orig = !!t.checked; commit(); }
       else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; commit(); }
       else if (o === 'ocr') { S.forceOcr = !!t.checked; }
@@ -1374,6 +1485,7 @@
     P.on('keyshift', function (n) { if (S.dead || S.reflecting) return; applyShift(n); });                    // 유튜브 카드 · 재생 카드가 연습 키를 바꿈
     P.on('song', function () { if (S.dead) return; applyShift(pShift()); });                                    // 곡이 바뀌면 그 곡의 연습 키로
     P.on('close', function () { destroy(); });
+    P.on('worship', function (on) { if (S.dead || !on) return; try { stopChordSeq(); hidePop(); } catch (e) {} if (S.editor) closeEditor(true); if (S.mode !== 'view') setMode('view'); });     // V871 — 예배 모드
     var pullTimer = root.setInterval ? root.setInterval(function () { if (!S.dead && (!doc || !doc.hidden)) pullShared(true); }, 90000) : 0;
     function onVis() { if (!S.dead && doc && !doc.hidden) pullShared(true); }
     if (doc && doc.addEventListener) doc.addEventListener('visibilitychange', onVis);
@@ -1381,14 +1493,14 @@
       if (S.dead) return; saveNow(); if (S.pushT && P.canEdit) pushShared(); S.dead = true; stop(true);
       try { clearInterval(pullTimer); if (doc) doc.removeEventListener('visibilitychange', onVis); } catch (e) {}
       try { if (ro) ro.disconnect(); root.removeEventListener('resize', redraw); } catch (e) {}
-      try { cv.remove(); } catch (e) {} try { if (S.editor) { (S.editor.wrap || S.editor.inp).remove(); if (S.editor.outside) doc.removeEventListener('pointerdown', S.editor.outside, true); } } catch (e) {}
+      try { cv.remove(); capoEl.remove(); } catch (e) {} try { if (S.editor) { (S.editor.wrap || S.editor.inp).remove(); if (S.editor.outside) doc.removeEventListener('pointerdown', S.editor.outside, true); } } catch (e) {}
       try { stopChordSeq(); hidePop(); if (popEl) popEl.remove(); } catch (e) {}
       try { if (au.ctx && au.ctx.close) au.ctx.close(); } catch (e) {}
       try { if (S.worker) S.worker.then(function (w) { return w.terminate(); }).catch(function () {}); } catch (e) {}
     }
     loadFile(); if (pShift()) { noteState(); maybeAuto(); }
     /* 시험 · 점검용 손잡이 */
-    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
+    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, prepareFile: prepareFile, capoOn: capoOn, hasPage: function (f, pg) { var d = f === S.fid ? S.data : loadData(f); return !!(d && d.pages && d.pages[String(pg)]); }, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
     root.YNHarmonyUI._last = api;
     return api;
   }

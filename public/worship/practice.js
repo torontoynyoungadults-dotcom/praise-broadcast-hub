@@ -199,6 +199,7 @@
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 페이지 (←)" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지 (→)" aria-label="다음 페이지">' + I('next') + '</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" aria-label="여백 자동 맞춤" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + '<span class="pv-tx"> 여백</span></button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" aria-label="두 페이지 나란히 보기" title="두 페이지 나란히 보기 (컴퓨터 화면)">' + I('spread') + '<span class="pv-tx"> 두 페이지</span></button></div>' +
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
+        '<button type="button" class="pv-b pv-wsbtn" data-a="ws-off" hidden aria-label="예배 모드 켜짐 — 두 번 눌러 끄기" title="예배 모드 — 두 번 누르면 꺼집니다">🔒<span class="pv-tx"> 예배 모드</span></button>' +
         '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="메트로놈 켜기" title="메트로놈 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
         '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button>' +
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
@@ -212,6 +213,9 @@
         '<div class="pv-acts" role="group" aria-label="더 보기 동작">' +
           (opts.canEdit && opts.onSheetEdit ? '<button class="pv-b pv-editsheet" data-a="editsheet" title="이 악보 편집 — 위쪽 머리말 자르기 · 페이지 삭제" aria-label="이 악보 편집">✂<span class="pv-mt">악보 편집 (자르기 · 페이지 삭제)</span></button>' : '') +
           (opts.canEdit && opts.sheetFix ? '<button class="pv-b pv-fixsheet" data-a="fixsheet" title="사진 · 스캔 악보를 선명하게 (컴퓨터 · iPad Pro 에서, 예배 전에 미리)" aria-label="악보 화질 보정">✨<span class="pv-mt">악보 화질 보정</span></button>' : '') +
+          '<button class="pv-b pv-prepbtn" data-a="prep" title="예배 전에 오늘 콘티 전체를 미리 받아 두고, 키를 바꾼 곡 · 카포 곡의 코드를 미리 읽어 둡니다 (예배 중엔 무거운 작업 없음)" aria-label="예배 전 전체 준비">⚡<span class="pv-mt">예배 전 전체 준비</span></button>' +
+          '<button class="pv-b pv-wsonbtn" data-a="ws-on" title="예배 모드 — 페이지 넘김만 (필기 · 편집 · 코드 소리 잠금)" aria-label="예배 모드 켜기">🔒<span class="pv-mt">예배 모드 켜기</span></button>' +
+          '<button class="pv-b pv-pedalbtn" data-a="pedal" title="블루투스 페이지 넘김 페달 맞추기" aria-label="페달 맞추기">🦶<span class="pv-mt">페달 맞추기</span></button>' +
           '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + themeBtnHtml(doc.documentElement.getAttribute('data-theme') === 'light') + '</button>' +
           '<button class="pv-b pv-mpdf" data-a="pdf" title="필기 포함 PDF 저장 (악보 전체 한 파일)" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-mt">필기 포함 PDF 저장</span></button>' +
         '</div>' +
@@ -1896,6 +1900,7 @@
     function toolOn(t) { return t === 'note' ? S.tool === 'sym' : S.tool === t; }
     function setTool(t, fromAnno, quiet) {
       if (opts.readOnly && t !== 'none') return;
+      if (S.worship && t !== 'none') { if (!quiet) toast('🔒 예배 모드에서는 필기 · 편집이 잠겨 있어요 (위의 🔒 를 두 번 눌러 끄기)', false, 2400); if (fromAnno) { try { an.setTool('none'); } catch (e) {} } return; }      // V871
       if (t === 'chord') t = 'text';                                                     // v10 — 코드 도구는 글자 도구로 (예전 단축키 · 기억도 그대로 동작)
       if (t === 'note' || t === 'sym') {                                                 // v10 — 기호 · 음표 하나로: 음표(Alt+N)는 음표 칸을 펼친 채로
         var wantNote = t === 'note'; t = 'sym';
@@ -2199,7 +2204,11 @@
       if (a === 'more') { setMore(!el.classList.contains('pv-moreopen')); return; }
       if (a === 'drawer-close') setDrawer(false); else if (a === 'drawer-panel') { setDrawer(false); toggleSide(true); }
       else if (a === 'fixsheet') { setMore(false); setDrawer(false); openSheetFix(); }
-      else if (a === 'close') api.close(); else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
+      else if (a === 'prep') { setMore(false); setDrawer(false); prepareAll(); }
+      else if (a === 'ws-on') { setMore(false); setDrawer(false); setWorship(true); }
+      else if (a === 'ws-off') wsUnlockTap();
+      else if (a === 'pedal') { setMore(false); setDrawer(false); pedalLearn(); }
+      else if (a === 'close') { if (S.worship && !wsSecondTap('close')) return; api.close(); } else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
       else if (a === 'spread') toggleSpread();
       else if (a === 'crop') { S.crop = !S.crop; ls('crop', S.crop ? '1' : '0'); S.zoom = 1; syncCropUi(); renderPage(); sendNav(); toast(S.crop ? '여백을 줄여 악보를 크게 보여 줍니다' : '종이 전체를 보여 줍니다'); }
@@ -2429,6 +2438,13 @@
     function onKey(e) {
       if (S.dead || isTyping(e.target)) return;
       var k = e.key, mod = e.ctrlKey || e.metaKey;
+      if (S.pedalL) { pedalKey(e); return; }                                              // V871 — 페달 맞추는 중
+      var pa = pedalAct(e);
+      if (pa) { e.preventDefault(); e.stopPropagation(); if (e.repeat || Date.now() - (S.pedalT || 0) < 260) return; S.pedalT = Date.now(); if (pa === 'n') nextPage(true); else prevPage(true); return; }
+      if (S.worship) {                                                                   // V871 — 예배 모드: 필기 · 편집 단축키 잠금, Esc 로 닫히지 않음
+        if (mod || e.altKey || k === 'Delete' || k === 'Backspace') { if (mod && (k === 'z' || k === 'Z' || k === 'y' || k === 'Y' || k === 'd' || k === 'D')) e.preventDefault(); return; }
+        if (k === 'Escape') { e.preventDefault(); if (S.fs) setFs(false); else toast('🔒 예배 모드 — 닫으려면 위의 🔒 를 두 번 눌러 먼저 끄세요', false, 2400); return; }
+      }
       if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); e.shiftKey ? an.redo() : an.undo(); renderTools(); return; }
       if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); an.redo(); renderTools(); return; }
       if (mod && (k === 'd' || k === 'D') && an.selected && an.selected() && !opts.readOnly) { e.preventDefault(); if (doCopy()) doPaste(); return; }   // Ctrl/⌘+D = 바로 복제
@@ -2796,7 +2812,7 @@
     /* v6.10 — 애플 펜슬로 악보에 그냥 쓰면 바로 펜으로 그려집니다 (도구를 열어 펜을 고르지 않아도).
        "이동"(손바닥) 도구일 때만 — 선택 · 글자 · 코드 등 일부러 고른 도구는 그대로 둡니다. 도구가 접혀 있어도 되고, 첫 획부터 이어서 그려집니다. */
     stage.addEventListener('pointerdown', function (e) {
-      if (S.dead || opts.readOnly || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
+      if (S.dead || opts.readOnly || S.worship || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
       if (e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input,a,textarea')) return;
       if (e.pointerType === 'pen' && e.button > 0 && e.button !== 5) return;
       setTool('pen', false, true);
@@ -2807,7 +2823,7 @@
       tapD = (e.isPrimary && !(e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input'))) ? { x: e.clientX, y: e.clientY, t: Date.now(), sel: !!(an.selected && an.selected()), tool: S.tool, type: e.pointerType, id: e.pointerId } : null;
       clearTimeout(lpT); lpT = 0;
       /* V870 — 이동 도구로 악보의 코드 글자를 길게(0.6초) 누르면 → 그 자리에 코드 직접 넣기 · 고치기 (자동 인식이 놓친 코드) */
-      if (tapD && tapD.tool === 'none' && S.tool === 'none' && !opts.readOnly && !(e.target.closest && e.target.closest('.hm-edbox,.hm-pop,textarea,a'))) {
+      if (tapD && tapD.tool === 'none' && S.tool === 'none' && !opts.readOnly && !S.worship && !(e.target.closest && e.target.closest('.hm-edbox,.hm-pop,textarea,a'))) {
         var d0 = tapD;
         lpT = setTimeout(function () {
           lpT = 0; if (tapD !== d0 || S.dead || S.tool !== 'none') return;
@@ -2826,7 +2842,7 @@
       if (!d || e.pointerId !== d.id || S.dead) return;
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || Date.now() - d.t > 400) return;
       /* V849 — 이동 도구로 악보의 코드 글자를 톡 → 피아노로 그 코드 (화음 탭에서 분석해 둔 페이지) */
-      if (d.tool === 'none' && S.tool === 'none') { try { var hz = P.ensureTab ? P.ensureTab('harmony') : null; if (hz && hz.chordTap && hz.chordTap(e.clientX, e.clientY, d.type !== 'mouse')) return; } catch (x) { /* 화음 도구가 없어도 화면은 계속 */ } }
+      if (d.tool === 'none' && S.tool === 'none' && !S.worship) { try { var hz = P.ensureTab ? P.ensureTab('harmony') : null; if (hz && hz.chordTap && hz.chordTap(e.clientX, e.clientY, d.type !== 'mouse')) return; } catch (x) { /* 화음 도구가 없어도 화면은 계속 */ } }
       /* V848 — 이동 도구로 필기를 톡 → 누가 썼는지 잠깐 (이름표) */
       if (d.tool === 'none' && S.tool === 'none' && an && an.peekAt && an.peekAt(e.clientX, e.clientY, d.type === 'touch')) return;
       /* v6.9 — 악보의 아무 곳이나 톡 치면 열려 있던 메뉴(🛠 서랍 · ⋯ 더보기 · 태블릿의 옆 패널: 필기 · 송폼 · 메트로놈 …)가 다시 숨겨집니다 */
@@ -2850,11 +2866,159 @@
     });
 
     /* ------------------------------------------------------------ 시작 · 닫기 */
+
+    /* ============================================================ V871 — 예배 모드 · 예배 전 전체 준비 · 페달
+       가볍게: 새 라이브러리 없이 기존 함수만 씀. 준비는 한 번에 한 악보 · 한 페이지씩, 화면을 넘기거나 필기하는 동안에는 쉬었다가 이어 감 */
+    (function () {
+      if (doc.getElementById('yn-pv-v871')) return;
+      var st = doc.createElement('style'); st.id = 'yn-pv-v871';
+      st.textContent =
+        '.pv-worship .pv-tools,.pv-worship .pv-toolsbtn,.pv-worship .pv-sympop,.pv-worship [data-a="fs-tools"],.pv-worship .pv-drawer [data-slot="tools"]{display:none!important}' +
+        '.pv-wsbtn{color:#FFB066!important;border:1.5px solid rgba(255,138,42,.85)!important;border-radius:999px!important;font-weight:800;padding:0 12px!important;white-space:nowrap}.pv-wsbtn.arm{background:rgba(255,138,42,.25)!important}' +
+        '.pv-worship .pv-wsonbtn{display:none!important}' +
+        '.pv-prep,.pv-pedal{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;max-width:min(440px,calc(100% - 24px));padding:12px 14px;border-radius:16px;background:rgba(14,14,22,.96);color:#f8f5f0;border:1.5px solid rgba(255,138,42,.85);box-shadow:0 12px 34px rgba(0,0,0,.55);font:700 14px/1.45 -apple-system,Helvetica,Arial,sans-serif}' +
+        '.pv-prep b,.pv-pedal b{color:#FFB066}.pv-prep .bar{height:6px;margin:9px 0 2px;border-radius:9px;background:rgba(255,255,255,.14);overflow:hidden}.pv-prep .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff9d47,#ff7a1c);transition:width .3s}' +
+        '.pv-prep .sub,.pv-pedal .sub{display:block;margin-top:3px;font-weight:600;font-size:12.5px;color:#d4cfc7}.pv-prep.ok{border-color:#35e0a0}.pv-prep.ok b{color:#6ff0bf}.pv-prep.bad{border-color:#ff8f8f}' +
+        '.pv-prep .row,.pv-pedal .row{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}.pv-prep button,.pv-pedal button{min-height:38px;padding:0 14px;border-radius:11px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);color:#f8f5f0;font:800 13.5px -apple-system,Helvetica,Arial,sans-serif}' +
+        'html[data-theme=light] .pv-prep,html[data-theme=light] .pv-pedal{background:rgba(255,255,255,.98);color:#111}html[data-theme=light] .pv-prep .sub,html[data-theme=light] .pv-pedal .sub{color:#444}html[data-theme=light] .pv-prep button,html[data-theme=light] .pv-pedal button{color:#111;border-color:rgba(0,0,0,.2)}';
+      doc.head.appendChild(st);
+    }());
+    function today() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+    function hhmm(t) { var d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+    /* ---------- 예배 모드: 페이지 넘김 · 따라가기 · 메트로놈 · 콜아웃만. 필기 · 편집 · 코드 눌러 소리 · 길게 눌러 코드 넣기 · 자동 분석은 잠금 ---------- */
+    var wsBtn = $('.pv-wsbtn');
+    S.worship = false;
+    function setWorship(on, quiet) {
+      on = !!on; if (on === !!S.worship) return;
+      if (on) { S.wsTools = !el.classList.contains('pv-toolshide'); if (S.tool !== 'none') setTool('none', false, true); try { an.closeEditor && an.closeEditor(); } catch (e) {} try { an.deselect && an.deselect(); } catch (e) {} }
+      S.worship = on; el.classList.toggle('pv-worship', on); wsBtn.hidden = !on; wsBtn.classList.remove('arm');
+      ls('worship', on ? today() : '');
+      if (on) { setTools(false, false); requestWake(); }
+      else if (S.wsTools) setTools(true, false);
+      P.emit('worship', on);
+      if (!quiet) {
+        if (on && !prepFresh()) toast('🔒 예배 모드 — 페이지 넘김만 됩니다. (팁: 「⚡ 예배 전 전체 준비」를 먼저 하면 키 바꾼 곡도 바로 보여요)', false, 4200);
+        else toast(on ? '🔒 예배 모드 — 페이지 넘김만 됩니다. 끄려면 위의 🔒 를 두 번 누르세요' : '예배 모드를 껐습니다', false, 3000);
+      }
+    }
+    function wsSecondTap(what) {
+      var now = Date.now();
+      if (S.wsArm && S.wsArm.w === what && now - S.wsArm.t < 2500) { S.wsArm = null; wsBtn.classList.remove('arm'); return true; }
+      S.wsArm = { w: what, t: now }; if (what === 'off') wsBtn.classList.add('arm');
+      setTimeout(function () { if (S.wsArm && Date.now() - S.wsArm.t >= 2400) { S.wsArm = null; wsBtn.classList.remove('arm'); } }, 2600);
+      toast(what === 'off' ? '한 번 더 누르면 예배 모드를 끕니다' : '🔒 예배 모드 — 한 번 더 누르면 라이브 악보를 닫습니다', false, 2400);
+      return false;
+    }
+    function wsUnlockTap() { if (wsSecondTap('off')) setWorship(false); }
+    P.worship = function () { return !!S.worship; };
+    P.setWorship = function (on) { setWorship(on); };
+
+    /* ---------- 예배 전 전체 준비 ---------- */
+    function prepKey() { return 'prep.' + sheets.map(function (f) { return f.id; }).join(',').length + '.' + sheets.map(function (f) { return String(f.id).slice(-6); }).join(''); }
+    function prepFresh() { var v = parseInt(ls(prepKey()), 10); return isFinite(v) && Date.now() - v < 20 * 3600 * 1000 ? v : 0; }
+    function paintPrepBtn() {
+      var b = el.querySelector('.pv-prepbtn'); if (!b) return; var t = prepFresh(), mt = b.querySelector('.pv-mt');
+      if (mt) mt.textContent = S.prep && S.prep.run ? '준비 중… (눌러서 멈춤)' : t ? '예배 전 전체 준비 · ✓ ' + hhmm(t) : '예배 전 전체 준비';
+    }
+    function ksOfSong(sg) { var v = parseInt(ls('ks.' + (sg ? normName(sg.title) : '_')), 10); return isFinite(v) ? clamp(v, -3, 3) : 0; }
+    var prepEl = null;
+    function prepCard(html, cls, buttons) {
+      if (!prepEl) { prepEl = doc.createElement('div'); prepEl.setAttribute('role', 'status'); prepEl.setAttribute('aria-live', 'polite'); prepEl.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (!b) return; var k = b.getAttribute('data-k'); if (k === 'stop' && S.prep) { S.prep.cancel = true; b.disabled = true; b.textContent = '멈추는 중…'; } else if (k === 'x') prepHide(); }); }
+      if (prepEl.parentNode !== el) el.appendChild(prepEl);
+      prepEl.className = 'pv-prep' + (cls ? ' ' + cls : ''); prepEl.innerHTML = html + (buttons ? '<div class="row">' + buttons + '</div>' : '');
+      clearTimeout(S.prepHideT);
+    }
+    function prepHide() { clearTimeout(S.prepHideT); if (prepEl) prepEl.remove(); }
+    function prepareAll() {
+      if (S.prep && S.prep.run) { S.prep.cancel = true; return; }
+      if (opts.offline || (root.navigator && root.navigator.onLine === false)) { toast('인터넷에 연결된 뒤 준비해 주세요 (악보 · 코드 읽기 도구를 받아야 합니다)', true); return; }
+      var P0 = S.prep = { run: true, cancel: false }, N = sheets.length, hz = null, capo = false, stats = { files: 0, songs: {}, pages: 0, failed: 0, fail: [] };
+      try { var hz0 = P.ensureTab('harmony'); capo = !!(hz0 && hz0.capoOn && hz0.capoOn()); } catch (e) { capo = false; }
+      var show = function (i, txt) {
+        var f = sheets[i] || {}, nm = String(f.name || '').replace(/\.[a-z0-9]{2,4}$/i, '');
+        prepCard('<b>⚡ 예배 준비 중 · ' + Math.min(i + 1, N) + ' / ' + N + '</b><span class="sub">' + h(nm) + (txt ? ' — ' + h(txt) : '') + '</span><div class="bar"><i style="width:' + Math.round(i / N * 100) + '%"></i></div>', '', '<button type="button" data-k="stop">그만</button>');
+      };
+      paintPrepBtn();
+      var seq = Promise.resolve();
+      sheets.forEach(function (f, i) {
+        seq = seq.then(function () {
+          if (P0.cancel || S.dead) return;
+          show(i, '악보 받는 중');
+          return pdfIdle().then(function () { return fetchDoc(f); }).then(function (d) {
+            stats.files++;
+            if (P0.cancel || S.dead || !d) return;
+            var need = [], n = d.n || 1, pg;
+            for (pg = 1; pg <= n; pg++) { var si = resolveSong(f, pg), sg = si != null && si >= 0 ? songs[si] : null; if (capo || ksOfSong(sg)) { need.push(pg); if (sg) stats.songs[sg.title] = 1; } }
+            if (!need.length) return;
+            if (!hz) { try { hz = P.ensureTab('harmony'); } catch (e) { hz = null; } }
+            if (!hz || !hz.prepareFile) return;
+            show(i, '코드 읽는 중 (' + need.length + '페이지)');
+            return pdfIdle().then(function () {
+              return hz.prepareFile({ fid: f.id, pdf: d.pdf || null, pages: need,
+                pageSize: function (p) { return pageInfo(d, p).then(function (inf) { return { w: inf.w, h: inf.h }; }); },
+                renderPageTo: function (cv, p, sc) { return renderTo(cv, d, p, sc); },
+                step: function (p) { show(i, p + '페이지 코드 읽는 중'); },
+                cancelled: function () { return P0.cancel || S.dead; } });
+            }).then(function (r) { if (r) { stats.pages += need.length - (r.failed || 0); if (r.failed) { stats.failed += r.failed; stats.fail.push(f.name); } } });
+          }).catch(function () { stats.failed++; stats.fail.push(f.name); });
+        });
+      });
+      return seq.then(function () {
+        P0.run = false; if (S.dead) return;
+        var songsN = Object.keys(stats.songs).length;
+        if (P0.cancel) { prepCard('<b>준비를 멈췄습니다</b><span class="sub">받은 악보 ' + stats.files + ' / ' + N + '</span>', 'bad', '<button type="button" data-k="x">닫기</button>'); paintPrepBtn(); return; }
+        if (!stats.failed) ls(prepKey(), String(Date.now()));
+        prepCard((stats.failed ? '<b>⚠ 거의 준비됐어요</b>' : '<b>✓ 예배 준비 완료</b>') + '<span class="sub">악보 ' + stats.files + '개 받아 둠' + (songsN ? ' · 코드 바꿀 곡 ' + songsN + '개 (' + stats.pages + '페이지) 미리 읽음' : ' · 코드를 바꿀 곡 없음') + '</span>' +
+          (stats.failed ? '<span class="sub">읽지 못한 것: ' + h(stats.fail.slice(0, 3).join(', ')) + ' — 그 악보를 열어 화음 탭에서 「이 페이지 분석」을 눌러 주세요</span>' : '') +
+          (!S.worship ? '<span class="sub">이제 「🔒 예배 모드」를 켜면 예배 중엔 페이지 넘김만 됩니다.</span>' : ''), stats.failed ? 'bad' : 'ok',
+          (!S.worship ? '<button type="button" data-k="ws">🔒 예배 모드 켜기</button>' : '') + '<button type="button" data-k="x">닫기</button>');
+        var wsb = prepEl.querySelector('[data-k=ws]'); if (wsb) wsb.onclick = function () { prepHide(); setWorship(true); };
+        S.prepHideT = setTimeout(prepHide, stats.failed ? 15000 : 9000);
+        paintPrepBtn();
+      }, function () { P0.run = false; paintPrepBtn(); });
+    }
+
+    /* ---------- 블루투스 페달: 어떤 페달이든(→ ← · PageDown/Up · ↑ ↓ · Space · Enter …) 한 번 밟아서 맞춤. 맞춘 키는 페이지 넘김이 가장 먼저 ---------- */
+    S.pedal = null; try { S.pedal = JSON.parse(ls('pedal') || 'null'); } catch (e) { S.pedal = null; }
+    function keyId(e) { return { c: e.code || '', k: e.key || '' }; }
+    function sameKey(a, e) { return !!a && ((a.c && a.c === e.code) || (!a.c && a.k && a.k === e.key)); }
+    function pedalAct(e) { var p = S.pedal; if (!p || e.ctrlKey || e.metaKey || e.altKey) return ''; if (sameKey(p.n, e)) return 'n'; if (sameKey(p.p, e)) return 'p'; return ''; }
+    function keyName(a) { if (!a) return '-'; var m = { ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', PageDown: 'PageDown', PageUp: 'PageUp', ' ': 'Space', Enter: 'Enter' }; return m[a.k] || a.k || a.c; }
+    var pedalEl = null;
+    function pedalCard(html, btns) {
+      if (!pedalEl) { pedalEl = doc.createElement('div'); pedalEl.className = 'pv-pedal'; pedalEl.setAttribute('role', 'dialog'); pedalEl.setAttribute('aria-label', '페달 맞추기');
+        pedalEl.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (!b) return; var k = b.getAttribute('data-k');
+          if (k === 'reset') { S.pedal = null; ls('pedal', ''); pedalDone('기본값으로 — → / PageDown = 다음, ← / PageUp = 이전'); }
+          else if (k === 'x') pedalDone(''); }); }
+      if (pedalEl.parentNode !== el) el.appendChild(pedalEl);
+      pedalEl.innerHTML = html + '<div class="row">' + btns + '</div>';
+    }
+    function pedalLearn() {
+      S.pedalL = { step: 'n' };
+      try { if (doc.activeElement && doc.activeElement.blur) doc.activeElement.blur(); } catch (e) {}
+      pedalCard('<b>🦶 페달 맞추기</b><span class="sub">① <b>다음 페이지</b>로 쓸 페달을 한 번 밟아 주세요.</span><span class="sub">지금: 다음 ' + h(keyName(S.pedal && S.pedal.n) === '-' ? '→ / PageDown' : keyName(S.pedal.n)) + ' · 이전 ' + h(keyName(S.pedal && S.pedal.p) === '-' ? '← / PageUp' : keyName(S.pedal.p)) + '</span>',
+        '<button type="button" data-k="reset">기본값으로</button><button type="button" data-k="x">취소</button>');
+    }
+    function pedalKey(e) {
+      var L = S.pedalL; if (!L) return; e.preventDefault(); e.stopPropagation(); if (e.repeat) return;
+      if (e.key === 'Escape') { pedalDone(''); return; }
+      if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].indexOf(e.key) >= 0) return;
+      if (L.step === 'n') { L.n = keyId(e); L.step = 'p'; pedalCard('<b>🦶 페달 맞추기</b><span class="sub">다음 페이지 = <b>' + h(keyName(L.n)) + '</b> ✓</span><span class="sub">② 이제 <b>이전 페이지</b>로 쓸 페달을 밟아 주세요.</span>', '<button type="button" data-k="x">취소</button>'); return; }
+      var p = keyId(e); if (p.c === L.n.c && p.k === L.n.k) { pedalCard('<b>🦶 페달 맞추기</b><span class="sub">다음 페이지와 같은 페달이에요 — <b>다른 페달</b>을 밟아 주세요.</span>', '<button type="button" data-k="x">취소</button>'); return; }
+      S.pedal = { n: L.n, p: p }; ls('pedal', JSON.stringify(S.pedal));
+      pedalDone('페달을 맞췄어요 — 다음: ' + keyName(S.pedal.n) + ' · 이전: ' + keyName(S.pedal.p));
+    }
+    function pedalDone(msg) { S.pedalL = null; if (pedalEl) pedalEl.remove(); if (msg) toast('🦶 ' + msg, false, 3200); }
+
+    paintPrepBtn();
+    if (ls('worship') === today()) setTimeout(function () { if (!S.dead) setWorship(true, true); }, 0);       // 같은 날 다시 열면 예배 모드 그대로
     var api = {
-      el: el, P: P, goPage: function (n) { goPage(n, true); }, next: function () { nextPage(true); }, prev: function () { prevPage(true); },
+      el: el, P: P, prepareAll: function () { return prepareAll(); }, setWorship: function (b) { setWorship(b, true); }, goPage: function (n) { goPage(n, true); }, next: function () { nextPage(true); }, prev: function () { prevPage(true); },
       perf: function () { return { turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
         if (S.dead) return; S.dead = true; if (S.fs) setFs(false); closeYt(); flushMine(); P.emit('close');
+        try { if (S.prep) S.prep.cancel = true; prepHide(); clearTimeout(S.prepHideT); if (pedalEl) pedalEl.remove(); } catch (e) {}
         try { an.closeEditor(); } catch (e) {}
         P.tabs.forEach(function (t) { try { t.api && t.api.destroy && t.api.destroy(); } catch (e) {} });
         try { rt && rt.close(); } catch (e) {} try { an.destroy(); } catch (e) {}
