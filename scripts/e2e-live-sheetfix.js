@@ -120,6 +120,7 @@ global.fetch = async (url, opt) => {
   const warn = await page.evaluate(() => (document.querySelector('.sf-warn') || {}).textContent || '');
   ok(/컴퓨터 또는 iPad Pro/.test(warn) && /예배 중/.test(warn), '경고: 컴퓨터 · iPad Pro 에서 · 예배 중에는 하지 말 것', warn);
   ok(await page.evaluate(() => !window.tf), '창을 열어도 AI 는 아직 안 불러옴 (시작할 때만)');
+  ok(await page.evaluate(() => !document.querySelector('.sf [data-r="ai"]').checked), 'AI 2배는 기본으로 꺼져 있음 (실험)');
   await page.evaluate(() => { document.querySelector('.sf [data-r="ai"]').checked = false; });      // 소프트웨어 그래픽이라 AI 는 아래에서 따로 작게 시험
   await page.click('.sf [data-a="start"]');
   ok(await page.waitForFunction(() => { const b = document.querySelector('.sf [data-a="apply"]'); return b && !b.hidden && !b.disabled; }, null, { timeout: 60000 }).then(() => true, () => false), '보정을 마치고 「보정본으로 바꾸기」가 켜짐');
@@ -194,6 +195,15 @@ global.fetch = async (url, opt) => {
   ok(ai.ai && ai.ai2 && ai.w === 330 && ai.h === 248, 'AI 2배로 키운 뒤 목표 크기로 (두 번째도 다시 불러와 동작)', ai);
   ok(ai.white > 0.6 && ai.dark > 0.008, 'AI 결과도 종이는 하얗고 글자는 진함', ai);
   ok(ai.freed, '끝나면 그래픽 메모리를 돌려줌');
+  const guard = await page.evaluate(() => {                                   // 기기 정밀도 문제로 깨진 AI 결과(점 · 끊김)는 버림
+    const E = YNSheetFix._engine, w = 120, h = 90, g = new Uint8ClampedArray(w * h).fill(250);
+    for (let x = 10; x < 110; x++) g[40 * w + x] = 20;                         // 가로줄
+    const good = new Uint8ClampedArray(w * h * 4); for (let y = 0; y < h * 2; y++) for (let x = 0; x < w * 2; x++) good[y * w * 2 + x] = g[(y >> 1) * w + (x >> 1)];
+    const bad = good.slice(); for (let y = 0; y < h * 2; y += 6) for (let x = 0; x < w * 2; x += 5) { bad[y * w * 2 + x] = 0; bad[y * w * 2 + x + 1] = 0; bad[(y + 1) * w * 2 + x] = 0; bad[(y + 1) * w * 2 + x + 1] = 0; }
+    for (let x = 20; x < 220; x += 3) { bad[80 * w * 2 + x] = 255; bad[81 * w * 2 + x] = 255; }
+    return { good: E.aiLooksRight(g, good, w, h), bad: E.aiLooksRight(g, bad, w, h) };
+  });
+  ok(guard.good && !guard.bad, 'AI 결과 검사: 멀쩡하면 쓰고 · 점이 찍히거나 줄이 끊기면 버림', guard);
 
   console.log('■ 휴대폰에서는 막음');
   const pctx = await br.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, locale: 'ko-KR' });

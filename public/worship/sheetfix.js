@@ -54,6 +54,8 @@
       var tf = root.tf;
       return tf.setBackend('webgl').then(function (ok) {
         if (!ok || tf.getBackend() !== 'webgl') throw new Error('이 기기는 그래픽 가속(WebGL)을 쓸 수 없어 AI 보정을 건너뜁니다.');
+        var f32 = true; try { f32 = tf.env().getBool('WEBGL_RENDER_FLOAT32_ENABLED'); } catch (e) { f32 = true; }
+        if (!f32) throw new Error('이 기기의 그래픽은 AI 계산 정밀도가 모자라 (점이 찍히거나 글자가 깨질 수 있어) 일반 보정으로 합니다.');
         try { tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0); } catch (e) { /* 텍스처를 바로 돌려줌 (iPad 메모리) */ }
         return tf.ready();
       }).then(function () { return tf.loadLayersModel(URLS.model); }).then(function (m) { AI.tf = tf; AI.model = m; return AI; });
@@ -296,18 +298,37 @@
   /**
    * 그림 한 장(캔버스) → 키운 회색 그림 (보정 세기와 상관없는 앞부분 — 세기만 바꿀 때는 이것을 다시 씀)
    */
+  /**
+   * AI 결과 검사 — 2배 그림을 다시 반으로 줄여 원래 그림과 견줘 봄. 그래픽 칩의 정밀도 문제(일부 iPad · Mac)로
+   * 점이 찍히거나 줄 · 글자가 끊긴 결과가 나오면 원래와 크게 달라지므로 그 쪽은 AI 를 쓰지 않음.
+   */
+  function aiLooksRight(g, up, w, h) {
+    var W2 = w * 2, n = 0, sum = 0, big = 0;
+    for (var y = 0; y < h; y += 2) for (var x = 0; x < w; x += 2) {
+      var i = (2 * y) * W2 + 2 * x, a = (up[i] + up[i + 1] + up[i + W2] + up[i + W2 + 1]) / 4, d = Math.abs(a - g[y * w + x]);
+      sum += d; n++; if (d > 70) big++;
+    }
+    var mae = sum / Math.max(1, n), frac = big / Math.max(1, n);
+    AI.check = { mae: Math.round(mae * 10) / 10, frac: Math.round(frac * 10000) / 10000 };
+    return mae < 9 && frac < 0.006;
+  }
   function upscaleCanvas(src, opt) {
     opt = opt || {};
     var w = src.width, h = src.height, long = Math.max(w, h), want = Math.min(CFG.target / long, 4), useAi = opt.ai && want >= CFG.aiMin && AI.model;
     var g = median3(flatten(canvasGray(src), w, h), w, h);                         // 키우기 전에 잡티(JPEG · 먼지 한 점)를 지움 — 키우고 나면 덩어리가 되어 지우기 어려움
-    var step = useAi && !AI.slow ? aiUpscale(g, w, h, opt.onTick, opt.isStop).then(function (up) { return up === 'slow' ? { g: g, w: w, h: h, ai: false, slow: true } : up ? { g: up, w: w * 2, h: h * 2, ai: true } : null; })
+    var step = useAi && !AI.slow ? aiUpscale(g, w, h, opt.onTick, opt.isStop).then(function (up) {
+      if (up === 'slow') return { g: g, w: w, h: h, ai: false, slow: true };
+      if (!up) return null;
+      if (!aiLooksRight(g, up, w, h)) { AI.bad = true; return { g: g, w: w, h: h, ai: false, bad: true }; }      // 기기 탓으로 AI 결과가 깨졌으면 버리고 일반 확대로
+      return { g: up, w: w * 2, h: h * 2, ai: true };
+    })
       : Promise.resolve({ g: g, w: w, h: h, ai: false });
     return step.then(function (r) {
       if (!r) return null;
       var W = Math.round(w * Math.max(1, want)), H = Math.round(h * Math.max(1, want)), cv = grayToCanvas(r.g, r.w, r.h);
       if (cv.width !== W || cv.height !== H) { var c2 = resizeCanvas(cv, W, H); if (c2 !== cv) { free(cv); cv = c2; } }
       var g2 = canvasGray(cv); free(cv);
-      return { g: g2, W: W, H: H, ai: r.ai, slow: !!r.slow, scale: W / w, want: want };
+      return { g: g2, W: W, H: H, ai: r.ai, slow: !!r.slow, bad: !!r.bad, scale: W / w, want: want };
     });
   }
   /** 키운 회색 그림 → 보정 세기대로 마무리한 캔버스 (원본 base.g 는 건드리지 않음) */
@@ -450,7 +471,7 @@
       cx.moveTo(p[0][0], sm[0] + 0.5); for (var i = 1; i < p.length; i++) cx.lineTo(p[i][0], sm[i] + 0.5);
       cx.stroke();
     });
-    return { cv: cv, ai: base.ai, slow: base.slow, scale: sc, lv: fin.lv, mode: 'clean', skew: ang, lines: lines.length };
+    return { cv: cv, ai: base.ai, slow: base.slow, bad: base.bad, scale: sc, lv: fin.lv, mode: 'clean', skew: ang, lines: lines.length };
   }
 
   function finishBase(base, mode) {
@@ -462,7 +483,7 @@
       if (!base.ai && base.want > 1.15) g2 = unsharp(g2, W, H, 0.6);
       lv = levels(g2);
     } else { var fin = inkFinish(g2, W, H, mode, base.scale); g2 = fin.g; lv = fin.lv; }
-    return { cv: grayToCanvas(g2, W, H), ai: base.ai, slow: base.slow, scale: base.scale, lv: lv, mode: mode };
+    return { cv: grayToCanvas(g2, W, H), ai: base.ai, slow: base.slow, bad: base.bad, scale: base.scale, lv: lv, mode: mode };
   }
 
   /**
@@ -529,7 +550,7 @@
     }
     return imageToCanvas(u8).then(function (r) {
       var W = 612, H = Math.round(612 * r.cv.height / r.cv.width * 100) / 100;            // 쪽 크기(포인트) — 그림 비율 그대로
-      return { kind: 'image', pages: [{ i: 1, raster: true, w: W, h: H, srcLong: Math.max(r.cv.width, r.cv.height), get: function (long) { if (!long || long >= Math.max(r.cv.width, r.cv.height)) return Promise.resolve(r.cv); return Promise.resolve(resizeCanvas(r.cv, Math.round(r.cv.width * long / Math.max(r.cv.width, r.cv.height)), Math.round(r.cv.height * long / Math.max(r.cv.width, r.cv.height)))); } }], bytes: u8 };
+      return { kind: 'image', pages: [{ i: 1, raster: true, w: W, h: H, srcLong: Math.max(r.cv.width, r.cv.height), get: function (long) { if (!long || long >= Math.max(r.cv.width, r.cv.height)) { var cp = doc.createElement('canvas'); cp.width = r.cv.width; cp.height = r.cv.height; cp.getContext('2d').drawImage(r.cv, 0, 0); return Promise.resolve(cp); } /* 늘 복사본 — 보정이 끝나 지워도 비교 화면의 원본은 남게 */ return Promise.resolve(resizeCanvas(r.cv, Math.round(r.cv.width * long / Math.max(r.cv.width, r.cv.height)), Math.round(r.cv.height * long / Math.max(r.cv.width, r.cv.height)))); } }], bytes: u8 };
     });
   }
   /** 보정한 쪽(JPEG) + 그대로 둘 쪽(원본 PDF 쪽 복사) → 새 PDF — 쪽 크기는 원본과 똑같이 */
@@ -604,7 +625,7 @@
           '<input type="range" min="0" max="100" value="50" data-r="wipe" aria-label="원본 · 보정본 경계"><button type="button" class="sf-btn sm" data-a="zoom" aria-pressed="false">🔍 확대</button></div>' +
         '<div class="sf-row sf-mode" role="radiogroup" aria-label="보정 세기"><span class="sf-ml">세기</span>' + MODES.map(function (m) { return '<button type="button" class="sf-btn sm' + (st.mode === m[0] ? ' on' : '') + '" role="radio" aria-checked="' + (st.mode === m[0]) + '" data-a="mode" data-m="' + m[0] + '">' + m[1] + (m[0] === 'clean' ? ' <small>(추천)</small>' : '') + '</button>'; }).join('') +
           '<span class="sf-mh" data-r="mh"></span></div>' +
-        '<label class="sf-chk"><input type="checkbox" data-r="ai" checked> AI 2배 키우기 <small>해상도가 낮은 쪽만 · 기기가 느리면 자동으로 일반 보정</small></label>' +
+        '<label class="sf-chk"><input type="checkbox" data-r="ai"> AI 2배 키우기 (실험) <small>해상도가 아주 낮은 악보만 · 결과가 이상하면 자동으로 일반 보정 · 보통은 끄고 하세요</small></label>' +
         '<div class="sf-prog"><div class="sf-bar"><i data-r="bar"></i></div><div class="sf-st" data-r="st" role="status" aria-live="polite"></div></div>' +
       '</div>' +
       '<div class="sf-f"><button type="button" class="sf-btn" data-a="revert" hidden>원본으로 되돌리기</button><span class="sp"></span><button type="button" class="sf-btn" data-a="close">닫기</button>' +
@@ -744,6 +765,7 @@
                   if (r.length <= 12) st.base[idx] = base;                                      // 세기만 바꿀 때 다시 씀 (쪽이 많으면 메모리 때문에 두지 않음)
                   var out = finishBase(base, st.mode);
                   if (out.slow && !aiNote) aiNote = '이 기기에서 AI 가 느려 일반 보정으로 바꿨어요';
+                  if (out.bad && !aiNote) aiNote = 'AI 결과가 이 기기에서 깨져 보여 일반 보정으로 했어요';
                   return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[idx] = { jpg: jpg, ai: out.ai }; });
                 });
               }).catch(function (e) { st.res[idx] = { err: '이 쪽은 보정하지 못했어요 — 원본 그대로 둡니다. (' + ((e && e.message) || '') + ')' }; })
@@ -799,5 +821,5 @@
   root.YNSheetFix = root.YNSheetFix || {};
   root.YNSheetFix.open = open;
   root.YNSheetFix.current = function () { return cur; };
-  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
+  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, aiLooksRight: aiLooksRight, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
 })(typeof window !== 'undefined' ? window : this);
