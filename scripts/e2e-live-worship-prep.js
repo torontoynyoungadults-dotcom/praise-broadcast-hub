@@ -90,7 +90,7 @@ global.fetch = async (url, opt) => {
   ok(await page.waitForSelector('.pv-prep', { timeout: 4000 }).then(() => true, () => false), '준비 진행 카드가 뜸');
   ok(await page.waitForFunction(() => { const e = document.querySelector('.pv-prep'); return e && /준비 완료|거의 준비/.test(e.textContent); }, null, { timeout: 60000 }).then(() => true, () => false), '준비가 끝남');
   const prepTxt = await page.evaluate(() => document.querySelector('.pv-prep').textContent);
-  ok(/✓ 예배 준비 완료/.test(prepTxt) && /악보 3개/.test(prepTxt) && /코드 바꿀 곡 2개/.test(prepTxt), '완료 카드: 악보 3개 · 코드 바꿀 곡 2개', prepTxt);
+  ok(/예배 준비 완료/.test(prepTxt) && /악보 3개/.test(prepTxt) && /코드 바꿀 곡 2개/.test(prepTxt), '완료 카드: 악보 3개 · 코드 바꿀 곡 2개', prepTxt);
   const hk = await harmKeys();
   ok(hk.length === 2 && hk.every((x) => /:1$/.test(x)), '키를 바꾼 두 곡만 미리 분석해 이 기기에 저장 (안 바꾼 곡은 건너뜀)', hk);
   ok(await page.evaluate(() => /✓ \d\d:\d\d/.test(document.querySelector('.pv-prepbtn').textContent)), '준비 단추에 ✓ 시각 표시');

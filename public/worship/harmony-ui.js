@@ -1306,7 +1306,7 @@
 
     function setMode(m) {
       if (S.editor) closeEditor(true);
-      if (m !== 'view' && P.worship && P.worship()) { toast('🔒 예배 모드에서는 고칠 수 없어요 — 위의 🔒 를 두 번 눌러 끄세요'); m = 'view'; }     // V871
+      if (m !== 'view' && P.worship && P.worship()) { toast('예배 모드에서는 고칠 수 없어요 — 위의 자물쇠를 두 번 눌러 끄세요'); m = 'view'; }     // V871
       S.mode = m; S.sel = null; S.drag = null; cv.style.pointerEvents = m === 'view' ? 'none' : 'auto'; cv.style.cursor = m === 'view' ? '' : m === 'chord' ? 'text' : 'grab';
       redraw(); syncPanel();
     }

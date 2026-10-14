@@ -2253,3 +2253,23 @@ html body .pv .pv-mline .pv-beat { flex: none; width: 24px; height: 24px; min-he
 html body .pv .pv-mline .pv-beat b { font-size: 11px; }
 html body .pv .pv-mline .pv-beat em { font-size: 9px; margin-top: 0; }
 html body .pv .pv-mline .pv-beat.on { transform: scale(1.08); }
+
+/* V872 — 폰 메뉴(서랍) 안의 필기 도구: 태블릿용 어두운 막대 배경을 쓰지 않음 (밝은 화면에서 검게 보이던 문제) */
+.pv.pv-compact .pv-drawer .pv-tools, .pv.pv-tablet.pv-compact .pv-drawer .pv-tools { background: none !important; background-color: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tg { background: #F6F7F9; border-color: rgba(15, 23, 42, .1); }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool { background: #FFFFFF; border: 1px solid rgba(15, 23, 42, .1); color: #1F2937; }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool:disabled { opacity: .45; }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-size { background: #FFFFFF; border-color: rgba(15, 23, 42, .14); }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-size::after, html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-size i { background: #1F2937; }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-pill, html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-mineonly { color: #1F2937; border-color: rgba(15, 23, 42, .16); }
+
+.pv .pv-compact .pv-drawer .pv-rszw, .pv.pv-compact .pv-drawer .pv-rszw { display: none !important; }
+/* V872 — 「⋯」 메뉴 아이콘을 한 가족으로: 같은 크기 · 같은 색 (이모지 · 제각각 색 대신) */
+.pv .pv-acts .pv-b .yi, .pv .pv-hx .pv-fsbtn .yi, .pv .pv-acts .pv-themebtn .yi.yi-sun, .pv .pv-acts .pv-themebtn .yi.yi-moon { width: 22px; height: 22px; color: #D6B97F; vertical-align: middle; }
+html[data-theme="light"] .pv .pv-acts .pv-b .yi, html[data-theme="light"] .pv .pv-hx .pv-fsbtn .yi, html[data-theme="light"] .pv .pv-acts .pv-themebtn .yi.yi-sun, html[data-theme="light"] .pv .pv-acts .pv-themebtn .yi.yi-moon { color: #0E7C86; }
+.pv .pv-wsbtn .yi { width: 18px; height: 18px; color: inherit; }
+.pv-prep b .yi, .pv-pedal b .yi { width: 18px; height: 18px; vertical-align: -3px; }
+.pv-prep button .yi { width: 16px; height: 16px; vertical-align: -3px; }
+.pv .pv-chip .yi { width: 15px; height: 15px; vertical-align: -2px; }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool .nm, html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool .ic { color: #1F2937 !important; }
+html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool.on .nm, html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool.on .ic { color: #FFFFFF !important; }
