@@ -2792,7 +2792,7 @@
     function flResize() { if (flRt) return; flRt = requestAnimationFrame(function () { flRt = 0; if (!S.dead) flPlaceAll(); }); }
     P.on('close', function () { root.removeEventListener('resize', flResize); if (flRo) flRo.disconnect(); });
     /* 악보의 빈 곳을 톡 → 도구 접기 (이동 · 선택 모드에서) · 펜슬 전용 모드에서 손가락 톡 → 선택·이동 */
-    var tapD = null;
+    var tapD = null, lpT = 0, lpFired = 0;
     /* v6.10 — 애플 펜슬로 악보에 그냥 쓰면 바로 펜으로 그려집니다 (도구를 열어 펜을 고르지 않아도).
        "이동"(손바닥) 도구일 때만 — 선택 · 글자 · 코드 등 일부러 고른 도구는 그대로 둡니다. 도구가 접혀 있어도 되고, 첫 획부터 이어서 그려집니다. */
     stage.addEventListener('pointerdown', function (e) {
@@ -2805,8 +2805,23 @@
     }, true);
     stage.addEventListener('pointerdown', function (e) {
       tapD = (e.isPrimary && !(e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input'))) ? { x: e.clientX, y: e.clientY, t: Date.now(), sel: !!(an.selected && an.selected()), tool: S.tool, type: e.pointerType, id: e.pointerId } : null;
+      clearTimeout(lpT); lpT = 0;
+      /* V870 — 이동 도구로 악보의 코드 글자를 길게(0.6초) 누르면 → 그 자리에 코드 직접 넣기 · 고치기 (자동 인식이 놓친 코드) */
+      if (tapD && tapD.tool === 'none' && S.tool === 'none' && !opts.readOnly && !(e.target.closest && e.target.closest('.hm-edbox,.hm-pop,textarea,a'))) {
+        var d0 = tapD;
+        lpT = setTimeout(function () {
+          lpT = 0; if (tapD !== d0 || S.dead || S.tool !== 'none') return;
+          var hz = null; try { hz = P.ensureTab ? P.ensureTab('harmony') : null; } catch (x) { hz = null; }
+          if (hz && hz.addChordAt && hz.addChordAt(d0.x, d0.y)) { tapD = null; lpFired = Date.now(); try { if (navigator.vibrate) navigator.vibrate(12); } catch (x) { /* 지원 안 함 */ } }
+        }, 600);
+      }
     }, true);
+    stage.addEventListener('pointermove', function (e) { if (lpT && tapD && e.pointerId === tapD.id && Math.hypot(e.clientX - tapD.x, e.clientY - tapD.y) > 8) { clearTimeout(lpT); lpT = 0; } }, true);
+    stage.addEventListener('pointercancel', function () { clearTimeout(lpT); lpT = 0; }, true);
+    stage.addEventListener('contextmenu', function (e) { if (Date.now() - lpFired < 1200 || lpT) e.preventDefault(); }, true);     // 길게 누를 때 뜨는 브라우저 메뉴 막기
     stage.addEventListener('pointerup', function (e) {
+      clearTimeout(lpT); lpT = 0;
+      if (Date.now() - lpFired < 1500) { lpFired = 0; try { var hz2 = P.ensureTab ? P.ensureTab('harmony') : null; if (hz2 && hz2.focusEditor) hz2.focusEditor(); } catch (x) { /* 무시 */ } }     // 손을 뗄 때 입력칸에 초점 (아이패드 키보드는 손을 뗀 순간에만 열림)
       var d = tapD; tapD = null;
       if (!d || e.pointerId !== d.id || S.dead) return;
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || Date.now() - d.t > 400) return;

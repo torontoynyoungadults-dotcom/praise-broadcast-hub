@@ -47,6 +47,16 @@
     '.hm-num{width:78px;padding:9px 10px;border-radius:11px;border:1px solid var(--g-line2,rgba(255,255,255,.26));background:rgba(255,255,255,.09);color:var(--g-ink,#f8f5f0);font-size:16px;font-weight:800;text-align:center}' +
     '.hm-staffs label{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px}' +
     '.hm-edit{position:absolute;z-index:7;padding:4px 8px;border-radius:9px;border:2px solid #ff8a2a;background:rgba(14,14,22,.96);color:#ffb066;font:800 16px -apple-system,Helvetica,Arial,sans-serif;outline:none;box-shadow:0 6px 22px rgba(0,0,0,.55)}' +
+    '.hm-edbox{position:absolute;z-index:9;width:232px;padding:9px;border-radius:14px;border:2px solid #ff8a2a;background:rgba(14,14,22,.97);color:#f8f5f0;box-shadow:0 10px 30px rgba(0,0,0,.6);font:700 12.5px -apple-system,Helvetica,Arial,sans-serif}' +
+    '.hm-edbox .hm-edit{position:static;display:block;width:100%;box-sizing:border-box;font-size:20px;padding:6px 10px}' +
+    '.pv-stage{-webkit-touch-callout:none}' +
+    '.hm-edtitle{margin:0 0 6px;font-size:12px;color:#ffb066}' +
+    '.hm-edseg{display:flex;gap:5px;margin-top:7px}.hm-edseg button{flex:1 1 0;min-height:34px;padding:4px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.07);color:#f8f5f0;font:800 12px -apple-system,Helvetica,Arial,sans-serif}' +
+    '.hm-edseg button[aria-pressed=true]{background:linear-gradient(135deg,#ff9d47,#ff7a1c);color:#1a0f05;border-color:transparent}' +
+    '.hm-edprev{margin-top:7px;min-height:17px;color:#d4cfc7}.hm-edprev b{color:#ffb066;font-size:14px}.hm-edprev.bad{color:#ff8f8f}' +
+    '.hm-edact{display:flex;gap:6px;margin-top:8px}.hm-edact button{flex:1 1 auto;min-height:38px;border-radius:11px;border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.08);color:#f8f5f0;font:800 13.5px -apple-system,Helvetica,Arial,sans-serif}' +
+    '.hm-edact button.ok{background:linear-gradient(135deg,#ff9d47,#ff7a1c);color:#1a0f05;border-color:transparent}.hm-edact button.del{color:#ff9a9a}' +
+    'html[data-theme=light] .hm-edbox{background:rgba(255,255,255,.98);color:#111}html[data-theme=light] .hm-edseg button,html[data-theme=light] .hm-edact button{color:#111;border-color:rgba(0,0,0,.2)}html[data-theme=light] .hm-edprev{color:#444}' +
     '.hm-legend span{margin-right:12px;font-size:12.5px;color:var(--g-sub,#d4cfc7)}' +
     '.hm-pop{position:absolute;z-index:8;pointer-events:none;padding:7px 11px 6px;border-radius:13px;background:rgba(14,14,22,.95);border:1.5px solid #ff8a2a;color:#fff;box-shadow:0 8px 26px rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translate(-50%,-100%);white-space:nowrap;transition:opacity .25s}' +
     '.hm-pop b{display:block;font:900 17px -apple-system,Helvetica,Arial,sans-serif;color:#FFB066}.hm-pop span{display:block;margin-top:2px;font:700 12px -apple-system,Helvetica,Arial,sans-serif;color:#e8e3da}.hm-pop i{font-style:normal;color:#9aa0ab;font-weight:600}' +
@@ -272,21 +282,43 @@
         rowsSorted.forEach(function (cd, i) { var cy = (cd.y + cd.h / 2) * Hh; if (Math.abs(cy - lastY) > F * 0.8) { ri++; rowMid[ri] = []; } rowMid[ri].push(cy); rowOf[i] = ri; lastY = cy; });
         Object.keys(rowMid).forEach(function (k) { var a = rowMid[k].slice().sort(function (x, y) { return x - y; }); rowMid[k] = a[Math.floor(a.length / 2)]; });
         c.font = FONT;
+        var vis = [];
         rowsSorted.forEach(function (cd, i) {
           var user = cd.src === 'user'; if (S.semis === 0 && !user) return;
           var x = cd.x * W, y = cd.y * Hh, w = cd.w * W, hh = cd.h * Hh, pad = Math.max(2, hh * 0.14);
-          if (!user) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2); }
+          if (!user || cd.cover) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2); }     // 손으로 넣은 코드도 인쇄된 글자 자리를 찾았으면 덮음
+          vis.push({ cd: cd, row: rowOf[i], txt: cd.pre + HC.formatChord(cd.parsed, S.semis, S.flats) + cd.post, x: x, w: w });
         });
-        rowsSorted.forEach(function (cd, i) {
-          var user = cd.src === 'user'; if (S.semis === 0 && !user) return;
-          var txt = cd.pre + HC.formatChord(cd.parsed, S.semis, S.flats) + cd.post;
-          var x = cd.x * W, w = cd.w * W, cy = rowMid[rowOf[i]];
-          c.font = FONT; var tw = c.measureText(txt).width;
-          var cw = Math.max(w + 6, tw + 12);
-          roundRect(c, x - 4, cy - CHH / 2, cw, CHH, Math.min(8, CHH * 0.3)); c.fillStyle = COL.chip; c.fill();
+        /* V870 — 키를 바꿔 코드가 길어져도(예: G → Ab, C → C#m7) 옆 코드와 겹치지 않게:
+           ① 같은 줄의 칩을 왼쪽부터 놓으며 앞 칩과 겹치면 오른쪽으로 밀고, ② 많이 밀려야 하면 페이지 전체 글자를 조금씩(최대 78%) 줄여 맞추고,
+           ③ 오른쪽 끝을 넘으면 뒤에서부터 왼쪽으로 당깁니다. 모든 칩은 같은 높이 · 같은 글자 크기를 유지합니다. */
+        var byRow = {}, rowKeys;
+        vis.forEach(function (v) { (byRow[v.row] = byRow[v.row] || []).push(v); });
+        rowKeys = Object.keys(byRow); rowKeys.forEach(function (k) { byRow[k].sort(function (a, b) { return a.x - b.x; }); });
+        var fontOf = function (f) { return '800 ' + f + 'px -apple-system,"Helvetica Neue",Arial,sans-serif'; };
+        var layoutAt = function (f) {
+          c.font = fontOf(f); var padX = Math.max(4, f * 0.38), gap = Math.max(3, f * 0.24), worst = 0;
+          rowKeys.forEach(function (k) {
+            var row = byRow[k], prevR = -1e9, j;
+            row.forEach(function (v) {
+              v.tw = c.measureText(v.txt).width; v.cw = Math.max(v.tw + padX * 2, CHH * 0.9);
+              var want = v.x - 4 - Math.max(0, (v.cw - (v.w + 8)) * 0.15);                         // 길어진 칩은 왼쪽으로도 살짝 (원래 글자 자리 가운데 쪽으로)
+              v.px = Math.max(want, prevR + gap, 0); worst = Math.max(worst, v.px - want); prevR = v.px + v.cw;
+            });
+            var lim = W - 2;                                                                         // 오른쪽 끝을 넘으면 뒤에서부터 당김
+            for (j = row.length - 1; j >= 0; j--) { if (row[j].px + row[j].cw > lim) row[j].px = Math.max(0, lim - row[j].cw); lim = row[j].px - gap; }
+          });
+          return worst;
+        };
+        var FF = F, steps = [1, 0.93, 0.86, 0.78];
+        for (var si = 0; si < steps.length; si++) { FF = Math.max(8, F * steps[si]); if (layoutAt(FF) <= Math.max(5, FF * 0.45) || si === steps.length - 1) break; }
+        c.font = fontOf(FF);
+        vis.forEach(function (v) {
+          var cd = v.cd, cy = rowMid[v.row], px = v.px, cw = v.cw;
+          roundRect(c, px, cy - CHH / 2, cw, CHH, Math.min(8, CHH * 0.3)); c.fillStyle = COL.chip; c.fill();
           c.lineWidth = 1.6; c.strokeStyle = COL.chipLn; if (cd.conf != null && cd.conf < 60 && cd.src === 'ocr') c.setLineDash([4, 3]); c.stroke(); c.setLineDash([]);
-          c.fillStyle = COL.chipTx; c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillText(txt, x + 2, cy + F * 0.03);
-          if (hits) hits.push({ kind: 'chord', id: cd.id, x: x - 4 + cw / 2, y: cy, w: cw, h: CHH });
+          c.fillStyle = COL.chipTx; c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillText(v.txt, px + (cw - v.tw) / 2, cy + FF * 0.03);
+          if (hits) hits.push({ kind: 'chord', id: cd.id, x: px + cw / 2, y: cy, w: cw, h: CHH });
         });
       }
       /* 2) 화음 머리 */
@@ -753,6 +785,7 @@
     function noteState() {
       var n = pShift(), pg = pgKey(), pd = S.data && S.data.pages[pg];
       if (n === 0) { note('원래 키 그대로 — 악보 코드를 바꾸지 않습니다.'); return; }
+      if (pd && !S.addHint) { S.addHint = true; var seen = '1'; try { seen = root.localStorage.getItem('yn.pv.harm.addhint'); root.localStorage.setItem('yn.pv.harm.addhint', '1'); } catch (e) { /* 저장이 막힌 브라우저 */ } if (seen !== '1') setTimeout(function () { if (!S.dead) toast('빠진 코드가 있으면 악보의 그 코드 글자를 길게 누르세요 — 직접 넣을 수 있어요.'); }, 1800); }
       if (pd) { var nc = pd.chords.filter(function (c) { return c.parsed; }).length; note(nc ? '이 페이지 코드 ' + nc + '개를 ' + HC.keyName(S.okey) + ' → ' + HC.keyName(S.tkey) + ' (' + (S.semis > 0 ? '+' : '') + S.semis + ') 로 바꿔 그렸습니다.' : '이 페이지에서 읽은 코드가 없습니다.', !nc); }
       else if (S.autoOn) { if (S.busy) note('분석이 끝나면 이 페이지 코드를 바꿔 그립니다…'); }
       else note('이 페이지은 아직 분석하지 않았습니다. 화음 탭에서 "이 페이지 분석"을 눌러 주세요 (자동 분석이 꺼져 있습니다).', true);
@@ -975,7 +1008,7 @@
       if (S.mode === 'chord') {
         var c = hitAt(p, ['chord'], touch), sub2 = S.sub.chord;
         if (c) { try { playChordObj(pd.chords.filter(function (q) { return q.id === c.id; })[0]); } catch (x) { /* 소리는 덤 */ } openEditor(c.id, null); return; }
-        if (sub2 === 'add') { openEditor(null, { nx: p.nx, ny: p.ny }); return; }
+        if (sub2 === 'add') { openEditor(null, { nx: p.nx, ny: p.ny }); var ed0 = S.editor; if (ed0) snapInk(pg, pd, p.nx, p.ny).then(function (b) { if (S.editor === ed0) ed0.snap = b; }); return; }
       }
     }
     function onMove(e) {
@@ -1019,33 +1052,146 @@
       pd.notes = pd.notes.filter(function (z) { return z.id !== id; }); if (S.sel && S.sel.id === id) S.sel = null;
       pushUndo(function () { pd.notes.push(n); }); commit();
     }
-    /* 코드 글자 고치기 — 칩 자리에 입력칸을 띄움 */
+    /* 코드 글자 고치기 · 넣기 — V870: 칩 자리에 입력 상자를 띄움
+       · 키를 바꾼 상태면 「악보에 적힌 대로(원래 조)」 또는 「바꾼 키로」 중 편한 쪽으로 입력 (마지막 선택을 기억) · 아래에 결과 미리보기
+       · 저장은 항상 원래 조 글자로 (키를 다시 바꿔도 따라 옮겨짐) */
+    function origFlats() { try { return S.okey ? !!HC.keyUsesFlats(S.okey) : false; } catch (e) { return false; } }
+    function shiftedNow() { return !!(S.data && !S.data.show.orig && S.semis); }
     function openEditor(id, at) {
-      var pg = pgKey(), pd = S.data.pages[pg], cd = id ? pd.chords.filter(function (c) { return c.id === id; })[0] : null; if (id && !cd) return;
-      var W = cv.clientWidth, Hh = cv.clientHeight, inp = doc.createElement('input');
-      inp.type = 'text'; inp.className = 'hm-edit'; inp.value = cd ? cd.text : ''; inp.setAttribute('autocapitalize', 'characters'); inp.setAttribute('autocomplete', 'off'); inp.setAttribute('spellcheck', 'false'); inp.setAttribute('enterkeyhint', 'done'); inp.setAttribute('aria-label', '코드 (원래 악보에 적힌 그대로)');
-      var x = cd ? cd.x * W - 6 : at.nx * W - 30, y = cd ? cd.y * Hh - 8 : at.ny * Hh - 18;
-      inp.style.left = Math.max(0, x) + 'px'; inp.style.top = Math.max(0, y) + 'px'; inp.style.width = Math.max(96, cd ? cd.w * W + 40 : 96) + 'px';
-      box.appendChild(inp); S.editor = { inp: inp, id: id, at: at }; setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 0);
+      if (S.editor) closeEditor(true);
+      var pg = pgKey(), pd = S.data && S.data.pages[pg], cd = id && pd ? pd.chords.filter(function (c) { return c.id === id; })[0] : null; if (!pd || (id && !cd)) return;
+      var W = cv.clientWidth, Hh = cv.clientHeight, sh = shiftedNow();
+      if (S.edTarget == null) { try { S.edTarget = root.localStorage.getItem('yn.pv.harm.edtarget') === '1'; } catch (e) { S.edTarget = false; } }
+      var ed = { id: id, at: at, target: sh && S.edTarget, snap: null };
+      var wrap = doc.createElement('div'); wrap.className = 'hm-edbox'; wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-label', cd ? '코드 고치기' : '코드 넣기');
+      wrap.innerHTML = '<p class="hm-edtitle">' + (cd ? '코드 고치기' : '놓친 코드 넣기') + '</p>' +
+        '<input type="text" class="hm-edit" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="코드">' +
+        (sh ? '<div class="hm-edseg" role="group" aria-label="입력하는 키"><button type="button" data-k="orig">악보 글자 (' + h(HC.keyName(S.okey)) + ')</button><button type="button" data-k="target">바꾼 키 (' + h(HC.keyName(S.tkey)) + ')</button></div>' : '') +
+        '<div class="hm-edprev" aria-live="polite"></div>' +
+        '<div class="hm-edact"><button type="button" class="ok" data-k="ok">' + (cd ? '고치기' : '넣기') + '</button>' + (cd ? '<button type="button" class="del" data-k="del">지우기</button>' : '') + '<button type="button" data-k="x">취소</button></div>';
+      var inp = wrap.querySelector('input'), prev = wrap.querySelector('.hm-edprev');
+      ed.wrap = wrap; ed.inp = inp;
+      var showVal = function (txt) { if (!txt) return ''; var p = HC.parseChord(HC.fixOcrChord(txt)); if (!p) return txt; return ed.target ? HC.formatChord(p, S.semis, S.flats) : (cd && txt === cd.text ? txt : HC.formatChord(p, 0, origFlats())); };
+      inp.value = cd ? (ed.target ? HC.formatChord(HC.parseChord(cd.text) || cd.parsed, S.semis, S.flats) : cd.text) : '';
+      var paint = function () {
+        Array.prototype.forEach.call(wrap.querySelectorAll('.hm-edseg button'), function (b) { b.setAttribute('aria-pressed', (b.getAttribute('data-k') === 'target') === !!ed.target ? 'true' : 'false'); });
+        var t = (inp.value || '').trim(), p = t ? HC.parseChord(HC.fixOcrChord(t)) : null;
+        prev.classList.toggle('bad', !!(t && !p));
+        if (!t) prev.innerHTML = cd ? '비우고 「고치기」를 누르면 이 코드를 지웁니다.' : '예: G · Am7 · D/F# · Bbmaj7';
+        else if (!p) prev.textContent = '코드로 읽을 수 없어요 (예: G, Am7, D/F#, Bbmaj7)';
+        else if (!sh) prev.innerHTML = '넣을 코드: <b>' + h(HC.formatChord(p, 0, origFlats())) + '</b>';
+        else if (ed.target) prev.innerHTML = '악보 원래 코드: <b>' + h(HC.formatChord(p, -S.semis, origFlats())) + '</b> → 화면 <b>' + h(HC.formatChord(p, 0, S.flats)) + '</b>';
+        else prev.innerHTML = '화면에 보일 코드: <b>' + h(HC.formatChord(p, S.semis, S.flats)) + '</b>';
+      };
+      paint();
+      var x = cd ? cd.x * W - 8 : at.nx * W - 116, y = cd ? (cd.y + cd.h) * Hh + 8 : at.ny * Hh + 22, bw = 232, bh = sh ? 176 : 136;
+      if (y + bh > Hh - 4) y = Math.max(0, (cd ? cd.y * Hh : at.ny * Hh) - bh - 18);                       // 아래 공간이 없으면 위로
+      wrap.style.left = clamp(x, 2, Math.max(2, W - bw - 2)) + 'px'; wrap.style.top = Math.max(2, y) + 'px';
+      box.appendChild(wrap); S.editor = ed;
+      setTimeout(function () { if (S.editor === ed) { try { inp.focus(); inp.select(); } catch (e) {} } }, 0);
+      inp.addEventListener('input', paint);
       inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); closeEditor(false); } else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeEditor(true); } ev.stopPropagation(); });
-      inp.addEventListener('blur', function () { setTimeout(function () { if (S.editor && S.editor.inp === inp) closeEditor(false); }, 120); });
-      ['pointerdown', 'touchstart', 'click'].forEach(function (n) { inp.addEventListener(n, function (ev) { ev.stopPropagation(); }); });
+      ed.t0 = Date.now(); ed.px = at && at.cx; ed.py = at && at.cy;
+      /* 입력칸에서 초점이 빠져도(키보드 내리기) 쓴 코드가 있을 때만 저장하며 닫음 — 손가락을 뗄 때 생기는 클릭에 상자가 바로 닫히지 않게 */
+      inp.addEventListener('blur', function () { setTimeout(function () { if (S.editor !== ed) return; var a = doc.activeElement; if (a && wrap.contains(a)) return; if (ed.hold && Date.now() - ed.hold < 600) return; if (Date.now() - ed.t0 < 900 || !(inp.value || '').trim()) return; closeEditor(false); }, 220); });
+      /* 상자 밖을 누르면 닫음 (쓴 코드가 맞으면 넣고) — 길게 누른 손가락을 뗄 때의 같은 자리 클릭은 무시 */
+      ed.outside = function (ev) {
+        if (S.editor !== ed) return; if (ev.target && wrap.contains(ev.target)) return;
+        if (Date.now() - ed.t0 < 1200 && ed.px != null && Math.hypot((ev.clientX || 0) - ed.px, (ev.clientY || 0) - ed.py) < 40) return;
+        var t = (inp.value || '').trim(); closeEditor(!t || !HC.parseChord(HC.fixOcrChord(t)));
+      };
+      doc.addEventListener('pointerdown', ed.outside, true);
+      ['pointerdown', 'mousedown', 'touchstart'].forEach(function (n) { wrap.addEventListener(n, function (ev) { ev.stopPropagation(); if (ev.target !== inp && ev.cancelable && n !== 'touchstart') { ev.preventDefault(); ed.hold = Date.now(); } }); });     // 단추를 눌러도 입력칸 초점(키보드)이 유지되게
+      ['pointerup', 'touchend', 'dblclick'].forEach(function (n) { wrap.addEventListener(n, function (ev) { ev.stopPropagation(); }); });
+      wrap.addEventListener('click', function (ev) {
+        ev.stopPropagation(); var b = ev.target.closest && ev.target.closest('button'); if (!b) return; var k = b.getAttribute('data-k');
+        if (k === 'orig' || k === 'target') {
+          var want = k === 'target'; if (want === !!ed.target) return;
+          var t = (inp.value || '').trim(), p = t ? HC.parseChord(HC.fixOcrChord(t)) : null;
+          if (p) inp.value = HC.formatChord(p, want ? S.semis : -S.semis, want ? S.flats : origFlats());       // 입력한 코드를 그 키로 옮겨 보여 줌
+          ed.target = want; S.edTarget = want; try { root.localStorage.setItem('yn.pv.harm.edtarget', want ? '1' : '0'); } catch (e) { /* 저장이 막힌 브라우저 */ }
+          paint(); try { inp.focus(); } catch (e) {} return;
+        }
+        if (k === 'ok') closeEditor(false); else if (k === 'del') closeEditor(false, 'del'); else if (k === 'x') closeEditor(true);
+      });
     }
-    function closeEditor(cancel) {
-      var ed = S.editor; if (!ed) return; S.editor = null; var txt = (ed.inp.value || '').trim(); try { ed.inp.remove(); } catch (e) {}
+    function closeEditor(cancel, act) {
+      var ed = S.editor; if (!ed) return; S.editor = null; var txt = (ed.inp.value || '').trim(); try { ed.wrap.remove(); } catch (e) {}
+      if (ed.outside) doc.removeEventListener('pointerdown', ed.outside, true);
       if (cancel) return;
-      var pg = pgKey(), pd = S.data.pages[pg], cd = ed.id ? pd.chords.filter(function (c) { return c.id === ed.id; })[0] : null;
-      if (!txt) { if (cd) { pd.chords = pd.chords.filter(function (c) { return c.id !== cd.id; }); pushUndo(function () { pd.chords.push(cd); }); commit(); } return; }
+      var pg = pgKey(), pd = S.data && S.data.pages[pg]; if (!pd) return;
+      var cd = ed.id ? pd.chords.filter(function (c) { return c.id === ed.id; })[0] : null;
+      if (act === 'del' || !txt) { if (cd) { pd.chords = pd.chords.filter(function (c) { return c.id !== cd.id; }); pushUndo(function () { pd.chords.push(cd); }); commit(); toast('코드를 지웠습니다.'); } return; }
       var fixed = HC.fixOcrChord(txt), parsed = HC.parseChord(fixed);
       if (!parsed) { toast('"' + txt + '" 은(는) 코드로 읽을 수 없습니다. (예: G, Am7, D/F#, Bbmaj7)', true); return; }
-      if (cd) { var prev = cd.text; if (prev === fixed) return; cd.text = fixed; pushUndo(function () { cd.text = prev; }); }
-      else {
-        var W = cv.clientWidth, Hh = cv.clientHeight, fs = median((pd.chords || []).map(function (c) { return c.fs || c.h; })) || 0.014, ms = measurer(), wpx = ms(fixed) / 20 * fs * Hh;
-        var n = { id: uid(), text: fixed, pre: '', post: '', x: ed.at.nx, y: ed.at.ny - fs * 0.5, w: wpx / W, h: fs * 1.05, fs: fs, src: 'user' };
+      if (ed.target && S.semis) fixed = HC.formatChord(parsed, -S.semis, origFlats());                        // 바꾼 키로 입력했으면 원래 조 글자로 되돌려 저장
+      if (cd) {
+        var prevT = cd.text, prevP = cd.parsed, prevPre = cd.pre, prevPost = cd.post; if (prevT === fixed) return;
+        cd.text = fixed; cd.parsed = HC.parseChord(fixed); cd.pre = ''; cd.post = '';
+        pushUndo(function () { cd.text = prevT; cd.parsed = prevP; cd.pre = prevPre; cd.post = prevPost; });
+      } else {
+        var W = cv.clientWidth, Hh = cv.clientHeight, fs = median((pd.chords || []).map(function (c) { return c.fs || c.h; })) || 0.014, ms = measurer(), wpx = ms(fixed) / 20 * fs * Hh, n;
+        if (ed.snap) n = { id: uid(), text: fixed, pre: '', post: '', x: ed.snap.x, y: ed.snap.y, w: ed.snap.w, h: ed.snap.h, fs: Math.min(fs * 1.6, Math.max(fs * 0.6, ed.snap.h)), src: 'user', cover: true };
+        else n = { id: uid(), text: fixed, pre: '', post: '', x: Math.max(0, ed.at.nx - (wpx / W) / 2), y: ed.at.ny - fs * 0.55, w: wpx / W, h: fs * 1.05, fs: fs, src: 'user' };
+        n.parsed = HC.parseChord(fixed);
         pd.chords.push(n); pushUndo(function () { pd.chords = pd.chords.filter(function (c) { return c.id !== n.id; }); });
+        S.flashChord = { id: n.id, t: Date.now() }; setTimeout(function () { if (!S.dead) redraw(); }, 1650);
+        toast('코드 ' + (shiftedNow() ? HC.formatChord(n.parsed, S.semis, S.flats) : fixed) + ' 를 넣었습니다. (되돌리기: 화음 탭)');
       }
       commit();
     }
+    /* V870 — 놓친 코드 바로 넣기: 라이브 악보(이동 도구)에서 인쇄된 코드 글자를 길게 누르면 그 자리에 입력 상자.
+       누른 자리의 인쇄된 글자(잉크 덩어리)를 찾아 그 위치 · 크기에 맞춰 넣고, 키를 바꾸면 원래 글자를 종이색으로 덮어 다른 코드처럼 칩으로 그립니다. */
+    var snapCache = null;
+    function pageInk(pg) {
+      if (snapCache && snapCache.pg === pg && snapCache.fid === S.fid) return snapCache.p;
+      var p = P.pageSize(+pg).then(function (sz) {
+        var c0 = doc.createElement('canvas'), sc = clamp(1400 / (sz && sz.w || 1400), 0.3, 4);
+        return P.renderPageTo(c0, +pg, sc).then(function () { return c0; });
+      });
+      snapCache = { pg: pg, fid: S.fid, p: p }; p.catch(function () { if (snapCache && snapCache.p === p) snapCache = null; });
+      return p;
+    }
+    function snapInk(pg, pd, nx, ny) {
+      var fs = median((pd.chords || []).map(function (c) { return c.fs || c.h; })) || 0.014;
+      return pageInk(pg).then(function (c0) {
+        var W0 = c0.width, H0 = c0.height, Hc = Math.max(6, fs * H0), tx = nx * W0, ty = ny * H0;
+        var x0 = Math.max(0, Math.round(tx - 3.5 * Hc)), x1 = Math.min(W0, Math.round(tx + 5 * Hc)), y0 = Math.max(0, Math.round(ty - 1.3 * Hc)), y1 = Math.min(H0, Math.round(ty + 1.3 * Hc));
+        var bw = x1 - x0, bh = y1 - y0, x, y; if (bw < 6 || bh < 6) return null;
+        var d = c0.getContext('2d').getImageData(x0, y0, bw, bh).data, ink = new Uint8Array(bw * bh), rowN = new Uint32Array(bh);
+        for (y = 0; y < bh; y++) for (x = 0; x < bw; x++) { var i = (y * bw + x) * 4, a = d[i + 3]; if (a > 40 && d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114 < 150) { ink[y * bw + x] = 1; rowN[y]++; } }
+        for (y = 0; y < bh; y++) if (rowN[y] > bw * 0.5) for (x = 0; x < bw; x++) ink[y * bw + x] = 0;       // 오선 · 빔 같은 긴 가로줄은 빼고
+        var ry = Math.round(ty - y0), band = Math.round(Hc * 0.75), col = new Uint8Array(bw);              // 누른 높이 근처 글자 줄
+        for (x = 0; x < bw; x++) for (y = Math.max(0, ry - band); y < Math.min(bh, ry + band); y++) if (ink[y * bw + x]) { col[x] = 1; break; }
+        var gap = Math.max(2, Math.round(Hc * 0.45)), groups = [], a0 = -1, last = -1;
+        for (x = 0; x < bw; x++) if (col[x]) { if (a0 < 0 || x - last > gap) { if (a0 >= 0) groups.push([a0, last]); a0 = x; } last = x; }
+        if (a0 >= 0) groups.push([a0, last]);
+        var rx = tx - x0, best = null, bd = 1e9;
+        groups.forEach(function (g) { var dd = rx < g[0] ? g[0] - rx : rx > g[1] ? rx - g[1] : 0; if (dd < bd) { bd = dd; best = g; } });
+        if (!best || bd > Hc * 0.9) return null;
+        if (best[0] <= 0 || best[1] >= bw - 1 || best[1] - best[0] + 1 > Hc * 6) return null;               // 창 끝까지 이어지면 글자가 아님 (가사 줄 · 선)
+        var yt = bh, yb = -1;
+        for (x = best[0]; x <= best[1]; x++) for (y = 0; y < bh; y++) if (ink[y * bw + x] && Math.abs(y - ry) < Hc * 1.25) { if (y < yt) yt = y; if (y > yb) yb = y; }
+        var gh = yb - yt + 1; if (yb < 0 || gh < Hc * 0.3 || gh > Hc * 2.4) return null;
+        return { x: (x0 + best[0]) / W0, y: (y0 + yt) / H0, w: (best[1] - best[0] + 1) / W0, h: gh / H0 };
+      }).catch(function () { return null; });
+    }
+    function addChordAt(cx, cy) {
+      if (S.dead || !S.data) return false;
+      var pg = pgKey(), pd = S.data.pages[pg], r = cv.getBoundingClientRect(); if (!r.width || !r.height) return false;
+      var nx = (cx - r.left) / r.width, ny = (cy - r.top) / r.height; if (nx < 0 || ny < 0 || nx > 1 || ny > 1) return false;
+      if (!pd) {
+        if (pShift() || S.semis) { toast(S.busy ? '이 페이지 코드를 읽는 중이에요 — 끝난 뒤 다시 길게 눌러 주세요.' : '이 페이지는 아직 코드 분석 전이에요 — 화음 탭에서 「이 페이지 분석」을 먼저 해 주세요.', true); return true; }
+        return false;
+      }
+      try { stopChordSeq(); hidePop(); } catch (e) { /* 말풍선이 없어도 */ }
+      var ex = chordAtClient(cx, cy, true);
+      if (ex) { openEditor(ex.id, { nx: nx, ny: ny, cx: cx, cy: cy }); return true; }
+      var at = { nx: nx, ny: ny, cx: cx, cy: cy }; openEditor(null, at);
+      var ed = S.editor; if (ed) snapInk(pg, pd, nx, ny).then(function (b) { if (S.editor === ed) ed.snap = b; });
+      return true;
+    }
+    function focusEditor() { var ed = S.editor; if (ed) { try { ed.inp.focus(); } catch (e) {} } }
 
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
     cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
@@ -1072,6 +1218,7 @@
         '<div class="hm-semis" aria-live="polite"></div>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="song-key" style="display:none"></button></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="showorig"><span></span><b>원래 코드 그대로 보기</b></label>' +
+        '<p class="pv-help">코드를 못 읽고 빠뜨렸다면 — 악보에서 그 코드 글자를 <b>길게 누르면</b> 직접 넣을 수 있어요. 악보에 적힌 대로(원래 조) 또는 바꾼 키로 입력할 수 있고, 팀과 함께 저장됩니다.</p>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="auto"><span></span><b>키를 바꾸면 이 페이지을 자동으로 분석</b></label>' +
         '</div>' +
       '<div class="pv-sec"><h4>③ 화음 보기 <span class="hm-legend"><span><i class="hm-dot" style="background:#FF4D4D"></i>알토</span><span><i class="hm-dot" style="background:#4D94FF"></i>테너</span></span></h4>' +
@@ -1234,14 +1381,14 @@
       if (S.dead) return; saveNow(); if (S.pushT && P.canEdit) pushShared(); S.dead = true; stop(true);
       try { clearInterval(pullTimer); if (doc) doc.removeEventListener('visibilitychange', onVis); } catch (e) {}
       try { if (ro) ro.disconnect(); root.removeEventListener('resize', redraw); } catch (e) {}
-      try { cv.remove(); } catch (e) {} try { if (S.editor) S.editor.inp.remove(); } catch (e) {}
+      try { cv.remove(); } catch (e) {} try { if (S.editor) { (S.editor.wrap || S.editor.inp).remove(); if (S.editor.outside) doc.removeEventListener('pointerdown', S.editor.outside, true); } } catch (e) {}
       try { stopChordSeq(); hidePop(); if (popEl) popEl.remove(); } catch (e) {}
       try { if (au.ctx && au.ctx.close) au.ctx.close(); } catch (e) {}
       try { if (S.worker) S.worker.then(function (w) { return w.terminate(); }).catch(function () {}); } catch (e) {}
     }
     loadFile(); if (pShift()) { noteState(); maybeAuto(); }
     /* 시험 · 점검용 손잡이 */
-    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
+    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
     root.YNHarmonyUI._last = api;
     return api;
   }
