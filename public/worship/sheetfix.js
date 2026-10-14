@@ -315,7 +315,7 @@
   function upscaleCanvas(src, opt) {
     opt = opt || {};
     var w = src.width, h = src.height, long = Math.max(w, h), want = Math.min(CFG.target / long, 4), useAi = opt.ai && want >= CFG.aiMin && AI.model;
-    var g = median3(flatten(canvasGray(src), w, h), w, h);                         // 키우기 전에 잡티(JPEG · 먼지 한 점)를 지움 — 키우고 나면 덩어리가 되어 지우기 어려움
+    var g = flatten(canvasGray(src), w, h);                                       // (중앙값 거르기는 쓰지 않음 — 1px 짜리 음표 줄기 · 마디선 · 오선을 지워 점선처럼 만듦. 잡티는 마지막에 덩어리 크기로 지움)
     var step = useAi && !AI.slow ? aiUpscale(g, w, h, opt.onTick, opt.isStop).then(function (up) {
       if (up === 'slow') return { g: g, w: w, h: h, ai: false, slow: true };
       if (!up) return null;
