@@ -1,0 +1,35 @@
+/** V875 — Claude 새로 그리기 · 코드 악보: 답이 악보 형식이 아닐 때 이유를 보여 주는지 · 앞뒤 말이 붙은 ABC 도 읽는지 (가짜 Claude) · node scripts/test-claude-engrave.js */
+process.env.ANTHROPIC_API_KEY = 'sk-test'; process.env.CLAUDE_ALLOW_EMAILS = 'me@test';
+const ai = require('../lib/claudeAi');
+let pass = 0, fail = 0; const ok = (c, m, x) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m + (x !== undefined ? ' → ' + JSON.stringify(x) : '')); } };
+let REPLY = { text: '', stop: 'end_turn' };
+global.fetch = async () => new Response(JSON.stringify({ content: [{ type: 'text', text: REPLY.text }], stop_reason: REPLY.stop }), { status: 200, headers: { 'content-type': 'application/json' } });
+const u = { email: 'me@test', name: 'x' }, IMG = 'data:image/jpeg;base64,' + Buffer.from('fake').toString('base64');
+const run = (task, p) => ai.run(u, task, p).then((r) => ({ r }), (e) => ({ e: e.message }));
+(async () => {
+  REPLY = { text: 'Here is the transcription:\n\n```abc\nX:1\nT:Test\nM:4/4\nL:1/8\nK:G\n"G"B2 B2 A2 A2 | G8 |]\nw:주 님 여 기\n```\nLet me know if you need changes.', stop: 'end_turn' };
+  let x = await run('engrave', { images: [IMG] });
+  ok(x.r && /^X:1/.test(x.r.abc) && !/```|Let me know|Here is/.test(x.r.abc) && /K:G/.test(x.r.abc), '앞뒤 설명 · 코드블록이 붙어도 ABC 만 골라냄', x);
+  REPLY = { text: 'T:Test\nM:4/4\nL:1/8\nK:D\nD2 F2 A2 d2 |]\n\nNote that some rhythms may be approximate.', stop: 'end_turn' };
+  x = await run('engrave', { images: [IMG] });
+  ok(x.r && /^X:1\nT:Test/.test(x.r.abc) && !/approximate/.test(x.r.abc), 'X: 줄이 없어도 머리말이 있으면 붙여서 읽음', x);
+  REPLY = { text: "I'm sorry, but I can't transcribe the complete melody and lyrics of this copyrighted song.", stop: 'end_turn' };
+  x = await run('engrave', { images: [IMG] });
+  ok(x.e && /거절/.test(x.e) && /코드 · 제목 다시 쓰기/.test(x.e) && /Claude 답: I'm sorry/.test(x.e), '거절한 답이면 이유 · 대안 · Claude 답을 보여 줌', x);
+  REPLY = { text: 'X:1\nT:Long\nK:G\n"G"B2 B2 A2', stop: 'max_tokens' };
+  x = await run('engrave', { images: [IMG] });
+  ok(x.r && x.r.truncated === true, '길어서 잘린 답은 그린 만큼 쓰고 "잘렸다" 표시', x);
+  REPLY = { text: '', stop: 'max_tokens' };
+  x = await run('engrave', { images: [IMG] });
+  ok(x.e && /길어서/.test(x.e), '아무것도 못 쓰고 잘리면 "곡을 나눠서" 안내', x);
+  REPLY = { text: 'Something else entirely', stop: 'end_turn' };
+  x = await run('engrave', { images: [IMG] });
+  ok(x.e && /악보 형식이 아니었어요/.test(x.e) && /Something else/.test(x.e), '다른 답이면 그 답을 보여 줌', x);
+  REPLY = { text: "I can't reproduce the full lyrics of this song.", stop: 'end_turn' };
+  x = await run('chart', { images: [IMG] });
+  ok(x.e && /코드 악보를 만들지 못했어요/.test(x.e) && /거절/.test(x.e), '코드 악보(B)도 거절 이유를 보여 줌', x);
+  REPLY = { text: '{title: A}\n[G]주님 [D]여기', stop: 'end_turn' };
+  x = await run('chart', { images: [IMG] });
+  ok(x.r && /\[G\]/.test(x.r.chordpro), '코드 악보 정상', x);
+  console.log(fail ? '✗ 실패 ' + fail : '✓ 모두 통과 (통과 ' + pass + ')'); process.exit(fail ? 1 : 0);
+})();

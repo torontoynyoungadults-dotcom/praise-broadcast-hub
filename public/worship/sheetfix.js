@@ -703,7 +703,7 @@
     '.sf-btn.pri{background:var(--a);border-color:transparent;color:#1a0f05}.sf-btn.sm{height:36px;padding:0 11px}.sf-btn.on{border-color:var(--a);color:var(--a)}' +
     '.sf-pg{min-width:64px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}' +
     '.sf-prog{margin-top:10px}.sf-bar{height:8px;border-radius:99px;background:var(--sf);overflow:hidden;border:1px solid var(--ln)}.sf-bar i{display:block;height:100%;width:0;background:var(--a);transition:width .2s}' +
-    '.sf-st{margin-top:6px;color:var(--dim);font-size:13px;min-height:19px}.sf-st.bad{color:#ff7b72;font-weight:700}' +
+    '.sf-st{margin-top:6px;color:var(--dim);font-size:13px;min-height:19px;white-space:pre-line;overflow-wrap:anywhere}.sf-st.bad{color:#ff7b72;font-weight:700}' +
     '.sf-mode .sf-ml{font-weight:800;color:var(--dim);margin-right:2px}.sf-mode small{font-weight:600;opacity:.75}.sf-mh{flex-basis:100%;color:var(--dim);font-size:12.5px}' +
     '.sf-chk{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--ink);font-size:13.5px}.sf-chk small{color:var(--dim)}' +
     '.sf-f{display:flex;align-items:center;gap:8px;padding:10px 16px 14px;border-top:1px solid var(--ln)}.sf-f .sp{flex:1}' +
@@ -935,8 +935,8 @@
           showPage(idx[0]); prog(0.15); say('Claude 에 보낼 그림을 만드는 중…');
           return idx.reduce(function (pr, i) { return pr.then(function (arr) { var p = src.pages[i]; return p.get(Math.min(p.srcLong || 2000, 1800)).then(function (c) { arr.push(jpegOf(c, 1568, 0.85)); free(c); return arr; }); }); }, Promise.resolve([]));
         })
-        .then(function (imgs) { prog(0.3); say('Claude 가 악보 전체를 옮겨 적는 중… (30초 ~ 2분)'); return CL('engrave', { images: imgs }); })
-        .then(function (r) { prog(0.75); say('새로 그리는 중…'); st.abc = r.abc; return engravePages(r.abc); })
+        .then(function (imgs) { prog(0.3); say('Claude 가 악보 전체를 옮겨 적는 중… (30초 ~ 3분)'); return CL('engrave', { images: imgs }); })
+        .then(function (r) { prog(0.75); say('새로 그리는 중…'); st.abc = r.abc; st.trunc = !!r.truncated; return engravePages(r.abc); })
         .then(function (pages) {
           return pages.reduce(function (pr, pc) { return pr.then(function (arr) { return toJpeg(pc, 0.9).then(function (j) { free(pc); arr.push(j); return arr; }); }); }, Promise.resolve([]));
         })
@@ -945,7 +945,7 @@
           st.res = st.src.pages.map(function (p, i) { return jpgs[i] ? { jpg: jpgs[i] } : null; });
           lock(false); prog(1); showPage(st.page);
           btn('start').hidden = true; btn('apply').hidden = false; btn('apply').disabled = false; btn('dl').hidden = false;
-          say('새로 그렸어요 (' + jpgs.length + '쪽). 원본과 꼭 비교해 보세요 — 음표 · 리듬이 틀린 곳이 있으면 쓰지 마세요. 「PDF 내려받기」로 따로 받아 둘 수도 있어요.' + (jpgs.length !== st.src.pages.length ? ' (쪽 수가 원본과 달라요: ' + st.src.pages.length + ' → ' + jpgs.length + ')' : ''));
+          say('새로 그렸어요 (' + jpgs.length + '쪽). 원본과 꼭 비교해 보세요 — 음표 · 리듬이 틀린 곳이 있으면 쓰지 마세요. 「PDF 내려받기」로 따로 받아 둘 수도 있어요.' + (jpgs.length !== st.src.pages.length ? ' (쪽 수가 원본과 달라요: ' + st.src.pages.length + ' → ' + jpgs.length + ')' : '') + (st.trunc ? '\n⚠ 악보가 길어 끝부분이 빠졌을 수 있어요 — 곡을 페이지별로 나눠서 해 보세요.' : ''));
           paintCMode();
         })
         .catch(function (e) { lock(false); prog(0); say((e && e.message) || '새로 그리지 못했습니다.', true); paintCMode(); });
