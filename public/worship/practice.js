@@ -1178,6 +1178,7 @@
         if (S.dead) return;
         var id = f.id, fx = opts.sheetFix;
         root.YNSheetFix.open({ id: id, name: f.name || '악보', fetchUrl: '/sheet/' + encodeURIComponent(id),
+          claude: typeof P.claude === 'function' ? P.claude : null,       // V874 — 정해진 계정에서만 (claude-ui.js 가 넣음) · 다른 분은 예전처럼 기기에서만
           info: function () { return fx.info ? fx.info(id) : {}; }, apply: function (bytes) { return fx.apply(id, bytes); }, revert: fx.revert ? function () { return fx.revert(id); } : null,
           onDone: function (newId, how) { afterSheetFix(id, newId, how); } });
       }, function () { toast('화질 보정 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.', true); });

@@ -575,6 +575,118 @@
   }
 
 
+
+  /* ================================================================ V874 — Claude (정해진 계정만, o.claude 가 있을 때)
+     · text   : 기기 보정을 한 뒤, Claude 가 읽은 코드 · 제목 · Key · 섹션 글자를 깨끗한 글꼴로 같은 자리에 다시 씀
+                (그 글자의 잉크 덩어리를 찾아 크기 · 폭을 맞추고, 둘레에 다른 잉크(음표 줄기 등)가 닿아 있으면 건드리지 않음)
+     · engrave: (실험) Claude 가 악보 전체를 ABC 악보 글로 옮기고, abcjs 로 새로 그려 Letter 쪽으로 나눔 */
+  var ABCJS_URL = '/vendor/abcjs/abcjs-basic-min.js';            // abcjs 6.4.4 (MIT) — 이 앱에서 직접 (새로 그리기를 누를 때만 내려받음)
+  function abcjsLib() { return loadScript(ABCJS_URL, function () { return !!root.ABCJS; }).then(function () { return root.ABCJS; }); }
+  function jpegOf(cv, long, q) {
+    var k = Math.min(1, long / Math.max(cv.width, cv.height)), c = cv;
+    if (k < 1) c = resizeCanvas(cv, Math.round(cv.width * k), Math.round(cv.height * k));
+    var u = c.toDataURL('image/jpeg', q || 0.85); if (c !== cv) free(c); return u;
+  }
+  /** (cx, cy) 근처 글자의 잉크 상자 [px] — 글자 높이 hEst. 못 찾거나 둘레에 다른 잉크가 붙어 있으면 null */
+  function inkBox(cv, cx, cy, hEst) {
+    var W = cv.width, H = cv.height; hEst = Math.max(8, hEst);
+    var x0 = Math.max(0, Math.round(cx - 7 * hEst)), x1 = Math.min(W, Math.round(cx + 7 * hEst)), y0 = Math.max(0, Math.round(cy - 1.8 * hEst)), y1 = Math.min(H, Math.round(cy + 1.8 * hEst));
+    var bw = x1 - x0, bh = y1 - y0; if (bw < 10 || bh < 10) return null;
+    var d = cv.getContext('2d').getImageData(x0, y0, bw, bh).data, ink = new Uint8Array(bw * bh), x, y, i;
+    for (y = 0; y < bh; y++) { var rowN = 0; for (x = 0; x < bw; x++) { i = (y * bw + x) * 4; if (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114 < 150) { ink[y * bw + x] = 1; rowN++; } } if (rowN > bw * 0.55) for (x = 0; x < bw; x++) ink[y * bw + x] = 2; }      // 2 = 오선 같은 긴 가로줄
+    var ry = Math.round(cy - y0), rx = cx - x0, band = Math.round(hEst * 0.8), col = new Uint8Array(bw);
+    for (x = 0; x < bw; x++) for (y = Math.max(0, ry - band); y < Math.min(bh, ry + band); y++) if (ink[y * bw + x] === 1) { col[x] = 1; break; }
+    var gap = Math.max(2, Math.round(hEst * 0.42)), groups = [], a0 = -1, last = -1;
+    for (x = 0; x < bw; x++) if (col[x]) { if (a0 < 0 || x - last > gap) { if (a0 >= 0) groups.push([a0, last]); a0 = x; } last = x; }
+    if (a0 >= 0) groups.push([a0, last]);
+    var best = null, bd = 1e9; groups.forEach(function (g) { var dd = rx < g[0] ? g[0] - rx : rx > g[1] ? rx - g[1] : 0; if (dd < bd) { bd = dd; best = g; } });
+    if (!best || bd > hEst * 1.1 || best[0] <= 1 || best[1] >= bw - 2) return null;
+    var yt = bh, yb = -1;
+    for (x = best[0]; x <= best[1]; x++) for (y = Math.max(0, ry - Math.round(hEst * 1.5)); y < Math.min(bh, ry + Math.round(hEst * 1.5)); y++) if (ink[y * bw + x] === 1) { if (y < yt) yt = y; if (y > yb) yb = y; }
+    var gh = yb - yt + 1; if (yb < 0 || gh < hEst * 0.45 || gh > hEst * 2.1 || yt <= 1 || yb >= bh - 2) return null;
+    /* 둘레(2~4px 바깥)에 다른 잉크가 닿아 있으면 — 음표 줄기 · 이음줄과 붙은 글자 — 건드리지 않음 */
+    var ring = 0, ringN = 0, m = 3;
+    for (y = yt - m; y <= yb + m; y++) for (x = best[0] - m; x <= best[1] + m; x++) {
+      if (y < 0 || y >= bh || x < 0 || x >= bw) continue;
+      if (y >= yt - 1 && y <= yb + 1 && x >= best[0] - 1 && x <= best[1] + 1) continue;
+      ringN++; if (ink[y * bw + x] === 1) ring++;
+    }
+    if (ringN && ring / ringN > 0.03) return null;
+    return { x: x0 + best[0], y: y0 + yt, w: best[1] - best[0] + 1, h: gh };
+  }
+  var FONT_LAT = '"Helvetica Neue",Helvetica,Arial,sans-serif', FONT_KO = '"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",' + FONT_LAT;
+  /** 다시 쓰기 — items = [{t, k, x, y, h}] (0~1). 바꾼 개수 */
+  function overlayText(cv, items) {
+    var c = cv.getContext('2d'), W = cv.width, H = cv.height, n = 0, done = [];
+    (items || []).forEach(function (it) {
+      var t = String(it.t || '').trim(); if (!t || t.length > 40) return;
+      var hEst = (it.h > 0.002 && it.h < 0.08 ? it.h : 0.014) * H, b = inkBox(cv, it.x * W, it.y * H, hEst);
+      if (!b) return;
+      if (done.some(function (q) { return b.x < q.x + q.w && q.x < b.x + b.w && b.y < q.y + q.h && q.y < b.y + b.h; })) return;
+      var ko = /[ㄱ-ㆎ가-힣]/.test(t), cap = ko ? 0.86 : 0.72, wt = it.k === 'title' ? 800 : 700;
+      var fs = b.h / cap; c.font = wt + ' ' + fs + 'px ' + (ko ? FONT_KO : FONT_LAT);
+      var tw = c.measureText(t).width; if (!tw) return;
+      var sx = b.w / tw; if (sx < 0.55 || sx > 1.9) return;                                    // 글자 수가 안 맞으면 (잘못 읽었거나 다른 글자) 그대로 둠
+      if (sx < 0.85) { fs *= sx / 0.85; c.font = wt + ' ' + fs + 'px ' + (ko ? FONT_KO : FONT_LAT); tw = c.measureText(t).width; sx = Math.min(1.15, b.w / tw); }
+      sx = Math.max(0.85, Math.min(1.15, sx));
+      var pad = Math.max(2, Math.round(b.h * 0.12));
+      c.fillStyle = '#ffffff'; c.fillRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2);
+      c.save(); c.translate(b.x, b.y + b.h); c.scale(sx, 1); c.fillStyle = '#000000'; c.textBaseline = 'alphabetic'; c.fillText(t, 0, 0); c.restore();
+      done.push(b); n++;
+    });
+    return n;
+  }
+  /** ABC → Letter 쪽 그림들 (흰 줄에서 나눔) — [canvas] */
+  function engravePages(abc, onSay) {
+    return abcjsLib().then(function (A) {
+      var host = doc.createElement('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:1600px;background:#fff';
+      doc.body.appendChild(host);
+      try {
+        A.renderAbc(host, abc, { staffwidth: 1400, scale: 1.25, paddingtop: 10, paddingbottom: 10, paddingleft: 10, paddingright: 10, add_classes: true, format: { titlefont: '"Helvetica Neue" 26 bold', gchordfont: '"Helvetica Neue" 15 bold', vocalfont: '"Apple SD Gothic Neo","Noto Sans KR",Helvetica 14', annotationfont: '"Helvetica Neue" 13 bold' }, wrap: { minSpacing: 1.7, maxSpacing: 2.7, preferredMeasuresPerLine: 4 } });
+      } catch (e) { host.remove(); throw new Error('새로 그리지 못했어요: ' + ((e && e.message) || e)); }
+      var svg = host.querySelector('svg'); if (!svg) { host.remove(); throw new Error('새로 그리지 못했어요.'); }
+      var vb = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number), sw = vb[2] || svg.getBoundingClientRect().width, sh = vb[3] || svg.getBoundingClientRect().height;
+      svg.setAttribute('width', sw); svg.setAttribute('height', sh); svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      var xml = new root.XMLSerializer().serializeToString(svg); host.remove();
+      return new Promise(function (ok, no) {
+        var im = new root.Image(); im.onload = function () { ok(im); }; im.onerror = function () { no(new Error('새로 그린 악보를 그림으로 바꾸지 못했어요.')); };
+        im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+      }).then(function (im) {
+        var PW = 1700, PH = 2200, M = 110, CW = PW - 2 * M, CH = PH - 2 * M, k = CW / sw, TH = Math.ceil(sh * k);
+        var tall = doc.createElement('canvas'); tall.width = CW; tall.height = TH; var tc = tall.getContext('2d'); tc.fillStyle = '#fff'; tc.fillRect(0, 0, CW, TH); tc.drawImage(im, 0, 0, CW, TH);
+        /* 줄이 짧게 그려졌으면 (마디가 적은 곡) 실제 내용 폭에 맞춰 키움 — 최대 1.6배 */
+        (function fit() {
+          var dd = tc.getImageData(0, 0, CW, TH).data, minX = CW, maxX = -1, xx, yy;
+          for (yy = 0; yy < TH; yy += 3) for (xx = 0; xx < CW; xx += 2) { if (dd[(yy * CW + xx) * 4] < 200) { if (xx < minX) minX = xx; if (xx > maxX) maxX = xx; } }
+          if (maxX < 0) return; var cw = maxX - minX + 1, f = Math.min(1.6, (CW - 4) / cw); if (f < 1.08) return;
+          var k2 = k * f, TH2 = Math.ceil(sh * k2), t2 = doc.createElement('canvas'); t2.width = CW; t2.height = TH2; var c2 = t2.getContext('2d'); c2.fillStyle = '#fff'; c2.fillRect(0, 0, CW, TH2);
+          c2.drawImage(im, -minX * f + 2, 0, sw * k2, TH2); free(tall); tall = t2; tc = c2; TH = TH2;
+        }());
+        var data = tc.getImageData(0, 0, CW, TH).data, blank = new Uint8Array(TH), y, x;
+        for (y = 0; y < TH; y++) { var ok2 = 1; for (x = 0; x < CW; x += 2) { var i = (y * CW + x) * 4; if (data[i] < 235) { ok2 = 0; break; } } blank[y] = ok2; }
+        var pages = [], start = 0;
+        while (start < TH) {
+          var end = Math.min(TH, start + CH);
+          if (end < TH) { var cut = -1; for (y = end; y > start + CH * 0.45; y--) if (blank[y]) { cut = y; break; } if (cut > 0) end = cut; }
+          var pc = doc.createElement('canvas'); pc.width = PW; pc.height = PH; var cc = pc.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, PW, PH);
+          cc.drawImage(tall, 0, start, CW, end - start, M, M, CW, end - start); pages.push(pc);
+          start = end; while (start < TH && blank[start]) start++;
+          if (pages.length > 12) break;
+        }
+        free(tall); return pages;
+      });
+    });
+  }
+  function buildPdfFrom(jpgs) {
+    return pdflib().then(function (L) {
+      return L.PDFDocument.create().then(function (d) {
+        var chain = Promise.resolve();
+        jpgs.forEach(function (j) { chain = chain.then(function () { return d.embedJpg(j).then(function (im) { var pg = d.addPage([612, 792]); pg.drawImage(im, { x: 0, y: 0, width: 612, height: 792 }); }); }); });
+        return chain.then(function () { d.setProducer('YN 악보 새로 그리기 (Claude · abcjs)'); return d.save({ useObjectStreams: true }); });
+      });
+    });
+  }
+
   /* ================================================================ 보정 창 */
   var CSS = '.sf-back{position:fixed;inset:0;z-index:2147483000;background:rgba(6,8,12,.62);display:flex;align-items:center;justify-content:center;padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom));-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}' +
     '.sf{--bg:#16171d;--sf:#1f2129;--ln:rgba(255,255,255,.12);--ink:#f3f3f6;--dim:#a2a6b4;--a:#ff9a4d;width:min(980px,100%);max-height:100%;display:flex;flex-direction:column;border-radius:20px;background:var(--bg);color:var(--ink);border:1px solid var(--ln);box-shadow:0 30px 80px rgba(0,0,0,.55);font:500 14px/1.45 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo",sans-serif;overflow:hidden}' +
@@ -614,7 +726,9 @@
     css();
     var MODES = [['clean', 'PDF처럼 깔끔하게'], ['sharp', '선명하게'], ['bold', '아주 진하게'], ['soft', '자연스럽게']], MODE0 = 'clean';
     try { var mm = root.localStorage.getItem('yn.sf.mode2'); if (mm === 'soft' || mm === 'sharp' || mm === 'bold' || mm === 'clean') MODE0 = mm; } catch (e) { /* 무시 */ }
-    var st = { mode: MODE0, base: [], stop: false, src: null, res: [], page: 0, zoom: false, cx: 0.5, cy: 0.35, wipe: 0.5, busy: false, done: false, info: null, prevTok: 0 };
+    var CL = typeof o.claude === 'function' ? o.claude : null, CMODES = [['off', '기기 보정만'], ['text', '+ 코드 · 제목 다시 쓰기'], ['engrave', '실험: 새로 그리기']], CM0 = 'text';
+    try { var cm = root.localStorage.getItem('yn.sf.claude'); if (cm === 'off' || cm === 'text' || cm === 'engrave') CM0 = cm; } catch (e) { /* 무시 */ }
+    var st = { cmode: CL ? CM0 : 'off', cl: [], eng: null, mode: MODE0, base: [], stop: false, src: null, res: [], page: 0, zoom: false, cx: 0.5, cy: 0.35, wipe: 0.5, busy: false, done: false, info: null, prevTok: 0 };
     var back = doc.createElement('div'); back.className = 'sf-back';
     back.innerHTML = '<div class="sf" role="dialog" aria-modal="true" aria-label="악보 화질 보정">' +
       '<div class="sf-h"><b>✨ 악보 화질 보정</b><span class="sf-name">' + esc(o.name || '') + '</span><button type="button" class="sf-x" data-a="close" aria-label="닫기">✕</button></div>' +
@@ -625,11 +739,12 @@
           '<input type="range" min="0" max="100" value="50" data-r="wipe" aria-label="원본 · 보정본 경계"><button type="button" class="sf-btn sm" data-a="zoom" aria-pressed="false">🔍 확대</button></div>' +
         '<div class="sf-row sf-mode" role="radiogroup" aria-label="보정 세기"><span class="sf-ml">세기</span>' + MODES.map(function (m) { return '<button type="button" class="sf-btn sm' + (st.mode === m[0] ? ' on' : '') + '" role="radio" aria-checked="' + (st.mode === m[0]) + '" data-a="mode" data-m="' + m[0] + '">' + m[1] + (m[0] === 'clean' ? ' <small>(추천)</small>' : '') + '</button>'; }).join('') +
           '<span class="sf-mh" data-r="mh"></span></div>' +
+        (CL ? '<div class="sf-row sf-mode" role="radiogroup" aria-label="Claude"><span class="sf-ml">Claude <small>(나만)</small></span>' + CMODES.map(function (m) { return '<button type="button" class="sf-btn sm' + (st.cmode === m[0] ? ' on' : '') + '" role="radio" aria-checked="' + (st.cmode === m[0]) + '" data-a="cmode" data-m="' + m[0] + '">' + m[1] + (m[0] === 'text' ? ' <small>(추천)</small>' : '') + '</button>'; }).join('') + '<span class="sf-mh" data-r="ch"></span></div>' : '') +
         '<label class="sf-chk"><input type="checkbox" data-r="ai"> AI 2배 키우기 (실험) <small>해상도가 아주 낮은 악보만 · 결과가 이상하면 자동으로 일반 보정 · 보통은 끄고 하세요</small></label>' +
         '<div class="sf-prog"><div class="sf-bar"><i data-r="bar"></i></div><div class="sf-st" data-r="st" role="status" aria-live="polite"></div></div>' +
       '</div>' +
       '<div class="sf-f"><button type="button" class="sf-btn" data-a="revert" hidden>원본으로 되돌리기</button><span class="sp"></span><button type="button" class="sf-btn" data-a="close">닫기</button>' +
-        '<button type="button" class="sf-btn pri" data-a="start">보정 시작</button><button type="button" class="sf-btn pri" data-a="apply" hidden>보정본으로 바꾸기</button></div>' +
+        '<button type="button" class="sf-btn" data-a="dl" hidden>PDF 내려받기</button><button type="button" class="sf-btn pri" data-a="start">보정 시작</button><button type="button" class="sf-btn pri" data-a="apply" hidden>보정본으로 바꾸기</button></div>' +
     '</div>';
     doc.body.appendChild(back);
     var $ = function (s) { return back.querySelector(s); };
@@ -690,6 +805,8 @@
       else if (a === 'next' && k >= 0 && k < r.length - 1) showPage(r[k + 1]);
       else if (a === 'zoom') { st.zoom = !st.zoom; b.classList.toggle('on', st.zoom); b.setAttribute('aria-pressed', st.zoom ? 'true' : 'false'); redraw(); }
       else if (a === 'mode') setMode(b.getAttribute('data-m'));
+      else if (a === 'cmode') setCMode(b.getAttribute('data-m'));
+      else if (a === 'dl') download();
       else if (a === 'start') start();
       else if (a === 'apply') apply();
       else if (a === 'revert') revert();
@@ -697,7 +814,7 @@
     function onKey(e) { if (e.key === 'Escape' && !st.busy) { e.stopPropagation(); close(); } else e.stopPropagation(); }
     back.addEventListener('keydown', onKey, true);
 
-    function lock(on) { st.busy = on; ['start', 'apply', 'revert'].forEach(function (a) { var x = btn(a); if (x) x.disabled = on; }); [].forEach.call(back.querySelectorAll('[data-a="mode"]'), function (x) { x.disabled = on; }); }
+    function lock(on) { st.busy = on; ['start', 'apply', 'revert', 'dl'].forEach(function (a) { var x = btn(a); if (x) x.disabled = on; }); [].forEach.call(back.querySelectorAll('[data-a="mode"],[data-a="cmode"]'), function (x) { x.disabled = on; }); }
     var MODE_HINT = { clean: '오선은 같은 굵기의 곧은 선으로 새로 긋고, 기울기를 바로잡고, 음표 · 코드 · 가사 가장자리를 매끈하게 — 컴퓨터로 만든 PDF 악보처럼', soft: '예전 방식 — 원본 느낌 그대로 살짝만', sharp: '음표 · 코드 · 가사를 또렷하고 진하게 · 종이는 하얗게', bold: '흐리거나 작은 글씨를 더 굵고 진하게 (빽빽한 악보는 글자가 뭉칠 수 있어요)' };
     function paintMode() {
       [].forEach.call(back.querySelectorAll('[data-a="mode"]'), function (x) { var on = x.getAttribute('data-m') === st.mode; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
@@ -713,13 +830,35 @@
       idx.forEach(function (i) {
         chain = chain.then(function () {
           say('「' + MODES.filter(function (x) { return x[0] === m; })[0][1] + '」로 다시 만드는 중… ' + (n + 1) + ' / ' + idx.length);
-          return frame().then(function () { var out = finishBase(st.base[i], m); return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[i] = { jpg: jpg, ai: out.ai }; }); })
+          return frame().then(function () { var out = finishBase(st.base[i], m); if (st.cmode === 'text' && st.cl[i]) overlayText(out.cv, st.cl[i]); return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[i] = { jpg: jpg, ai: out.ai }; }); })
             .then(function () { n++; prog(n / idx.length); if (st.page === i) showPage(i); });
         });
       });
       chain.then(function () { lock(false); say('세기를 바꿨어요. 원본과 비교해 보고 「보정본으로 바꾸기」를 눌러 주세요.'); }, function (e) { lock(false); say((e && e.message) || '다시 만들지 못했습니다.', true); });
     }
     paintMode();
+
+    var CM_HINT = { off: '예전처럼 이 기기에서만 보정해요.', text: '기기 보정 뒤, Claude 가 읽은 코드 · 제목 · Key · 섹션 글자를 깨끗한 글꼴로 같은 자리에 다시 써요. 음표는 그대로라 틀릴 일이 거의 없어요.', engrave: '실험 — Claude 가 악보 전체(음표 · 코드 · 가사)를 옮겨 적어 새로 그려요. 음표 · 리듬이 틀릴 수 있으니 원본과 꼭 비교하세요. 쪽 나눔이 달라져 필기 자리는 맞지 않을 수 있어요.' };
+    function paintCMode() {
+      if (!CL) return;
+      [].forEach.call(back.querySelectorAll('[data-a="cmode"]'), function (x) { var on = x.getAttribute('data-m') === st.cmode; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      var e = $('[data-r="ch"]'); if (e) e.textContent = CM_HINT[st.cmode] || '';
+      [].forEach.call(back.querySelectorAll('.sf-mode:not([aria-label="Claude"]) .sf-btn, [data-r="ai"]'), function (x) { x.disabled = st.cmode === 'engrave' || st.busy; });
+    }
+    function setCMode(m) {
+      if (st.busy || m === st.cmode) return;
+      st.cmode = m; try { root.localStorage.setItem('yn.sf.claude', m); } catch (e) { /* 무시 */ } paintCMode();
+      if (st.res.some(function (x) { return x && x.jpg; }) || st.eng) {
+        st.res = st.res.map(function () { return null; }); st.eng = null; after = null; showPage(st.page);
+        btn('apply').hidden = true; btn('dl').hidden = true; btn('start').hidden = false; btn('start').disabled = false; btn('start').textContent = '이 방식으로 다시 보정'; say('방식을 바꿨어요. 「이 방식으로 다시 보정」을 눌러 주세요.');
+      }
+    }
+    /** text 방식 — 이 쪽 그림에 Claude 글자 다시 쓰기 (읽은 결과는 쪽마다 기억해 세기만 바꿀 때 다시 묻지 않음) */
+    function claudeText(cv, idx) {
+      var got = st.cl[idx] ? Promise.resolve(st.cl[idx]) : CL('labels', { image: jpegOf(cv, 1568, 0.85) }).then(function (r) { st.cl[idx] = (r && r.items) || []; return st.cl[idx]; });
+      return got.then(function (items) { var n = overlayText(cv, items); st.clN = (st.clN || 0) + n; return n; });
+    }
+    paintCMode();
     function close() {
       st.stop = true; st.base = []; root.removeEventListener('resize', onResize);
       try { if (before && before.close) before.close(); if (after && after.close) after.close(); } catch (e) { /* 무시 */ }
@@ -742,7 +881,8 @@
     }, function () { /* 상태를 몰라도 보정은 할 수 있음 */ });
 
     function start() {
-      lock(true); st.stop = false; AI.slow = false; st.base = []; prog(0); say('악보를 불러오는 중…');
+      if (st.cmode === 'engrave' && CL) return startEngrave();
+      lock(true); st.stop = false; AI.slow = false; st.base = []; st.clN = 0; st.clErr = ''; prog(0); say('악보를 불러오는 중…');
       var useAi = $('[data-r="ai"]').checked, aiNote = '';
       root.fetch(o.fetchUrl, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('악보를 불러오지 못했습니다.'); return r.arrayBuffer(); })
         .then(function (ab) { return openSource(new Uint8Array(ab)); })
@@ -766,7 +906,8 @@
                   var out = finishBase(base, st.mode);
                   if (out.slow && !aiNote) aiNote = '이 기기에서 AI 가 느려 일반 보정으로 바꿨어요';
                   if (out.bad && !aiNote) aiNote = 'AI 결과가 이 기기에서 깨져 보여 일반 보정으로 했어요';
-                  return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[idx] = { jpg: jpg, ai: out.ai }; });
+                  var clStep = st.cmode === 'text' && CL ? (say((n + 1) + ' / ' + r.length + ' 쪽 — Claude 가 코드 · 제목을 읽는 중…'), claudeText(out.cv, idx).catch(function (e) { st.clErr = (e && e.message) || 'Claude 가 읽지 못했어요'; })) : Promise.resolve();
+                  return clStep.then(function () { return toJpeg(out.cv, CFG.jpegQ); }).then(function (jpg) { free(out.cv); st.res[idx] = { jpg: jpg, ai: out.ai }; });
                 });
               }).catch(function (e) { st.res[idx] = { err: '이 쪽은 보정하지 못했어요 — 원본 그대로 둡니다. (' + ((e && e.message) || '') + ')' }; })
                 .then(function () { n++; prog(n / r.length); if (st.page === idx) showPage(idx); return frame(); });
@@ -777,10 +918,45 @@
             lock(false); aiFree();                                                                // 계산이 끝나면 AI 메모리는 바로 돌려줌
             var ok = st.res.filter(function (x) { return x && x.jpg; }).length;
             btn('start').hidden = true; btn('apply').hidden = !ok; btn('apply').disabled = !ok;
-            say(ok ? '보정을 마쳤어요 (' + ok + '쪽). 경계를 옮기거나 🔍 확대로 원본과 비교한 뒤 「보정본으로 바꾸기」를 눌러 주세요.' + (aiNote ? ' · ' + aiNote : '') : '보정한 쪽이 없어요.', !ok);
+            say(ok ? '보정을 마쳤어요 (' + ok + '쪽). 경계를 옮기거나 🔍 확대로 원본과 비교한 뒤 「보정본으로 바꾸기」를 눌러 주세요.' + (aiNote ? ' · ' + aiNote : '') + (st.cmode === 'text' && CL ? (st.clErr ? ' · Claude: ' + st.clErr : ' · Claude 가 글자 ' + (st.clN || 0) + '개를 깨끗하게 다시 썼어요') : '') : '보정한 쪽이 없어요.', !ok);
           });
         })
         .catch(function (e) { lock(false); say((e && e.message) || '보정하지 못했습니다.', true); });
+    }
+
+    /* engrave 방식 — 사진 쪽들을 Claude 에 보내 ABC 로 받고, 새로 그린 Letter 쪽들로 (비교 화면: 같은 순서의 쪽끼리) */
+    function startEngrave() {
+      lock(true); st.stop = false; prog(0.05); say('악보를 불러오는 중…');
+      root.fetch(o.fetchUrl, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('악보를 불러오지 못했습니다.'); return r.arrayBuffer(); })
+        .then(function (ab) { return openSource(new Uint8Array(ab)); })
+        .then(function (src) {
+          st.src = src; st.res = src.pages.map(function () { return null; });
+          var idx = src.pages.map(function (p, i) { return i; }).slice(0, 6); src.pages.forEach(function (p) { p.raster = true; });
+          showPage(idx[0]); prog(0.15); say('Claude 에 보낼 그림을 만드는 중…');
+          return idx.reduce(function (pr, i) { return pr.then(function (arr) { var p = src.pages[i]; return p.get(Math.min(p.srcLong || 2000, 1800)).then(function (c) { arr.push(jpegOf(c, 1568, 0.85)); free(c); return arr; }); }); }, Promise.resolve([]));
+        })
+        .then(function (imgs) { prog(0.3); say('Claude 가 악보 전체를 옮겨 적는 중… (30초 ~ 2분)'); return CL('engrave', { images: imgs }); })
+        .then(function (r) { prog(0.75); say('새로 그리는 중…'); st.abc = r.abc; return engravePages(r.abc); })
+        .then(function (pages) {
+          return pages.reduce(function (pr, pc) { return pr.then(function (arr) { return toJpeg(pc, 0.9).then(function (j) { free(pc); arr.push(j); return arr; }); }); }, Promise.resolve([]));
+        })
+        .then(function (jpgs) {
+          st.eng = { jpgs: jpgs };
+          st.res = st.src.pages.map(function (p, i) { return jpgs[i] ? { jpg: jpgs[i] } : null; });
+          lock(false); prog(1); showPage(st.page);
+          btn('start').hidden = true; btn('apply').hidden = false; btn('apply').disabled = false; btn('dl').hidden = false;
+          say('새로 그렸어요 (' + jpgs.length + '쪽). 원본과 꼭 비교해 보세요 — 음표 · 리듬이 틀린 곳이 있으면 쓰지 마세요. 「PDF 내려받기」로 따로 받아 둘 수도 있어요.' + (jpgs.length !== st.src.pages.length ? ' (쪽 수가 원본과 달라요: ' + st.src.pages.length + ' → ' + jpgs.length + ')' : ''));
+          paintCMode();
+        })
+        .catch(function (e) { lock(false); prog(0); say((e && e.message) || '새로 그리지 못했습니다.', true); paintCMode(); });
+    }
+    function download() {
+      if (!st.eng) return; lock(true);
+      buildPdfFrom(st.eng.jpgs).then(function (bytes) {
+        var a = doc.createElement('a'), url = root.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        a.href = url; a.download = String(o.name || '악보').replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[\\/:*?"<>|]/g, '_') + ' (새로 그림).pdf'; doc.body.appendChild(a); a.click();
+        setTimeout(function () { root.URL.revokeObjectURL(url); a.remove(); }, 1500); lock(false); say('PDF 를 내려받았어요.');
+      }, function (e) { lock(false); say((e && e.message) || '만들지 못했습니다.', true); });
     }
     function shrink(q) {                                                                         // 파일이 너무 크면 화질(JPEG)을 조금 낮춰 다시
       var chain = Promise.resolve();
@@ -793,8 +969,9 @@
     function apply() {
       lock(true); say('새 PDF 를 만드는 중…');
       var tries = [0.84, 0.76, 0.68];
+      if (st.eng && !root.confirm('새로 그린 악보로 바꿀까요?\n원본은 보관되어 되돌릴 수 있지만, 쪽 나눔이 달라 필기 자리가 맞지 않을 수 있어요.')) { lock(false); say(''); return; }
       function build() {
-        return buildPdf(st.src, st.res).then(function (bytes) {
+        return (st.eng ? buildPdfFrom(st.eng.jpgs) : buildPdf(st.src, st.res)).then(function (bytes) {
           if (bytes.length <= CFG.maxBytes || !tries.length) return bytes;
           say('파일이 커서 조금 줄이는 중…'); return shrink(tries.shift()).then(build);
         });
@@ -821,5 +998,5 @@
   root.YNSheetFix = root.YNSheetFix || {};
   root.YNSheetFix.open = open;
   root.YNSheetFix.current = function () { return cur; };
-  root.YNSheetFix._engine = { CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, aiLooksRight: aiLooksRight, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
+  root.YNSheetFix._engine = { overlayText: overlayText, inkBox: inkBox, engravePages: engravePages, CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, aiLooksRight: aiLooksRight, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
 })(typeof window !== 'undefined' ? window : this);

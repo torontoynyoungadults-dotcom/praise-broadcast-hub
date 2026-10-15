@@ -90,6 +90,7 @@
     call('status').then(function (r) {
       if (!r || !r.allowed) return;
       st.enabled = !!r.enabled; injectCss(); addButton();
+      if (st.enabled) P.claude = function (task, payload) { return call(task, payload); };       // V874 — 악보 화질 보정(sheetfix.js)도 Claude 를 씀 (이 계정에서만)
     }, function () { /* 쓸 수 없는 계정 · 서버 없음 → 아무것도 하지 않음 */ });
 
     var btn = null, pane = null;
