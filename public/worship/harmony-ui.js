@@ -1298,6 +1298,40 @@
       var ed = S.editor; if (ed) snapInk(pg, pd, nx, ny).then(function (b) { if (S.editor === ed) ed.snap = b; });
       return true;
     }
+
+    /* ---------- V873 — Claude 가 읽은 코드 넣기 (claude-ui.js): 자동 인식과 겹치면 같은지 · 다른지만 알려 주고, 새 코드만 넣음.
+       인쇄된 글자 자리를 찾으면(snapInk) 원래 글자를 덮어 다른 코드처럼, 못 찾으면 손으로 넣은 코드처럼. 점선 = AI 가 넣은 코드 ---------- */
+    function chordKey(t) { var p = HC.parseChord(HC.fixOcrChord(String(t || ''))); return p ? HC.formatChord(p, 0, false) : ''; }
+    function addAiChords(list) {
+      var pg = pgKey(), pd = S.data && S.data.pages[pg]; if (!pd) return Promise.resolve({ added: 0, same: 0, diff: [] });
+      var added = [], same = 0, diff = [], fs = median((pd.chords || []).map(function (c) { return c.fs || c.h; })) || 0.014, seq = Promise.resolve();
+      (list || []).forEach(function (a) {
+        var fixed = HC.fixOcrChord(String(a.t || '')), parsed = HC.parseChord(fixed); if (!parsed) return;
+        var hit = null, bd = 1e9;
+        pd.chords.forEach(function (c) {
+          var cx = c.x + c.w / 2, cy = c.y + c.h / 2, dx = Math.abs(cx - a.x), dy = Math.abs(cy - a.y);
+          if (dx < Math.max(c.w * 0.9, 0.025) && dy < Math.max(c.h * 1.3, 0.014)) { var d = dx + dy * 2; if (d < bd) { bd = d; hit = c; } }
+        });
+        if (hit) { if (chordKey(hit.text) === chordKey(fixed)) same++; else diff.push({ id: hit.id, from: hit.text, to: fixed }); return; }
+        if (added.some(function (c) { return Math.abs(c.x + c.w / 2 - a.x) < 0.012 && Math.abs(c.y + c.h / 2 - a.y) < 0.01; })) return;
+        seq = seq.then(function () { return snapInk(pg, pd, a.x, a.y); }).then(function (b) {
+          var n;
+          if (b && b.w < fs * 8) n = { id: uid(), text: fixed, pre: '', post: '', x: b.x, y: b.y, w: b.w, h: b.h, fs: Math.min(fs * 1.6, Math.max(fs * 0.6, b.h)), src: 'ocr', conf: 40, ai: 1 };
+          else { var ms = measurer(), W = cv.clientWidth || 1000, Hh = cv.clientHeight || 1300, wn = ms(fixed) / 20 * fs * Hh / W; n = { id: uid(), text: fixed, pre: '', post: '', x: Math.max(0, a.x - wn / 2), y: a.y - fs * 0.55, w: wn, h: fs * 1.05, fs: fs, src: 'user', ai: 1 }; }
+          added.push(n);
+        });
+      });
+      return seq.then(function () {
+        if (added.length) { added.forEach(function (n) { pd.chords.push(n); }); var ids = added.map(function (n) { return n.id; }); pushUndo(function () { pd.chords = pd.chords.filter(function (c) { return ids.indexOf(c.id) < 0; }); }); commit(); }
+        return { added: added.length, same: same, diff: diff };
+      });
+    }
+    function setChordTexts(diff) {
+      var pd = S.data && S.data.pages[pgKey()]; if (!pd || !diff || !diff.length) return 0; var prev = [], n = 0;
+      diff.forEach(function (d) { var c = pd.chords.filter(function (x) { return x.id === d.id; })[0]; if (!c || !HC.parseChord(d.to)) return; prev.push({ c: c, t: c.text, p: c.pre, q: c.post }); c.text = d.to; c.pre = ''; c.post = ''; n++; });
+      if (n) { pushUndo(function () { prev.forEach(function (x) { x.c.text = x.t; x.c.pre = x.p; x.c.post = x.q; }); }); commit(); }
+      return n;
+    }
     function focusEditor() { var ed = S.editor; if (ed) { try { ed.inp.focus(); } catch (e) {} } }
 
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
@@ -1500,7 +1534,7 @@
     }
     loadFile(); if (pShift()) { noteState(); maybeAuto(); }
     /* 시험 · 점검용 손잡이 */
-    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, prepareFile: prepareFile, capoOn: capoOn, hasPage: function (f, pg) { var d = f === S.fid ? S.data : loadData(f); return !!(d && d.pages && d.pages[String(pg)]); }, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
+    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, prepareFile: prepareFile, capoOn: capoOn, addAiChords: addAiChords, setChordTexts: setChordTexts, undo: undo, hasPage: function (f, pg) { var d = f === S.fid ? S.data : loadData(f); return !!(d && d.pages && d.pages[String(pg)]); }, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
     root.YNHarmonyUI._last = api;
     return api;
   }

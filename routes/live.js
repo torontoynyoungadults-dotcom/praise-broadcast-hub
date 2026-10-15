@@ -242,6 +242,7 @@ ${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token,
 <script defer src="/worship/mainstage.js${v}"></script>
 <script defer src="/worship/practice-panels.js${v}"></script>
 <script defer src="/worship/livemsg.js${v}"></script>
+<script defer src="/worship/claude-ui.js${v}"></script>
 <script defer src="/worship/practice.js${v}"></script>
 <script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>
@@ -716,6 +717,19 @@ router.post('/live/sheetfix/revert', async (req, res) => {
 });
 
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+/** V873 — 라이브 악보 Claude AI: 정해진 계정만 (lib/claudeAi.js 가 토큰의 이메일 · 이름으로 확인) — 키는 서버 환경 변수에만 */
+const claudeAi = require('../lib/claudeAi');
+router.post('/api/worshipClaude', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
+  try {
+    const u = liveAuth.verify(args[0]);
+    res.json({ ok: true, result: await claudeAi.run(u, String(args[1] || ''), args[2] && typeof args[2] === 'object' ? args[2] : {}) });
+  } catch (e) {
+    if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[worshipClaude]', e);
+    res.json({ ok: false, error: (e && e.message) || String(e) });
+  }
+});
 router.post('/api/:fn', async (req, res) => {
   const fn = req.params.fn;
   const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];

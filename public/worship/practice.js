@@ -3011,6 +3011,7 @@
     }
     function pedalDone(msg) { S.pedalL = null; if (pedalEl) pedalEl.remove(); if (msg) toast(msg, false, 3200); }
 
+    try { if (root.YNClaude) root.YNClaude.attach(P, { el: el, toast: toast }); } catch (e) { /* AI 는 덤 */ }      // V873 — 정해진 계정에서만 「Claude AI」
     paintPrepBtn();
     if (ls('worship') === today()) setTimeout(function () { if (!S.dead) setWorship(true, true); }, 0);       // 같은 날 다시 열면 예배 모드 그대로
     var api = {

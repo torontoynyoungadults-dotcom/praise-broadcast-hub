@@ -6,6 +6,8 @@ services:
     startCommand: npm start
     healthCheckPath: /healthz
     envVars:
+      - key: ANTHROPIC_API_KEY        # V873 — 라이브 악보 Claude AI (한윤종 님 계정만). 대시보드에서 직접 넣기
+        sync: false
       - key: TZ
         value: America/Toronto
       - key: NODE_ENV

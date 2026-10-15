@@ -47,6 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/worshipRepoSave', express.json({ limit: '20mb' }));
 app.use('/api/worshipMySheetAdd', express.json({ limit: '30mb' }));   // v9.6 — 라이브 악보 "나만 보는 악보" (20MB → base64)   // 라이브러리 "＋ 악보 PDF" (12MB PDF → base64) — 아래 기본(2MB)보다 먼저
 app.use('/live/sheetfix', express.json({ limit: '30mb' }));   // v12 — 악보 화질 보정 PDF (최대 20MB → base64)
+app.use('/api/worshipClaude', express.json({ limit: '16mb' }));   // V873 — 라이브 악보 Claude AI (악보 그림 최대 4장)
 app.use(express.json({ limit: '2mb' })); // 필기(연습 화면) 저장처럼 JS가 JSON으로 보내는 요청용 — 폼 전송(urlencoded)과 공존
 app.use(session.middleware);
 // 오프라인 일꾼 — 늘 새 것을 확인하게 (public/sw.js · 범위는 사이트 전체)
