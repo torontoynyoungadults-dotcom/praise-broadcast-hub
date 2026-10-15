@@ -2,8 +2,8 @@
 process.env.ANTHROPIC_API_KEY = 'sk-test'; process.env.CLAUDE_ALLOW_EMAILS = 'me@test';
 const ai = require('../lib/claudeAi');
 let pass = 0, fail = 0; const ok = (c, m, x) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m + (x !== undefined ? ' → ' + JSON.stringify(x) : '')); } };
-let REPLY = { text: '', stop: 'end_turn' };
-global.fetch = async () => new Response(JSON.stringify({ content: [{ type: 'text', text: REPLY.text }], stop_reason: REPLY.stop }), { status: 200, headers: { 'content-type': 'application/json' } });
+let REPLY = { text: '', stop: 'end_turn' }, BODIES = [], REJECT_THINK = false;
+global.fetch = async (u, o) => { const b = JSON.parse(o.body); BODIES.push(b); if (REJECT_THINK && b.thinking) return new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'thinking: unknown field' } }), { status: 400 }); return new Response(JSON.stringify({ content: [{ type: 'text', text: REPLY.text }], stop_reason: REPLY.stop }), { status: 200, headers: { 'content-type': 'application/json' } }); };
 const u = { email: 'me@test', name: 'x' }, IMG = 'data:image/jpeg;base64,' + Buffer.from('fake').toString('base64');
 const run = (task, p) => ai.run(u, task, p).then((r) => ({ r }), (e) => ({ e: e.message }));
 (async () => {
@@ -21,10 +21,21 @@ const run = (task, p) => ai.run(u, task, p).then((r) => ({ r }), (e) => ({ e: e.
   ok(x.r && x.r.truncated === true, '길어서 잘린 답은 그린 만큼 쓰고 "잘렸다" 표시', x);
   REPLY = { text: '', stop: 'max_tokens' };
   x = await run('engrave', { images: [IMG] });
-  ok(x.e && /길어서/.test(x.e), '아무것도 못 쓰고 잘리면 "곡을 나눠서" 안내', x);
+  ok(x.e && /출력 한도/.test(x.e) && /토큰/.test(x.e), '아무것도 못 쓰고 잘리면 출력 한도 · 진단 정보를 보여 줌', x);
   REPLY = { text: 'Something else entirely', stop: 'end_turn' };
   x = await run('engrave', { images: [IMG] });
   ok(x.e && /악보 형식이 아니었어요/.test(x.e) && /Something else/.test(x.e), '다른 답이면 그 답을 보여 줌', x);
+  ok(BODIES[BODIES.length - 1].thinking && BODIES[BODIES.length - 1].thinking.type === 'disabled' && BODIES[BODIES.length - 1].max_tokens === 8000, '새로 그리기는 생각(thinking) 끄고 · 쪽마다 8000 토큰', BODIES[BODIES.length - 1].thinking);
+  REPLY = { text: 'X:1\nT:A\nM:4/4\nL:1/8\nK:G\nG8 |', stop: 'end_turn' };
+  x = await run('engrave', { images: [IMG], part: 0, total: 2 });
+  ok(x.r && x.r.header === 'X:1\nT:A\nM:4/4\nL:1/8\nK:G', '첫 쪽: 머리말을 따로 돌려줌', x.r && x.r.header);
+  REPLY = { text: 'K:G\n"C"c8 | "D"d8 |]\nw:예 배', stop: 'end_turn' };
+  x = await run('engrave', { images: [IMG], part: 1, total: 2, header: 'X:1\nK:G' });
+  ok(x.r && !/^K:/m.test(x.r.abc) && /"C"c8/.test(x.r.abc) && /w:예 배/.test(x.r.abc) && /Do NOT repeat the header/.test(JSON.stringify(BODIES[BODIES.length - 1].messages)), '다음 쪽: 머리말 없이 음표 줄만 (머리말을 다시 쓰면 뺌)', x);
+  REJECT_THINK = true; REPLY = { text: 'X:1\nK:G\nG8 |', stop: 'end_turn' };
+  const n0 = BODIES.length; x = await run('engrave', { images: [IMG] });
+  ok(x.r && BODIES.length === n0 + 2 && !BODIES[BODIES.length - 1].thinking, '모델이 thinking 설정을 거절하면 빼고 다시 보냄', BODIES.length - n0);
+  REJECT_THINK = false;
   REPLY = { text: "I can't reproduce the full lyrics of this song.", stop: 'end_turn' };
   x = await run('chart', { images: [IMG] });
   ok(x.e && /코드 악보를 만들지 못했어요/.test(x.e) && /거절/.test(x.e), '코드 악보(B)도 거절 이유를 보여 줌', x);

@@ -926,7 +926,7 @@
 
     /* engrave 방식 — 사진 쪽들을 Claude 에 보내 ABC 로 받고, 새로 그린 Letter 쪽들로 (비교 화면: 같은 순서의 쪽끼리) */
     function startEngrave() {
-      lock(true); st.stop = false; prog(0.05); say('악보를 불러오는 중…');
+      lock(true); st.stop = false; st.engErr = ''; prog(0.05); say('악보를 불러오는 중…');
       root.fetch(o.fetchUrl, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('악보를 불러오지 못했습니다.'); return r.arrayBuffer(); })
         .then(function (ab) { return openSource(new Uint8Array(ab)); })
         .then(function (src) {
@@ -935,8 +935,21 @@
           showPage(idx[0]); prog(0.15); say('Claude 에 보낼 그림을 만드는 중…');
           return idx.reduce(function (pr, i) { return pr.then(function (arr) { var p = src.pages[i]; return p.get(Math.min(p.srcLong || 2000, 1800)).then(function (c) { arr.push(jpegOf(c, 1568, 0.85)); free(c); return arr; }); }); }, Promise.resolve([]));
         })
-        .then(function (imgs) { prog(0.3); say('Claude 가 악보 전체를 옮겨 적는 중… (30초 ~ 3분)'); return CL('engrave', { images: imgs }); })
-        .then(function (r) { prog(0.75); say('새로 그리는 중…'); st.abc = r.abc; st.trunc = !!r.truncated; return engravePages(r.abc); })
+        .then(function (imgs) {
+          /* 한 쪽씩 — 첫 쪽에서 머리말(X · T · M · L · Q · K)을 받고, 다음 쪽은 음표 줄만 받아 이어 붙임 (길어서 잘리지 않게) */
+          var abc = '', header = '', n = imgs.length; st.trunc = false;
+          return imgs.reduce(function (pr, img, i) {
+            return pr.then(function () {
+              if (st.stop) return;
+              prog(0.25 + 0.5 * i / n); say('Claude 가 ' + (n > 1 ? (i + 1) + ' / ' + n + '쪽을 ' : '') + '옮겨 적는 중… (쪽마다 20초 ~ 1분)');
+              return CL('engrave', { images: [img], part: i, total: n, header: header }).then(function (r) {
+                if (i === 0) { abc = r.abc; header = r.header || ''; } else abc += '\n' + r.abc;
+                if (r.truncated) st.trunc = true;
+              }, function (e) { if (i === 0) throw e; st.trunc = true; st.engErr = (e && e.message) || ''; });      // 두 번째 쪽부터 실패하면 거기까지만
+            });
+          }, Promise.resolve()).then(function () { return abc; });
+        })
+        .then(function (abc) { prog(0.8); say('새로 그리는 중…'); st.abc = abc; return engravePages(abc); })
         .then(function (pages) {
           return pages.reduce(function (pr, pc) { return pr.then(function (arr) { return toJpeg(pc, 0.9).then(function (j) { free(pc); arr.push(j); return arr; }); }); }, Promise.resolve([]));
         })
@@ -945,7 +958,7 @@
           st.res = st.src.pages.map(function (p, i) { return jpgs[i] ? { jpg: jpgs[i] } : null; });
           lock(false); prog(1); showPage(st.page);
           btn('start').hidden = true; btn('apply').hidden = false; btn('apply').disabled = false; btn('dl').hidden = false;
-          say('새로 그렸어요 (' + jpgs.length + '쪽). 원본과 꼭 비교해 보세요 — 음표 · 리듬이 틀린 곳이 있으면 쓰지 마세요. 「PDF 내려받기」로 따로 받아 둘 수도 있어요.' + (jpgs.length !== st.src.pages.length ? ' (쪽 수가 원본과 달라요: ' + st.src.pages.length + ' → ' + jpgs.length + ')' : '') + (st.trunc ? '\n⚠ 악보가 길어 끝부분이 빠졌을 수 있어요 — 곡을 페이지별로 나눠서 해 보세요.' : ''));
+          say('새로 그렸어요 (' + jpgs.length + '쪽). 원본과 꼭 비교해 보세요 — 음표 · 리듬이 틀린 곳이 있으면 쓰지 마세요. 「PDF 내려받기」로 따로 받아 둘 수도 있어요.' + (jpgs.length !== st.src.pages.length ? ' (쪽 수가 원본과 달라요: ' + st.src.pages.length + ' → ' + jpgs.length + ')' : '') + (st.trunc ? '\n⚠ 일부 쪽은 끝까지 옮기지 못했어요' + (st.engErr ? ' (' + st.engErr + ')' : '') + ' — 원본과 비교해 빠진 곳을 확인해 주세요.' : ''));
           paintCMode();
         })
         .catch(function (e) { lock(false); prog(0); say((e && e.message) || '새로 그리지 못했습니다.', true); paintCMode(); });
