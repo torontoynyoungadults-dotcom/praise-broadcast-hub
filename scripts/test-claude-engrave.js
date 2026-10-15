@@ -25,7 +25,7 @@ const run = (task, p) => ai.run(u, task, p).then((r) => ({ r }), (e) => ({ e: e.
   REPLY = { text: 'Something else entirely', stop: 'end_turn' };
   x = await run('engrave', { images: [IMG] });
   ok(x.e && /악보 형식이 아니었어요/.test(x.e) && /Something else/.test(x.e), '다른 답이면 그 답을 보여 줌', x);
-  ok(BODIES[BODIES.length - 1].thinking && BODIES[BODIES.length - 1].thinking.type === 'disabled' && BODIES[BODIES.length - 1].max_tokens === 8000, '새로 그리기는 생각(thinking) 끄고 · 쪽마다 8000 토큰', BODIES[BODIES.length - 1].thinking);
+  ok(BODIES[BODIES.length - 1].thinking && BODIES[BODIES.length - 1].thinking.type === 'between_tools' && BODIES[BODIES.length - 1].output_config.effort === 'low' && BODIES[BODIES.length - 1].max_tokens === 16000, '새로 그리기: 시작 전 생각 없이(between_tools) · effort low · 쪽마다 16000 토큰', BODIES[BODIES.length - 1]);
   REPLY = { text: 'X:1\nT:A\nM:4/4\nL:1/8\nK:G\nG8 |', stop: 'end_turn' };
   x = await run('engrave', { images: [IMG], part: 0, total: 2 });
   ok(x.r && x.r.header === 'X:1\nT:A\nM:4/4\nL:1/8\nK:G', '첫 쪽: 머리말을 따로 돌려줌', x.r && x.r.header);
@@ -34,7 +34,7 @@ const run = (task, p) => ai.run(u, task, p).then((r) => ({ r }), (e) => ({ e: e.
   ok(x.r && !/^K:/m.test(x.r.abc) && /"C"c8/.test(x.r.abc) && /w:예 배/.test(x.r.abc) && /Do NOT repeat the header/.test(JSON.stringify(BODIES[BODIES.length - 1].messages)), '다음 쪽: 머리말 없이 음표 줄만 (머리말을 다시 쓰면 뺌)', x);
   REJECT_THINK = true; REPLY = { text: 'X:1\nK:G\nG8 |', stop: 'end_turn' };
   const n0 = BODIES.length; x = await run('engrave', { images: [IMG] });
-  ok(x.r && BODIES.length === n0 + 2 && !BODIES[BODIES.length - 1].thinking, '모델이 thinking 설정을 거절하면 빼고 다시 보냄', BODIES.length - n0);
+  ok(x.r && BODIES.length === n0 + 2 && !BODIES[BODIES.length - 1].thinking && !BODIES[BODIES.length - 1].output_config, '모델이 thinking 설정을 거절하면 빼고 다시 보냄', BODIES.length - n0);
   REJECT_THINK = false;
   REPLY = { text: "I can't reproduce the full lyrics of this song.", stop: 'end_turn' };
   x = await run('chart', { images: [IMG] });
