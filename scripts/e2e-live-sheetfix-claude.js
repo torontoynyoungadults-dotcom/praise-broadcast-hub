@@ -112,6 +112,9 @@ global.fetch = async (url, opt) => {
     return tc.items.filter((it) => it.str.trim()).map((it) => { const fs = Math.hypot(it.transform[0], it.transform[1]), p = vp.convertToViewportPoint(it.transform[4], it.transform[5]), t = it.str.trim(); return { t, k: isC(t) ? 'chord' : 'lyric', x: (p[0] + it.width / 2) / vp.width, y: (p[1] - fs * 0.36) / vp.height, h: fs * 0.72 / vp.height }; });
   });
   LABELS = ALL.filter((x) => x.k === 'chord'); LYRICS = ALL.filter((x) => x.k === 'lyric' && /^[a-z]+$/i.test(x.t) && x.t.length < 9);
+  /* 실제 Claude 처럼 자리를 조금씩 틀리게 (가로 ±1.8% · 세로 ±1% · 글자 높이 ±30%) */
+  const jit = (arr) => arr.map((c, i) => Object.assign({}, c, { x: c.x + (((i * 37) % 7) - 3) * 0.006, y: c.y + (((i * 53) % 5) - 2) * 0.005, h: c.h * (i % 2 ? 1.3 : 0.75) }));
+  LABELS = jit(LABELS); LYRICS = jit(LYRICS);
   await mkPage.close();
   const jpg = Buffer.from(photoJpg, 'base64'), pd = await PDFDocument.create(), ji = await pd.embedJpg(jpg), pp = pd.addPage([595, 842]); pp.drawImage(ji, { x: 0, y: 0, width: 595, height: 842 });
   PDFS[fid(0)] = Buffer.from(await pd.save());
@@ -138,8 +141,8 @@ global.fetch = async (url, opt) => {
   ok(await page.waitForFunction(() => { const b = document.querySelector('.sf [data-a="apply"]'); return b && !b.hidden && !b.disabled; }, null, { timeout: 90000 }).then(() => true, () => false), '보정을 마침');
   const st1 = await page.evaluate(() => document.querySelector('.sf [data-r="st"]').textContent);
   const n1 = +((/코드 · 제목 (\d+)개/.exec(st1) || [])[1] || 0), nl = +((/가사 (\d+)자/.exec(st1) || [])[1] || 0), nn = +((/음표 머리 (\d+)개/.exec(st1) || [])[1] || 0);
-  ok(n1 >= Math.ceil(LABELS.length * 0.4), 'Claude 가 읽은 코드 중 ' + n1 + ' / ' + LABELS.length + '개를 깨끗한 글자로 다시 씀', st1);
-  ok(nl >= 1, '가사 ' + nl + ' / ' + LYRICS.length + '자를 다시 씀', st1);
+  ok(n1 >= Math.ceil(LABELS.length * 0.75), 'Claude 가 읽은 코드 중 ' + n1 + ' / ' + LABELS.length + '개를 깨끗한 글자로 다시 씀', st1);
+  ok(nl >= Math.ceil(LYRICS.filter((x) => !/[gjpqy]/.test(x.t)).length * 0.6), '가사 ' + nl + ' / ' + LYRICS.length + '자를 다시 씀', st1);
   ok(nn >= 3, '검은 음표 머리 ' + nn + '개를 반듯하게 다듬음', st1);
   ok(CALLS.length === 2 && CALLS.every((b) => b.messages[0].content[0].type === 'image'), '쪽마다 Claude 에 두 번 (코드 · 제목 / 가사)', CALLS.length);
   if (process.env.SHOT) { await page.click('.sf [data-a="zoom"]'); await sleep(400); await page.screenshot({ path: process.env.SHOT + '/sfc-text.png' }); await page.click('.sf [data-a="zoom"]'); }

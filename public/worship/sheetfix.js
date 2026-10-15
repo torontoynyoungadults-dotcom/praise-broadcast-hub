@@ -616,25 +616,110 @@
   }
   var FONT_LAT = '"Helvetica Neue",Helvetica,Arial,sans-serif', FONT_KO = '"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",' + FONT_LAT;
   /** 다시 쓰기 — items = [{t, k, x, y, h}] (0~1). 바꾼 개수 */
-  function overlayText(cv, items) {
-    var c = cv.getContext('2d'), W = cv.width, H = cv.height, n = 0, done = [];
+  /* V877 — 글자 자리 찾기 (Claude 가 준 자리는 "어림"으로만): 그 근처에서 실제 글자 줄(가로로 잉크가 모인 줄)을 찾고,
+     그 줄 안에서 글자 수에 맞는 폭의 덩어리를 고름 → Claude 의 자리가 글자 한두 개만큼 틀려도 맞는 글자에 붙음 */
+  function inkMask(cv) {
+    var W = cv.width, H = cv.height, d = cv.getContext('2d').getImageData(0, 0, W, H).data, m = new Uint8Array(W * H), x, y, i, run;
+    for (y = 0; y < H; y++) {
+      var row = y * W, cnt = 0;
+      for (x = 0; x < W; x++) { i = (row + x) * 4; if (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114 < 150) { m[row + x] = 1; cnt++; } }
+      if (cnt > W * 0.25) {                                                                       // 오선 · 긴 가로줄은 2 로 (글자로 세지 않음)
+        run = 0; for (x = 0; x <= W; x++) { if (x < W && m[row + x]) run++; else { if (run > W * 0.08) for (var k = x - run; k < x; k++) m[row + k] = 2; run = 0; } }
+      }
+    }
+    return { m: m, W: W, H: H };
+  }
+  /** (cx, cy) 근처의 글자 줄과 그 줄의 덩어리들 — { key, ra, rb, lh, groups: [[x0, x1]] } */
+  function lineAt(M, cx, cy, h, tight, ew) {
+    var W = M.W, H = M.H, m = M.m, x, y;
+    var x0 = Math.max(0, Math.round(cx - 14 * h)), x1 = Math.min(W - 1, Math.round(cx + 14 * h)), y0 = Math.max(0, Math.round(cy - 3.5 * h)), y1 = Math.min(H - 1, Math.round(cy + 3.5 * h));
+    if (x1 - x0 < 10 || y1 - y0 < 10) return null;
+    var prof = [], peak = 0;                                                                     // 줄기 같은 가는 세로선은 줄당 몇 칸뿐이라 문턱으로 거름
+    for (y = y0; y <= y1; y++) { var c = 0, r = y * W; for (x = x0; x <= x1; x++) if (m[r + x] === 1) c++; prof.push(c); if (c > peak) peak = c; }
+    if (!peak) return null;
+    var thr = Math.max(3, peak * 0.12), runs = [], a = -1, gap = 0;
+    for (y = 0; y < prof.length; y++) { if (prof[y] >= thr) { if (a < 0) a = y; gap = 0; } else if (a >= 0) { if (++gap > 2) { runs.push([a, y - gap]); a = -1; gap = 0; } } }
+    if (a >= 0) runs.push([a, prof.length - 1]);
+    var groupsOf = function (ra, rb, gx0, gx1) {
+      var lh = rb - ra + 1, g = Math.max(2, Math.round(lh * (tight ? 0.22 : 0.42))), out = [], s0 = -1, last = -1, xx, yy, hit;
+      for (xx = gx0; xx <= gx1; xx++) { hit = 0; for (yy = ra; yy <= rb; yy++) if (m[yy * W + xx] === 1) { hit = 1; break; } if (hit) { if (s0 < 0 || xx - last > g) { if (s0 >= 0) out.push([s0, last]); s0 = xx; } last = xx; } }
+      if (s0 >= 0) out.push([s0, last]);
+      return out.filter(function (gr) { return gr[1] - gr[0] + 1 < W * 0.5; });
+    };
+    /* 줄 고르기 — 높이만 보지 않고, 그 줄에 Claude 자리 가까이 글자 폭이 맞는 덩어리가 있는지까지 (위아래 다른 줄 — "Key: G" 등 — 에 잘못 붙지 않게) */
+    var best = null, bs = 1e9;
+    runs.forEach(function (rn) {
+      var rh = rn[1] - rn[0] + 1, rc = y0 + (rn[0] + rn[1]) / 2; if (rh < h * 0.35 || rh > h * 2.8) return;
+      var dy = Math.abs(rc - cy) / h; if (dy > 3.2) return;
+      var gs = groupsOf(y0 + rn[0], y0 + rn[1], x0, x1), gb = 1e9;
+      gs.forEach(function (gr) { var gw = gr[1] - gr[0] + 1, gc = (gr[0] + gr[1]) / 2, ratio = ew ? gw / Math.max(4, ew * rh / h) : 1; if (ratio < 0.4 || ratio > 2.4) return; var sc = Math.abs(gc - cx) / rh * 0.6 + 2 * Math.abs(Math.log(ratio)); if (sc < gb) gb = sc; });
+      var sc = dy * 0.8 + gb; if (sc < bs) { bs = sc; best = rn; }
+    });
+    if (!best || bs > 1e8) return null;
+    var ra = y0 + best[0], rb = y0 + best[1];
+    return { key: ra + ':' + rb + ':' + (tight ? 't' : 'n'), ra: ra, rb: rb, lh: rb - ra + 1, groups: groupsOf(ra, rb, 0, W - 1) };
+  }
+  function boxOf(M, ln, gr) {
+    var W = M.W, H = M.H, m = M.m, x, y, yt = H, yb = -1;
+    for (x = gr[0]; x <= gr[1]; x++) for (y = ln.ra - 2; y <= ln.rb + 2; y++) if (y >= 0 && y < H && m[y * W + x] === 1) { if (y < yt) yt = y; if (y > yb) yb = y; }
+    if (yb < 0) return null;
+    var touch = 0, tot = 0; [yt - 2, yb + 2].forEach(function (yy) { if (yy < 0 || yy >= H) return; for (x = gr[0]; x <= gr[1]; x++) { tot++; if (m[yy * W + x]) touch++; } });      // 위 · 아래로 줄기 · 오선이 붙어 있으면 건드리지 않음
+    if (tot && touch / tot > 0.12) return null;
+    return { x: gr[0], y: yt, w: gr[1] - gr[0] + 1, h: yb - yt + 1 };
+  }
+  /** 한 줄 안에서 Claude 글자들(왼쪽→오른쪽)과 덩어리들(왼쪽→오른쪽)을 순서를 지키며 짝지음 (건너뛰기 허용) — 서로 바뀌어 붙지 않게 */
+  function alignLine(items, groups, lh) {
+    var A = items.length, B = groups.length, SKIP = 2.6, i, j;
+    var cost = function (it, gr) { var gw = gr[1] - gr[0] + 1, gc = (gr[0] + gr[1]) / 2, ratio = gw / Math.max(4, it.ew); if (ratio < 0.4 || ratio > 2.4 || Math.abs(gc - it.cx) > 7 * lh) return 1e9; return Math.abs(gc - it.cx) / lh * 0.6 + 2 * Math.abs(Math.log(ratio)); };
+    var D = [], P = [];
+    for (i = 0; i <= A; i++) { D.push(new Float64Array(B + 1)); P.push(new Uint8Array(B + 1)); }
+    for (i = 1; i <= A; i++) { D[i][0] = i * SKIP; P[i][0] = 1; }
+    for (j = 1; j <= B; j++) { D[0][j] = 0; P[0][j] = 2; }                                         // 덩어리를 건너뛰는 건 공짜 (다른 글자 · 기호)
+    for (i = 1; i <= A; i++) for (j = 1; j <= B; j++) {
+      var m1 = D[i - 1][j - 1] + cost(items[i - 1], groups[j - 1]), s1 = D[i - 1][j] + SKIP, s2 = D[i][j - 1];
+      if (m1 <= s1 && m1 <= s2) { D[i][j] = m1; P[i][j] = 3; } else if (s1 <= s2) { D[i][j] = s1; P[i][j] = 1; } else { D[i][j] = s2; P[i][j] = 2; }
+    }
+    var out = []; i = A; j = B;
+    while (i > 0 || j > 0) { var pp = P[i][j]; if (pp === 3) { if (cost(items[i - 1], groups[j - 1]) < 1e8) out.push([i - 1, j - 1]); i--; j--; } else if (pp === 1) i--; else j--; }
+    return out;
+  }
+  /** 다시 쓰기 — items = [{t, k, x, y, h}] (0~1). 바꾼 개수 */
+  function overlayText(cv, items, M) {
+    var c = cv.getContext('2d'), W = cv.width, H = cv.height, n = 0;
+    M = M || inkMask(cv);
+    var lines = {};
     (items || []).forEach(function (it) {
       var t = String(it.t || '').trim(); if (!t || t.length > 40) return;
-      var hEst = (it.h > 0.002 && it.h < 0.08 ? it.h : 0.014) * H, b = inkBox(cv, it.x * W, it.y * H, hEst);
-      if (!b) return;
-      if (done.some(function (q) { return b.x < q.x + q.w && q.x < b.x + b.w && b.y < q.y + q.h && q.y < b.y + b.h; })) return;
-      var ko = /[ㄱ-ㆎ가-힣]/.test(t), cap = ko ? 0.86 : 0.72, wt = it.k === 'title' ? 800 : it.k === 'lyric' ? 500 : 700;
-      if (it.k === 'lyric' && !ko && /[gjpqy]/.test(t)) return;                                       // 영어 가사 중 아래로 내려가는 글자(g · y …)가 있는 낱말은 기준선을 맞추기 어려워 그대로 둠
-      if (it.k === 'lyric' && !ko && /[a-z]/.test(t) && !/[bdfhklt]/.test(t)) cap = 0.53;                         // 영어 소문자만(x-height) 인 낱말
-      var fs = b.h / cap; c.font = wt + ' ' + fs + 'px ' + (ko ? FONT_KO : FONT_LAT);
-      var tw = c.measureText(t).width; if (!tw) return;
-      var sx = b.w / tw; if (sx < 0.55 || sx > 1.9) return;                                    // 글자 수가 안 맞으면 (잘못 읽었거나 다른 글자) 그대로 둠
-      if (sx < 0.85) { fs *= sx / 0.85; c.font = wt + ' ' + fs + 'px ' + (ko ? FONT_KO : FONT_LAT); tw = c.measureText(t).width; sx = Math.min(1.15, b.w / tw); }
+      var ko = /[ㄱ-ㆎ가-힣]/.test(t), lyric = it.k === 'lyric';
+      if (lyric && !ko && /[gjpqy]/.test(t)) return;                                               // 영어 가사 중 아래로 내려가는 글자가 있는 낱말은 기준선을 맞추기 어려워 그대로 둠
+      var cap = ko ? 0.86 : (lyric && /^[a-z]+$/.test(t) && !/[bdfhklt]/.test(t) ? 0.53 : 0.72), wt = it.k === 'title' ? 800 : lyric ? 500 : 700;
+      var h = (it.h > 0.002 && it.h < 0.08 ? it.h : 0.014) * H, fnt = (function (w0, k0) { return function (fs) { return w0 + ' ' + fs + 'px ' + (k0 ? FONT_KO : FONT_LAT); }; }(wt, ko));
+      c.font = fnt(h / cap); var ew0 = c.measureText(t).width;
+      var ln = lineAt(M, it.x * W, it.y * H, h, lyric && ko, ew0); if (!ln) return;
+      c.font = fnt(ln.lh / cap);                                                                  // 기대 폭은 실제 줄 높이로
+      var same = Object.keys(lines).filter(function (k) { var o = lines[k].ln; return o.key.slice(-1) === ln.key.slice(-1) && Math.min(o.rb, ln.rb) - Math.max(o.ra, ln.ra) + 1 > 0.5 * Math.min(o.lh, ln.lh); })[0];      // 같은 줄이면 하나로
+      var L = same ? lines[same] : (lines[ln.key] = { ln: ln, items: [] });
+      L.items.push({ t: t, cx: it.x * W, ew: c.measureText(t).width, cap: cap, fnt: fnt });
+    });
+    var todo = [], used = [];
+    Object.keys(lines).forEach(function (k) {
+      var L = lines[k], its = L.items.sort(function (a, b) { return a.cx - b.cx; });
+      alignLine(its, L.ln.groups, L.ln.lh).forEach(function (pr) {
+        var b = boxOf(M, L.ln, L.ln.groups[pr[1]]); if (!b) return;
+        if (used.some(function (q) { return b.x < q.x + q.w && q.x < b.x + b.w && b.y < q.y + q.h && q.y < b.y + b.h; })) return;
+        used.push(b); todo.push({ o: its[pr[0]], b: b });
+      });
+    });
+    todo.forEach(function (td) {                                                                 // 모두 찾은 뒤 한꺼번에 (지운 자리가 다음 글자 찾기를 흐리지 않게)
+      var o = td.o, b = td.b, fs = b.h / o.cap; c.font = o.fnt(fs);
+      var tw = c.measureText(o.t).width; if (!tw) return;
+      var sx = b.w / tw; if (sx < 0.5 || sx > 2) return;
+      if (sx < 0.85) { fs *= sx / 0.85; c.font = o.fnt(fs); tw = c.measureText(o.t).width; sx = b.w / tw; }
       sx = Math.max(0.85, Math.min(1.15, sx));
-      var pad = Math.max(2, Math.round(b.h * 0.12));
+      var pad = Math.max(2, Math.round(b.h * 0.14));
       c.fillStyle = '#ffffff'; c.fillRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2);
-      c.save(); c.translate(b.x, b.y + b.h); c.scale(sx, 1); c.fillStyle = '#000000'; c.textBaseline = 'alphabetic'; c.fillText(t, 0, 0); c.restore();
-      done.push(b); n++;
+      c.save(); c.translate(b.x + (b.w - tw * sx) / 2, b.y + b.h); c.scale(sx, 1); c.fillStyle = '#000000'; c.textBaseline = 'alphabetic'; c.fillText(o.t, 0, 0); c.restore();
+      n++;
     });
     return n;
   }
@@ -851,7 +936,7 @@
       idx.forEach(function (i) {
         chain = chain.then(function () {
           say('「' + MODES.filter(function (x) { return x[0] === m; })[0][1] + '」로 다시 만드는 중… ' + (n + 1) + ' / ' + idx.length);
-          return frame().then(function () { var out = finishBase(st.base[i], m); if (st.cmode === 'text' && st.cl[i]) { polishNotes(out.cv); overlayText(out.cv, st.cl[i].filter(function (x) { return x.k !== 'lyric'; })); overlayText(out.cv, st.cl[i].filter(function (x) { return x.k === 'lyric'; })); } return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[i] = { jpg: jpg, ai: out.ai }; }); })
+          return frame().then(function () { var out = finishBase(st.base[i], m); if (st.cmode === 'text' && st.cl[i]) { polishNotes(out.cv); var M2 = inkMask(out.cv); overlayText(out.cv, st.cl[i].filter(function (x) { return x.k !== 'lyric'; }), M2); overlayText(out.cv, st.cl[i].filter(function (x) { return x.k === 'lyric'; }), M2); } return toJpeg(out.cv, CFG.jpegQ).then(function (jpg) { free(out.cv); st.res[i] = { jpg: jpg, ai: out.ai }; }); })
             .then(function () { n++; prog(n / idx.length); if (st.page === i) showPage(i); });
         });
       });
@@ -887,7 +972,7 @@
       }
       return got.then(function (items) {
         var lab = items.filter(function (x) { return x.k !== 'lyric'; }), ly = items.filter(function (x) { return x.k === 'lyric'; });
-        var a = overlayText(cv, lab), b = overlayText(cv, ly); st.clN = (st.clN || 0) + a; st.lyN = (st.lyN || 0) + b; return a + b;
+        var M = inkMask(cv), a = overlayText(cv, lab, M), b = overlayText(cv, ly, M); st.clN = (st.clN || 0) + a; st.lyN = (st.lyN || 0) + b; return a + b;
       });
     }
     paintCMode();
@@ -1043,5 +1128,5 @@
   root.YNSheetFix = root.YNSheetFix || {};
   root.YNSheetFix.open = open;
   root.YNSheetFix.current = function () { return cur; };
-  root.YNSheetFix._engine = { polishNotes: polishNotes, overlayText: overlayText, inkBox: inkBox, engravePages: engravePages, CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, aiLooksRight: aiLooksRight, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
+  root.YNSheetFix._engine = { polishNotes: polishNotes, overlayText: overlayText, lineAt: lineAt, alignLine: alignLine, inkMask: inkMask, inkBox: inkBox, engravePages: engravePages, CFG: CFG, AI: AI, aiLoad: aiLoad, aiFree: aiFree, aiUpscale: aiUpscale, flatten: flatten, levels: levels, toGray: toGray, processCanvas: processCanvas, upscaleCanvas: upscaleCanvas, finishBase: finishBase, inkFinish: inkFinish, aiLooksRight: aiLooksRight, cleanFinish: cleanFinish, skewAngle: skewAngle, staffLines: staffLines, openSource: openSource, buildPdf: buildPdf, toJpeg: toJpeg, grayToCanvas: grayToCanvas, resizeCanvas: resizeCanvas, free: free, pdfjs: pdfjs, isPdf: isPdf };
 })(typeof window !== 'undefined' ? window : this);
