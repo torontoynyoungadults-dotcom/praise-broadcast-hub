@@ -6,7 +6,7 @@ process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-secret-'.repeat
 process.env.NODE_ENV = 'test';
 process.env.ANTHROPIC_API_KEY = 'sk-test';
 process.env.CLAUDE_ALLOW_EMAILS = 'lead@test';
-let LABELS = []; const CALLS = [];
+let LABELS = [], LYRICS = []; const CALLS = [];
 const path = require('path'), http = require('http');
 const ROOT = path.join(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -55,6 +55,7 @@ global.fetch = async (url, opt) => {
     const body = JSON.parse(opt.body), txt = JSON.stringify(body.messages); CALLS.push(body);
     let out = '';
     if (/TEXT LABELS/.test(txt)) out = JSON.stringify({ items: LABELS });
+    else if (/Find every LYRIC/.test(txt)) out = JSON.stringify({ items: LYRICS });
     else if (/Re-engrave/.test(txt)) out = 'X:1\nT:Way Maker\nM:4/4\nL:1/8\nQ:1/4=72\nK:G\n"^Verse 1""G"B2 B2 "D/F#"A2 A2 | "Em7"G4 "C"E4 |\nw:주 님 여 기 계 시 네\n"G"D2 G2 "D"A2 B2 | "C"c8 |]\nw:예 배 드 려 요\n';
     return new Response(JSON.stringify({ content: [{ type: 'text', text: out }] }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
@@ -105,10 +106,12 @@ global.fetch = async (url, opt) => {
     x1.putImageData(im, 0, 0);
     const b = await new Promise((r) => d1.toBlob(r, 'image/jpeg', 0.6)); const u = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s);
   });
-  LABELS = await mkPage.evaluate(async () => {
+  const ALL = await mkPage.evaluate(async () => {
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await (await fetch('/__vec.pdf')).arrayBuffer()) }).promise, pg = await pdf.getPage(1), vp = pg.getViewport({ scale: 1 }), tc = await pg.getTextContent();
-    return tc.items.filter((it) => /^[A-G][#b]?(m|maj|sus|dim|aug|add|[0-9])*(\/[A-G][#b]?)?$/.test(it.str.trim())).map((it) => { const fs = Math.hypot(it.transform[0], it.transform[1]), p = vp.convertToViewportPoint(it.transform[4], it.transform[5]); return { t: it.str.trim(), k: 'chord', x: (p[0] + it.width / 2) / vp.width, y: (p[1] - fs * 0.36) / vp.height, h: fs * 0.72 / vp.height }; });
+    const isC = (t) => /^[A-G][#b]?(m|maj|sus|dim|aug|add|[0-9])*(\/[A-G][#b]?)?$/.test(t);
+    return tc.items.filter((it) => it.str.trim()).map((it) => { const fs = Math.hypot(it.transform[0], it.transform[1]), p = vp.convertToViewportPoint(it.transform[4], it.transform[5]), t = it.str.trim(); return { t, k: isC(t) ? 'chord' : 'lyric', x: (p[0] + it.width / 2) / vp.width, y: (p[1] - fs * 0.36) / vp.height, h: fs * 0.72 / vp.height }; });
   });
+  LABELS = ALL.filter((x) => x.k === 'chord'); LYRICS = ALL.filter((x) => x.k === 'lyric' && /^[a-z]+$/i.test(x.t) && x.t.length < 9);
   await mkPage.close();
   const jpg = Buffer.from(photoJpg, 'base64'), pd = await PDFDocument.create(), ji = await pd.embedJpg(jpg), pp = pd.addPage([595, 842]); pp.drawImage(ji, { x: 0, y: 0, width: 595, height: 842 });
   PDFS[fid(0)] = Buffer.from(await pd.save());
@@ -128,21 +131,23 @@ global.fetch = async (url, opt) => {
   await page.evaluate(() => document.querySelector('.pv-acts [data-a="fixsheet"]').click());
   ok(await page.waitForSelector('.sf-back .sf', { timeout: 8000 }).then(() => true, () => false), '보정 창이 열림');
   const cm = await page.evaluate(() => ({ n: document.querySelectorAll('.sf [data-a="cmode"]').length, on: (document.querySelector('.sf [data-a="cmode"].on') || {}).getAttribute('data-m'), hint: document.querySelector('.sf [data-r="ch"]').textContent }));
-  ok(cm.n === 3 && cm.on === 'text' && /다시 써요/.test(cm.hint), 'Claude 3가지 · 기본 「+ 코드 · 제목 다시 쓰기」', cm);
+  ok(cm.n === 3 && cm.on === 'text' && /음표 머리/.test(cm.hint) && /가사/.test(cm.hint), 'Claude 3가지 · 기본 「+ Claude 다듬기 (음표 · 코드 · 가사)」', cm);
 
   console.log('■ ① 기기 보정 + 코드 · 제목 다시 쓰기');
   await page.click('.sf [data-a="start"]');
   ok(await page.waitForFunction(() => { const b = document.querySelector('.sf [data-a="apply"]'); return b && !b.hidden && !b.disabled; }, null, { timeout: 90000 }).then(() => true, () => false), '보정을 마침');
   const st1 = await page.evaluate(() => document.querySelector('.sf [data-r="st"]').textContent);
-  const n1 = +((/글자 (\d+)개/.exec(st1) || [])[1] || 0);
+  const n1 = +((/코드 · 제목 (\d+)개/.exec(st1) || [])[1] || 0), nl = +((/가사 (\d+)자/.exec(st1) || [])[1] || 0), nn = +((/음표 머리 (\d+)개/.exec(st1) || [])[1] || 0);
   ok(n1 >= Math.ceil(LABELS.length * 0.4), 'Claude 가 읽은 코드 중 ' + n1 + ' / ' + LABELS.length + '개를 깨끗한 글자로 다시 씀', st1);
-  ok(CALLS.length === 1 && CALLS[0].messages[0].content[0].type === 'image', '쪽마다 Claude 에 한 번 (그림과 함께)', CALLS.length);
+  ok(nl >= 1, '가사 ' + nl + ' / ' + LYRICS.length + '자를 다시 씀', st1);
+  ok(nn >= 3, '검은 음표 머리 ' + nn + '개를 반듯하게 다듬음', st1);
+  ok(CALLS.length === 2 && CALLS.every((b) => b.messages[0].content[0].type === 'image'), '쪽마다 Claude 에 두 번 (코드 · 제목 / 가사)', CALLS.length);
   if (process.env.SHOT) { await page.click('.sf [data-a="zoom"]'); await sleep(400); await page.screenshot({ path: process.env.SHOT + '/sfc-text.png' }); await page.click('.sf [data-a="zoom"]'); }
   if (process.env.SHOT) { const b64 = await page.evaluate(() => { const u = YNSheetFix.current()._st.res[0].jpg; let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }); require('fs').writeFileSync(process.env.SHOT + '/sfc-text-full.jpg', Buffer.from(b64, 'base64')); }
   const j0 = await page.evaluate(() => YNSheetFix.current()._st.res[0].jpg.length);
   await page.click('.sf [data-a="mode"][data-m="bold"]');
   await page.waitForFunction((n) => { const s = YNSheetFix.current()._st; return !s.busy && s.res[0] && s.res[0].jpg.length !== n; }, j0, { timeout: 30000 }).catch(() => {});
-  ok(CALLS.length === 1, '세기를 바꿔도 Claude 에 다시 묻지 않음 (읽은 글자를 다시 씀)', CALLS.length);
+  ok(CALLS.length === 2, '세기를 바꿔도 Claude 에 다시 묻지 않음 (읽은 글자를 다시 씀)', CALLS.length);
 
   console.log('■ ② 실험: 새로 그리기');
   await page.click('.sf [data-a="cmode"][data-m="engrave"]'); await sleep(200);
