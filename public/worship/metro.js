@@ -349,6 +349,8 @@
       if (typeof window === 'undefined' || typeof document === 'undefined') return false;
       try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { /* 지원하지 않는 브라우저 */ }
       try {
+        if (Media.el && !Media.el.getAttribute('src')) { var u2 = silentWavUrl(); if (!u2) return false; Media.el.src = u2; }   // 잠금 화면에서 치워 둔 뒤 다시 (같은 <audio> 라 누르지 않아도 재생됨)
+        Media.parked = false;
         if (!Media.el) {
           var url = silentWavUrl(); if (!url) return false;
           var a = document.createElement('audio');
@@ -379,6 +381,23 @@
       try { if (Media.el) Media.el.pause(); } catch (e) { /* 무시 */ }
       try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 무시 */ }
     },
+    /* 잠금 화면 · 다른 앱으로 가면 — 메트로놈이 실제로 돌고 있지 않으면 소리 없는 재생을 완전히 치워서
+       iOS 잠금 화면에 "메트로놈 · 세션 / 연습" 재생 카드가 뜨지 않고 평소 잠금 화면이 되게 합니다.
+       화면으로 돌아오면(hold 중이면) 같은 <audio> 로 다시 켭니다. 메트로놈이 돌고 있을 때는 박이 끊기지 않게 그대로 둡니다. */
+    runs: [], parked: false,
+    running: function () { for (var i = 0; i < Media.runs.length; i++) { try { if (Media.runs[i]()) return true; } catch (e) { /* 무시 */ } } return false; },
+    park: function () {
+      if (!Media.el || Media.running()) return;
+      Media.on = false; Media.parked = true; Media.meta = false;
+      try { Media.el.pause(); Media.el.removeAttribute('src'); Media.el.load(); } catch (e) { /* 무시 */ }
+      try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* 무시 */ }
+      try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch (e) { /* 무시 */ }
+    },
+    onVis: function () {
+      if (typeof document === 'undefined') return;
+      if (document.visibilityState === 'hidden') Media.park();
+      else if (Media.parked && Media.hold) Media.start();
+    },
     release: function () {
       Media.hold = false; Media.stop(true);
       try { if (Media.el) { Media.el.removeAttribute('src'); Media.el.load(); } } catch (e) { /* 무시 */ }
@@ -386,6 +405,11 @@
       if (silentUrl) { try { URL.revokeObjectURL(silentUrl); } catch (e) { /* 무시 */ } silentUrl = null; }
     }
   };
+
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', Media.onVis);
+    if (typeof window !== 'undefined' && window.addEventListener) { window.addEventListener('pagehide', function () { Media.park(); }); window.addEventListener('pageshow', Media.onVis); }
+  }
 
   /** V836 — 음성 선택값: 'mix'(기본 · 녹음 남성) · 'male' · 'female'(기기 여성 음성) · 'any' · 'live'(기기 음성 실시간 합성) · 'v:<녹음 목소리 id>' · 'rot:m'(남성 번갈아) · 'rot:mf'(남녀 번갈아) */
   function parseSel(v) {
@@ -406,6 +430,7 @@
     var ctx = null, worker = null, timer = null, raf = 0, destroyed = false;
     var sched = new Sched({ now: function () { return ctx ? ctx.currentTime : 0; }, bpm: opt.bpm || 72, num: opt.num || 4, den: opt.den || 4 });
     var tapper = new TapTempo();
+    var isRunning = function () { return !destroyed && sched.running; }; Media.runs.push(isRunning);
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     /* v8.39 — 숫자로 세기 */
@@ -1098,6 +1123,7 @@
       state: state, sched: sched, ctx: function () { return ctx; }, help: HELP,
       destroy: function () {
         destroyed = true; stop();
+        Media.runs = Media.runs.filter(function (f) { return f !== isRunning; });
         if (raf) cancelAnimationFrame(raf);
         if (typeof document !== 'undefined' && document.removeEventListener) { document.removeEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('pageshow', onVisible); }
         Media.release();
