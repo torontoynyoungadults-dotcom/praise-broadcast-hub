@@ -2632,7 +2632,10 @@
     })();
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
     var SHOWS = [['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];        // v9.7 — 예배 타이머 단추 뺌
-    var SHOW_DEF = { timer: false, form: true, metro: false };            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
+    var SHOW_DEF = { timer: false, form: false, metro: false };
+    /* V880 — 라이브 악보는 열 때마다 "악보만" 보이게 시작합니다 (송폼 · 메트로놈 · 타이머 창은 꺼진 채).
+       쓰는 동안 「⋯」 › 떠 있는 창에서 켜면 그 화면을 닫을 때까지만 유지 (필기 도구 V838 과 같은 방식). */
+    if (!root.__YN_KEEP_FLOATS) ['form', 'metro', 'timer'].forEach(function (k) { ls('show.' + k, '0'); });   // __YN_KEEP_FLOATS 는 떠 있는 창을 시험하는 시험 전용            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
     /** 떠 있는 창이 지금 보이는지 (필기 도구 = 막대가 펴져 있는지 · 타이머 = 저장된 값) */
     function winOn(k) { if (k === 'tools') return !el.classList.contains('pv-toolshide'); if (k === 'timer') return ls('show.timer') !== '0'; return showOn(k); }
     /** ✕ — 창 하나를 닫음 (악보 · 필기 · 메트로놈 동작에는 영향 없음, 보이기만 끔) */
@@ -2641,7 +2644,7 @@
       if (k === 'tools') setTools(false, true); else { ls('show.' + k, '0'); paintShows(); }
       toast((FLNAME[k] || '') + ' 창을 닫았습니다 — 「⋯」 메뉴 › 떠 있는 창에서 다시 켤 수 있어요', false, 2800);
     }
-    function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; if (S.compact) return k === 'metro'; return SHOW_DEF[k] !== false; }     // V836 — 폰(좁은 화면)은 처음에 메트로놈 창만 떠 있음
+    function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; return SHOW_DEF[k] === true; }
     function paintShows() {
       SHOWS.forEach(function (s) {
         var on = winOn(s[0]); if (s[0] !== 'tools') el.classList.toggle('pv-hide-' + s[0], !on);

@@ -525,8 +525,19 @@
       if (ctx.state !== 'running' && ctx.resume) { try { var r = ctx.resume(); if (r && r.catch) r.catch(function () { /* 사용자가 다시 눌러야 하는 경우 */ }); } catch (e) { /* 무시 */ } }
     }
     function onCtxState() { if (ctx && ctx.state !== 'running' && sched.running) wake(); }
-    function onVisible() { if (typeof document !== 'undefined' && document.visibilityState === 'visible') wake(); }
-    if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pageshow', onVisible); }
+    /* 잠금 화면 · 다른 앱: 메트로놈이 멈춰 있으면 소리 장치(AudioContext)도 잠재웁니다 — 깨어 있으면(prime) 소리가 없어도 iOS 가 "재생 중"으로 보고
+       잠금 화면에 재생 카드를 띄웁니다. 화면으로 돌아오면 다시 깨웁니다 (같은 장치라 누르지 않아도 됨). */
+    var napped = false;
+    function onVisible() {
+      if (typeof document === 'undefined') return;
+      if (document.visibilityState === 'hidden') {
+        if (ctx && !sched.running && ctx.state === 'running' && ctx.suspend) { napped = true; try { var sp = ctx.suspend(); if (sp && sp.catch) sp.catch(function () {}); } catch (e) { /* 무시 */ } }
+        return;
+      }
+      if (napped) { napped = false; if (ctx && ctx.state !== 'running' && ctx.resume) { try { var r = ctx.resume(); if (r && r.catch) r.catch(function () {}); } catch (e) { /* 무시 */ } } }
+      wake();
+    }
+    if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.addEventListener) { window.addEventListener('pageshow', onVisible); window.addEventListener('pagehide', onVisible); } }
     function applyGain() {
       if (master && ctx) { try { master.gain.setTargetAtTime(gainOf(), ctx.currentTime, 0.01); } catch (e) { master.gain.value = gainOf(); } }
     }
@@ -1125,7 +1136,7 @@
         destroyed = true; stop();
         Media.runs = Media.runs.filter(function (f) { return f !== isRunning; });
         if (raf) cancelAnimationFrame(raf);
-        if (typeof document !== 'undefined' && document.removeEventListener) { document.removeEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('pageshow', onVisible); }
+        if (typeof document !== 'undefined' && document.removeEventListener) { document.removeEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.removeEventListener) { window.removeEventListener('pageshow', onVisible); window.removeEventListener('pagehide', onVisible); } }
         Media.release();
         try { if (ctx) ctx.onstatechange = null; if (master) master.disconnect(); if (limiter) limiter.disconnect(); } catch (e) { /* 무시 */ }
         if (ctx && ctx.close) { try { ctx.close(); } catch (e) { /* 무시 */ } }

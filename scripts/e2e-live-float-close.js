@@ -65,7 +65,7 @@ global.fetch = async (url, opt) => {
 
   const br = await chromium.launch({ args: ['--no-sandbox'] });
   const ctx = await br.newContext({ viewport: { width: 1180, height: 820 }, locale: 'ko-KR' });
-  await ctx.addInitScript(() => { try { localStorage.setItem('yn.pv.show.form', '1'); localStorage.setItem('yn.pv.show.metro', '1'); localStorage.setItem('yn.pv.side', '0'); } catch (e) {} });
+  await ctx.addInitScript(() => { try { window.__YN_KEEP_FLOATS = true; localStorage.setItem('yn.pv.show.form', '1'); localStorage.setItem('yn.pv.show.metro', '1'); localStorage.setItem('yn.pv.side', '0'); } catch (e) {} });
   const page = await ctx.newPage(); const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(BASE + '/conti/practice?team=' + TEAM + '&date=' + DATE);
