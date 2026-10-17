@@ -83,6 +83,7 @@ app.use(require('./routes/schedule'));
 app.use(require('./routes/events'));
 app.use(require('./routes/library'));
 app.use(require('./routes/equipment'));
+app.use(require('./routes/drive'));   // /drive — 미디어팀 NAS(Synology) 파일 보기 · 재생 (lib/nas.js)
 app.use(require('./routes/admin'));
 app.use(require('./routes/home'));
 

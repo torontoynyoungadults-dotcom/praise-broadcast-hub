@@ -28,3 +28,9 @@ services:
         sync: false
       - key: GOOGLE_LOGIN_CLIENT_SECRET
         sync: false
+      - key: NAS_PASSWORD
+        sync: false
+      - key: NAS_URL
+        sync: false
+      - key: NAS_ROOT
+        sync: false
