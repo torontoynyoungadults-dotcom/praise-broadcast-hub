@@ -21,6 +21,7 @@ const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
 const honorific = require('../lib/honorific');
+const nas = require('../lib/nas');
 const pageSpec = require('../lib/pageSpec');
 const pdfPart = require('../lib/pdfPart');
 const guestAccess = require('../lib/guestAccess');
@@ -115,8 +116,8 @@ async function liveData(team, scope, extraId) {
     if (xr && !list.some((x) => x.id === xid)) list.unshift({ id: xid, name: sheetName(xr, '') });
   }
   const recs = recRows.filter((r) => r['팀ID'] === team && liveStore.inScope(r, scope))
-    .map((r) => ({ id: liveStore.driveIdOf(r['링크']), r })).filter((x) => x.id)
-    .map(({ id, r }) => ({ title: String(r['제목'] || '녹음'), play: '/audio/' + id, kind: String(r['구분'] || ''), by: String(r['올린사람'] || '') }));
+    .map((r) => ({ play: nas.playUrl(r['링크']) || (liveStore.driveIdOf(r['링크']) ? '/audio/' + liveStore.driveIdOf(r['링크']) : ''), r })).filter((x) => x.play)      // 드라이브(NAS) 녹음도
+    .map(({ play, r }) => ({ title: String(r['제목'] || '녹음'), play, kind: String(r['구분'] || ''), by: String(r['올린사람'] || '') }));
   return { room, songs, sheets: list, recs };
 }
 

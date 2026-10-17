@@ -18,6 +18,7 @@ const week = require('../lib/weekUtil');
 const spa = require('../lib/spa');
 const avatar = require('../lib/avatar');
 const honorific = require('../lib/honorific');
+const nas = require('../lib/nas');
 const shortNames = require('../lib/shortName');
 const guestGate = require('../lib/guestGate');
 const guestAccess = require('../lib/guestAccess');
@@ -617,17 +618,28 @@ function commentItem(c) {
 /** 녹음의 재생 주소 — 드라이브에 올린 파일은 이 앱 주소(/audio/<id>, 되감기 · 빠르기 조절 가능), 그 밖의 링크는 그대로. 유튜브 링크는 오디오 파일이 아니라서 '' */
 function recSrc(r) {
   const link = String(r['링크'] || '');
+  const nasUrl = nas.playUrl(link);                        // 드라이브(미디어팀 NAS)에서 연결한 녹음 — /drive/file (Range 지원)
+  if (nasUrl) return nasUrl;
   const id = liveStore.driveIdOf(link);
   if (id) return '/audio/' + id;
   if (!/^https?:\/\//i.test(link) || youtube.idOf(link) || /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(link)) return '';
   return link;
+}
+/** 녹음 한 줄 아래 작은 글 — 드라이브 파일은 "드라이브" 표시 · 영상이면 화면 안에서 영상 보기 */
+function recExtra(r, src) {
+  const p = nas.pathOfLink(r['링크']);
+  if (p) {
+    const name = p.split('/').pop(), kind = nas.kindOf(name);
+    return ` · 드라이브${kind === 'video' ? ` · <a class="ph-li-link" href="${esc(src)}" target="_blank" rel="noopener" data-dv-open="video" data-dv-src="${esc(src)}" data-dv-dl="${esc(src + '&dl=1')}" data-dv-title="${esc(name)}">영상 보기</a>` : ''}`;
+  }
+  return src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>` : ' · 유튜브 등 링크는 새 창에서 열려요';
 }
 function recItem(r, editable) {
   const src = recSrc(r), title = String(r['제목'] || '녹음');
   return `<div class="ph-list-item rp-item"${src ? ` data-rp-src="${esc(src)}" data-rp-title="${esc(title)}" data-rp-by="${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}"` : ''}>
     ${src ? `<button type="button" class="rp-playbtn" data-rp-pick title="재생" aria-label="${esc(title)} 재생"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>` : ''}
     <div class="ph-li-main">${src ? `<button type="button" class="rp-name" data-rp-pick>${esc(title)}</button>` : `<a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(title)}</a>`}
-      <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>` : ' · 유튜브 등 링크는 새 창에서 열려요'}</div></div>
+      <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${recExtra(r, src)}</div></div>
     ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('이 녹음을 지울까요?')">
       <input type="hidden" name="__row" value="${r.__row}">
       <input type="hidden" name="team" value="${esc(r['팀ID'])}">${rowHidden(r)}
@@ -789,6 +801,7 @@ router.get('/conti', requireTeam, async (req, res) => {
     <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <a class="ph-btn cn-drivepick" href="/drive?to=${encodeURIComponent(scope.event ? 'ev:' + scope.event : scope.date)}">${ui.icon('folder')} 드라이브에서 녹음 · 영상 고르기</a>
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
       <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
