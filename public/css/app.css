@@ -1880,3 +1880,27 @@ a { transition: color .15s var(--ease); }
 .rp-mark:hover { border-color: var(--accent); }
 .cn-recjump { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--ink); cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cn-recjump .yi { width: 1em; height: 1em; }
+
+/* ---------- 콘티 「녹음 찾기」 추천 목록 (public/js/drive.js · GET /drive/suggest) ---------- */
+.cn-driverow { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.cn-driverow .cn-drivepick { margin: 0; }
+.cn-drivepick.pri { background: var(--accent); color: var(--on-accent, #fff); border-color: transparent; }
+.dv-sugg { margin: 0 0 12px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); background: color-mix(in srgb, var(--accent) 6%, var(--glass-2)); }
+.dv-sugg[hidden] { display: none; }
+.dv-sg-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14.5px; margin-bottom: 10px; color: var(--ink); }
+.dv-sg-scan { font-size: 12px; color: var(--dim); }
+.dv-sg-msg { margin: 0; font-size: 14px; color: var(--sub); line-height: 1.5; }
+.dv-sg-msg.bad { color: var(--bad, #c0392b); font-weight: 700; }
+.dv-sg-list { display: flex; flex-direction: column; gap: 8px; }
+.dv-sg-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); }
+.dv-sg-item.linked { opacity: .7; }
+.dv-sg-main { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dv-sg-name { font-size: 15px; overflow-wrap: anywhere; color: var(--ink); }
+.dv-sg-sub { font-size: 12.5px; color: var(--dim); overflow-wrap: anywhere; }
+.dv-sg-why { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.dv-sg-why i { font-style: normal; font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-ink, var(--accent)); }
+.dv-sg-acts, .dv-sg-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dv-sg-acts button { font: inherit; font-size: 13px; font-weight: 800; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line-hi, var(--line)); background: var(--glass-2); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.dv-sg-acts button.pri { background: var(--accent); color: var(--on-accent, #fff); border-color: transparent; }
+.dv-sg-acts button:disabled { opacity: .6; cursor: default; }
+.dv-sg-done { font-size: 13px; font-weight: 800; color: var(--accent); }

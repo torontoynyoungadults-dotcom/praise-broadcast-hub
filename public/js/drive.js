@@ -93,4 +93,57 @@
     if (!b) return;
     e.preventDefault(); linkDialog(b);
   });
+
+  /* ---- 콘티 「녹음 찾기」 — GET /drive/suggest 로 이 예배의 녹음일 만한 파일을 받아 추천 목록 · 미리 듣기 · 바로 연결 ---- */
+  function suggestHtml(d, team) {
+    if (!d.ok) return '<p class="dv-sg-msg bad">' + esc(d.error || '찾지 못했어요.') + '</p>';
+    var head = '<div class="dv-sg-head"><b>' + esc(d.target.label) + '</b> 녹음일 만한 파일' + (d.items.length ? ' ' + d.items.length + '개' : '') +
+      '<span class="dv-sg-scan">폴더 ' + d.scanned.dirs + '개 · 녹음 · 영상 ' + d.scanned.files + '개를 살펴봤어요' + (d.scanned.truncated ? ' (일부)' : '') + '</span></div>';
+    if (!d.items.length) return head + '<p class="dv-sg-msg">날짜가 맞는 파일을 찾지 못했어요. 파일 이름에 날짜(예: 2026-10-18)가 있거나 그 주에 올린 파일을 찾아요. "드라이브에서 직접 고르기"로 골라 주세요.</p>';
+    return head + '<div class="dv-sg-list">' + d.items.map(function (x) {
+      var other = x.kind === '예배' ? '연습' : '예배';
+      return '<div class="dv-sg-item' + (x.linked ? ' linked' : '') + '">' +
+        '<div class="dv-sg-main"><b class="dv-sg-name">' + esc(x.name) + '</b>' +
+          '<span class="dv-sg-sub">' + esc([x.media === 'video' ? '영상' : '녹음', x.folder, x.date, x.size].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="dv-sg-why">' + x.reasons.map(function (r) { return '<i>' + esc(r) + '</i>'; }).join('') + '</span></div>' +
+        '<div class="dv-sg-acts">' +
+          '<button type="button" class="dv-sg-play" data-dv-preview="' + esc(x.play) + '" data-dv-title="' + esc(x.title) + '">미리 듣기</button>' +
+          (x.linked ? '<span class="dv-sg-done">연결됨</span>' :
+          '<form method="post" action="/drive/link" class="dv-sg-form">' +
+            '<input type="hidden" name="team" value="' + esc(team) + '"><input type="hidden" name="p" value="' + esc(x.path) + '">' +
+            '<input type="hidden" name="to" value="' + esc(d.target.to) + '"><input type="hidden" name="제목" value="' + esc(x.title) + '">' +
+            '<button type="submit" name="구분" value="' + esc(x.kind) + '" class="pri">' + esc(x.kind) + ' 녹음으로 연결</button>' +
+            '<button type="submit" name="구분" value="' + esc(other) + '">' + (other === '예배' ? '예배로' : '연습으로') + '</button></form>') +
+        '</div></div>';
+    }).join('') + '</div>';
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-dv-suggest]') : null;
+    if (!b) return;
+    e.preventDefault();
+    var box = b.parentNode && b.parentNode.parentNode ? b.parentNode.parentNode.querySelector('.dv-sugg') : null;
+    if (!box) return;
+    if (!box.hidden && box.getAttribute('data-done')) { box.hidden = true; box.removeAttribute('data-done'); return; }   // 다시 누르면 접기
+    var team = b.getAttribute('data-team') || '';
+    box.hidden = false; box.innerHTML = '<p class="dv-sg-msg">드라이브에서 찾는 중… (폴더가 많으면 조금 걸려요)</p>';
+    b.disabled = true;
+    var q = '?team=' + encodeURIComponent(team) + '&to=' + encodeURIComponent(b.getAttribute('data-to') || '') + '&prac=' + encodeURIComponent(b.getAttribute('data-prac') || '');
+    fetch((window.PH_BASE || '') + '/drive/suggest' + q, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { box.innerHTML = suggestHtml(d, team); box.setAttribute('data-done', '1'); })
+      .catch(function () { box.innerHTML = '<p class="dv-sg-msg bad">드라이브에 연결하지 못했어요. 잠시 뒤에 다시 눌러 주세요.</p>'; })
+      .then(function () { b.disabled = false; });
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-dv-preview]') : null;
+    if (!b) return;
+    e.preventDefault();
+    var src = b.getAttribute('data-dv-preview'), title = b.getAttribute('data-dv-title') || '미리 듣기';
+    if (window.PHRec) { if (window.PHRec.current() === src) window.PHRec.toggle(); else window.PHRec.play([{ src: src, title: title, by: '드라이브 · 미리 듣기' }], 0); }
+  });
+  document.addEventListener('submit', function (e) {
+    var f = e.target; if (!f.classList || !f.classList.contains('dv-sg-form')) return;
+    Array.prototype.forEach.call(f.querySelectorAll('button'), function (x) { x.disabled = true; });
+    var s = e.submitter; if (s) { var h = document.createElement('input'); h.type = 'hidden'; h.name = s.name; h.value = s.value; f.appendChild(h); s.textContent = '연결하는 중…'; }
+  }, true);
 })();

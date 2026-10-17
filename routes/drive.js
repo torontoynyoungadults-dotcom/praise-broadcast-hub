@@ -16,6 +16,7 @@ const sheetsDb = require('../lib/sheetsDb');
 const week = require('../lib/weekUtil');
 const guestAccess = require('../lib/guestAccess');
 const nas = require('../lib/nas');
+const driveMatch = require('../lib/driveMatch');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -191,6 +192,42 @@ router.post('/drive/link', requireMember, async (req, res) => {
   } catch (e) {
     if (!e.user) console.error('[드라이브 연결]', e);
     back(e.user ? e.message : '연결하지 못했어요. 잠시 뒤에 다시 시도해주세요.');
+  }
+});
+
+/* ---------------------------------------------------------------- GET /drive/suggest — 콘티 「녹음 찾기」 (JSON)
+ *   ?team=&to=날짜|ev:행사ID&prac=연습일  → 이 예배의 연습 · 예배 녹음일 만한 NAS 파일 (lib/driveMatch.js 점수) */
+router.get('/drive/suggest', requireMember, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const ctx = req.ctx;
+  const team = String(req.query.team || ctx.current || '').trim();
+  try {
+    if (!team || !ctx.teams.includes(team)) throw Object.assign(new Error('팀을 확인해주세요.'), { user: true });
+    if (guestAccess.isGuest(ctx.member)) throw Object.assign(new Error('객원 멤버는 녹음 찾기를 쓸 수 없어요.'), { user: true });
+    const to = await scopeOfTo(team, req.query.to);
+    if (!to) throw Object.assign(new Error('예배를 찾지 못했어요.'), { user: true });
+    const prac = week.isValidDateStr(req.query.prac) ? String(req.query.prac) : '';
+    const inScope = (r) => r['팀ID'] === team && (to.event ? String(r['행사ID'] || '') === to.event : (r['날짜'] === to.date && !r['행사ID']));
+    const [songRows, recRows, evRows] = await Promise.all([sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('녹음'), to.event ? sheetsDb.readAll('특별예배') : []]);
+    const ev = to.event ? evRows.find((e) => e['팀ID'] === team && String(e['ID']) === to.event) : null;
+    const target = { date: to.date, prac, eventName: ev ? String(ev['이름'] || '') : '', songs: songRows.filter(inScope).map((r) => String(r['제목'] || '')).filter(Boolean) };
+    const linked = new Set(recRows.filter(inScope).map((r) => nas.pathOfLink(r['링크'])).filter(Boolean));
+    const near = (x) => {                                   // 예배 날짜에 가까운 폴더부터 열기
+      const ds = driveMatch.datesIn(x.name || '', [Number(to.date.slice(0, 4)), Number(to.date.slice(0, 4)) - 1]);
+      const fromName = ds.length ? Math.min.apply(null, ds.map((d) => Math.abs(driveMatch.diffDays(d, to.date)))) : 999;
+      const fromTime = x.mtime ? Math.abs(Math.round((x.mtime * 1000 - Date.parse(to.date + 'T12:00:00Z')) / 86400000)) : 999;
+      return Math.min(fromName, fromTime + 1);
+    };
+    const w = await nas.walk({ maxDepth: 3, maxDirs: 60, order: near });
+    const items = driveMatch.suggest(w.files, target, linked, 8).map((x) => ({
+      name: x.name, path: x.path, folder: x.path.split('/').slice(0, -1).join('/').replace(nas.topPath(), '') || '/',
+      date: fmtDate(x.mtime), size: fmtSize(x.size), kind: x.kind, reasons: x.reasons, score: x.score, linked: x.linked,
+      media: nas.kindOf(x.name), play: fileHref(x.path), title: baseTitle(x.name),
+    }));
+    res.json({ ok: true, target: { label: to.label, to: to.to, prac }, items, scanned: { dirs: w.dirs, files: w.files.length, truncated: w.truncated } });
+  } catch (e) {
+    if (!e.user) console.error('[드라이브 녹음 찾기]', e);
+    res.json({ ok: false, error: e.user ? e.message : 'NAS 에서 찾지 못했어요. 잠시 뒤에 다시 시도해주세요.' });
   }
 });
 
