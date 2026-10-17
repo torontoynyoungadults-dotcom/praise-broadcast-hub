@@ -7,6 +7,9 @@
  *  · 라이브러리(페이지째 여는 화면)도 같은 플레이어를 씁니다 (window.PHRec). 페이지를 새로 여는 이동(라이브러리 · 스케줄표 ↔ 다른 탭)이면
  *    이동 직전 상태(목록 · 곡 · 위치 · 재생 중)를 기억했다가 새 페이지에서 그 자리부터 이어서 틀어 줍니다 (브라우저가 막으면 멈춘 채로 그 자리에).
  *  · 재생 상태가 바뀔 때마다 document 에 'ph:rec' 이벤트 { src, playing } — 목록의 "재생 중" 표시용
+ *  · 영상(드라이브의 mp4 · mov …)이면 플레이어 위에 화면도 보입니다 — 「크게」 로 전체 화면, 「화면 접기」 로 소리만.
+ *  · 곡 시작 위치: 녹음 줄의 [data-rp-marks] (곡 칩 [data-rp-pick][data-rp-t]) · 콘티 곡 카드의 [data-rp-jump][data-rp-t] 를 누르면 그 위치부터.
+ *    펼친 플레이어의 「곡 위치」 에서 이 예배 곡마다 "여기" 로 지금 위치를 찍으면 서버(/conti/recordings/marks)에 저장됩니다.
  * 올릴 때 제목 자동 입력([data-rec-form])도 여기서 붙입니다.
  */
 (function () {
@@ -27,6 +30,10 @@
   function fmt(t) { if (!isFinite(t) || t < 0) t = 0; t = Math.floor(t); var m = Math.floor(t / 60), s = t % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   function clampRate(r) { return Math.max(0.5, Math.min(2, Math.round(r * 100) / 100)); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  /** 영상 파일인지 — 주소(/drive/file?p=…mp4 · …/x.mov)의 확장자로 */
+  function isVideo(src) { var u = String(src || ''); try { u = decodeURIComponent(u); } catch (e) { /* 그대로 */ } return /\.(mp4|m4v|mov|webm|mkv)(?=$|[?&#])/i.test(u.replace(/&dl=1/, '')); }
+  function parseJSON(v, d) { try { var x = JSON.parse(v || ''); return x == null ? d : x; } catch (e) { return d; } }
+  var FULL = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
 
   var F = null;                                        // 플로팅 플레이어 (처음 재생할 때 만듦)
 
@@ -34,7 +41,9 @@
     var root = document.createElement('div');
     root.className = 'rpf'; root.setAttribute('data-rp', ''); root.setAttribute('role', 'region'); root.setAttribute('aria-label', '녹음 플레이어');
     root.innerHTML =
-      '<audio preload="metadata" playsinline></audio>' +
+      '<div class="rpf-video"><video preload="metadata" playsinline webkit-playsinline></video>' +
+        '<div class="rpf-vbar"><button type="button" data-rp-a="full" title="크게 보기 (전체 화면)" aria-label="크게 보기">' + FULL + ' 크게</button><button type="button" data-rp-a="vmin" class="rpf-vmin" title="화면 접기 — 소리만" aria-label="화면 접기">화면 접기</button></div></div>' +
+      '<button type="button" class="rpf-vshow" data-rp-a="vmin" hidden>영상 화면 보기</button>' +
       '<div class="rpf-main">' +
         '<span class="rpf-grip" title="끌어서 옮기기" aria-hidden="true">' + I.grip + '</span>' +
         '<button type="button" class="rp-go" data-rp-a="toggle" title="재생 / 멈춤" aria-label="재생 / 멈춤">' + I.play + '</button>' +
@@ -55,6 +64,7 @@
           '<div class="rp-grp"><span class="rp-lb">빠르기</span><button type="button" data-rp-a="slower" aria-label="느리게">−</button><b class="rp-rate">1.00×</b><button type="button" data-rp-a="faster" aria-label="빠르게">+</button>' +
             '<span class="rp-presets">' + [0.5, 0.75, 1, 1.25, 1.5].map(function (n) { return '<button type="button" data-rp-rate="' + n + '">' + n + '×</button>'; }).join('') + '</span></div>' +
           '<div class="rp-grp"><span class="rp-lb">구간 반복</span><button type="button" data-rp-a="setA">A 시작</button><button type="button" data-rp-a="setB">B 끝</button><button type="button" data-rp-a="clearAB">해제</button><span class="rp-ab"></span></div>' +
+          '<div class="rp-grp rp-markgrp" hidden><span class="rp-lb">곡 위치</span><div class="rp-marklist"></div><span class="rp-markhint">곡이 시작하는 곳에서 "여기"를 누르면 저장돼요 — 콘티 곡 카드에서 그 곡부터 바로 재생할 수 있어요.</span></div>' +
           '<div class="rp-grp"><span class="rp-lb">소리</span><input class="rp-vol" type="range" min="0" max="100" value="100" aria-label="소리 크기"><label class="rp-chk"><input type="checkbox" class="rp-auto" checked> 이어서 재생</label><label class="rp-chk"><input type="checkbox" class="rp-loop"> 한 곡 반복</label></div>' +
         '</div>' +
       '</div>' +
@@ -65,10 +75,11 @@
 
   function create() {
     var root = build();
-    var au = root.querySelector('audio');
+    var au = root.querySelector('video');
     var $ = function (s) { return root.querySelector(s); };
     var bar = $('.rp-bar'), cur = $('.rp-cur'), dur = $('.rp-dur'), go = $('.rp-go'), rateEl = $('.rp-rate'), msg = $('.rp-msg'),
-        ttl = $('.rp-title'), by = $('.rp-by'), abEl = $('.rp-ab'), vol = $('.rp-vol'), auto = $('.rp-auto'), loop = $('.rp-loop'), exp = $('.rpf-expand');
+        ttl = $('.rp-title'), by = $('.rp-by'), abEl = $('.rp-ab'), vol = $('.rp-vol'), auto = $('.rp-auto'), loop = $('.rp-loop'), exp = $('.rpf-expand'),
+        markGrp = $('.rp-markgrp'), markBox = $('.rp-marklist'), vshow = $('.rpf-vshow');
     var st = load(), list = [], idx = -1, A = null, B = null, seeking = false;
     var rate = clampRate(st.rate || 1);
     try { au.preservesPitch = true; au.mozPreservesPitch = true; au.webkitPreservesPitch = true; } catch (e) { /* 기본값이 음높이 유지 */ }
@@ -98,14 +109,61 @@
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: list[idx].title || '녹음', artist: list[idx].by || '' }); } catch (e) { /* 지원 안 하면 건너뜀 */ }
     }
     function show() { root.classList.add('on'); document.body.classList.add('rpf-on'); }
-    function select(i, play) {
+    function select(i, play, t) {
       if (!list.length) return;
       if (i < 0) i = 0; if (i >= list.length) i = list.length - 1;
-      var it = list[i]; idx = i; A = B = null; pendT = 0; paintAB(); say('');
+      var it = list[i]; idx = i; A = B = null; pendT = t > 0 ? t : 0; paintAB(); say('');
       ttl.textContent = it.title || '녹음'; by.textContent = it.by || '';
-      au.src = it.src; applyRate(); au.load(); markList(); meta(); show();
+      root.classList.toggle('has-video', isVideo(it.src)); root.classList.toggle('vmin', isVideo(it.src) && !!st.vmin); vshow.hidden = !(isVideo(it.src) && st.vmin);
+      au.src = it.src; applyRate(); au.load(); markList(); meta(); show(); paintMarks(); place();
       if (play) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생을 시작하지 못했어요. 재생 버튼을 한 번 더 눌러 주세요.', true); });
     }
+    /** 지금 녹음에서 t 초로 가서 재생 (곡 칩 · 곡 카드의 "영상 3:25") */
+    function seekTo(t) {
+      if (idx < 0) return;
+      pendT = Math.max(0, Number(t) || 0); applyPend();
+      if (au.paused) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생하지 못했어요. ▶ 를 눌러 주세요.', true); });
+    }
+    /* ---- 곡 위치 (이 예배 곡마다 시작 시각) ---- */
+    function cur_() { return idx >= 0 ? list[idx] : null; }
+    function paintMarks() {
+      var it = cur_(), songs = it && it.songs || [], marks = it && it.marks || [];
+      var show2 = !!(it && it.id && (songs.length || marks.length));
+      markGrp.hidden = !show2; if (!show2) { markBox.innerHTML = ''; return; }
+      var byId = {}; marks.forEach(function (m) { if (m.id && byId[m.id] == null) byId[m.id] = m.t; });
+      var rows = songs.map(function (sg) { return { id: sg.id, k: sg.k, t: byId[sg.id] }; });
+      marks.forEach(function (m) { if (!m.id || !songs.some(function (sg) { return sg.id === m.id; })) rows.push({ id: m.id, k: m.k || '곡', t: m.t, orphan: true }); });
+      markBox.innerHTML = rows.map(function (r, n) {
+        return '<div class="rp-mk' + (r.t != null ? ' has' : '') + '"><span class="rp-mk-k">' + esc(r.k) + '</span>' +
+          (r.t != null ? '<button type="button" data-rp-mk-go="' + r.t + '" title="이 곡부터 재생">' + fmt(r.t) + '</button>' : '<span class="rp-mk-none">—</span>') +
+          (it.edit ? '<button type="button" data-rp-mk-set="' + n + '" title="지금 위치를 이 곡의 시작으로">여기</button>' + (r.t != null ? '<button type="button" data-rp-mk-del="' + n + '" title="지우기" aria-label="지우기">✕</button>' : '') : '') + '</div>';
+      }).join('');
+      markBox._rows = rows;
+    }
+    function saveMarks(marks) {
+      var it = cur_(); if (!it || !it.id) return;
+      var prev = it.marks; it.marks = marks; paintMarks(); say('곡 위치 저장 중…');
+      fetch((window.PH_BASE || '') + '/conti/recordings/marks', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ team: it.team, id: it.id, marks: marks }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.ok) throw new Error(d && d.error || '');
+          it.marks = d.marks || marks; paintMarks(); say('곡 위치를 저장했어요. 콘티를 새로 열면 곡 카드에 "영상 · 녹음" 버튼이 생겨요.');
+          document.querySelectorAll('[data-rp-src]').forEach(function (el) { if (el.getAttribute('data-rp-src') === it.src && el.hasAttribute('data-rp-marks')) el.setAttribute('data-rp-marks', JSON.stringify(it.marks)); });
+        })
+        .catch(function (e) { it.marks = prev; paintMarks(); say((e && e.message) || '저장하지 못했어요.', true); });
+    }
+    markBox.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var rows = markBox._rows || [], it = cur_(); if (!it) return;
+      if (b.hasAttribute('data-rp-mk-go')) { seekTo(Number(b.getAttribute('data-rp-mk-go'))); return; }
+      var setN = b.getAttribute('data-rp-mk-set'), delN = b.getAttribute('data-rp-mk-del');
+      var r = rows[Number(setN != null ? setN : delN)]; if (!r) return;
+      var rest = (it.marks || []).filter(function (m) { return !(m.id === r.id && (r.id || m.k === r.k)); });
+      if (setN != null) rest.push({ t: Math.round(au.currentTime * 10) / 10, id: r.id, k: r.k });
+      rest.sort(function (a, b2) { return a.t - b2.t; });
+      saveMarks(rest);
+    });
+
     // 이어 듣기 위치 — 자동 재생이 막혀 버퍼가 없으면 seek가 안 먹으므로, 준비되거나 ▶ 누를 때 다시 맞춤
     var pendT = 0;
     function applyPend() {
@@ -123,7 +181,7 @@
     function seekBy(d) { if (idx < 0) return; var t = au.currentTime + d, end = au.duration || 0; au.currentTime = Math.max(0, end ? Math.min(end, t) : t); }
     function step(dir) { var n = list.length; if (n) select((idx + dir + n) % n, true); }
     function setExpanded(on) { root.classList.toggle('open', on); exp.setAttribute('aria-expanded', on ? 'true' : 'false'); exp.setAttribute('aria-label', on ? '접기' : '자세히 펼치기'); st.open = on; save(st); place(); }
-    function close() { au.pause(); au.removeAttribute('src'); au.load(); idx = -1; A = B = null; root.classList.remove('on', 'playing'); document.body.classList.remove('rpf-on'); markList(); say(''); go.innerHTML = I.play; try { sessionStorage.removeItem(RESUME); } catch (e) { /* 없어도 됨 */ } }
+    function close() { au.pause(); au.removeAttribute('src'); au.load(); idx = -1; A = B = null; root.classList.remove('on', 'playing', 'has-video', 'vmin'); vshow.hidden = true; document.body.classList.remove('rpf-on'); markList(); say(''); go.innerHTML = I.play; try { sessionStorage.removeItem(RESUME); } catch (e) { /* 없어도 됨 */ } }
 
     var actions = {
       toggle: toggle, back: function () { seekBy(-10); }, fwd: function () { seekBy(10); },
@@ -133,6 +191,10 @@
       setA: function () { if (idx < 0) return; A = au.currentTime; if (B != null && B <= A) B = null; paintAB(); say('구간 시작을 ' + fmt(A) + ' 로 잡았어요. 끝나는 곳에서 "B 끝"을 눌러요.'); },
       setB: function () { if (idx < 0) return; if (A == null) A = 0; if (au.currentTime <= A + 0.3) { say('B(끝)는 A(시작)보다 뒤여야 해요.', true); return; } B = au.currentTime; paintAB(); say('구간 반복 중 — 해제하려면 "해제".'); },
       clearAB: function () { A = B = null; paintAB(); say(''); },
+      full: function () {                                 // 영상 크게 — 전체 화면 (아이폰은 영상 전용 전체 화면)
+        try { if (au.requestFullscreen) au.requestFullscreen(); else if (au.webkitEnterFullscreen) au.webkitEnterFullscreen(); else if (au.webkitRequestFullscreen) au.webkitRequestFullscreen(); } catch (e) { say('전체 화면을 열지 못했어요.', true); }
+      },
+      vmin: function () { st.vmin = !root.classList.contains('vmin'); save(st); root.classList.toggle('vmin', st.vmin); vshow.hidden = !st.vmin; place(); },
     };
     root.addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b || !root.contains(b)) return;
@@ -217,7 +279,8 @@
     }
     return {
       root: root, au: au, restore: restore,
-      play: function (items, i) { list = items; select(i, true); },
+      play: function (items, i, t) { list = items; select(i, true, t); },
+      seek: seekTo,
       current: function () { return idx >= 0 && list[idx] ? list[idx].src : ''; },
       playing: function () { return idx >= 0 && !au.paused; },
       mark: markList, toggle: toggle,
@@ -227,22 +290,35 @@
   /* ---- 목록 쪽: 재생 버튼 ---- */
   function snapshot() {
     return Array.prototype.slice.call(document.querySelectorAll('[data-rp-src]')).map(function (el) {
-      return { src: el.getAttribute('data-rp-src'), title: el.getAttribute('data-rp-title') || '녹음', by: el.getAttribute('data-rp-by') || '' };
+      return { src: el.getAttribute('data-rp-src'), title: el.getAttribute('data-rp-title') || '녹음', by: el.getAttribute('data-rp-by') || '',
+        id: el.getAttribute('data-rp-id') || '', team: el.getAttribute('data-rp-team') || '', edit: el.hasAttribute('data-rp-edit'),
+        marks: parseJSON(el.getAttribute('data-rp-marks'), []), songs: parseJSON(el.getAttribute('data-rp-songs'), []) };
     });
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-rp-pick]'); if (!b) return;
     var it = b.closest('[data-rp-src]'); if (!it) return;
-    var src = it.getAttribute('data-rp-src');
+    var src = it.getAttribute('data-rp-src'), t = b.getAttribute('data-rp-t');
     if (!F) F = create();
-    if (F.current() === src) { F.toggle(); return; }          // 같은 녹음을 또 누르면 재생/멈춤
+    if (F.current() === src) { if (t != null) F.seek(Number(t)); else F.toggle(); return; }   // 같은 녹음 — 곡 칩이면 그 위치로, 아니면 재생/멈춤
     var items = snapshot(), i = items.findIndex(function (x) { return x.src === src; });
-    F.play(items, i < 0 ? 0 : i);
+    F.play(items, i < 0 ? 0 : i, t != null ? Number(t) : 0);
+  });
+  /* ---- 콘티 곡 카드의 "▶ 영상 3:25" — 그 녹음을 이 곡 시작 위치부터 ---- */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-rp-jump]'); if (!b) return;
+    e.preventDefault();
+    var src = b.getAttribute('data-rp-jump'), t = Number(b.getAttribute('data-rp-t')) || 0;
+    if (!F) F = create();
+    if (F.current() === src) { F.seek(t); return; }
+    var items = snapshot(), i = items.findIndex(function (x) { return x.src === src; });
+    if (i < 0) { items.unshift({ src: src, title: b.getAttribute('title') || '녹음', by: '' }); i = 0; }
+    F.play(items, i, t);
   });
 
   /* ---- 다른 화면(라이브러리 등)에서 쓰는 API — 목록 [{src, title, by}] 과 순서 ---- */
   window.PHRec = {
-    play: function (items, i) { if (!F) F = create(); F.play(items, i < 0 ? 0 : i); },
+    play: function (items, i, t) { if (!F) F = create(); F.play(items, i < 0 ? 0 : i, t); },
     toggle: function () { if (F) F.toggle(); },
     current: function () { return F ? F.current() : ''; },
     playing: function () { return F ? F.playing() : false; },

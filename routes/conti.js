@@ -371,7 +371,7 @@ function ytPlayAllHtml(w, team) {
 }
 
 /** 곡 카드 — 청년부 앱처럼: ① 순서 · 제목 · Key · BPM ② 원곡팀 · 유튜브 ③ 송폼 ④ 설명 */
-function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm }) {
+function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps }) {
   const isFinal = kind === '결단';
   const isClosing = kind === '폐회송';
   const yt = s['유튜브'] ? ytLinkOf(s['유튜브']) : '';
@@ -402,12 +402,14 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
         <button class="ph-row-del" type="submit" style="width:100%;" title="삭제">${ui.icon('close')} 이 곡 삭제</button>
       </form>
     </details>` : '';
+  const jp = jumps && jumps[s['ID']];                                        // 녹음 · 영상에서 이 곡이 시작하는 곳부터
+  const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
   const ytBtn = yt ? `<a class="cn-ytlink" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube">${ui.icon('play')}<span>YouTube</span></a>` : '';
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
       <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
-      <span class="cn-badges">${s['Key'] ? `<span class="cn-kb key" title="Key">${esc(s['Key'])}</span>` : ''}${bpm ? `<span class="cn-kb bpm" title="BPM">${esc(bpm)}<small>BPM</small></span>` : ''}${ytBtn}</span>
+      <span class="cn-badges">${s['Key'] ? `<span class="cn-kb key" title="Key">${esc(s['Key'])}</span>` : ''}${bpm ? `<span class="cn-kb bpm" title="BPM">${esc(bpm)}<small>BPM</small></span>` : ''}${ytBtn}${jumpBtn}</span>
       ${editable && !isFinal && !isClosing ? `<button type="button" class="cn-grip" data-cn-grip aria-label="끌어서 순서 바꾸기 (위·아래 방향키로도 옮겨요)" title="끌어서 순서 바꾸기"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>` : ''}
     </div>
     ${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}
@@ -625,21 +627,52 @@ function recSrc(r) {
   if (!/^https?:\/\//i.test(link) || youtube.idOf(link) || /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(link)) return '';
   return link;
 }
-/** 녹음 한 줄 아래 작은 글 — 드라이브 파일은 "드라이브" 표시 · 영상이면 화면 안에서 영상 보기 */
+/** 녹음 한 줄 아래 작은 글 — 드라이브 파일은 "드라이브" 표시 (영상은 녹음 플레이어 안에서 화면까지 보임) */
 function recExtra(r, src) {
   const p = nas.pathOfLink(r['링크']);
   if (p) {
     const name = p.split('/').pop(), kind = nas.kindOf(name);
-    return ` · 드라이브${kind === 'video' ? ` · <a class="ph-li-link" href="${esc(src)}" target="_blank" rel="noopener" data-dv-open="video" data-dv-src="${esc(src)}" data-dv-dl="${esc(src + '&dl=1')}" data-dv-title="${esc(name)}">영상 보기</a>` : ''}`;
+    return ` · 드라이브${kind === 'video' ? ' · 영상' : ''}`;
   }
   return src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>` : ' · 유튜브 등 링크는 새 창에서 열려요';
 }
-function recItem(r, editable) {
+/** 녹음의 곡 시작 위치 — '녹음'.구간 JSON [{t, id, k}] (시간순 · 최대 60개) */
+function cleanMarks(v) {
+  let a = v;
+  if (typeof a === 'string') { try { a = JSON.parse(a || '[]'); } catch (e) { a = []; } }
+  const out = [];
+  (Array.isArray(a) ? a : []).forEach((x) => {
+    if (!x || typeof x !== 'object') return;
+    const t = Math.round(Number(x.t) * 10) / 10;
+    if (!Number.isFinite(t) || t < 0 || t > 36000) return;
+    out.push({ t, id: String(x.id == null ? '' : x.id).slice(0, 40), k: String(x.k == null ? '' : x.k).replace(/[\r\n]/g, ' ').trim().slice(0, 60) });
+  });
+  out.sort((a2, b2) => a2.t - b2.t);
+  return out.slice(0, 60);
+}
+const mmss = (t) => { t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0'); };
+/** 이 예배의 곡 목록 — 녹음 플레이어에서 곡 위치를 찍을 때 고르는 목록 */
+const songsForMarks = (w) => [].concat(w.conti, w.final, w.closing).map((x) => ({ id: String(x['ID'] || ''), k: String(x['제목'] || '제목 없음') }));
+/** 곡 카드의 "▶ 영상 3:25" — 곡 ID → 그 곡이 시작하는 녹음 위치 (예배 녹음 · 영상을 먼저) */
+function songJumps(recs) {
+  const out = {};
+  const rank = (r) => (r['구분'] === '예배' ? 0 : 2) + (nas.kindOf(String(nas.pathOfLink(r['링크']) || r['링크'] || '').split('/').pop()) === 'video' ? 0 : 1);
+  recs.slice().sort((a, b) => rank(a) - rank(b)).forEach((r) => {
+    const src = recSrc(r); if (!src) return;
+    const video = nas.kindOf(String(nas.pathOfLink(r['링크']) || '').split('/').pop()) === 'video';
+    cleanMarks(r['구간']).forEach((m) => { if (m.id && !out[m.id]) out[m.id] = { src, t: m.t, video, kind: r['구분'] === '예배' ? '예배' : '연습' }; });
+  });
+  return out;
+}
+function recItem(r, editable, songs) {
   const src = recSrc(r), title = String(r['제목'] || '녹음');
-  return `<div class="ph-list-item rp-item"${src ? ` data-rp-src="${esc(src)}" data-rp-title="${esc(title)}" data-rp-by="${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}"` : ''}>
+  const marks = cleanMarks(r['구간']);
+  const data = src ? ` data-rp-id="${esc(r['ID'] || '')}" data-rp-team="${esc(r['팀ID'] || '')}" data-rp-marks="${esc(JSON.stringify(marks))}"${songs ? ` data-rp-songs="${esc(JSON.stringify(songs))}"` : ''}${editable ? ' data-rp-edit="1"' : ''}` : '';
+  const chips = src && marks.length ? `<div class="rp-marks-row">${marks.map((m) => `<button type="button" class="rp-mark" data-rp-pick data-rp-t="${m.t}" title="${esc(m.k)} — ${mmss(m.t)} 부터">${esc(m.k || '곡')} <b>${mmss(m.t)}</b></button>`).join('')}</div>` : '';
+  return `<div class="ph-list-item rp-item"${src ? ` data-rp-src="${esc(src)}" data-rp-title="${esc(title)}" data-rp-by="${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}"${data}` : ''}>
     ${src ? `<button type="button" class="rp-playbtn" data-rp-pick title="재생" aria-label="${esc(title)} 재생"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>` : ''}
     <div class="ph-li-main">${src ? `<button type="button" class="rp-name" data-rp-pick>${esc(title)}</button>` : `<a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(title)}</a>`}
-      <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${recExtra(r, src)}</div></div>
+      <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${recExtra(r, src)}</div>${chips}</div>
     ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('이 녹음을 지울까요?')">
       <input type="hidden" name="__row" value="${r.__row}">
       <input type="hidden" name="team" value="${esc(r['팀ID'])}">${rowHidden(r)}
@@ -727,7 +760,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   const practice = practiceCard(team, pinfo);
   const hist = await historyFor(team, scope);
   const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
-  const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet };
+  const markSongs = songsForMarks(w);                                     // 녹음 플레이어 — 곡 시작 위치 찍기
+  const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
   // 카카오톡 요약 — 부를 이름(목회자는 "OOO 목사")으로 채운 한 주 자료
   const honor = (n, pos) => honorific.forPos(pos, n, honorific.isPastorRoles((infoMap[n] || {}).역할));       // 인도자 자리는 누구든 "OOO 목사"
   const slotNames = {}; Object.keys(byPos).forEach((k) => { slotNames[k] = byPos[k].map((x) => honor(x.이름, k)); });
@@ -798,9 +832,9 @@ router.get('/conti', requireTeam, async (req, res) => {
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
     <h3 class="ph-h3">연습 녹음</h3>
-    <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
-    <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <a class="ph-btn cn-drivepick" href="/drive?to=${encodeURIComponent(scope.event ? 'ev:' + scope.event : scope.date)}">${ui.icon('folder')} 드라이브에서 녹음 · 영상 고르기</a>
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
@@ -1602,6 +1636,27 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
     '링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
   });
   backTo(req, res, team, scope);
+});
+
+/** 녹음 플레이어에서 찍은 곡 시작 위치 저장 — { team, id: 녹음.ID, marks: [{t, id, k}] } → JSON */
+router.post('/conti/recordings/marks', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const b = req.body || {};
+    const team = String(b.team || '').trim(), id = String(b.id || '').trim();
+    if (!team || !req.ctx.teams.includes(team) || !id) return res.status(400).json({ ok: false, error: '녹음을 찾지 못했어요.' });
+    const rows = await sheetsDb.readAll('녹음', { fresh: true });
+    const row = rows.find((r) => r['팀ID'] === team && String(r['ID']) === id);
+    if (!row) return res.status(404).json({ ok: false, error: '녹음을 찾지 못했어요. 새로고침해 주세요.' });
+    const marks = cleanMarks(b.marks);
+    const next = Object.assign({}, row); delete next.__row;
+    next['구간'] = marks.length ? JSON.stringify(marks) : '';
+    await sheetsDb.updateRow('녹음', row.__row, next);
+    res.json({ ok: true, marks });
+  } catch (e) {
+    console.error('[녹음 구간 저장 실패]', e && e.message);
+    res.status(500).json({ ok: false, error: '저장하지 못했어요. 잠시 뒤에 다시 시도해주세요.' });
+  }
 });
 
 router.post('/conti/recordings/delete', requireTeam, async (req, res) => {
