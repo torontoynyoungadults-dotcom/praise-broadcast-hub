@@ -70,6 +70,10 @@
     '.hm-cvbody{margin-top:9px;min-height:40px;color:#E6E8EF}.hm-cvbody:empty{display:none}.hm-cvbody svg{display:block;max-width:100%;height:auto;margin:0 auto}.hm-cvstaff{display:flex;justify-content:center;color:#E6E8EF}.hm-cvstaff svg{max-height:150px}' +
     '.hm-cvnext{display:flex;align-items:center;justify-content:space-between;margin-top:4px;font:600 12px -apple-system,Helvetica,Arial,sans-serif;color:#8D93A3}.hm-cvnext button{height:28px;padding:0 10px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#C9CDD8;font:inherit;cursor:pointer}' +
     '.cv-wk{fill:#F4F5F8;stroke:#5E6372;stroke-width:.8}.cv-bk{fill:#1B1D24;stroke:#000;stroke-width:.6}.cv-wk.on,.cv-bk.on{fill:#5B8CFF}.cv-wk.on.bass,.cv-bk.on.bass{fill:#2E4FB8}' +
+    '.cv-wk.ct{fill:#D2DEFF}.cv-bk.ct{fill:#3A4C8C}.cv-wk.ok{fill:#CDEFD9}.cv-bk.ok{fill:#2F6448}.cv-wk.av{fill:#FFD9D9}.cv-bk.av{fill:#6B2B31}.cv-avx{stroke:#E5484D;stroke-width:1.8;stroke-linecap:round;fill:none}.cv-bk.av+.cv-avx{stroke:#FF9C9F}' +
+    '.hm-cvleg{display:flex;justify-content:center;gap:12px;margin-top:6px;font:600 11px -apple-system,Helvetica,Arial,sans-serif;color:#AEB3C2}.hm-cvleg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}.hm-cvleg i.ct{background:#5B8CFF}.hm-cvleg i.ok{background:#7CCB9A}.hm-cvleg i.av{background:#E5484D}' +
+    '.hm-cvadv{margin-top:7px;font:500 12.5px/1.45 -apple-system,Helvetica,Arial,sans-serif;color:#C9CDD8}.hm-cvadv p{margin:2px 0}.hm-cvadv .n{font-weight:700}.hm-cvadv .av .n{color:#FF8A8D}.hm-cvadv .ok .n{color:#8FDCAB}.hm-cvadv small{font-size:11px;color:#8D93A3}' +
+    'html[data-theme=light] .hm-cvleg{color:#5A6070}html[data-theme=light] .hm-cvadv{color:#3B4150}html[data-theme=light] .hm-cvadv .av .n{color:#D1343A}html[data-theme=light] .hm-cvadv .ok .n{color:#1F8A4C}html[data-theme=light] .cv-bk.ct{fill:#3D51A0}' +
     '.cv-c{font:600 7.5px -apple-system,Arial,sans-serif;fill:#8A8F9C;text-anchor:middle}.cv-nm{font:700 10.5px -apple-system,Arial,sans-serif;fill:#C9D6FF;text-anchor:middle}.cv-nm.bass{fill:#8FA6EC}' +
     '.cv-ln{stroke:#7C8291;stroke-width:1}.cv-str{stroke:#A3A8B5}.cv-nut{fill:#E6E8EF}.cv-dot{fill:#5B8CFF}.cv-open{fill:none;stroke:#C9CDD8;stroke-width:1.6}.cv-xo{font:600 13px -apple-system,Arial,sans-serif;fill:#8D93A3;text-anchor:middle}.cv-fr{font:600 11px -apple-system,Arial,sans-serif;fill:#AEB3C2}.cv-sn{font:600 10.5px -apple-system,Arial,sans-serif;fill:#AEB3C2;text-anchor:middle}.cv-none{margin:6px 0;font-size:12.5px;color:#AEB3C2;text-align:center}' +
     'html[data-theme=light] .hm-pop{background:#fff;color:#14161D;border-color:rgba(0,0,0,.1);box-shadow:0 14px 40px rgba(20,30,60,.18)}html[data-theme=light] .hm-pop b{color:#14161D}html[data-theme=light] .hm-pop b.on{color:#1C3D9A}' +
@@ -1025,7 +1029,16 @@
       Array.prototype.forEach.call(popEl.querySelectorAll('.hm-cvtabs button'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-cv') === S.cvTab ? 'true' : 'false'); });
       var nameOf = function (pc) { return P0.sp[pc] || P0.nm[pc]; };
       if (S.cvTab === 'none') { body.innerHTML = ''; }
-      else if (S.cvTab === 'piano') body.innerHTML = CV.piano(P0.v.notes, P0.v.bass, nameOf);
+      else if (S.cvTab === 'piano') {                                                               // V881 — 화음 넣을 때: 코드음 · 어울리는 음 · 불협(피하기)
+        var sc = P0.key && HC.scalePcs ? HC.scalePcs(P0.key) : [], cpcs = P0.v.degs.map(function (g) { return g.pc; }).concat([P0.v.bass % 12]);
+        var mk = CV.harmonyMarks ? CV.harmonyMarks(cpcs, sc, (P0.c.root + P0.semis) % 12, P0.c.triad === 'sus') : {}, av = [], okL = [], seenN = {};
+        if (sc.length) Object.keys(mk).forEach(function (pc) { if (mk[pc] === 'av' && sc.indexOf(+pc) < 0) delete mk[pc]; });       // 조 밖의 음은 싱어가 낼 일이 드물어 표시 안 함 (건반이 어지럽지 않게)
+        sc.concat([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).forEach(function (pc) { if (seenN[pc]) return; seenN[pc] = 1; var inKey = sc.indexOf(pc) >= 0; if (mk[pc] === 'av' && inKey) av.push(pc); else if (mk[pc] === 'ok') okL.push(pc); });
+        var nmL = function (L) { return L.map(function (pc) { return '<span class="n">' + h(CV.pretty(nameOf(pc))) + '</span>'; }).join(' · '); };
+        body.innerHTML = CV.piano(P0.v.notes, P0.v.bass, nameOf, mk) +
+          '<div class="hm-cvleg"><span><i class="ct"></i>코드음</span><span><i class="ok"></i>어울리는 음</span><span><i class="av"></i>불협 · 피하기</span></div>' +
+          '<div class="hm-cvadv">' + (av.length ? '<p class="av">피할 음 ' + nmL(av) + ' <small>— 코드음과 반음으로 부딪혀요</small></p>' : '<p>이 코드는 조 안에서 피할 음이 없어요</p>') + (okL.length ? '<p class="ok">화음 넣기 좋은 음 ' + nmL(okL) + '</p>' : '') + '</div>';
+      }
       else if (S.cvTab === 'gtr') {
         if (!P0.gtr) { var rq = guitarReq(P0.c, P0.semis), pcs = P0.v.degs.map(function (g) { return g.pc; }), bp = P0.v.bass % 12, i, L = []; for (i = 0; i < rq.length && !L.length; i++) L = CV.guitar(pcs, bp, rq[i]).list; P0.gtr = L; P0.gi = 0; }
         body.innerHTML = CV.guitarSvg(P0.gtr[P0.gi], nameOf) + (P0.gtr.length > 1 ? '<div class="hm-cvnext"><span>' + (P0.gi + 1) + ' / ' + P0.gtr.length + ' 자리</span><button type="button" data-cvnext="1">다른 자리 ›</button></div>' : '');
@@ -1056,7 +1069,7 @@
         (CV ? '<div class="hm-cvtabs" role="group" aria-label="코드 보기"><button type="button" data-cv="staff">오선</button><button type="button" data-cv="piano">피아노</button><button type="button" data-cv="gtr">기타</button></div><div class="hm-cvbody"></div>' : '');
       var sx = BR.width / (W || 1), sy = BR.height / (Hh || 1);
       var hq = (S.hits || []).filter(function (q) { return q.kind === 'chord' && q.id === cd.id; })[0];
-      S.popCtx = { c: cd.parsed, v: v, semis: semis, sp: sp, nm: nm, gtr: null, gi: 0,
+      S.popCtx = { c: cd.parsed, v: v, semis: semis, sp: sp, nm: nm, gtr: null, gi: 0, key: (S.data.show.orig ? S.okey : S.tkey) || S.okey || null,
         cx: BR.left + (hq ? hq.x : (cd.x + cd.w / 2) * W) * sx, top: BR.top + (hq ? hq.y - hq.h / 2 : cd.y * Hh) * sy, bot: BR.top + (hq ? hq.y + hq.h / 2 : (cd.y + cd.h) * Hh) * sy };
       popEl.style.position = 'fixed'; popEl.style.zIndex = '60'; popEl.style.opacity = '1'; popEl.classList.remove('off');
       cvRender();

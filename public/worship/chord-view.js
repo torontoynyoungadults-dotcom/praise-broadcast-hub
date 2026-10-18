@@ -34,8 +34,25 @@
     return out;
   }
 
+  /* ------------------------------------------------------------ 화음 넣을 때 어울리는 음 · 불협 음 (V881)
+     · ct = 코드음 (가장 안전) · ok = 조 안의 음이고 코드음과 부딪히지 않음 (색채음 · 텐션)
+     · av = 코드음의 반음 위 → 그 코드음과 단2도(♭9)로 부딪힘 (예: C 위의 F, G7 위의 C, Em 위의 F · C). sus 코드는 3음도 (4음 · 2음과 부딪힘)
+     조 밖의 음 중 부딪히지 않는 것은 표시하지 않습니다. */
+  function harmonyMarks(chordPcs, scalePcs, rootPc, sus) {
+    var ct = {}, sc = {}, m = {}, pc;
+    (chordPcs || []).forEach(function (p) { ct[mod(p, 12)] = 1; }); (scalePcs || []).forEach(function (p) { sc[mod(p, 12)] = 1; });
+    for (pc = 0; pc < 12; pc++) {
+      if (ct[pc]) m[pc] = 'ct';
+      else if (ct[mod(pc - 1, 12)]) m[pc] = 'av';
+      else if (sus && rootPc != null && (pc === mod(rootPc + 3, 12) || pc === mod(rootPc + 4, 12))) m[pc] = 'av';
+      else if (sc[pc]) m[pc] = 'ok';
+    }
+    return m;
+  }
+
   /* ------------------------------------------------------------ 피아노 */
-  function piano(midis, bassMidi, nameOf) {
+  function piano(midis, bassMidi, nameOf, marks) {
+    marks = marks || {};
     var notes = (midis || []).slice(), lo, hi;
     if (bassMidi != null && notes.indexOf(bassMidi) < 0) notes.unshift(bassMidi);
     lo = Math.min.apply(null, notes); hi = Math.max.apply(null, notes);
@@ -50,13 +67,17 @@
     svg.push('<svg class="cv-piano" viewBox="0 0 270 ' + (H + 18) + '" width="100%" role="img" aria-label="피아노 건반">');
     whites.forEach(function (n, i) {
       var x = 1 + i * WW, st = on[n];
-      svg.push('<rect x="' + x.toFixed(1) + '" y="1" width="' + (WW - 1).toFixed(1) + '" height="' + H + '" rx="2.5" class="cv-wk' + (st ? ' on' + (st === 'b' ? ' bass' : '') : '') + '"/>');
+      var mk = st ? '' : marks[mod(n, 12)] ? ' ' + marks[mod(n, 12)] : '';
+      svg.push('<rect x="' + x.toFixed(1) + '" y="1" width="' + (WW - 1).toFixed(1) + '" height="' + H + '" rx="2.5" class="cv-wk' + (st ? ' on' + (st === 'b' ? ' bass' : '') : mk) + '"/>');
+      if (!st && marks[mod(n, 12)] === 'av') svg.push(xMark(x + WW / 2 - 0.5, H - 20, Math.min(4.2, WW * 0.3)));
       if (mod(n, 12) === 0) svg.push('<text x="' + (x + WW / 2).toFixed(1) + '" y="' + (H - 5) + '" class="cv-c">C' + (Math.floor(n / 12) - 1) + '</text>');
     });
     for (k = start; k <= end; k++) {
       if ([1, 3, 6, 8, 10].indexOf(mod(k, 12)) < 0) continue;
       var wi = whites.indexOf(k - 1), bx = 1 + (wi + 1) * WW - BW / 2, st2 = on[k];
-      svg.push('<rect x="' + bx.toFixed(1) + '" y="1" width="' + BW.toFixed(1) + '" height="' + BH + '" rx="2" class="cv-bk' + (st2 ? ' on' + (st2 === 'b' ? ' bass' : '') : '') + '"/>');
+      var mk2 = st2 ? '' : marks[mod(k, 12)] ? ' ' + marks[mod(k, 12)] : '';
+      svg.push('<rect x="' + bx.toFixed(1) + '" y="1" width="' + BW.toFixed(1) + '" height="' + BH + '" rx="2" class="cv-bk' + (st2 ? ' on' + (st2 === 'b' ? ' bass' : '') : mk2) + '"/>');
+      if (!st2 && marks[mod(k, 12)] === 'av') svg.push(xMark(bx + BW / 2, BH - 11, Math.min(3.6, BW * 0.32)));
     }
     notes.forEach(function (n) {                                                                  // 누른 건반 아래 음 이름
       var isB = [1, 3, 6, 8, 10].indexOf(mod(n, 12)) >= 0, x = isB ? 1 + (whites.indexOf(n - 1) + 1) * WW : 1 + whites.indexOf(n) * WW + WW / 2;
@@ -65,6 +86,8 @@
     svg.push('</svg>');
     return svg.join('');
   }
+
+  function xMark(cx, cy, r) { return '<path class="cv-avx" d="M' + (cx - r).toFixed(1) + ' ' + (cy - r).toFixed(1) + 'L' + (cx + r).toFixed(1) + ' ' + (cy + r).toFixed(1) + 'M' + (cx + r).toFixed(1) + ' ' + (cy - r).toFixed(1) + 'L' + (cx - r).toFixed(1) + ' ' + (cy + r).toFixed(1) + '"/>'; }
 
   /* ------------------------------------------------------------ 기타 운지 (표준 조율 E A D G B E) */
   var TUNE = [40, 45, 50, 55, 59, 64];
@@ -184,5 +207,5 @@
     }).catch(function () { el.innerHTML = '<p class="cv-none">오선을 그리는 도구를 불러오지 못했습니다 (인터넷 연결 확인).</p>'; return false; });
   }
 
-  return { spell: spell, pretty: pretty, piano: piano, guitar: guitar, guitarSvg: guitarSvg, staff: staff, abcNote: abcNote, preload: function () { return abcjs().catch(function () {}); } };
+  return { spell: spell, pretty: pretty, harmonyMarks: harmonyMarks, piano: piano, guitar: guitar, guitarSvg: guitarSvg, staff: staff, abcNote: abcNote, preload: function () { return abcjs().catch(function () {}); } };
 }));

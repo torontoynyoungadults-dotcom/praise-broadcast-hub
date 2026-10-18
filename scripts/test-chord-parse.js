@@ -31,5 +31,8 @@ ok(sp[10] === 'Bb' && sp[1] === 'Db' && sp[6] === 'F#', '음 이름은 도수대
 const g = (n) => { const c = HC.parseChord(n); return CV.guitar(c.pcs, c.bass != null ? c.bass : c.root, [c.root].concat(c.core)).list.map((v) => v.f.map((x) => (x < 0 ? 'x' : x)).join('')); };
 [['C', 'x32010'], ['G', '320003'], ['D', 'xx0232'], ['F', '133211'], ['Bm', 'x24432'], ['D/F#', '200232'], ['Am7', 'x02010']].forEach(([n, want]) => ok(g(n)[0] === want, '기타 ' + n + ' = ' + want, g(n)));
 
+const av = (ch, key) => { const c = HC.parseChord(ch), k = HC.parseKey(key), sc = HC.scalePcs(k), m = CV.harmonyMarks(c.pcs, sc, c.root, c.triad === 'sus'); return Object.keys(m).filter((p) => m[p] === 'av' && sc.indexOf(+p) >= 0).map((p) => HC.nameOfPc(+p, HC.keyUsesFlats(k))).join(' '); };
+[['C', 'C', 'F'], ['G7', 'C', 'C'], ['Em', 'C', 'C F'], ['Dm', 'C', ''], ['Csus4', 'C', 'E'], ['Cmaj7', 'C', 'F'], ['D/F#', 'G', 'G']].forEach(([ch, k, w]) => ok(av(ch, k) === w, '피할 음 ' + ch + ' (조 ' + k + ') = ' + (w || '없음'), av(ch, k)));
+
 console.log(fail ? `✗ ${fail} 실패 · 통과 ${pass}` : `✓ 모두 통과 (통과 ${pass})`);
 process.exit(fail ? 1 : 0);

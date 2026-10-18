@@ -97,7 +97,7 @@ global.fetch = async (url, opt) => {
       const pt = await page.evaluate(`(function(){ var S=${HZ}._state, L=S.hits.filter(function(q){return q.kind==='chord';}).sort(function(a,b){return a.y-b.y||a.x-b.x;}), q=L[${i}], r=document.querySelector('canvas.pv-harm').getBoundingClientRect(), cv=document.querySelector('canvas.pv-harm'); return { x: r.left + q.x * r.width / cv.clientWidth, y: r.top + q.y * r.height / cv.clientHeight }; })()`);
       await page.mouse.click(pt.x, pt.y); await sleep(700);
     };
-    for (const [tab, i] of [['piano', 4], ['gtr', 1], ['staff', 9]]) {
+    for (const [tab, i] of [['piano', 0], ['gtr', 1], ['staff', 9]]) {
       await page.evaluate((t) => { localStorage.setItem('yn.pv.harm.cv', t); }, tab);
       await page.evaluate(() => { const p = document.querySelector('.hm-pop'); if (p) p.classList.add('off'); });
       await page.evaluate(`(function(){ ${HZ}._state; })()`);
@@ -106,6 +106,10 @@ global.fetch = async (url, opt) => {
       if (tab === 'staff') await page.waitForFunction(() => document.querySelector('.hm-cvstaff svg'), null, { timeout: 8000 }).catch(() => {});
       const info = await page.evaluate(() => { const p = document.querySelector('.hm-pop'); if (!p) return null; const r = p.getBoundingClientRect(); return { name: (p.querySelector('b') || {}).textContent, tones: [...p.querySelectorAll('.hm-poptones em')].map((e) => e.textContent), svg: !!p.querySelector('.hm-cvbody svg'), on: [...p.querySelectorAll('.hm-cvtabs button[aria-pressed=true]')].map((b) => b.dataset.cv), inView: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, op: getComputedStyle(p).opacity }; });
       ok(info && info.svg && info.on[0] === tab && info.inView, '[' + theme + '] 코드를 누르면 「' + tab + '」 그림 · 화면 안', info);
+      if (tab === 'piano') {
+        const adv = await page.evaluate(() => ({ av: (document.querySelector('.hm-cvadv .av') || {}).textContent || '', nX: document.querySelectorAll('.hm-cvbody .cv-avx').length, nOk: document.querySelectorAll('.hm-cvbody .cv-wk.ok,.hm-cvbody .cv-bk.ok').length }));
+        ok(/피할 음\s*D\b/.test(adv.av) && adv.nX >= 2 && adv.nOk >= 4, '[' + theme + '] A 코드(조 A): 피할 음 D 를 빨간 ✕ 로 · 어울리는 음은 초록', adv);
+      }
       if (SHOTS) await page.screenshot({ path: SHOTS + '/pop-' + tab + '-' + theme + '.png' });
     }
     /* 기타: 다른 자리 */
