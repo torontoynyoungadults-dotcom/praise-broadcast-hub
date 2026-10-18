@@ -26,6 +26,7 @@ const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/po
 const { orderOf } = require('../lib/songKind');
 const { positionIconSvg } = require('../lib/positionIcons');
 const rosterPicker = require('../lib/rosterPicker');
+const schedLog = require('../lib/scheduleLog');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
 
@@ -1132,7 +1133,11 @@ router.post('/conti/lineup/assign', requireTeam, async (req, res) => {
   const name = rosterPicker.resolveName(b);
   if (pos && name) {
     const dup = (await sheetsDb.readAll('찬양편성')).find((r) => r['팀ID'] === team && inScope(r, scope) && canonicalPosition(r['포지션']) === canonicalPosition(pos) && r['이름'] === name);
-    if (!dup) await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, ...scopeFields(scope), '포지션': pos, '이름': name });
+    if (!dup) {
+      const before = (await sheetsDb.readAll('찬양편성', { fresh: true })).filter((r) => r['팀ID'] === team && inScope(r, scope) && canonicalPosition(r['포지션']) === canonicalPosition(pos)).map((r) => String(r['이름'] || '').trim());
+      await sheetsDb.appendRow('찬양편성', { 'ID': 'A' + Date.now().toString(36), '팀ID': team, ...scopeFields(scope), '포지션': pos, '이름': name });
+      await logLineup(req, team, scope, pos, before, before.concat([name]));
+    }
   }
   backTo(req, res, team, scope);
 });
@@ -1140,9 +1145,27 @@ router.post('/conti/lineup/assign', requireTeam, async (req, res) => {
 router.post('/conti/lineup/unassign', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
-  if (row) { try { await sheetsDb.deleteRow('찬양편성', row); } catch (e) { console.error('[편성 삭제 실패]', e.message); } }
+  if (row) {
+    try {
+      const all = await sheetsDb.readAll('찬양편성', { fresh: true });
+      const gone = all.find((r) => r.__row === row);
+      await sheetsDb.deleteRow('찬양편성', row);
+      if (gone && gone['팀ID'] === req.ctx.current) {
+        const sc = { event: String(gone['행사ID'] || ''), date: String(gone['날짜'] || '') };
+        const pos = canonicalPosition(gone['포지션']);
+        const before = all.filter((r) => r['팀ID'] === gone['팀ID'] && inScope(r, sc) && canonicalPosition(r['포지션']) === pos).map((r) => String(r['이름'] || '').trim());
+        await logLineup(req, gone['팀ID'], sc, pos, before, all.filter((r) => r !== gone && r['팀ID'] === gone['팀ID'] && inScope(r, sc) && canonicalPosition(r['포지션']) === pos).map((r) => String(r['이름'] || '').trim()));
+      }
+    } catch (e) { console.error('[편성 삭제 실패]', e.message); }
+  }
   backTo(req, res, b.team, scopeFrom(b));
 });
+
+/** 콘티 화면의 "주일 편성"에서 바꾼 것도 스케줄 변경 기록에 (lib/scheduleLog.js) */
+async function logLineup(req, team, scope, pos, before, after) {
+  const key = scope.event ? 'ev-' + scope.event : scope.date;
+  await schedLog.log(schedLog.assignEntry(team, String(req.ctx.member['이름'] || ''), { key, date: scope.date, evName: await schedLog.evName(team, scope.event) }, canonicalPosition(pos), before, after));
+}
 
 router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};

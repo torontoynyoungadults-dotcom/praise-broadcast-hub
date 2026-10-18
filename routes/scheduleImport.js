@@ -17,6 +17,8 @@ const avatar = require('../lib/avatar');
 const week = require('../lib/weekUtil');
 const hubApi = require('../lib/hubApi');
 const imp = require('../lib/scheduleImport');
+const schedLog = require('../lib/scheduleLog');
+const { canonicalPosition } = require('../lib/positions');
 const tpl = require('../lib/scheduleTemplate');
 const honorific = require('../lib/honorific');
 
@@ -197,7 +199,7 @@ router.post('/schedule/import/apply', requireAdmin, async (req, res) => {
   const n = Math.min(Number(b.n) || 0, 500);
   for (let i = 0; i < n; i++) { const raw = String(b['raw_' + i] || ''); if (raw) map[raw] = String(b['to_' + i] == null ? '' : b['to_' + i]).trim().slice(0, 20); }
   let result;
-  try { result = await applyPlan(team, an, map, mode); }
+  try { result = await applyPlan(team, an, map, mode, String(req.ctx.member['이름'] || '') + ' (엑셀)'); }
   catch (e) { console.error('[스케줄 가져오기 실패]', e); return page(req, res, uploadForm(team, '시트에 올리는 중 문제가 생겼어요: ' + (e.message || e))); }
   HOLD.delete(String(b.token));
   const r = result;
@@ -209,7 +211,7 @@ router.post('/schedule/import/apply', requireAdmin, async (req, res) => {
 
 const rid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-async function applyPlan(team, an, map, mode) {
+async function applyPlan(team, an, map, mode, by) {
   return hubApi.serial('assign|' + team, () => hubApi.serial('off|' + team, async () => {
     const [existingAssign, existingOff] = await Promise.all([sheetsDb.readAll('찬양편성', { fresh: true }), sheetsDb.readAll('불가일정', { fresh: true })]);
     const pl = imp.plan(an, { map, mode, existingAssign, existingOff, team });
@@ -231,6 +233,19 @@ async function applyPlan(team, an, map, mode) {
     });
     await sheetsDb.deleteRows('불가일정', delRows);
     await sheetsDb.appendRows('불가일정', newRows);
+    // 스케줄 변경 기록 — 편성은 칸마다, 불참은 사람 · 날짜마다 (lib/scheduleLog.js)
+    try {
+      const mine = (rows) => rows.filter((r) => r['팀ID'] === team);
+      const afterAssign = mine(await sheetsDb.readAll('찬양편성', { fresh: true }));
+      const logs = await schedLog.assignDiff(team, by, mine(existingAssign), afterAssign, canonicalPosition);
+      const txt = (rows) => schedLog.offText(rows.reduce((e, r) => { const part = OFFPART[String(r['구분'] || '').trim()] || 'all', why = String(r['사유'] || '불참'); if (part !== 'sun') e.prac = why; if (part !== 'prac') e.sun = why; return e; }, { prac: '', sun: '' }));
+      bySlot.forEach((e) => {
+        const old = offRows.filter((r) => String(r['날짜']) === e.date && String(r['이름']) === e.name);
+        const now = newRows.filter((r) => r['날짜'] === e.date && r['이름'] === e.name);
+        logs.push({ team, by, key: e.date, date: e.date, kind: '불가', person: e.name, before: txt(old), after: txt(now) });
+      });
+      await schedLog.log(logs);
+    } catch (e) { console.error('[스케줄 변경 기록 실패]', e && e.message); }
     return { added: pl.add.length, kept: pl.keep.length, removed: pl.del.length, off: pl.off.length, conflict: pl.conflict.length, conflictList: pl.conflict };
   }));
 }

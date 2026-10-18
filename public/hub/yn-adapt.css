@@ -283,3 +283,45 @@ html[data-theme="light"] .yn .offc-z { color: #4E625D; }
 html[data-theme="light"] .yn .offc-peek span { background: #FBE7E4; color: #B23A30; } html[data-theme="light"] .yn .offc-peek span.more { background: #EEF1F0; color: #17302A; }
 .yn .offcard:not(.open) .msg:empty { display: none; }
 @media (max-width: 420px) { .yn .offc-z { display: none; } }
+
+/* ---------------------------------------------------------------- 스케줄 변경 강조 (public/hub/changes.js) — 마지막으로 본 뒤 다른 사람이 바꾼 칸
+ *  강조색은 이 앱의 금 · 상록과 겹치지 않는 밝은 호박색. 칸 테두리 + 오른쪽 위 점 + 처음 몇 초 은은한 깜빡임 */
+.yn.yn-main, .yn.yn-portal { --chg: #F5A524; --chg-rgb: 245, 165, 36; --chg-ink: #FFC35C; }
+html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { --chg: #D97706; --chg-rgb: 217, 119, 6; --chg-ink: #B45309; }
+@keyframes chgPulse { 0%, 100% { box-shadow: inset 0 0 0 2px rgba(var(--chg-rgb), .9), 0 0 0 0 rgba(var(--chg-rgb), .45); } 50% { box-shadow: inset 0 0 0 2px rgba(var(--chg-rgb), .9), 0 0 0 5px rgba(var(--chg-rgb), 0); } }
+.yn .st td.c.chg, .yn .st td.offc.chg, .yn .stcc.chg, .yn .stoff.chg {
+  position: relative; background: rgba(var(--chg-rgb), .16) !important; box-shadow: inset 0 0 0 2px rgba(var(--chg-rgb), .9);
+  animation: chgPulse 1.6s ease-in-out 3; border-radius: 8px;
+}
+.yn .st td.c.chg::after, .yn .stcc.chg::after, .yn .st td.offc.chg::after {
+  content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--chg); box-shadow: 0 0 0 2px var(--glass, #fff);
+}
+.yn .st td.dc.chg-day { box-shadow: inset 3px 0 0 var(--chg); background: rgba(var(--chg-rgb), .10); }
+.yn .st td.dc.chg-day b::after, .yn .stch.chg-day b::after { content: '변경'; display: inline-block; margin-left: 5px; padding: 1px 6px; border-radius: 99px; font-size: 10px; font-weight: 800; letter-spacing: 0; vertical-align: 2px; color: #1A1206; background: var(--chg); }
+.yn .stc.chg-card { box-shadow: 0 0 0 2px rgba(var(--chg-rgb), .75), var(--card-shadow, none); }
+.yn .tn.chg-new, .yn .tp.chg-new { outline: 2px solid var(--chg); outline-offset: 1px; }
+
+.yn .chg-banner { margin: 2px 4px 10px; padding: 10px 12px; border-radius: 12px; background: rgba(var(--chg-rgb), .12); border: 1px solid rgba(var(--chg-rgb), .45); color: var(--ink-1, inherit); font-size: 13.5px; }
+.yn .chg-banner .chg-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.yn .chg-banner .chg-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--chg); box-shadow: 0 0 0 4px rgba(var(--chg-rgb), .25); flex: none; }
+.yn .chg-banner b { font-weight: 800; }
+.yn .chg-banner .chg-sp { flex: 1; }
+.yn .chg-banner .chg-btn { font: inherit; font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 99px; border: 1px solid rgba(var(--chg-rgb), .55); background: transparent; color: var(--chg-ink); cursor: pointer; }
+.yn .chg-banner .chg-btn[data-a="ok"] { background: var(--chg); border-color: var(--chg); color: #1A1206; }
+.yn .chg-banner .chg-more { display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: 700; color: var(--chg-ink); text-decoration: none; }
+.yn .chg-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 320px; overflow: auto; }
+.yn .chg-list li { display: grid; grid-template-columns: 92px 1fr; gap: 2px 10px; padding: 7px 0; border-top: 1px solid rgba(var(--chg-rgb), .2); }
+.yn .chg-list .chg-t { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yn .chg-list .chg-by { grid-column: 2; font-size: 11.5px; opacity: .7; }
+.yn .chg-k { display: inline-block; font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 5px; background: rgba(var(--chg-rgb), .22); margin-right: 3px; }
+.yn .chg-in { font-weight: 800; color: var(--good, #2f9e6a); }
+.yn .chg-out { opacity: .75; color: var(--bad, #c0392b); }
+.yn .chg-daybox { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(var(--chg-rgb), .12); border: 1px solid rgba(var(--chg-rgb), .45); font-size: 13px; }
+.yn .chg-daybox ul { margin: 6px 0 0; padding-left: 16px; }
+.yn .chg-daybox li { margin: 3px 0; }
+.yn .chg-daybox .chg-by { font-size: 11.5px; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .yn .st td.c.chg, .yn .st td.offc.chg, .yn .stcc.chg, .yn .stoff.chg { animation: none; } }
+.yn .chg-banner, .yn .chg-banner .chg-t, .yn .chg-banner .chg-w, .yn .chg-daybox { color: var(--ink-1); }
+.yn .chg-banner .chg-by, .yn .chg-daybox .chg-by { color: var(--ink-3); opacity: 1; }
+.yn .chg-list li, .yn .chg-daybox li { color: var(--ink-1); }
+.yn .chg-banner .chg-row b { color: var(--ink-1); }

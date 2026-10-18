@@ -13,6 +13,10 @@ const { canonicalPosition } = require('../lib/positions');
 const spa = require('../lib/spa');
 const rosterPicker = require('../lib/rosterPicker');
 const hubPage = require('../lib/hubPage');
+const schedLog = require('../lib/scheduleLog');
+const honorific = require('../lib/honorific');
+const avatar = require('../lib/avatar');
+const esc = pageShell.esc;
 
 const router = express.Router();
 
@@ -81,8 +85,121 @@ router.get('/schedule', requireTeam, async (req, res) => {
   await hubPage.send(req, res, {
     nav: 'schedule', tab: 'sched', title: `${team} 스케줄표`,
     hero: { eyebrow: `${team} · 스케줄표`, title: '스케줄표', sub: '포지션 편성 · 연습일 · 내가 안 되는 날' },
-    extra: req.ctx.isAdmin ? `<div class="ph-adminrow"><a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}">엑셀로 스케줄 올리기</a></div>` : '',
+    extra: `<div class="ph-adminrow" style="gap:8px;flex-wrap:wrap;"><a class="ph-mini" href="/schedule/history?team=${encodeURIComponent(team)}">🕘 변경 기록</a>${req.ctx.isAdmin ? `<a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}">엑셀로 스케줄 올리기</a>` : ''}</div>`,
   });
+});
+
+/* ---------- 변경 기록 — 누가 · 언제 · 어느 예배의 무엇을 바꿨는지 (lib/scheduleLog.js) ---------- */
+const H_DAYS = [['7', '지난 7일'], ['30', '지난 30일'], ['90', '지난 3개월'], ['365', '지난 1년'], ['all', '전체']];
+const H_KINDS = [['', '모든 종류'], ['편성', '편성'], ['불가', '안 되는 날'], ['연습', '연습일']];
+const TZ = 'America/Toronto';
+const WDK = ['일', '월', '화', '수', '목', '금', '토'];
+function hDay(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).formatToParts(d);
+  const g = (t) => (p.find((x) => x.type === t) || {}).value;
+  return `${g('year')}-${g('month')}-${g('day')}`;
+}
+function hTime(iso) { const d = new Date(iso); return isNaN(d) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).format(d); }
+function hDayLabel(ymd) {
+  const today = hDay(new Date().toISOString()), yest = hDay(new Date(Date.now() - 864e5).toISOString());
+  const x = new Date(ymd + 'T12:00:00');
+  const base = `${x.getMonth() + 1}월 ${x.getDate()}일 (${WDK[x.getDay()]})`;
+  return ymd === today ? '오늘 · ' + base : ymd === yest ? '어제 · ' + base : (x.getFullYear() !== new Date().getFullYear() ? x.getFullYear() + '년 ' : '') + base;
+}
+function hTarget(r) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r.date);
+  const d = m ? `${Number(m[2])}/${Number(m[3])}(${WDK[new Date(r.date + 'T12:00:00').getDay()]})` : '';
+  return r.ev ? `${d} ${r.ev}`.trim() : `${d} 주일`;
+}
+const splitNames = (t) => String(t || '').split(/\s*,\s*/).filter(Boolean);
+function hWhat(r, nm) {
+  if (r.kind === '편성') {
+    const b = splitNames(r.before), a = splitNames(r.after);
+    const out = b.filter((n) => !a.includes(n)).map((n) => `<s class="sh-out">${esc(nm(n, r.pos))}</s>`);
+    const add = a.filter((n) => !b.includes(n)).map((n) => `<b class="sh-in">${esc(nm(n, r.pos))}</b>`);
+    const verb = out.length && add.length ? `${out.join(' ')} → ${add.join(' ')}` : out.length ? `${out.join(' ')} 빠짐` : `${add.join(' ')} 들어옴`;
+    return `<span class="sh-k">${esc(r.pos)}</span> ${verb}${a.length > 1 || (b.length > 1) ? ` <span class="sh-now">지금: ${esc(a.map((n) => nm(n, r.pos)).join(', ') || '비움')}</span>` : ''}`;
+  }
+  if (r.kind === '불가') {
+    return `<span class="sh-k sh-k-off">안 되는 날</span> <b>${esc(nm(r.person))}</b> ` + (r.after
+      ? (r.before ? `${esc(r.before)} → <b class="sh-in">${esc(r.after)}</b>` : `표시 · ${esc(r.after)}`)
+      : `<s class="sh-out">${esc(r.before)}</s> 해제`);
+  }
+  if (r.kind === '연습') return `<span class="sh-k sh-k-prac">연습일</span> ${esc(r.before || '—')} → <b class="sh-in">${esc(r.after || '—')}</b>`;
+  return `${esc(r.kind)} ${esc(r.before)} → ${esc(r.after)}`;
+}
+
+router.get('/schedule/history', requireTeam, async (req, res) => {
+  const team = req.ctx.current;
+  const q = req.query || {};
+  const days = H_DAYS.some(([k]) => k === q.days) ? q.days : '30';
+  const kind = H_KINDS.some(([k]) => k === q.kind) ? q.kind : '';
+  const who = String(q.who || '').trim().slice(0, 40);
+  const [h, info] = await Promise.all([
+    schedLog.history(team, { days: days === 'all' ? 0 : Number(days), kind, who, limit: 500 }),
+    avatar.teamInfoMap(team).catch(() => ({})),
+    honorific.prime(team).catch(() => null),
+  ]);
+  const nm = (n, pos) => (pos ? honorific.forSlot(team, pos, n) : honorific.forTeam(team, n));
+  const people = Array.from(new Set(Object.keys(info || {}).concat(h.people.filter((p) => !schedLog.isAuto(p)).map((p) => p.replace(/ \(엑셀\)$/, ''))))).sort((a, b) => a.localeCompare(b, 'ko'));
+  const sel = (name, opts, cur) => `<select name="${name}" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">${opts.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const filters = `<form class="sh-filters" method="get" action="/schedule/history">
+    <input type="hidden" name="team" value="${esc(team)}">
+    ${sel('days', H_DAYS, days)}${sel('kind', H_KINDS, kind)}${sel('who', [['', '모든 사람']].concat(people.map((p) => [p, honorific.forTeam(team, p)])), who)}
+    <noscript><button class="ph-mini" type="submit">보기</button></noscript></form>`;
+
+  let list = '';
+  if (!h.items.length) {
+    list = `<div class="ph-card"><p class="ph-sub" style="margin:0;">${h.total || who || kind || days !== 'all' ? '이 조건에 맞는 변경이 없어요.' : '아직 기록된 변경이 없어요. 이제부터 스케줄표 · 콘티 편성에서 바꾸는 것이 여기에 쌓입니다.'}</p></div>`;
+  } else {
+    const groups = [];
+    h.items.forEach((r) => { const d = hDay(r.at); let g = groups[groups.length - 1]; if (!g || g.d !== d) groups.push(g = { d, rows: [] }); g.rows.push(r); });
+    list = groups.map((g) => `<section class="sh-day"><h3 class="sh-dh">${esc(hDayLabel(g.d))}</h3><ul class="sh-list">${g.rows.map((r) => {
+      const auto = schedLog.isAuto(r.by), byName = r.by.replace(/ \(엑셀\)$/, '');
+      return `<li class="sh-item">
+        <span class="sh-time">${esc(hTime(r.at))}</span>
+        <div class="sh-body">
+          <div class="sh-top"><a class="sh-target" href="/schedule?team=${encodeURIComponent(team)}${r.date < week.todayStr() ? '&amp;range=around' : ''}">${esc(hTarget(r))}</a></div>
+          <div class="sh-what">${hWhat(r, nm)}</div>
+          <div class="sh-by">${auto ? '⚙︎ ' + esc(r.by) : `바꾼 사람 · <b>${esc(honorific.forTeam(team, byName))}</b>${byName !== r.by ? ' (엑셀 올리기)' : ''}`}</div>
+        </div></li>`;
+    }).join('')}</ul></section>`).join('') +
+      (h.total > h.items.length ? `<p class="ph-sub" style="text-align:center;">최근 ${h.items.length}건만 보여요 (모두 ${h.total}건) — 기간이나 사람을 좁혀 보세요.</p>` : '');
+  }
+
+  const css = `<style>
+    .sh-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+    .sh-filters{display:flex;gap:8px;flex-wrap:wrap}
+    .sh-filters select{font:inherit;font-size:.88rem;padding:7px 10px;border-radius:10px;border:1px solid var(--line-hi);background:var(--glass);color:var(--ink);max-width:100%}
+    .sh-count{font-size:.82rem;color:var(--dim)}
+    .sh-day{margin:0 0 14px}
+    .sh-dh{font-size:.8rem;font-weight:800;letter-spacing:.02em;color:var(--sub);margin:0 2px 6px}
+    .sh-list{list-style:none;margin:0;padding:0;background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden}
+    .sh-item{display:grid;grid-template-columns:64px 1fr;gap:10px;padding:11px 14px;border-top:1px solid var(--line)}
+    .sh-item:first-child{border-top:0}
+    .sh-time{font-size:.78rem;color:var(--dim);font-variant-numeric:tabular-nums;padding-top:2px;white-space:nowrap}
+    .sh-body{min-width:0}
+    .sh-target{font-weight:800;font-size:.92rem;color:var(--ink);text-decoration:none}
+    .sh-target:hover{color:var(--accent-ink)}
+    .sh-what{margin-top:3px;font-size:.9rem;line-height:1.5;color:var(--ink);overflow-wrap:anywhere}
+    .sh-by{margin-top:3px;font-size:.78rem;color:var(--sub)}
+    .sh-k{display:inline-block;font-size:.72rem;font-weight:800;padding:1px 7px;border-radius:6px;margin-right:2px;background:rgba(var(--accent-rgb),.18);color:var(--accent-ink);vertical-align:1px}
+    .sh-k-off{background:rgba(234,123,110,.16);color:var(--bad)}
+    .sh-k-prac{background:rgba(var(--mint-rgb),.2);color:var(--mint-ink)}
+    .sh-in{color:var(--good);font-weight:800}
+    .sh-out{color:var(--bad);opacity:.85}
+    .sh-now{font-size:.78rem;color:var(--dim)}
+    @media (max-width:520px){.sh-item{grid-template-columns:1fr;gap:2px}.sh-time{padding:0}}
+  </style>`;
+
+  await spa.send(req, res, `${css}
+    ${pageShell.hubNav('schedule', team)}
+    ${pageShell.hero({ eyebrow: `${team} · 스케줄표`, title: '변경 기록', sub: '누가 · 언제 · 어느 예배의 무엇을 바꿨는지' })}
+    ${teamContext.teamSwitcher(req.ctx) ? `<div class="ph-card ph-teamcard">${teamContext.teamSwitcher(req.ctx)}</div>` : ''}
+    <div class="sh-bar"><a class="ph-mini" href="/schedule?team=${encodeURIComponent(team)}">← 스케줄표</a>${filters}</div>
+    <p class="sh-count">${h.total}건</p>
+    ${list}`, { title: `${team} 스케줄 변경 기록` });
 });
 
 router.post('/schedule/assign', requireTeam, async (req, res) => {
