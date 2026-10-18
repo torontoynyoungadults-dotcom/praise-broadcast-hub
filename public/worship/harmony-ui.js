@@ -10,7 +10,7 @@
  *  · 미리듣기: Web Audio(피아노 소리) 로 멜로디 + 알토 + 테너를 함께 들려주고, 소리마다 켜고 끌 수 있습니다.
  *  덧그림은 별도 캔버스(.pv-harm)라서 필기 · PDF 그림은 건드리지 않습니다. 결과는 이 기기(localStorage)에 악보 파일별로 기억합니다.
  *
- *  · 연습 키 이동 연동 (Feature 2): 연습 화면의 P.keyShift() (곡별 −3 ~ +3 반음, 유튜브 카드 · 키 바꿔 듣기 카드가 바꿈) = "목표 조 − 원래 조".
+ *  · 연습 키 이동 연동 (Feature 2): 연습 화면의 P.keyShift() (곡별 −6 ~ +6 반음, 위 막대 키 −1/+1 단추, 유튜브 카드 · 키 바꿔 듣기 카드가 바꿈) = "목표 조 − 원래 조".
  *      - 'keyshift' / 'song' 이벤트를 들으면 목표 조 = 원래 조를 n 반음 옮긴 조 로 맞추고 코드를 다시 그립니다 (화음 탭을 한 번도 안 열었어도 practice.js 의 P.ensureTab 이 이 모듈을 화면 없이 만들어 줌).
  *      - 이 페이지이 아직 분석 전이면 (PDF 글자층 ▸ 없으면 OCR) 자동으로 한 번 분석합니다 — 페이지 · 악보마다 세션에 한 번, 화면을 막지 않음, 오프라인이면 안내만.
  *      - 이 탭의 "목표 조" 를 손으로 바꾸면 ±3 반음 안일 때 연습 키 이동에 되돌려 반영합니다 (되먹임 고리 없음).
@@ -78,12 +78,12 @@
 
   /* ------------------------------------------------------------ 키 이동 계산 (순수 함수 — Node 시험용으로도 내보냄) */
   function mod12(a) { return ((a % 12) + 12) % 12; }
-  function clampShift(n) { n = Math.round(+n); return isFinite(n) ? clamp(n, -3, 3) : 0; }
-  /** H = YNHarmony.  targetFor(원래 조, n): n 반음 옮긴 목표 조의 으뜸음 이름(KEY_CHOICES, 0 이면 '' = 그대로) · shiftFor(원래 조, 목표 조): ±3 반음 안이면 그 값, 밖이면 null */
+  function clampShift(n) { n = Math.round(+n); return isFinite(n) ? clamp(n, -6, 6) : 0; }
+  /** H = YNHarmony.  targetFor(원래 조, n): n 반음 옮긴 목표 조의 으뜸음 이름(KEY_CHOICES, 0 이면 '' = 그대로) · shiftFor(원래 조, 목표 조): ±6 반음 안이면 그 값, 밖이면 null */
   function keyMath(H) {
     return {
       targetFor: function (okey, n) { n = clampShift(n); return n && okey ? H.KEY_CHOICES[mod12(okey.tonic + n)] : ''; },
-      shiftFor: function (okey, tkey) { if (!okey || !tkey) return null; var d = H.keySemitones(okey, tkey); return Math.abs(d) <= 3 ? d : null; }
+      shiftFor: function (okey, tkey) { if (!okey || !tkey) return null; var d = H.keySemitones(okey, tkey); return Math.abs(d) <= 6 ? d : null; }
     };
   }
 

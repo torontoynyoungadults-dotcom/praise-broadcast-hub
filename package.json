@@ -13,7 +13,8 @@
     "auth": "node scripts/get-refresh-token.js",
     "test:ytform": "node scripts/test-ytform.js && node scripts/e2e-ytform-conti.js",
     "test:live-lasso": "node scripts/e2e-live-lasso-header.js",
-    "test:live-v10": "node scripts/e2e-live-v10-tools.js"
+    "test:live-v10": "node scripts/e2e-live-v10-tools.js",
+    "test:live-keyshift": "node scripts/e2e-live-keyshift-close.js"
   },
   "dependencies": {
     "@hyzyla/pdfium": "^2.1.13",

@@ -201,6 +201,7 @@
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
         '<button type="button" class="pv-b pv-wsbtn" data-a="ws-off" hidden aria-label="예배 모드 켜짐 — 두 번 눌러 끄기" title="예배 모드 — 두 번 누르면 꺼집니다">' + I('lock') + '<span class="pv-tx"> 예배 모드</span></button>' +
         '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="메트로놈 켜기" title="메트로놈 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
+        '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−1</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+1</button></div>' +
         '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button>' +
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
@@ -230,7 +231,7 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
@@ -377,7 +378,7 @@
         [$('.pv-zoom'), $('.pv-layoutseg'), $('.pv-chips')].forEach(function (n) { if (n) hold(n, v); });
         hold(toolsEl, t);
         var ac = drawerEl.querySelector('[data-slot="acts"]');                            // v9.16 — 폰: 유튜브 · 전체 화면 · 밝기 · 악보 편집 · 떠 있는 창도 서랍(⋯) 안으로
-        [songs.length ? $('.pv-sheetwrap') : null, $('.pv-hx'), $('.pv-acts')].forEach(function (n) { if (n) hold(n, ac); });      // 악보 고르기도 서랍 맨 위 (곡 칸을 넓게)
+        [songs.length ? $('.pv-sheetwrap') : null, $('.pv-keyctl'), $('.pv-hx'), $('.pv-acts')].forEach(function (n) { if (n) hold(n, ac); });      // 악보 고르기도 서랍 맨 위 (곡 칸을 넓게)
         el.classList.remove('pv-sideopen');
       } else {
         setDrawer(false);
@@ -1464,12 +1465,12 @@
       callServer: opts.callServer, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
       status: function () { return { conn: rt ? rt.state : 'unavailable', minePending: S.minePend, savedAt: S.savedAt, unsent: Object.keys(S.unsent).length }; }
     };
-    /* 연습 키 이동 (Feature 2) — 곡마다 −3 ~ +3 반음, 이 기기에만 기억(팀에 보내지 않음). 화음 탭(harmony-ui.js)이 'keyshift' 를 듣고 악보 코드를 따라 바꾸며,
+    /* 연습 키 이동 (Feature 2) — 곡마다 −6 ~ +6 반음 (녹음 · 유튜브 소리는 audio-shift.js 가 ±3 까지만), 이 기기에만 기억(팀에 보내지 않음). 화음 탭(harmony-ui.js)이 'keyshift' 를 듣고 악보 코드를 따라 바꾸며,
        유튜브 카드 · 키 바꿔 듣기 카드(audio-shift.js)가 같은 값을 씁니다. ensureTab: 탭을 화면에 띄우지 않고 (처음 한 번만) 만들어 둡니다. */
     function ksName() { var s = songs[S.songIdx]; return 'ks.' + (s ? normName(s.title) : '_'); }
-    P.keyShift = function () { var v = parseInt(ls(ksName()), 10); return isFinite(v) ? clamp(v, -3, 3) : 0; };
+    P.keyShift = function () { var v = parseInt(ls(ksName()), 10); return isFinite(v) ? clamp(v, -6, 6) : 0; };
     P.setKeyShift = function (n) {
-      n = Math.round(+n); n = isFinite(n) ? clamp(n, -3, 3) : 0;
+      n = Math.round(+n); n = isFinite(n) ? clamp(n, -6, 6) : 0;
       if (n === P.keyShift()) return n;
       ls(ksName(), String(n));
       if (n !== 0) P.ensureTab('harmony');
@@ -1479,6 +1480,41 @@
     P.closeYt = function () { closeYt(); };
     P.openAudioShift = function (o) { return root.YNAudioShift && root.YNAudioShift.openDialog ? root.YNAudioShift.openDialog(P, o) : null; };
     P.on('song', function () { if (P.keyShift() !== 0) P.ensureTab('harmony'); });
+    /* 키 −1 / +1 (위 막대 · 전체 화면 막대 · 폰은 메뉴 서랍) — 예배 중에도 바로: 곡마다 기억, 화음 모듈이 악보 코드를 새 키로 덧그립니다.
+       예배 모드에서도 잠기지 않습니다. 가운데(지금 키)를 두 번 누르면 원래 키로. */
+    function ksKey(base, n) {
+      var HC = root.YNHarmony, k = null; try { k = HC && base ? HC.parseKey(base) : null; } catch (e) { k = null; }
+      if (!k || !HC.KEY_CHOICES) return '';
+      return HC.KEY_CHOICES[(((k.tonic + n) % 12) + 12) % 12] + (k.minor ? 'm' : '');
+    }
+    function ksText() {
+      var s = songs[S.songIdx], n = P.keyShift(), base = s && s.key ? String(s.key).trim() : '', sg = n > 0 ? '+' + n : String(n).replace('-', '−');
+      var to = ksKey(base, n);
+      if (!n) return to ? 'Key ' + to : '원래 키';
+      return to ? to + ' (' + sg + ')' : sg + ' 반음';
+    }
+    function paintKs() {
+      if (S.dead) return; var n = 0, t = '';
+      try { n = P.keyShift(); t = ksText(); } catch (e) { t = 'Key'; }
+      el.querySelectorAll('.pv-kslbl').forEach(function (b) { b.textContent = t; b.classList.toggle('on', n !== 0); });
+      el.querySelectorAll('[data-a="ks-down"]').forEach(function (b) { b.disabled = n <= -6; });
+      el.querySelectorAll('[data-a="ks-up"]').forEach(function (b) { b.disabled = n >= 6; });
+    }
+    function ksStep(d) {
+      var n0 = P.keyShift(), n = n0;
+      try { n = P.setKeyShift(n0 + d); } catch (e) { if (root.console) root.console.warn('[keyshift]', e); }
+      paintKs();
+      if (n === n0) { toast(d > 0 ? '+6 반음까지 올릴 수 있어요' : '−6 반음까지 내릴 수 있어요'); return; }
+      toast(n === 0 ? '원래 키로 — 악보 코드 그대로' : '코드 ' + ksText() + ' 로 바꿔 그립니다', false, 1600);
+    }
+    function ksReset() {
+      if (!P.keyShift()) { toast('지금 원래 키입니다 — −1 / +1 로 키를 바꿀 수 있어요'); return; }
+      var now = Date.now();
+      if (!(S.ksArm && now - S.ksArm < 2500)) { S.ksArm = now; toast('한 번 더 누르면 원래 키로 돌아갑니다', false, 2400); return; }
+      S.ksArm = 0; ksStep(-P.keyShift());
+    }
+    P.on('song', paintKs); P.on('keyshift', function () { setTimeout(paintKs, 0); });
+    setTimeout(paintKs, 0);
     S.room = opts.room || '';
     el.appendChild(minePanel); paintSheetSel(); setTimeout(loadMine, 4000);              // v9.6 — 나만 보는 악보 목록 (내 것만) · v9.9 — 첫 악보 · 실시간 연결이 먼저. 보통은 첫 악보를 그린 직후에 부름
     var rt = null, an = null;
@@ -2208,6 +2244,7 @@
       else if (a === 'prep') { setMore(false); setDrawer(false); prepareAll(); }
       else if (a === 'ws-on') { setMore(false); setDrawer(false); setWorship(true); }
       else if (a === 'ws-off') wsUnlockTap();
+      else if (a === 'ks-up') ksStep(1); else if (a === 'ks-down') ksStep(-1); else if (a === 'ks-reset') ksReset();
       else if (a === 'pedal') { setMore(false); setDrawer(false); pedalLearn(); }
       else if (a === 'close') { if (S.worship && !wsSecondTap('close')) return; api.close(); } else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
@@ -3022,26 +3059,40 @@
       el: el, P: P, prepareAll: function () { return prepareAll(); }, setWorship: function (b) { setWorship(b, true); }, goPage: function (n) { goPage(n, true); }, next: function () { nextPage(true); }, prev: function () { prevPage(true); },
       perf: function () { return { turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
-        if (S.dead) return; S.dead = true; if (S.fs) setFs(false); closeYt(); flushMine(); P.emit('close');
-        try { if (S.prep) S.prep.cancel = true; prepHide(); clearTimeout(S.prepHideT); if (pedalEl) pedalEl.remove(); } catch (e) {}
-        try { an.closeEditor(); } catch (e) {}
-        P.tabs.forEach(function (t) { try { t.api && t.api.destroy && t.api.destroy(); } catch (e) {} });
-        try { rt && rt.close(); } catch (e) {} try { an.destroy(); } catch (e) {}
-        try { timerBar && timerBar.destroy(); } catch (e) {}
-        doc.removeEventListener('pointerdown', rtOutside, true); doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); doc.removeEventListener('copy', onCopy); doc.removeEventListener('paste', onPaste); root.removeEventListener('pagehide', onBeforeUnload);
-        doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient); doc.removeEventListener('fullscreenchange', onFsChange); clearTimeout(S.fsT);
-        if (ro) ro.disconnect(); root.removeEventListener('resize', onResize);
-        /* 남아 있는 예약(타이머) · 반복 · 그림 저장소를 모두 정리 — 화면을 여닫아도 메모리가 쌓이지 않게 (내 필기 저장 재시도 S.mineT 만 남겨 둡니다) */
-        [rz, orT, wz.t, S.rsT, S.navT, S.preT, S.msgT, S.toolT, S.ldT, refetchT, scT].forEach(function (t) { if (t) clearTimeout(t); });
-        holdStop(); if (pvRaf && root.cancelAnimationFrame) { try { root.cancelAnimationFrame(pvRaf); } catch (e) {} pvRaf = 0; }
-        if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
-        if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
-        try { hiHide(); hiCv.width = hiCv.height = 0; } catch (e) {}
-        pcClear(); S.pending = null; S.pre.clear();
-        try { wakeCtl && wakeCtl.destroy(); } catch (e) {}
-        Object.keys(S.cache).forEach(function (k) { try { S.cache[k].pdf && S.cache[k].pdf.destroy(); } catch (e) {} });
-        el.remove(); doc.body.classList.remove('pv-lock'); current = null;
-        try { opts.onClose && opts.onClose(); } catch (e) {}
+        if (S.dead) return; S.dead = true;
+        /* 닫기 — 정리 단계마다 따로 감싸서, 한 단계가 실패해도(드물게 패널 · 실시간 · PDF 정리 오류) 나머지 정리와 화면 닫기 · 콘티로 돌아가기는 꼭 합니다.
+           (예전: 앞 단계 하나가 오류를 내면 화면이 멈춘 채 닫히지 않거나 빈 화면으로 남아 앱을 다시 켜야 했음) */
+        function step(f) { try { f(); } catch (e) { if (root.console) root.console.warn('[practice close]', e); } }
+        try {
+          step(function () { flushMine(); });                                           // 내 필기 저장이 가장 먼저
+          step(function () { if (S.fs) setFs(false); });
+          step(function () { closeYt(); });
+          step(function () { P.emit('close'); });
+          step(function () { if (S.prep) S.prep.cancel = true; prepHide(); clearTimeout(S.prepHideT); if (pedalEl) pedalEl.remove(); });
+          step(function () { an.closeEditor(); });
+          P.tabs.forEach(function (t) { step(function () { t.api && t.api.destroy && t.api.destroy(); }); });
+          step(function () { rt && rt.close(); }); step(function () { an.destroy(); });
+          step(function () { timerBar && timerBar.destroy(); });
+          step(function () {
+            doc.removeEventListener('pointerdown', rtOutside, true); doc.removeEventListener('pointerdown', moreOutside, true); doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); doc.removeEventListener('copy', onCopy); doc.removeEventListener('paste', onPaste); root.removeEventListener('pagehide', onBeforeUnload);
+            doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient); doc.removeEventListener('fullscreenchange', onFsChange); clearTimeout(S.fsT);
+          });
+          step(function () { if (ro) ro.disconnect(); root.removeEventListener('resize', onResize); });
+          /* 남아 있는 예약(타이머) · 반복 · 그림 저장소를 모두 정리 — 화면을 여닫아도 메모리가 쌓이지 않게 (내 필기 저장 재시도 S.mineT 만 남겨 둡니다) */
+          step(function () { [rz, orT, wz.t, S.rsT, S.navT, S.preT, S.msgT, S.toolT, S.ldT, refetchT, scT].forEach(function (t) { if (t) clearTimeout(t); }); });
+          step(function () { holdStop(); if (pvRaf && root.cancelAnimationFrame) { root.cancelAnimationFrame(pvRaf); } pvRaf = 0; });
+          step(function () { if (S.task) { S.task.cancel(); } S.task = null; });
+          step(function () { if (rightTask) { rightTask.cancel(); } rightTask = null; });
+          step(function () { hiHide(); hiCv.width = hiCv.height = 0; });
+          step(function () { pcClear(); S.pending = null; S.pre.clear(); });
+          step(function () { wakeCtl && wakeCtl.destroy(); });
+          step(function () { Object.keys(S.cache).forEach(function (k) { try { S.cache[k].pdf && S.cache[k].pdf.destroy(); } catch (e) {} }); });
+        } finally {
+          try { el.remove(); } catch (e) {}
+          try { doc.body.classList.remove('pv-lock'); } catch (e) {}
+          current = null;
+          try { opts.onClose && opts.onClose(); } catch (e) { if (root.console) root.console.warn('[practice onClose]', e); }
+        }
       }
     };
     current = api;

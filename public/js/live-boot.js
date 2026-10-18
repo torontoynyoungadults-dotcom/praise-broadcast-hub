@@ -82,12 +82,36 @@
     box.innerHTML = '<p>' + String(msg).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }) + '</p><p><a href="' + (B.back || '/conti') + '">← 예배콘티로 돌아가기</a></p>';
   }
 
+  /* 닫기(✕ · Esc) → 예배콘티로. 악보 화면은 이미 지워졌으므로 "돌아가는 중…" 안내와 링크를 바로 보여 줍니다
+     (예전: 서버가 늦게 답하면 그동안 아무것도 없는 흰 화면, 뒤로 가기 · 앱 전환으로 이 페이지가 되살아나면 빈 화면에 갇혀 앱을 다시 켜야 했음).
+     location.replace — 닫은(빈) 라이브 악보 페이지를 방문 기록에 남기지 않습니다. */
+  var closed = false;
+  function backUrl() { return B.back || '/conti'; }
+  function leave() {
+    closed = true;
+    var box = doc.getElementById('lvFallback'), url = backUrl();
+    if (box) {
+      box.style.display = '';
+      box.innerHTML = '<p>예배콘티로 돌아가는 중…</p><p><a href="' + url.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }) + '">← 바로 가기</a></p>';
+    }
+    setTimeout(function () {                                                          // 그래도 안 넘어가면 (느린 인터넷 · 서버 깨우는 중) 다시 시도 단추
+      if (!box || !doc.body.contains(box)) return;
+      var p = doc.createElement('p'), b = doc.createElement('button');
+      b.type = 'button'; b.textContent = '다시 시도'; b.style.cssText = 'font:inherit;font-weight:700;padding:10px 18px;border-radius:12px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer';
+      b.onclick = function () { location.replace(backUrl()); };
+      p.appendChild(b); box.appendChild(p);
+    }, 6000);
+    try { location.replace(url); } catch (e) { location.href = url; }
+  }
+  /* 닫은 뒤 브라우저 기록(bfcache)으로 이 페이지가 다시 보이면 — 빈 화면 대신 콘티로 */
+  window.addEventListener('pageshow', function (e) { if (closed || (e.persisted && window.YNPractice && !window.YNPractice.isOpen())) location.replace(backUrl()); });
+
   function boot() {
     if (!window.YNPractice) { fallback('라이브 악보 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
     var api = window.YNPractice.open({
       token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: B.start, startPage: B.startPage || 1,
       canEdit: !B.ro, readOnly: !!B.ro, callServer: callServer, sheetFix: B.ro || B.guest ? null : sheetFixApi(), recs: B.recs || [], lineup: B.lineup || [],
-      onClose: function () { location.href = B.back || '/conti'; }
+      onClose: leave
     });
     try {                                                                              // 오프라인용 다운로드를 해 둔 기기라면, 빠진 것만 조용히 채움 (6시간에 한 번)
       if (window.YNOff && window.YNOff.dl.enabled() && B.back) {
