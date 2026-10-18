@@ -170,8 +170,15 @@
      읽는 것: 장 · 단 · dim · aug · sus2/4 · 5(파워) · 6 · 6/9 · 7 · maj7 · mM7 · dim7 · m7b5(ø) · 9 · 11 · 13 · add2/4/6/9/11/13 ·
               b5 #5 b9 #9 #11 b13 (+ − 표기 · 괄호 · 쉼표 포함) · alt · omit3/no3 · omit5/no5 · 슬래시 베이스(G/B)
      구성음은 도(interval)와 도수(deg) 목록(iv)으로 만들어 두고 → tones(12음 안, 정렬) · 피아노 보이싱(voiceChord) 이 함께 씁니다. */
+  /* V880 — 악보 글꼴의 임시표(SMuFL 사용자 영역 · 유니코드 음악 기호) · 위첨자 글자(C⁷ · Cmaj⁷ · F#ᵐ⁷) · 대문자 SUS4 · ADD9 도 읽음 */
+  var SUP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-', '⁽': '(', '⁾': ')', '⸍': '/',
+    'ᵐ': 'm', 'ᵃ': 'a', 'ʲ': 'j', 'ᵇ': 'b', 'ᵈ': 'd', 'ⁱ': 'i', 'ˢ': 's', 'ᵘ': 'u', 'ⁿ': 'n', 'ᵒ': 'o', 'ᵍ': 'g', 'ˡ': 'l', 'ᵗ': 't', 'ᴹ': 'M', 'ᵉ': 'e', 'ᵏ': 'k' };
+  var SUP_RE = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾⸍ᵐᵃʲᵇᵈⁱˢᵘⁿᵒᵍˡᵗᴹᵉᵏ]/g;
   function normChordText(s) {
     return String(s == null ? '' : s).trim()
+      .replace(SUP_RE, function (c) { return SUP[c] || c; })
+      .replace(/[\uE260\uE264\uE266\uE280\uE281]|\uD834[\uDD2C\uDD2D]/g, 'b').replace(/[\uE262\uE263\uE265\uE282\uE283]|\uD834[\uDD30\uDD31]/g, '#').replace(/[\uE261♮]|\uD834[\uDD2E\uDD2F]/g, '')
+      .replace(/(SUS|ADD|MAJ|DIM|AUG|ALT|OMIT|MIN)/g, function (w) { return w.toLowerCase(); })
       .replace(/[♯＃]/g, '#').replace(/♭/g, 'b').replace(/[−–—]/g, '-')
       .replace(/[Δ△](?=(9|11|13))/g, 'maj').replace(/[Δ△]7?/g, 'maj7')
       .replace(/[øØ]7?/g, 'm7b5').replace(/[°º˚]/g, 'dim')
@@ -202,6 +209,7 @@
       }
       else if ((m = /^(mM|mMaj|mmaj|mMA|mma|minmaj|minMaj|-maj|-M|mΔ|m\/maj|m\/M)(7|9|11|13)?/.exec(s))) { st.q = 'min'; extNum(st, m[2] || '7', 'M7'); }
       else if ((m = /^(maj|Maj|MAJ|Ma|MA|M)(7|9|11|13)?(?![a-z])/.exec(s))) { if (m[2]) extNum(st, m[2], 'M7'); }
+      else if ((m = /^ma(7|9|11|13)/.exec(s))) { extNum(st, m[1], 'M7'); }                                    // V880 — Cma7
       else if ((m = /^(major)/.exec(s))) { /* 장조 그대로 */ }
       else if ((m = /^(min|mi|m)(?!aj|a\b)/.exec(s))) { st.q = 'min'; }
       else if ((m = /^-(5|9|11|13)/.exec(s)) && (st.nums || st.sev || st.six)) { var a1 = ALT_IV['b' + m[1]]; if (a1 === 'f-') st.fifth = -1; else if (a1) addX(st, a1[0], a1[1]); else return null; }
@@ -220,6 +228,7 @@
       else if ((m = /^5(?![#b])/.exec(s))) { st.power = true; }
       else if ((m = /^2/.exec(s))) { addX(st, 2, '2'); }
       else if ((m = /^4/.exec(s))) { st.sus = 4; }
+      else if ((m = /^\/(b|#)?(9|11|13)(?![0-9])/.exec(s)) && (st.nums || st.sev || st.six)) { var a4 = ADD_IV[(m[1] || '') + m[2]]; if (!a4) return null; addX(st, a4[0], a4[1]); }   // V880 — C7/9 · C7/#11 (= C7(9))
       else if ((m = /^[,]/.exec(s))) { /* 괄호 밖 쉼표 */ }
       else return null;
       s = s.slice(m[0].length);
@@ -257,7 +266,7 @@
     var raw = String(str == null ? '' : str).trim(), s = normChordText(raw);
     var m = /^([A-G])([#b]?)(.*)$/.exec(s);
     if (!m) return null;
-    var rest = m[3], bassPc = null, bassTxt = '', bm = /^(.*?)\/([A-G])([#b]?)$/.exec(rest);
+    var rest = m[3].replace(/^o(?=7|9|$|\/|\()/, 'dim'), bassPc = null, bassTxt = '', bm = /^(.*?)\/([A-G])([#b]?)$/.exec(rest);       // V880 — Co7 = C°7
     if (bm) { rest = bm[1]; bassTxt = bm[2] + bm[3]; bassPc = mod(LETTER_PC[bm[2]] + accOf(bm[3]), 12); }
     var st = readSuffix(rest);
     if (!st) return null;
@@ -307,7 +316,7 @@
 
   /* ---- 낱말 → 코드 골라내기 (PDF 글자층 · OCR 공통) ---- */
   var LABEL_RE = /^(intro|verse|chorus|bridge|pre-?chorus|pre|outro|ending|tag|inst|instrumental|interlude|vamp|solo|turn|coda|end|refrain|v\d|c\d|b\d|pc\d?|x\d+|\d+x|1st|2nd|3rd|4th|repeat|rep|fine|d\.?s\.?|d\.?c\.?|segno|verse\d?|후렴|간주|전주|후주|브릿지|절)[:.)]*$/i;
-  var SEP_RE = /^[|:;.,\-–—~\\%()[\]{}*]+$|^n\.?c\.?$/i;
+  var SEP_RE = /^[|:;.,\-–—~\\\/%()[\]{}*]+$|^n\.?c\.?$/i;
   var HANGUL = /[ㄱ-ㆎ가-힣]/;
   /** OCR 이 자주 틀리는 글자를 고쳐서 코드가 되면 그 글자를, 아니면 원래 글자를 돌려줌
    *  · 사선(/)을 I · l · | · 1 · ! 로 읽음: "DIF#" → "D/F#" · "C1E" → "C/E" */
@@ -317,6 +326,9 @@
     var v = t.replace(/^([A-G][#♯b♭]?[^A-G/]*?)[Iil|1!\\jJ](?=[A-G][#♯b♭]?$)/, '$1/');
     if (v !== t && parseChord(v)) return v;
     v = t.replace(/[Il|!]+$/, '');
+    if (v !== t && parseChord(v)) return v;
+    /* V880 — 자주 틀리는 글자: ♯ → $ · H · § · ‡ · ff,  m → rn,  ♭ → h (Bh → Bb),  ° → 0 (C07 → C°7) */
+    v = t.replace(/rn/g, 'm').replace(/([A-G])(?:[$§‡H]|ff)/g, '$1#').replace(/^([A-G])h/, '$1b').replace(/\/([A-G])h$/, '/$1b').replace(/^([A-G][#b]?)0(?=7)/, '$1dim');
     if (v !== t && parseChord(v)) return v;
     return t;
   }
@@ -329,7 +341,7 @@
     if (/^(V|P|PC|I|O|T|v|p|pc|R)$/.test(t) || /^[\[(]?(V|PC|P|C|B|I)\d*[\])]?$/.test(t) && /\d|\[|\(/.test(t) && !parseChord(t.replace(/[\[\]()]/g, ''))) return { kind: 'label', pre: '', post: '' };   // 리허설 표시 (V · P · C1 …)
     var whole = fix ? fixOcrChord(t) : t, wc = parseChord(whole);
     if (wc && /^[A-G]/.test(whole)) return { kind: 'chord', chord: wc, pre: '', post: '', core: whole };                 // V849 — "C7(♭9)" 처럼 괄호로 끝나는 코드는 통째로
-    var wm = /^([([{|:]*)(.*?)([)\]}|,.;:]*)$/.exec(t), pre = wm[1], core = wm[2], post = wm[3];
+    var wm = /^([([{|:]*)(.*?)([)\]}|,.;:\/]*)$/.exec(t), pre = wm[1], core = wm[2], post = wm[3];
     if (core && fix) core = fixOcrChord(core);
     if (core) { var c = parseChord(core); if (c) return { kind: 'chord', chord: c, pre: pre, post: post, core: core }; }
     if (SEP_RE.test(t)) return { kind: 'sep', pre: '', post: '' };

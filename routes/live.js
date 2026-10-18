@@ -234,6 +234,7 @@ ${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token,
 <script defer src="/worship/pitch.js${v}"></script>
 <script defer src="/worship/harmony-core.js${v}"></script>
 <script defer src="/worship/omr.js${v}"></script>
+<script defer src="/worship/chord-view.js${v}"></script>
 <script defer src="/worship/harmony-ui.js${v}"></script>
 <script defer src="/worship/ytform.js${v}"></script>
 <script defer src="/worship/ytplayer.js${v}"></script>
