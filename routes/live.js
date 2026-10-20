@@ -31,6 +31,7 @@ const session = require('../lib/session');
 const guestLink = require('../lib/guestLink');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
+const r2 = require('../lib/r2');
 const { canonicalPosition } = require('../lib/positions');
 
 const router = express.Router();
@@ -401,6 +402,12 @@ async function sheetBytes(id, hit) {
   return p;
 }
 async function sheetBytesLoad(id, hit) {
+  if (r2.enabled()) {                                       // R2 에 있으면 거기서 (옮겨 둔 예전 악보 · 새로 올린 악보). 서버가 받는 쪽(들어오는 트래픽)이라 Render 대역폭에 안 잡힘
+    let got = null;
+    try { got = await r2.getBuffer(id); } catch (e) { console.error('[R2 악보 읽기 실패]', id, e && e.message); }
+    if (got) { const rec = { buf: got.buf, type: got.type }; bytesPut(id, rec); return rec; }
+  }
+  if (liveStore.appSheetIdOf(hit['파일링크'])) throw Object.assign(new Error('원본 악보를 불러오지 못했습니다.'), { status: 404 });      // R2 에만 있는 악보인데 R2 에서 못 찾음 (드라이브 폴백 없음)
   const driveId = liveStore.driveIdOf(hit['파일링크']);
   const r = driveId ? await driveFetch(driveId) : await fetch(hit['파일링크'], { redirect: 'follow' });
   if (!r.ok || !r.body) throw Object.assign(new Error('원본 악보를 불러오지 못했습니다.'), { status: r.status === 404 ? 404 : 502 });
@@ -419,6 +426,14 @@ router.get('/sheet/:id', fileAccess, async (req, res) => {
   try {
     const hit = (await sheetRowFor(req, id)) || (await ytForm.mineRowFor(req.ctx, id));      // v9.6 — 나만 보는 악보는 올린 본인만
     if (!hit) return res.status(404).send('not found');
+    if (r2.direct()) {                                      // R2_DIRECT=1 — 로그인 · 권한 확인은 여기서 하고, 파일은 브라우저가 R2 에서 바로 받음 (Render 대역폭 0)
+      let meta = null;
+      try { meta = await r2.head(id); } catch (e) { console.error('[R2 확인 실패 — 서버가 대신 보냄]', id, e && e.message); }
+      if (meta) {
+        res.set('Cache-Control', 'private, no-store');
+        return res.redirect(302, await r2.signedUrl(id, { type: meta.type, name: hit['제목'] }));
+      }
+    }
     const rec = await sheetBytes(id, hit);
     res.set({ 'Content-Type': rec.type, 'Content-Length': String(rec.buf.length), 'Cache-Control': 'private, max-age=600' });
     res.send(rec.buf);
