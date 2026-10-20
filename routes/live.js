@@ -117,7 +117,7 @@ async function liveData(team, scope, extraId) {
     if (xr && !list.some((x) => x.id === xid)) list.unshift({ id: xid, name: sheetName(xr, '') });
   }
   const recs = recRows.filter((r) => r['팀ID'] === team && liveStore.inScope(r, scope))
-    .map((r) => ({ play: nas.playUrl(r['링크']) || (liveStore.driveIdOf(r['링크']) ? '/audio/' + liveStore.driveIdOf(r['링크']) : ''), r })).filter((x) => x.play)      // 드라이브(NAS) 녹음도
+    .map((r) => ({ play: nas.playUrl(r['링크']) || (liveStore.audioIdOf(r['링크']) ? '/audio/' + liveStore.audioIdOf(r['링크']) : ''), r })).filter((x) => x.play)      // 드라이브(NAS) 녹음도
     .map(({ play, r }) => ({ title: String(r['제목'] || '녹음'), play, kind: String(r['구분'] || ''), by: String(r['올린사람'] || '') }));
   return { room, songs, sheets: list, recs };
 }
@@ -479,8 +479,30 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   try {
     const rows = await sheetsDb.readAll('녹음');
-    const hit = rows.find((r) => req.ctx.teams.includes(r['팀ID']) && liveStore.driveIdOf(r['링크']) === id);
+    const hit = rows.find((r) => req.ctx.teams.includes(r['팀ID']) && liveStore.audioIdOf(r['링크']) === id);
     if (!hit) return res.status(404).send('not found');
+    if (r2.enabled()) {                                     // R2 에 있으면 (새로 올린 녹음 · 옮겨 둔 예전 녹음)
+      let meta = null;
+      try { meta = await r2.head(id, 'audio'); } catch (e) { console.error('[R2 녹음 확인 실패]', id, e && e.message); }
+      if (meta) {
+        if (r2.direct()) {                                  // R2_DIRECT=1 — 권한 확인은 여기서, 파일은 브라우저가 R2 에서 바로 (Render 대역폭 0)
+          res.set('Cache-Control', 'private, no-store');
+          return res.redirect(302, await r2.signedUrl(id, { type: meta.type, name: hit['제목'], kind: 'audio' }));
+        }
+        const s = await r2.getStream(id, 'audio', req.headers.range);       // 아니면 서버가 R2 에서 받아 그대로 (Range 지원)
+        if (s && s.status === 416) return res.status(416).end();
+        if (s) {
+          res.status(s.partial ? 206 : 200);
+          res.set({ 'Content-Type': s.type, 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, max-age=3600' });
+          if (s.length != null) res.set('Content-Length', String(s.length));
+          if (s.range) res.set('Content-Range', s.range);
+          if (s.etag) res.set('ETag', s.etag);
+          s.body.on('error', () => res.end()); res.on('close', () => { try { s.body.destroy(); } catch (e) { /* 이미 닫힘 */ } });
+          return s.body.pipe(res);
+        }
+      }
+    }
+    if (liveStore.appAudioIdOf(hit['링크'])) return res.status(404).send('not found');      // R2 에만 있는 녹음인데 못 찾음 (드라이브 폴백 없음)
     const r = await driveFetch(id, req.headers.range);
     if (!r.ok && r.status !== 206) return res.status(r.status).send('drive error');
     pipeWeb(res, r, 'private, max-age=3600');

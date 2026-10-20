@@ -623,7 +623,7 @@ function recSrc(r) {
   const link = String(r['링크'] || '');
   const nasUrl = nas.playUrl(link);                        // 드라이브(미디어팀 NAS)에서 연결한 녹음 — /drive/file (Range 지원)
   if (nasUrl) return nasUrl;
-  const id = liveStore.driveIdOf(link);
+  const id = liveStore.audioIdOf(link);
   if (id) return '/audio/' + id;
   if (!/^https?:\/\//i.test(link) || youtube.idOf(link) || /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(link)) return '';
   return link;
