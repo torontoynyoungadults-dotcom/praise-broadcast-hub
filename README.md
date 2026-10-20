@@ -45,6 +45,19 @@ npm start
 ## Render 배포
 `render.yaml` 참고. GitHub에 push하면 Render가 자동 빌드/배포합니다. 환경변수는 Render 대시보드 → Environment 탭에서 위 항목들을 채워주세요.
 
+## 악보 R2 (Cloudflare R2)
+
+악보 파일을 Render 서버 대신 R2 에 두고, 열 때는 브라우저가 R2 에서 바로 받게 해서 Render 대역폭을 아낍니다. (프로필·장비 사진, 녹음, 인쇄용 PDF 는 그대로 구글 드라이브 · NAS)
+
+1. Cloudflare → R2 → **새 버킷** 만들기 (청년부앱 버킷과 따로) → R2 API 토큰(Object Read & Write, 이 버킷만) 발급
+2. Render 환경변수에 `R2_ACCOUNT_ID` · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` 넣기 → 새로 올리는 악보부터 R2 에 저장됩니다
+3. **내 컴퓨터**에서 (Render 에서 하면 대역폭이 잡힘) `.env` 에 같은 값 + 구글 값을 넣고:
+   - `node --env-file=.env scripts/r2-setup.js` — R2 연결 확인 + CORS 설정
+   - `node --env-file=.env scripts/migrate-sheets-to-r2.js --dry-run` → 문제 없으면 `--dry-run` 빼고 실행 (예전 악보를 R2 로 복사, 링크 · 필기는 그대로, 드라이브 원본도 그대로)
+4. 악보가 R2 에서 잘 열리는지 본 뒤 Render 에 `R2_DIRECT=1` 추가 → 브라우저가 R2 에서 바로 받음 (서버 대역폭 0)
+
+되돌리기: `R2_DIRECT` 를 지우면 서버가 대신 보내는 방식으로, R2 환경변수를 지우면 예전처럼 드라이브만 씁니다 (R2 로 새로 올린 악보는 R2 에만 있으니 환경변수를 지우기 전에 확인).
+
 ## DB 구조
 `lib/schema.js`에 정의되어 있습니다. 구글 드라이브 폴더(`DB_FOLDER_ID`) 안에 "찬양방송팀 허브 DB"라는 시트 1개를 자동으로 만들고, 그 안에 탭(회원/찬양팀/찬양콘티/… )을 둡니다. 서버를 처음 실행하면 필요한 탭과 머리글을 자동으로 만듭니다.
 

@@ -28,6 +28,16 @@ services:
         sync: false
       - key: GOOGLE_LOGIN_CLIENT_SECRET
         sync: false
+      - key: R2_ACCOUNT_ID            # 악보 보관함 (Cloudflare R2) — README "악보 R2" 참고
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_DIRECT
+        sync: false
       - key: NAS_PASSWORD
         sync: false
       - key: NAS_URL
