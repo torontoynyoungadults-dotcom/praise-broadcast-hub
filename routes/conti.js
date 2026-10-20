@@ -624,6 +624,8 @@ function nasOpenUrl() {
   if (v != null) return /^https?:\/\//i.test(v.trim()) ? v.trim() : '';
   return 'https://' + (process.env.NAS_QUICKCONNECT_ID || 'youngnakmedia') + '.quickconnect.to';
 }
+/** NAS 로그인 안내 글 — Render 환경변수 NAS_LOGIN_HINT (예: 아이디: praise3 · 비밀번호: …). 코드 · 저장소에는 비밀번호를 두지 않고, 객원 멤버에게는 보이지 않아요 */
+function nasLoginHint() { return String(process.env.NAS_LOGIN_HINT || '').trim().slice(0, 200); }
 /** 녹음의 재생 주소 — 드라이브에 올린 파일은 이 앱 주소(/audio/<id>, 되감기 · 빠르기 조절 가능), 그 밖의 링크는 그대로. 유튜브 링크는 오디오 파일이 아니라서 '' */
 function recSrc(r) {
   const link = String(r['링크'] || '');
@@ -838,7 +840,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
-    ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).</p>` : ''}
+    ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
     <h3 class="ph-h3">연습 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
