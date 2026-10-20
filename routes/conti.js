@@ -836,11 +836,6 @@ router.get('/conti', requireTeam, async (req, res) => {
     <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
-    <div class="cn-driverow">
-      <button type="button" class="ph-btn pri cn-drivepick" data-dv-suggest data-team="${esc(team)}" data-to="${esc(scope.event ? 'ev:' + scope.event : scope.date)}" data-prac="${esc(pinfo.p && pinfo.p.date && !pinfo.p.none ? pinfo.p.date : '')}">${ui.icon('search')} 녹음 찾기</button>
-      <a class="ph-btn cn-drivepick" href="/drive?to=${encodeURIComponent(scope.event ? 'ev:' + scope.event : scope.date)}">${ui.icon('folder')} 드라이브에서 직접 고르기</a>
-    </div>
-    <div class="dv-sugg" hidden></div>
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
       <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
