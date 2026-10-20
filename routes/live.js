@@ -474,6 +474,41 @@ router.get('/sheet/:id/part', fileAccess, async (req, res) => {
   }
 });
 
+/** 드라이브 녹음을 R2 에 복사해 둡니다 ("읽을 때 옮기기") — 같은 파일은 한 번에 하나만, 한 번에 한 파일씩, 너무 큰 파일은 건너뜀 (R2_COPY_MAX_MB, 기본 120) */
+const audioCopying = new Set(), audioCopyFailed = new Map();
+let audioCopyBusy = false;
+const audioCopyQueue = [];
+function copyAudioToR2(id) {
+  if (audioCopying.has(id)) return;
+  const failedAt = audioCopyFailed.get(id);
+  if (failedAt && Date.now() - failedAt < 6 * 3600 * 1000) return;        // 안 되는 파일은 6시간 동안 다시 시도하지 않음
+  audioCopying.add(id); audioCopyQueue.push(id);
+  runAudioCopy();
+}
+async function runAudioCopy() {
+  if (audioCopyBusy) return;
+  audioCopyBusy = true;
+  const max = Math.max(1, Number(process.env.R2_COPY_MAX_MB) || 120) * 1048576;
+  while (audioCopyQueue.length) {
+    const id = audioCopyQueue.shift();
+    try {
+      if (await r2.head(id, 'audio')) continue;                            // 이미 있음
+      const r = await driveFetch(id);
+      if (!r.ok) throw new Error('드라이브 ' + r.status);
+      const len = Number(r.headers.get('content-length')) || 0;
+      if (len > max) { audioCopyFailed.set(id, Date.now()); console.log('[녹음 R2 복사] 건너뜀(너무 큼) ' + id + ' ' + (len / 1048576).toFixed(0) + 'MB'); try { r.body && r.body.cancel(); } catch (e) { /* 무시 */ } continue; }
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > max) { audioCopyFailed.set(id, Date.now()); continue; }
+      await r2.put(id, buf, r.headers.get('content-type') || 'audio/mpeg', 'audio');
+      console.log('[녹음 R2 복사] ' + id + ' ' + (buf.length / 1048576).toFixed(1) + 'MB');
+    } catch (e) {
+      audioCopyFailed.set(id, Date.now());
+      console.error('[녹음 R2 복사 실패]', id, e && e.message);
+    } finally { audioCopying.delete(id); }
+  }
+  audioCopyBusy = false;
+}
+
 router.get('/audio/:id', fileAccess, async (req, res) => {
   const id = String(req.params.id || '');
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
@@ -505,6 +540,7 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
     if (liveStore.appAudioIdOf(hit['링크'])) return res.status(404).send('not found');      // R2 에만 있는 녹음인데 못 찾음 (드라이브 폴백 없음)
     const r = await driveFetch(id, req.headers.range);
     if (!r.ok && r.status !== 206) return res.status(r.status).send('drive error');
+    if (r2.enabled() && r2.handles('음원')) copyAudioToR2(id);         // 처음 열린 드라이브 녹음 — 뒤에서 R2 에 복사 → 다음부터는 R2 에서 (R2_DIRECT=1 이면 서버를 안 거침)
     pipeWeb(res, r, 'private, max-age=3600');
   } catch (e) {
     console.error('[녹음 파일]', id, e && e.message);
