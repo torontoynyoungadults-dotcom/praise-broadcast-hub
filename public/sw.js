@@ -151,3 +151,30 @@ self.addEventListener('fetch', function (event) {
     event.respondWith(netFirst(req, SHELL, 5000, u.origin + u.pathname).then(function (res) { return res || new Response('', { status: 504 }); }).catch(function () { return new Response('', { status: 504 }); }));
   }
 });
+
+/* ---------------------------------------------------------------- 알림 (푸시) — lib/notify.js 가 보냄 */
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { try { d = { body: e.data.text() }; } catch (y) { d = {}; } }
+  var title = d.title || '찬양방송팀 허브';
+  e.waitUntil(Promise.all([
+    self.registration.showNotification(title, {
+      body: d.body || '', tag: d.tag || 'ph-notify', renotify: true, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', data: { url: d.url || '/conti' },
+    }),
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) { cs.forEach(function (c) { try { c.postMessage({ type: 'ph-push' }); } catch (x) {} }); }),
+  ]));
+});
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var url = (e.notification.data && e.notification.data.url) || '/conti';
+  try { url = new URL(url, self.location.origin).href; } catch (x) { url = self.location.origin + '/conti'; }
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i];
+      if (c.url.indexOf(self.location.origin) === 0 && 'focus' in c) {
+        return c.focus().then(function (f) { return (f || c).navigate ? (f || c).navigate(url) : null; }).catch(function () { return self.clients.openWindow(url); });
+      }
+    }
+    return self.clients.openWindow(url);
+  }));
+});

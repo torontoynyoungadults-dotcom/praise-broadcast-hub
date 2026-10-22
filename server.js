@@ -73,6 +73,7 @@ app.use(require('./routes/photo'));    // /photo/:id — 드라이브 사진을 
 app.use(require('./routes/auth'));
 app.use(require('./routes/profile'));
 app.use(require('./routes/roster'));
+app.use(require('./routes/notify'));   // /notify/* — 종 아이콘 알림 (받은 알림 · 푸시 구독 · 알림 보내기)
 app.use(live);
 app.use(conti);
 app.use(require('./routes/guest'));   // /b/<열쇠> — 방송팀 보기 전용 (로그인 없음 · 예배콘티 + 스케줄표 · 댓글만)
@@ -119,6 +120,7 @@ async function shutdown(sig) {
   if (stopping) return; stopping = true;
   console.log(`[${sig}] 남은 필기를 저장하고 끕니다…`);
   try { rt.flushAll(); } catch (e) { console.error('[종료 저장]', e && e.message); }
+  try { await Promise.race([require('./lib/notify').flushPending(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* 끄는 중 */ }
   try { await liveStore.drain(8000); } catch (e) { /* 끄는 중 */ }
   process.exit(0);
 }

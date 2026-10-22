@@ -1904,3 +1904,66 @@ a { transition: color .15s var(--ease); }
 .dv-sg-acts button.pri { background: var(--accent); color: var(--on-accent, #fff); border-color: transparent; }
 .dv-sg-acts button:disabled { opacity: .6; cursor: default; }
 .dv-sg-done { font-size: 13px; font-weight: 800; color: var(--accent); }
+
+/* ---------- 알림 (종 아이콘 + 알림 창) — public/js/notify.js ---------- */
+.ph-bell { position: relative; }
+.ph-bell-dot { position: absolute; top: 7px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 0 2px rgba(13,17,16,.85); display: none; }
+.ph-bell.has-new .ph-bell-dot { display: block; }
+.ph-bell.has-pend .ph-bell-dot { display: block; background: var(--accent); }
+:root[data-theme="light"] .ph-bell-dot { box-shadow: 0 0 0 2px #fff; }
+.ph-bell.has-new svg { animation: ph-ring 1.1s ease .3s 1; transform-origin: 50% 12%; }
+@keyframes ph-ring { 0%,100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 35% { transform: rotate(-12deg); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-4deg); } }
+@media (prefers-reduced-motion: reduce) { .ph-bell.has-new svg { animation: none; } }
+
+html.ph-nt-open { overflow: hidden; }
+.ph-nt { position: fixed; inset: 0; z-index: 2147482000; display: flex; justify-content: flex-end; align-items: flex-start; }
+.ph-nt[hidden] { display: none; }
+.ph-nt-back { position: absolute; inset: 0; background: rgba(5,9,8,.5); }
+.ph-nt-box {
+  position: relative; width: min(420px, 100vw); max-height: min(86vh, 760px); margin: max(10px, env(safe-area-inset-top)) 10px 0 0;
+  display: flex; background: var(--glass); color: var(--ink); border: 1px solid var(--line-hi); border-radius: 18px;
+  box-shadow: 0 30px 70px -20px rgba(0,0,0,.7); overflow: hidden;
+}
+.ph-nt-in { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 18px; overscroll-behavior: contain; }
+.ph-nt-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; background: var(--glass); }
+.ph-nt-head h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
+.ph-nt-x { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--glass-2); color: var(--sub); font-size: 15px; cursor: pointer; }
+.ph-nt h4 { margin: 18px 0 8px; font-size: 13.5px; font-weight: 800; color: var(--mint-ink); letter-spacing: .02em; }
+.ph-nt-hint { margin: 0 0 8px; font-size: 13px; color: var(--sub); }
+.ph-nt-push { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 13px; background: var(--glass-2); border: 1px solid var(--line); }
+.ph-nt-push > div { flex: 1; min-width: 0; }
+.ph-nt-push b { display: block; font-size: 14.5px; }
+.ph-nt-push small { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--sub); }
+.ph-nt-push.off b { color: var(--sub); }
+.ph-nt-sw { flex: none; position: relative; width: 48px; height: 28px; border-radius: 999px; border: 0; background: var(--line-hi); cursor: pointer; transition: background .2s; }
+.ph-nt-sw i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .22s var(--ease); }
+.ph-nt-sw[aria-checked="true"] { background: var(--accent); }
+.ph-nt-sw[aria-checked="true"] i { transform: translateX(20px); }
+.ph-nt-sw:disabled { opacity: .5; }
+.ph-nt-err, .ph-nt-res { margin: 8px 2px 0; font-size: 13px; font-weight: 700; color: var(--bad); }
+.ph-nt-res { color: var(--good); min-height: 16px; }
+.ph-nt-send { margin-top: 4px; }
+.ph-nt-picks { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; margin-bottom: 10px; }
+.ph-nt-pick { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 11px; background: var(--glass-2); border: 1px solid var(--line); cursor: pointer; }
+.ph-nt-pick input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.ph-nt-pick span { min-width: 0; }
+.ph-nt-pick b { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-nt-pick small { color: var(--dim); font-size: 12px; }
+.ph-nt-msg { width: 100%; box-sizing: border-box; padding: 11px 13px; border-radius: 11px; border: 1px solid var(--line-hi); background: var(--bg-2); color: var(--ink); font: inherit; font-size: 14.5px; }
+.ph-nt-go { width: 100%; margin-top: 10px; padding: 13px; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 15px; font-weight: 800; cursor: pointer; }
+.ph-nt-go:disabled { opacity: .55; cursor: default; }
+.ph-nt-list { list-style: none; margin: 0; padding: 0; }
+.ph-nt-list li + li { border-top: 1px solid var(--line); }
+.ph-nt-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 4px; color: inherit; text-decoration: none; }
+.ph-nt-item.new .ph-nt-t b::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 7px; border-radius: 50%; background: var(--bad); vertical-align: middle; }
+.ph-nt-k { flex: none; margin-top: 1px; padding: 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: rgba(var(--mint-rgb), .16); color: var(--mint-ink); }
+.ph-nt-k.k-악보 { background: rgba(var(--accent-rgb), .18); color: var(--accent-ink); }
+.ph-nt-t { flex: 1; min-width: 0; }
+.ph-nt-t b { display: block; font-size: 14.5px; line-height: 1.35; }
+.ph-nt-t small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--sub); overflow-wrap: anywhere; }
+.ph-nt-item time { flex: none; font-size: 12px; color: var(--dim); margin-top: 2px; }
+.ph-nt-none { margin: 10px 2px; font-size: 14px; color: var(--dim); }
+.ph-nt-toast { width: max-content; position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 2147482500; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 24px); padding: 11px 12px 11px 16px; border-radius: 14px; background: var(--glass-2); color: var(--ink); border: 1px solid var(--line-hi); box-shadow: 0 18px 40px -12px rgba(0,0,0,.6); font-size: 14px; font-weight: 600; }
+.ph-nt-toast span { flex: 1; min-width: 0; line-height: 1.4; }
+.ph-nt-toast button { flex: none; white-space: nowrap; padding: 8px 13px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 800; cursor: pointer; }
+@media (max-width: 520px) { .ph-nt-box { width: auto; flex: 1; margin: max(8px, env(safe-area-inset-top)) 8px 0; } }

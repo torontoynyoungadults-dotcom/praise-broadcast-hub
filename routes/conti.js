@@ -47,6 +47,7 @@ const YTFORM_V = (() => { try { return String(Math.floor(require('fs').statSync(
 const guestLink = require('../lib/guestLink');
 const timeSettings = require('../lib/timeSettings');
 const closingHymn = require('../lib/closingHymn');
+const notify = require('../lib/notify');
 const router = express.Router();
 
 /** 곡이 바뀌면 열려 있는 라이브 악보에 알림 (church-app 의 songs:changed) — server.js 가 routes/live.js 의 함수를 넣어 줌 */
@@ -86,6 +87,10 @@ function contiUrl(team, scope) {
   const qs = new URLSearchParams({ team });
   if (scope.event) qs.set('event', scope.event); else qs.set('date', scope.date);
   return `/conti?${qs.toString()}`;
+}
+/** 콘티에 곡이 올라왔다고 팀에 알림 (모아서 한 번 · 실패해도 저장에는 영향 없음) */
+function tellSong(req, team, scope, title) {
+  try { notify.contiSongAdded(team, scope, title, String(req.ctx.member['이름'] || ''), String(req.ctx.member['이메일'] || '')); } catch (e) { console.error('[콘티 알림 예약 실패]', e && e.message); }
 }
 function backTo(req, res, team, scope) {
   spa.redirect(req, res, contiUrl(team, scope));
@@ -1194,6 +1199,7 @@ router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.a
     await saveSheetsFrom(req, team, scope, sid, { 'Key': b['Key'] || '', 'BPM': b['BPM'] || '' }, true);
   } catch (e) { console.error('[곡 악보 저장 실패]', e.message); }
   liveNotify(team, scope, 'saveWorshipSong');
+  if (kind !== '폐회송') tellSong(req, team, scope, title);
   backTo(req, res, team, scope);
 });
 
@@ -1272,6 +1278,7 @@ router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
         '제목': title, '팀': (parts[1] || '').trim(), 'Key': (parts[2] || '').trim(), '유튜브': '',
         '송폼': '', 'BPM': '', '비고': '', '만든시각': new Date().toISOString(), '솔로': '[]',
       });
+      if (kind !== '폐회송') tellSong(req, team, scope, title);
     }
   }
   liveNotify(team, scope, 'saveWorshipSongs');
@@ -1564,6 +1571,7 @@ router.post('/conti/songs/import', requireTeam, async (req, res) => {
       const norm = songNorm(src['제목']);
       if (have.has(norm)) continue;                                                    // 같은 제목이 이미 있으면 겹쳐 넣지 않음
       have.add(norm); seq += 1; n += 1;
+      tellSong(req, team, scope, String(src['제목']).trim());
       const nid = 'C' + Date.now().toString(36) + seq + Math.random().toString(36).slice(2, 4);
       await sheetsDb.appendRow('찬양콘티', {
         'ID': nid, '팀ID': team, ...scopeFields(scope), '구분': kind, '순서': seq, '제목': src['제목'], '팀': src['팀'] || '', 'Key': src['Key'] || '',
