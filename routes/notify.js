@@ -3,7 +3,8 @@
  *   GET  /notify/state?team=        받은 알림 · 보낼 수 있는 악보 · 푸시 공개키
  *   POST /notify/subscribe          이 기기에서 알림 받기 켜기
  *   POST /notify/unsubscribe        이 기기 알림 끄기
- *   POST /notify/send               알림 보내기 (악보를 골라서 / 직접 적어서)
+ *   POST /notify/send               알림 보내기 (직접 적어서 — 팀 전체)
+ * 자동 알림: 콘티 곡이 올라오면 5분 뒤 한꺼번에 · 내 스케줄(편성)이 바뀌면 그 사람에게만. 악보를 올릴 때는 알림이 가지 않습니다.
  */
 const express = require('express');
 const notify = require('../lib/notify');
@@ -26,13 +27,12 @@ router.get('/notify/state', async (req, res) => {
     const ctx = await me(req, res); if (!ctx) return;
     const team = ctx.current;
     const guest = guestAccess.isGuest(ctx.member);
-    const [key, items, pending] = await Promise.all([
+    const [key, items] = await Promise.all([
       notify.publicKey().catch(() => ''),
-      team ? notify.inbox(team) : [],
-      team && !guest ? notify.pendingSheets(team) : [],
+      team ? notify.inbox(team, ctx.member['이메일']) : [],
     ]);
     res.set('Cache-Control', 'no-store');
-    res.json({ ok: true, key, team, items, pending, canSend: !!team && !guest, subscribed: await notify.hasSub(String(ctx.member['이메일']).toLowerCase(), String(req.query.ep || '')).catch(() => false) });
+    res.json({ ok: true, key, team, items, canSend: !!team && !guest, subscribed: await notify.hasSub(String(ctx.member['이메일']).toLowerCase(), String(req.query.ep || '')).catch(() => false) });
   } catch (e) { fail(res, e); }
 });
 
@@ -60,24 +60,10 @@ router.post('/notify/send', async (req, res) => {
     if (!team || !ctx.teams.includes(team) || guestAccess.isGuest(ctx.member)) return res.status(403).json({ ok: false, error: '이 팀에는 알림을 보낼 수 없어요.' });
     const email = String(ctx.member['이메일']).toLowerCase();
     if (Date.now() - (lastSend.get(email) || 0) < 8000) return res.status(429).json({ ok: false, error: '방금 보냈어요. 잠시 후 다시 눌러 주세요.' });
-    const ids = Array.from(new Set([].concat(b.ids || []).map((x) => String(x))))
-      .slice(0, 30);
     const note = String(b.message || '').trim().slice(0, 140);
+    if (!note) return res.status(400).json({ ok: false, error: '보낼 내용을 적어 주세요.' });
     const by = String(ctx.member['이름'] || '');
-    let n;
-    if (ids.length) {
-      const all = await notify.pendingSheets(team);
-      const picked = all.filter((s) => ids.indexOf(s.id) >= 0);
-      if (!picked.length) return res.status(400).json({ ok: false, error: '고른 악보를 찾지 못했어요. 목록을 새로 불러와 주세요.' });
-      const first = picked[0];
-      const titles = picked.slice(0, 4).map((s) => s.title.replace(/\.(pdf|png|jpe?g)$/i, '')).join(', ') + (picked.length > 4 ? ` 외 ${picked.length - 4}개` : '');
-      n = {
-        kind: '악보', title: '악보가 업데이트됐어요', body: note ? `${titles} — ${note}` : titles,
-        url: notify.contiLink(team, first.event ? { event: first.event } : { date: first.date }), targets: picked.map((s) => s.id),
-      };
-    } else if (note) {
-      n = { kind: '직접', title: '찬양팀 알림', body: note, url: notify.contiLink(team, {}) };
-    } else return res.status(400).json({ ok: false, error: '보낼 악보를 고르거나 메시지를 적어 주세요.' });
+    const n = { kind: '직접', title: '찬양팀 알림', body: note, url: notify.contiLink(team, {}) };
     lastSend.set(email, Date.now());
     const r = await notify.send(team, Object.assign(n, { by, byEmail: email }));
     res.json({ ok: true, sent: r.sent, people: r.people, failed: r.failed });

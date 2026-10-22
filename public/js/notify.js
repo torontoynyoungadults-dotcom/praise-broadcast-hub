@@ -2,7 +2,8 @@
  * 알림 (종 아이콘) — 맨 위 배너 오른쪽 위의 종을 누르면 알림 창이 열립니다.
  *   · 받은 알림 목록 (누르면 해당 콘티로)
  *   · "이 기기로 알림 받기" — 폰/노트북으로 푸시 (설정은 기기마다 한 번)
- *   · 보내는 사람: 최근에 올린 악보 중 알릴 것을 골라 "알림 보내기" (콘티 곡은 올리면 자동으로 나감)
+ *   · 자동 알림: 콘티 곡은 올린 5분 뒤 한꺼번에 · 내 스케줄(편성)이 바뀌면 그 사람에게만 (악보를 올릴 때는 알림 없음)
+ *   · 따로 전할 말이 있으면 "알림 보내기" 로 팀 전체에 직접
  * 서버: routes/notify.js · 서비스워커: public/sw.js (push · notificationclick)
  */
 (function () {
@@ -25,7 +26,7 @@
     var d = Math.round(h / 24); if (d < 8) return d + '일 전';
     var x = new Date(t); return (x.getMonth() + 1) + '/' + x.getDate();
   }
-  var KIND = { '콘티': '콘티', '악보': '악보', '직접': '공지' };
+  var KIND = { '콘티': '콘티', '스케줄': '스케줄', '직접': '공지' };
 
   /* ---------------------------------------------------------------- 기기 푸시 */
   function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
@@ -86,10 +87,9 @@
     return S.st.items.filter(function (i) { return i.at > seen; }).length;
   }
   function paintBell() {
-    var n = unread(), pend = S.st && S.st.canSend ? S.st.pending.length : 0;
+    var n = unread();
     Array.prototype.forEach.call(document.querySelectorAll('[data-ph-act="bell"]'), function (b) {
       b.classList.toggle('has-new', n > 0);
-      b.classList.toggle('has-pend', n === 0 && pend > 0);
       b.setAttribute('aria-label', n ? '알림 ' + n + '개' : '알림');
     });
   }
@@ -122,16 +122,10 @@
   }
   function sendBox() {
     var st = S.st; if (!st.canSend) return '';
-    var rows = st.pending.map(function (p) {
-      var on = S.picked[p.id] !== false;
-      return '<label class="ph-nt-pick"><input type="checkbox" data-nt-id="' + esc(p.id) + '"' + (on ? ' checked' : '') + '><span><b>' + esc(p.title.replace(/\.(pdf|png|jpe?g)$/i, '')) + '</b><small>' + esc(p.by) + ' · ' + ago(p.at) + '</small></span></label>';
-    }).join('');
-    var n = st.pending.filter(function (p) { return S.picked[p.id] !== false; }).length;
-    return '<div class="ph-nt-send"><h4>알림 보내기</h4>' +
-      (rows ? '<p class="ph-nt-hint">최근에 올린 악보예요. 알릴 것만 골라 주세요.</p><div class="ph-nt-picks">' + rows + '</div>'
-        : '<p class="ph-nt-hint">알릴 새 악보가 없어요. 필요하면 아래에 직접 적어서 보낼 수 있어요.</p>') +
-      '<input class="ph-nt-msg" type="text" maxlength="140" placeholder="한마디 남기기 (선택)" value="' + esc(S.msg || '') + '">' +
-      '<button type="button" class="ph-nt-go" data-nt="send"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '보내는 중…' : (n ? '선택한 악보 ' + n + '개 알림 보내기' : '알림 보내기')) + '</button>' +
+    return '<div class="ph-nt-send"><h4>팀에 알림 보내기</h4>' +
+      '<p class="ph-nt-hint">콘티 곡은 올린 5분 뒤 자동으로, 내 스케줄이 바뀌면 그 사람에게만 알려 드려요. 따로 전할 말이 있을 때만 여기서 보내세요.</p>' +
+      '<input class="ph-nt-msg" type="text" maxlength="140" placeholder="팀원들에게 전할 말" value="' + esc(S.msg || '') + '">' +
+      '<button type="button" class="ph-nt-go" data-nt="send"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? '보내는 중…' : '알림 보내기') + '</button>' +
       '<p class="ph-nt-res" role="status">' + esc(S.res || '') + '</p></div>';
   }
   function list() {
@@ -168,15 +162,6 @@
   function close() {
     if (!el) return; S.open = false; el.hidden = true; document.documentElement.classList.remove('ph-nt-open'); paintBell();
   }
-  function toast(msg, act) {
-    var t = document.createElement('div'); t.className = 'ph-nt-toast';
-    t.innerHTML = '<span>' + esc(msg) + '</span>' + (act ? '<button type="button">' + esc(act) + '</button>' : '');
-    document.body.appendChild(t);
-    var kill = function () { if (t.parentNode) t.parentNode.removeChild(t); };
-    if (act) t.querySelector('button').addEventListener('click', function () { kill(); open(); });
-    setTimeout(kill, 9000);
-  }
-
   function onClick(e) {
     var go = e.target.closest && e.target.closest('[data-nt-go]');
     if (go) { close(); return; }                                  // 링크 이동은 그대로 (SPA 가 받음)
@@ -187,20 +172,14 @@
     else if (a === 'off') { b.disabled = true; turnOff().then(function () { return load(); }); }
     else if (a === 'send') send();
   }
-  document.addEventListener('change', function (e) {
-    var c = e.target && e.target.matches && e.target.matches('[data-nt-id]') ? e.target : null; if (!c) return;
-    S.picked[c.getAttribute('data-nt-id')] = c.checked; render();
-  });
-
   function send() {
     if (S.busy || !S.st) return;
-    var ids = S.st.pending.filter(function (p) { return S.picked[p.id] !== false; }).map(function (p) { return p.id; });
     var msg = (S.msg || '').trim();
-    if (!ids.length && !msg) { S.res = '보낼 악보를 고르거나 한마디를 적어 주세요.'; render(); return; }
+    if (!msg) { S.res = '전할 말을 적어 주세요.'; render(); return; }
     S.busy = true; S.res = ''; render();
-    post('/notify/send', { team: S.st.team, ids: ids, message: msg }).then(function (j) {
+    post('/notify/send', { team: S.st.team, message: msg }).then(function (j) {
       S.busy = false;
-      if (j.ok) { S.res = '보냈어요 · ' + (j.people ? j.people + '명의 기기로 전달' : '알림을 켠 팀원이 아직 없어요 (목록에는 남았어요)'); S.msg = ''; S.picked = {}; }
+      if (j.ok) { S.res = '보냈어요 · ' + (j.people ? j.people + '명의 기기로 전달' : '알림을 켠 팀원이 아직 없어요 (목록에는 남았어요)'); S.msg = ''; }
       else S.res = j.error || '보내지 못했어요.';
       return load();
     }).then(function () { render(); });
@@ -213,15 +192,7 @@
   });
   function boot() {
     if (!document.querySelector('[data-ph-act="bell"]')) return;
-    load().then(function (j) {
-      paintBell();
-      // 방금 악보를 올렸다면 — 팀원에게 알릴지 한 번 물어봄 (보낼지는 직접 고름)
-      if (j && j.canSend && j.pending.length && !S.open) {
-        var mine = j.pending.filter(function (p) { return Date.now() - Date.parse(p.at) < 15 * 60000; });
-        var key = 'ph.notify.nudge.' + j.team, last = ss(key) || '';
-        if (mine.length && mine[0].id !== last) { ss(key, mine[0].id); toast('악보 ' + mine.length + '개를 올렸어요. 팀원에게 알릴까요?', '알림 보내기'); }
-      }
-    });
+    load().then(function () { paintBell(); });
   }
   document.addEventListener('ph:content-updated', function () { if (Date.now() - S.loadedAt > 4000) boot(); else paintBell(); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - S.loadedAt > 20000 && document.querySelector('[data-ph-act="bell"]')) load(); });
