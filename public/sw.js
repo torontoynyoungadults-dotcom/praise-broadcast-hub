@@ -133,6 +133,7 @@ self.addEventListener('fetch', function (event) {
     event.waitUntil(Promise.all([caches.delete(PAGES), caches.delete(PHOTOS)]).catch(function () {}));
     return;
   }
+  if (p.indexOf('/sheet/') === 0 && req.mode === 'navigate') return;                                           // 콘티 화면에서 악보를 눌러 새 탭으로 열 때 — 서버가 저장소(R2)로 넘겨 주는데, 서비스워커가 그 답을 돌려주면 사파리가 "redirections" 오류를 냄 → 브라우저가 직접
   if (p.indexOf('/sheet/') === 0) { event.respondWith(sheetFetch(event).catch(function () { return new Response('offline', { status: 503 }); })); return; }
   if (p.indexOf('/photo/') === 0) {
     event.respondWith(cacheFirst(req, PHOTOS, u.pathname).catch(function () { return new Response('', { status: 504 }); }));
