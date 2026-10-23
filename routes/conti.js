@@ -332,10 +332,15 @@ function annoLink(f) {
   return `<a class="ph-annolink" href="${esc(annoHref(f))}" title="라이브 악보에서 이 악보에 필기">${ui.icon('pencil')} 필기</a>`;
 }
 
+/** 한 곡에 악보가 여러 개일 때 순서 바꾸기 ◀ ▶ (올린 순서 = 보이는 순서 · 맨 앞 악보가 정식 머리말) */
+function moveBtns(f, i, n) {
+  const one = (dir, ok, glyph, label) => (ok ? `<form method="post" action="/conti/sheets/move" style="display:inline;"><input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}<input type="hidden" name="dir" value="${dir}"><button class="ph-row-mv" type="submit" title="${label}" aria-label="${label}">${glyph}</button></form>` : '');
+  return one('up', i > 0, '◀', '앞으로') + one('down', i < n - 1, '▶', '뒤로');
+}
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable, extra) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable ? annoLink(f) + reformatBtn(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable && mine.length > 1 ? moveBtns(f, mine.indexOf(f), mine.length) : ''}${editable ? annoLink(f) + reformatBtn(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
     <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
     <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
   </form>` : ''}</span>`).join('');
@@ -1645,6 +1650,29 @@ router.post('/conti/ytform', requireTeam, async (req, res) => {
 router.get('/conti/youtube/info', requireTeam, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try { res.json((await youtube.info(req.query.url)) || {}); } catch (e) { res.json({}); }
+});
+
+/** 한 곡의 악보 순서 바꾸기 — 이웃한 두 악보의 줄 내용을 서로 맞바꿈 (악보 줄 번호가 곧 순서라서, 라이브 악보 · 인쇄용 PDF 도 같이 바뀜) */
+router.post('/conti/sheets/move', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const scope = scopeFrom(b);
+  try {
+    const row = await sheetRowOf(req, team, b.__row);
+    if (row && row['곡ID']) {
+      const group = (await sheetsDb.readAll('악보저장소', { fresh: true })).filter((r) => r['팀ID'] === team && r['곡ID'] === row['곡ID'] && r['파일링크']).sort((x, y) => x.__row - y.__row);
+      const i = group.findIndex((r) => r.__row === row.__row), j = i + (b.dir === 'up' ? -1 : 1);
+      if (i >= 0 && group[j]) {
+        const A = group[i], B = group[j];
+        const strip = (r) => { const o = Object.assign({}, r); delete o.__row; return o; };
+        await sheetsDb.updateRow('악보저장소', A.__row, strip(B));
+        await sheetsDb.updateRow('악보저장소', B.__row, strip(A));
+        liveNotify(team, scope, 'saveSheets');
+        await sheetHeaders.settle(sheetHeaders.queue(team, scope, liveNotify), 8000);   // 맨 앞 악보가 바뀌었으면 정식 머리말도 새 맨 앞 악보로
+      }
+    }
+  } catch (e) { console.error('[악보 순서 바꾸기 실패]', e.message); }
+  backTo(req, res, team, scope);
 });
 
 router.post('/conti/sheets/delete', requireTeam, async (req, res) => {

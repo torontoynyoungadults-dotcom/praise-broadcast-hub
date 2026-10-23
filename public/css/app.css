@@ -376,6 +376,8 @@ a { color: var(--accent-ink); text-decoration: none; }
 .ph-songsheet { display: inline-flex; align-items: center; gap: 2px; }
 .ph-songsheet .ph-li-link { margin-top: 0; }
 .ph-songsheet .ph-row-del { width: 24px; height: 24px; font-size: 12px; }
+.ph-row-mv { width: 26px; height: 26px; margin: 0 1px; border-radius: 50%; border: 1px solid var(--line-hi); background: var(--glass-2); color: var(--sub); font-size: 11px; line-height: 1; cursor: pointer; }
+.ph-row-mv:hover { color: var(--accent-ink); border-color: var(--accent); }
 .ph-songsheet-add { display: inline-block; }
 .ph-songsheet-add summary { font-size: 13px; color: var(--dim); }
 .ph-row-del {
