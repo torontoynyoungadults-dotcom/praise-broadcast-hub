@@ -335,15 +335,15 @@ function annoLink(f) {
 /** 한 곡에 악보가 여러 개일 때 순서 바꾸기 ◀ ▶ (올린 순서 = 보이는 순서 · 맨 앞 악보가 정식 머리말) */
 function moveBtns(f, i, n) {
   const one = (dir, ok, glyph, label) => (ok ? `<form method="post" action="/conti/sheets/move" style="display:inline;"><input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}<input type="hidden" name="dir" value="${dir}"><button class="ph-row-mv" type="submit" title="${label}" aria-label="${label}">${glyph}</button></form>` : '');
-  return one('up', i > 0, '◀', '앞으로') + one('down', i < n - 1, '▶', '뒤로');
+  return one('up', i > 0, '▲', '위로') + one('down', i < n - 1, '▼', '아래로');
 }
 /** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
 function songSheetsHtml(s, sheets, editable, extra) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable && mine.length > 1 ? moveBtns(f, mine.indexOf(f), mine.length) : ''}${editable ? annoLink(f) + reformatBtn(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
+  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable ? '<span class="cn-sheetacts">' : ''}${editable && mine.length > 1 ? moveBtns(f, mine.indexOf(f), mine.length) : ''}${editable ? annoLink(f) + reformatBtn(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
     <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
     <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
-  </form>` : ''}</span>`).join('');
+  </form>` : ''}${editable ? '</span>' : ''}</span>`).join('');
   const addForm = editable ? `<details class="ph-add ph-songsheet-add">
     <summary>+ 이 곡 악보 올리기</summary>
     <form method="post" action="/conti/sheets" enctype="multipart/form-data" class="ph-inlineform">
@@ -359,7 +359,7 @@ function songSheetsHtml(s, sheets, editable, extra) {
     <button type="button" class="ph-btn" data-sheet-search data-team="${esc(s['팀ID'])}" data-song="${esc(s['ID'])}" data-date="${esc(s['날짜'])}" data-event="${esc(s['행사ID'] || '')}" data-q="${esc(s['제목'] || '')}">${ui.icon('search')} 웹에서 악보 찾기</button>
   </details>` : '';
   if (!list && !addForm && !extra) return '';
-  return `<div class="ph-songsheets">${list}${addForm}${extra || ''}</div>`;
+  return `<div class="ph-songsheets">${mine.length ? `<div class="cn-sec cn-sec-sheets"><span class="cn-lab">악보 <small>${mine.length}</small></span><div class="cn-sheetlist">${list}</div></div>` : ''}<div class="cn-acts">${addForm}${extra || ''}</div></div>`;
 }
 
 /** 이 예배의 유튜브 이어 듣기 — 콘티 순서대로 곡마다 올린 링크를 이어서 재생하고(설교 후 찬양은 맨 뒤), 유튜브가 만들어 주는 임시 재생목록(watch_videos)으로도 열 수 있게
@@ -415,15 +415,18 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
     </details>` : '';
   const jp = jumps && jumps[s['ID']];                                        // 녹음 · 영상에서 이 곡이 시작하는 곳부터
   const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
-  const ytBtn = yt ? `<a class="cn-ytlink" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube">${ui.icon('play')}<span>YouTube</span></a>` : '';
+  const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(s['Key'])}</b></span>` : '';
+  const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><b>${esc(bpm)}</b></span>` : '';
+  const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube"><i>YouTube</i><b>${ui.icon('play')} 영상</b></a>` : '';
+  const info = keyCell + bpmCell + ytBtn + jumpBtn;
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
       <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
-      <span class="cn-badges">${s['Key'] ? `<span class="cn-kb key" title="Key">${esc(s['Key'])}</span>` : ''}${bpm ? `<span class="cn-kb bpm" title="BPM">${esc(bpm)}<small>BPM</small></span>` : ''}${ytBtn}${jumpBtn}</span>
       ${editable && !isFinal && !isClosing ? `<button type="button" class="cn-grip" data-cn-grip aria-label="끌어서 순서 바꾸기 (위·아래 방향키로도 옮겨요)" title="끌어서 순서 바꾸기"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>` : ''}
     </div>
-    ${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}
+    ${info ? `<div class="cn-info" aria-label="곡 정보">${info}</div>` : ''}
+    ${s['송폼'] ? `<div class="cn-sec cn-sec-form"><span class="cn-lab">송폼</span>${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}</div>` : ''}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
     ${songSheetsHtml(s, sheets, editable, edit)}
   </div>`;
