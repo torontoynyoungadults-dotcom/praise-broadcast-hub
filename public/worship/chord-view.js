@@ -2,9 +2,9 @@
  * 코드 구성음 보기 — 라이브 악보에서 코드를 누르면 뜨는 말풍선의 "오선 · 피아노 · 기타" 그림 (V880)
  * ------------------------------------------------------------
  *  YNChordView.spell(rootName, degs, bassPc, flats)  → 도수에 맞는 음 이름 (C7 의 7음 = B♭, A# 아님)
- *  YNChordView.piano(midis, bassMidi, nameOf)         → SVG 문자열 (실제로 치는 자리, 베이스는 다른 색)
+ *  YNChordView.piano(midis, bassMidi, nameOf, marks)  → SVG 문자열 (한 옥타브 C~B · 코드음 파랑(이름 표시) · 슬래시 베이스는 진한 파랑 · 피할 음은 빨간 X)
  *  YNChordView.guitar(pcs, bassPc, req, nameOf)        → { list: [운지…] }  ·  guitarSvg(운지, nameOf) → SVG 문자열
- *  YNChordView.staff(el, midis, bassMidi, nameOf)      → Promise — abcjs(앱 안 /vendor) 로 큰보표(높은음 · 낮은음자리표)를 그림. 못 불러오면 간단한 SVG 로
+ *  YNChordView.staff(el, midis, bassMidi, nameOf, key) → Promise — abcjs(앱 안 /vendor) 로 큰보표(높은음 · 낮은음자리표)를 그림. key = { abc: 'Bb', sig: { B: -1, E: -1 } } 이면 그 조의 조표로 그림 (없으면 C). 못 불러오면 간단한 SVG 로
  *  순수 계산(spell · guitar)은 Node 시험에서도 씁니다.
  */
 (function (root, factory) {
@@ -50,38 +50,34 @@
     return m;
   }
 
-  /* ------------------------------------------------------------ 피아노 */
+  /* ------------------------------------------------------------ 피아노 (한 옥타브 · 코드음은 건반 위에 이름을 크게 · 피할 음만 빨간 X) */
   function piano(midis, bassMidi, nameOf, marks) {
     marks = marks || {};
-    var notes = (midis || []).slice(), lo, hi;
-    if (bassMidi != null && notes.indexOf(bassMidi) < 0) notes.unshift(bassMidi);
-    lo = Math.min.apply(null, notes); hi = Math.max.apply(null, notes);
-    if (hi - lo > 34 && bassMidi != null) {                                                       // 너무 넓으면 베이스만 한 옥타브 위에 그림 (이름은 그대로)
-      var nb = bassMidi; while (nb + 12 < Math.min.apply(null, midis) && hi - (nb + 12) >= 0) nb += 12;
-      notes = notes.map(function (n) { return n === bassMidi ? nb : n; }); bassMidi = nb; lo = Math.min.apply(null, notes);
+    var chordPc = {}, bassPc = bassMidi != null ? mod(bassMidi, 12) : -1, svg = [];
+    (midis || []).forEach(function (n) { chordPc[mod(n, 12)] = 1; });
+    if (bassPc >= 0) chordPc[bassPc] = 1;
+    var WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK = [1, 3, 6, 8, 10];
+    var WW = 268 / 7, H = 92, BH = 56, BW = WW * 0.62;
+    function cls(pc, kind) { return 'cv-' + kind + (chordPc[pc] ? ' on' + (pc === bassPc ? ' bass' : '') : marks[pc] === 'av' ? ' av' : ''); }
+    function label(pc, cx, y, big) {
+      var t = esc(pretty(nameOf(pc)));
+      if (chordPc[pc]) return '<text x="' + cx.toFixed(1) + '" y="' + y + '" class="cv-tn' + (big ? ' w' : '') + '">' + t + '</text>';
+      if (marks[pc] === 'av') return '<text x="' + cx.toFixed(1) + '" y="' + y + '" class="cv-an">' + t + '</text>';
+      return '';
     }
-    var start = lo - mod(lo, 12), end = hi + (11 - mod(hi, 12)); if (end - start < 23) end = start + 23;
-    var whites = [], k; for (k = start; k <= end; k++) if ([1, 3, 6, 8, 10].indexOf(mod(k, 12)) < 0) whites.push(k);
-    var WW = 268 / whites.length, H = 86, BH = 52, BW = WW * 0.62, on = {}, svg = [];
-    notes.forEach(function (n) { on[n] = n === bassMidi ? 'b' : 'n'; });
-    svg.push('<svg class="cv-piano" viewBox="0 0 270 ' + (H + 18) + '" width="100%" role="img" aria-label="피아노 건반">');
-    whites.forEach(function (n, i) {
-      var x = 1 + i * WW, st = on[n];
-      var mk = st ? '' : marks[mod(n, 12)] ? ' ' + marks[mod(n, 12)] : '';
-      svg.push('<rect x="' + x.toFixed(1) + '" y="1" width="' + (WW - 1).toFixed(1) + '" height="' + H + '" rx="2.5" class="cv-wk' + (st ? ' on' + (st === 'b' ? ' bass' : '') : mk) + '"/>');
-      if (!st && marks[mod(n, 12)] === 'av') svg.push(xMark(x + WW / 2 - 0.5, H - 20, Math.min(4.2, WW * 0.3)));
-      if (mod(n, 12) === 0) svg.push('<text x="' + (x + WW / 2).toFixed(1) + '" y="' + (H - 5) + '" class="cv-c">C' + (Math.floor(n / 12) - 1) + '</text>');
+    svg.push('<svg class="cv-piano" viewBox="0 0 270 ' + (H + 2) + '" width="100%" role="img" aria-label="피아노 건반 한 옥타브">');
+    WHITE.forEach(function (pc, i) {
+      var x = 1 + i * WW, cx = x + (WW - 1) / 2;
+      svg.push('<rect x="' + x.toFixed(1) + '" y="1" width="' + (WW - 1).toFixed(1) + '" height="' + H + '" rx="3" class="' + cls(pc, 'wk') + '"/>');
+      if (!chordPc[pc] && marks[pc] === 'av') svg.push(xMark(cx, H - 36, 6.5));
+      svg.push(label(pc, cx, H - 11, true));
+      if (pc === 0 && !chordPc[0] && marks[0] !== 'av') svg.push('<text x="' + cx.toFixed(1) + '" y="' + (H - 8) + '" class="cv-c">C</text>');
     });
-    for (k = start; k <= end; k++) {
-      if ([1, 3, 6, 8, 10].indexOf(mod(k, 12)) < 0) continue;
-      var wi = whites.indexOf(k - 1), bx = 1 + (wi + 1) * WW - BW / 2, st2 = on[k];
-      var mk2 = st2 ? '' : marks[mod(k, 12)] ? ' ' + marks[mod(k, 12)] : '';
-      svg.push('<rect x="' + bx.toFixed(1) + '" y="1" width="' + BW.toFixed(1) + '" height="' + BH + '" rx="2" class="cv-bk' + (st2 ? ' on' + (st2 === 'b' ? ' bass' : '') : mk2) + '"/>');
-      if (!st2 && marks[mod(k, 12)] === 'av') svg.push(xMark(bx + BW / 2, BH - 11, Math.min(3.6, BW * 0.32)));
-    }
-    notes.forEach(function (n) {                                                                  // 누른 건반 아래 음 이름
-      var isB = [1, 3, 6, 8, 10].indexOf(mod(n, 12)) >= 0, x = isB ? 1 + (whites.indexOf(n - 1) + 1) * WW : 1 + whites.indexOf(n) * WW + WW / 2;
-      svg.push('<text x="' + x.toFixed(1) + '" y="' + (H + 14) + '" class="cv-nm' + (n === bassMidi ? ' bass' : '') + '">' + esc(pretty(nameOf(mod(n, 12)))) + '</text>');
+    BLACK.forEach(function (pc) {
+      var wi = WHITE.indexOf(pc - 1), bx = 1 + (wi + 1) * WW - BW / 2 - 0.5, cx = bx + BW / 2;
+      svg.push('<rect x="' + bx.toFixed(1) + '" y="1" width="' + BW.toFixed(1) + '" height="' + BH + '" rx="2.5" class="' + cls(pc, 'bk') + '"/>');
+      if (!chordPc[pc] && marks[pc] === 'av') svg.push(xMark(cx, BH - 30, 4.8));
+      svg.push(label(pc, cx, BH - 9, false));
     });
     svg.push('</svg>');
     return svg.join('');
@@ -186,23 +182,25 @@
     return abcP;
   }
   /** MIDI + 이름('Bb') → ABC 음표 ("_B,") — 이름의 글자로 옥타브를 정함 (B# · Cb 처럼 옥타브를 넘는 이름도 바르게) */
-  function abcNote(m, name, natural) {
+  function abcNote(m, name, natural, sig) {
     var L = name.charAt(0), acc = name.slice(1), a = acc === '#' ? 1 : acc === '##' ? 2 : acc === 'b' ? -1 : acc === 'bb' ? -2 : 0;
     var oct = Math.floor((m - NAT[L] - a) / 12) - 1;                                              // C4 = 가운데 도
-    var pre = a === 1 ? '^' : a === 2 ? '^^' : a === -1 ? '_' : a === -2 ? '__' : natural ? '=' : '';          // 제자리표는 같은 글자에 임시표가 있을 때만
+    var pre;
+    if (sig) { var sa = sig[L] || 0; pre = a === sa ? '' : a === 1 ? '^' : a === 2 ? '^^' : a === -1 ? '_' : a === -2 ? '__' : '='; }   // 조표에 이미 있는 임시표는 생략 · 조표와 다른 음만 임시표
+    else pre = a === 1 ? '^' : a === 2 ? '^^' : a === -1 ? '_' : a === -2 ? '__' : natural ? '=' : '';          // 조표가 없을 땐 제자리표는 같은 글자에 임시표가 있을 때만
     var t = oct >= 5 ? L.toLowerCase() + new Array(oct - 4).join("'") : L + new Array(Math.max(0, 4 - oct) + 1).join(',');
     return pre + t;
   }
-  function staff(el, midis, bassMidi, nameOf) {
+  function staff(el, midis, bassMidi, nameOf, key) {
     var all = (midis || []).slice(); if (bassMidi != null && all.indexOf(bassMidi) < 0) all.unshift(bassMidi);
     all.sort(function (a, b) { return a - b; });
     var tr = all.filter(function (n) { return n >= 60; }), bs = all.filter(function (n) { return n < 60; });
     var accL = {}; all.forEach(function (n) { var nm = nameOf(mod(n, 12)); if (nm.length > 1) accL[nm.charAt(0)] = 1; });
-    var chord = function (list) { return list.length ? '[' + list.map(function (n) { var nm = nameOf(mod(n, 12)); return abcNote(n, nm, nm.length === 1 && accL[nm]); }).join('') + ']4' : 'x4'; };
-    var abc = 'X:1\nM:none\nL:1/4\n%%staves {T B}\nK:C\nV:T clef=treble\n' + chord(tr) + '|]\nV:B clef=bass\n' + chord(bs) + '|]\n';
+    var chord = function (list) { return list.length ? '[' + list.map(function (n) { var nm = nameOf(mod(n, 12)); return abcNote(n, nm, nm.length === 1 && accL[nm], key && key.sig); }).join('') + ']4' : 'x4'; };
+    var abc = 'X:1\nM:none\nL:1/4\n%%staves {T B}\nK:' + ((key && key.abc) || 'C') + '\nV:T clef=treble\n' + chord(tr) + '|]\nV:B clef=bass\n' + chord(bs) + '|]\n';
     return abcjs().then(function (A) {
       el.innerHTML = '';
-      A.renderAbc(el, abc, { staffwidth: 120, scale: 0.95, paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0, add_classes: true, foregroundColor: 'currentColor' });
+      A.renderAbc(el, abc, { staffwidth: key && key.abc && key.abc !== 'C' ? 150 : 120, scale: 0.95, paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0, add_classes: true, foregroundColor: 'currentColor' });
       return true;
     }).catch(function () { el.innerHTML = '<p class="cv-none">오선을 그리는 도구를 불러오지 못했습니다 (인터넷 연결 확인).</p>'; return false; });
   }
