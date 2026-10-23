@@ -179,7 +179,7 @@
     var S = {
       layout: detectLayout(), hand: ls('hand') === 'left' ? 'left' : 'right', fit: null, zoom: 1, sheetIdx: 0, page: 1, pages: 1, songIdx: -1,
       doc: null, rid: 0, task: null, tab: '', layer: 'team', scope: 'song', follow: ls('fpage') !== '0', followM: false, prefTouched: false, prefT: 0, pendingNav: null, applying: false, navT: 0, dead: false,
-      scopeOf: {}, unsent: {}, localMine: {}, delMine: {}, mineLoaded: {}, teamFrom: {}, annoId: 0, mineDirty: {}, mineT: 0, minePend: 0, savedAt: 0, msgT: 0, lang: ls('lang') === 'ko' ? 'ko' : 'en',
+      scopeOf: {}, unsent: {}, recent: {}, delRecent: {}, teamId: 0, localMine: {}, delMine: {}, mineLoaded: {}, teamFrom: {}, annoId: 0, mineDirty: {}, mineT: 0, minePend: 0, savedAt: 0, msgT: 0, lang: ls('lang') === 'ko' ? 'ko' : 'en',
       recvCue: ls('recvcue') !== '0', sendCue: ls('sendcue') !== '0', loadId: 0, cache: {}, cacheOrder: []
     };
     S.fit = S.layout === 'tablet' ? 'page' : 'width';
@@ -1556,7 +1556,7 @@
       if (onMineSheet()) return;                                                         // v9.13 — 나만 보는 악보는 팀으로 보내지 않음 (지킴 한 번 더)
       if (!rt || rt.state === 'unavailable' || rt.state === 'denied') return;
       var payload = op === 'add' ? { file: fileId(), scope: sc, item: it } : { file: fileId(), scope: sc, id: it.id };
-      if (op === 'add') S.unsent[it.id] = 1;
+      if (op === 'add') { S.unsent[it.id] = 1; S.recent[it.id] = Date.now(); delete S.delRecent[it.id]; } else { S.delRecent[it.id] = Date.now(); delete S.recent[it.id]; }      // 방금 쓴 · 지운 필기 기억 (아래 replaceScope — 늦게 도착한 옛 목록이 덮지 않게)
       rt.call(op === 'add' ? 'anno:add' : 'anno:del', payload, { queue: true }).then(function (r) {
         if (op === 'add' && r && !r.queued) delete S.unsent[it.id];
         if (op === 'del') delete S.scopeOf[it.id];
@@ -1594,8 +1594,12 @@
     /** 한 범위(scope)의 항목으로 통째로 바꿈 — 아직 서버에 못 보낸 내 항목은 남깁니다 */
     function replaceScope(layer, sc, items) {
       var mineL = layer === 'mine';
-      var keep = an.items(layer).filter(function (i) { return (S.scopeOf[i.id] || S.scopeKey) !== sc || (mineL ? S.localMine[i.id] : S.unsent[i.id]); });
+      /* 안정화 — 와이파이가 깜빡여 팀 필기를 다시 받을 때, 서버 목록이 내가 방금(20초 안) 쓴 필기보다 먼저 만들어졌으면 방금 쓴 필기가 잠깐 사라졌다 돌아오던 문제:
+         방금 쓴 필기는 목록에 없어도 남기고, 방금 지운 필기는 목록에 있어도 다시 살리지 않음 */
+      var now = Date.now(), fresh = function (t) { return !!t && now - t < 20000; };
+      var keep = an.items(layer).filter(function (i) { return (S.scopeOf[i.id] || S.scopeKey) !== sc || (mineL ? S.localMine[i.id] : (S.unsent[i.id] || fresh(S.recent[i.id]))); });
       if (mineL) items = (items || []).filter(function (i) { return !S.delMine[i.id]; });
+      else items = (items || []).filter(function (i) { return !fresh(S.delRecent[i.id]); });
       (items || []).forEach(function (i) { S.scopeOf[i.id] = sc; });
       var ids = {}; keep.forEach(function (i) { ids[i.id] = 1; });
       an.setItems(layer, keep.concat((items || []).filter(function (i) { return !ids[i.id]; })));
@@ -1607,7 +1611,7 @@
     function mineCacheGet(file, sc) { var e = S.mineCache[file + '|' + sc]; return e && Date.now() - e.at < MINE_TTL ? e : null; }
     function mineCachePut(file, sc, items) { S.mineCache[file + '|' + sc] = { at: Date.now(), items: (items || []).slice() }; }
     function loadAnno() {
-      var id = ++S.annoId, file = fileId(); S.teamFrom = {}; S.scopeOf = {}; S.unsent = {}; S.localMine = {}; S.delMine = {};
+      var id = ++S.annoId, file = fileId(); S.teamFrom = {}; S.scopeOf = {}; S.unsent = {}; S.recent = {}; S.delRecent = {}; S.localMine = {}; S.delMine = {};
       scopes().forEach(function (sc) { delete S.mineLoaded[file + '|' + sc]; });
       an.setItems('team', []); an.setItems('mine', []);
       var rtOn = !!(rt && rt.online), mineF = onMineSheet();                            // 실시간이 연결돼 있으면 팀 필기는 그쪽에서 받으므로 시트 읽기를 아낍니다
@@ -1632,8 +1636,9 @@
     }
     function loadTeam(id, file) {
       if (!rt || !rt.online) return;
+      var tk = ++S.teamId;                                                               // 팀 필기를 거듭 요청하면 가장 마지막 응답만 반영 (먼저 보낸 느린 응답이 나중에 덮지 않게)
       scopes().forEach(function (sc) {
-        rt.call('anno:load', { file: file, scope: sc }).then(function (r) { if (id !== S.annoId || file !== fileId()) return; S.teamFrom[sc] = 'rt'; replaceScope('team', sc, r.items || []); }, function (e) {
+        rt.call('anno:load', { file: file, scope: sc }).then(function (r) { if (id !== S.annoId || tk !== S.teamId || file !== fileId()) return; S.teamFrom[sc] = 'rt'; replaceScope('team', sc, r.items || []); }, function (e) {
           if (id !== S.annoId) return;
           if (opts.callServer) opts.callServer('worshipAnnoLoad', [opts.token, file, sc, false], function (r) {          // 실시간 응답이 없으면 시트에서 팀 필기를 받아 대신함
             if (id !== S.annoId || !r || !Array.isArray(r.team) || S.teamFrom[sc]) return; replaceScope('team', sc, r.team); S.teamFrom[sc] = 'http';
@@ -1862,7 +1867,7 @@
         if (S.hadClick && !r.clicker) rt.claimClick(false).then(function () { renderChips(); P.emit('clicker'); }, function () { S.hadClick = false; });
         rt.call('prefs', { page: S.follow, metro: S.followM }).catch(function () {});      // 접속자 목록에 내 따라가기 상태 표시
         if (r.you) an.setPerms(r.you.name, r.you.canEdit);
-        if (S.doc) loadTeam(++S.annoId, fileId());
+        if (S.doc) loadTeam(S.annoId, fileId());                                  // 안정화 — annoId 를 올리면 아직 오는 중인 "내 필기" 불러오기 응답이 버려져 내 필기가 통째로 안 보이던 문제
         if (r.nav && !rt.isLeader) applyNav(r.nav, false);
         if (r.metro) P.emit('metro', r.metro);
       });
