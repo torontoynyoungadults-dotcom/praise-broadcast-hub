@@ -1208,6 +1208,7 @@ router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.a
   } catch (e) { console.error('[곡 악보 저장 실패]', e.message); }
   liveNotify(team, scope, 'saveWorshipSong');
   if (kind !== '폐회송') tellSong(req, team, scope, title);
+  if ((req.files || []).length) sheetHeaders.queue(team, scope, liveNotify);
   backTo(req, res, team, scope);
 });
 
@@ -1349,6 +1350,7 @@ router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.
   if (b.header === '1') { try { await headerizeFiles(req, team, scope, b['곡ID']); } catch (e) { console.error('[악보 헤더 추가 실패 — 원본 그대로 올림]', e.message); } }
   const n = await saveSheetsFrom(req, team, scope, b['곡ID']);
   if (n) liveNotify(team, scope, 'saveSheets');                       // 열린 라이브 악보 · 방송팀 화면이 새 악보를 받아 가게
+  if (n) sheetHeaders.queue(team, scope, liveNotify);                // 머리말의 콘티 전체 쪽 번호(1 / 5)를 새 쪽 수로 — 뒤에서
   backTo(req, res, team, scope);
 });
 
@@ -1470,6 +1472,7 @@ router.post('/conti/sheets/reformat', requireTeam, async (req, res) => {
       { row: row.__row, header: '메모', value: sheetHeaders.encode({ src: src.src, spec: src.spec, crop, header, sig: header ? sheetHeaders.sigOf(info) : '', priv: src.priv, cont }) },
     ]);
     liveNotify(team, scope, 'saveSheetSplit');
+    sheetHeaders.queue(team, scope, liveNotify);
   } catch (e) { console.error('[자르기 · 머리말 적용 실패]', e.message); }
   backTo(req, res, team, scope);
 });
@@ -1603,6 +1606,7 @@ router.post('/conti/songs/import', requireTeam, async (req, res) => {
       }
     }
     if (n) liveNotify(team, scope, 'saveWorshipSongs');
+    if (n && withSheets) sheetHeaders.queue(team, scope, liveNotify);
   }
   backTo(req, res, team, scope);
 });

@@ -92,7 +92,7 @@ async function liveData(team, scope, extraId) {
   const orderById = new Map(ordered.map((r, i) => [r['ID'], i]));
   const sheets = sheetRows.filter((s) => s['팀ID'] === team && liveStore.inScope(s, scope) && s['파일링크'])
     .map((s) => ({ s, ord: s['곡ID'] && orderById.has(s['곡ID']) ? orderById.get(s['곡ID']) : 1000, at: String(s['올린시각'] || '') }))
-    .sort((a, b) => a.ord - b.ord || a.at.localeCompare(b.at));
+    .sort((a, b) => a.ord - b.ord || a.s.__row - b.s.__row);      // 같은 곡 안에서는 콘티 화면의 악보 순서(줄 순서) 그대로 — 올린 시각이 아님
   // 같은 파일(악보 id)은 한 번만 — 대표 줄은 "쪽"이 없는 줄(패키지 · 곡 전체 악보) 우선. 곡별로 저장해 둔 쪽 범위(쪽)는 쪽 ↔ 곡 연결의 기본값(map)으로
   const byFile = new Map();
   sheets.forEach((x) => { const id = liveStore.sheetIdOf(team, x.s['파일링크']); (byFile.get(id) || byFile.set(id, []).get(id)).push(x.s); });
