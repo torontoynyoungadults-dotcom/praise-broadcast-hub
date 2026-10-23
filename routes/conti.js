@@ -1354,14 +1354,18 @@ async function headerizeFiles(req, team, scope, songId) {
   if (!row) return;
   const s = sheetHeaders.songInfo(rows, row);
   const crops = String((req.body || {}).crop || '').split('|');
+  // 이 곡에 이미 머리말 악보가 있으면, 새로 올리는 파일은 모두 "이어지는 악보" — 정식 머리말은 곡의 첫 악보 첫 쪽에만
+  const mine = (await sheetsDb.readAll('악보저장소')).filter((r) => r['팀ID'] === team && r['곡ID'] === row['ID']);
+  const hasHead = sheetHeaders.isCont(mine, null);
   for (let i = 0; i < files.length; i++) {
+    const cont = hasHead || i > 0;
     try {
-      const pdf = await pkgPdf.buildSongSheet(s, { buf: files[i].buffer, crop: crops[i] || '' }, sheetSearch.imagesToPdf);
+      const pdf = await pkgPdf.buildSongSheet(s, { buf: files[i].buffer, crop: crops[i] || '' }, sheetSearch.imagesToPdf, { cont });
       if (pdf) {
         // 원본은 비공개로 따로 보관 — 나중에 곡 정보(BPM 등)가 바뀌면 머리말을 다시 만들고, 올린 뒤에도 자르기를 다시 할 수 있게
         let src = '';
         try { src = await driveStore.uploadPrivate('악보원본', { buffer: files[i].buffer, mimetype: files[i].mimetype, originalname: files[i].originalname || '악보' }); } catch (e) { console.error('[악보 원본 보관 실패]', e.message); }
-        if (src) files[i].__memo = sheetHeaders.encode({ src, spec: '', crop: crops[i] || '', header: true, sig: sheetHeaders.sigOf(s), priv: true });
+        if (src) files[i].__memo = sheetHeaders.encode({ src, spec: '', crop: crops[i] || '', header: true, sig: sheetHeaders.sigOf(s), priv: true, cont });
         files[i].buffer = pdf; files[i].mimetype = 'application/pdf'; files[i].originalname = String(files[i].originalname || '악보').replace(/\.[^.]*$/, '') + '.pdf'; files[i].size = pdf.length;
       }
     } catch (e) { console.error('[악보 헤더 추가 실패]', files[i].originalname, e.message); }
@@ -1448,13 +1452,14 @@ router.post('/conti/sheets/reformat', requireTeam, async (req, res) => {
     const header = b.header === '1';
     const crop = String(b.crop || '').slice(0, 4000);
     const info = sheetHeaders.songInfo(songs, song);
-    const pdf = await sheetHeaders.render(info, buf, { spec: src.spec, crop, header });
+    const cont = header && sheetHeaders.isCont((await sheetsDb.readAll('악보저장소', { fresh: true })).filter((r) => r['팀ID'] === team && r['곡ID'] === row['곡ID']), row);
+    const pdf = await sheetHeaders.render(info, buf, { spec: src.spec, crop, header, cont });
     if (!pdf) return backTo(req, res, team, scope);
     const link = await sheetHeaders.uploadPdf(song['제목'] || row['제목'], pdf);
     await sheetsDb.updateCells('악보저장소', [
       { row: row.__row, header: '파일링크', value: link }, { row: row.__row, header: '쪽', value: '' },
       { row: row.__row, header: '쪽수', value: '' },
-      { row: row.__row, header: '메모', value: sheetHeaders.encode({ src: src.src, spec: src.spec, crop, header, sig: header ? sheetHeaders.sigOf(info) : '', priv: src.priv }) },
+      { row: row.__row, header: '메모', value: sheetHeaders.encode({ src: src.src, spec: src.spec, crop, header, sig: header ? sheetHeaders.sigOf(info) : '', priv: src.priv, cont }) },
     ]);
     liveNotify(team, scope, 'saveSheetSplit');
   } catch (e) { console.error('[자르기 · 머리말 적용 실패]', e.message); }
@@ -1646,6 +1651,7 @@ router.post('/conti/sheets/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
   if (row) { try { await sheetsDb.deleteRow('악보저장소', row); liveNotify(String(b.team || '').trim(), scopeFrom(b), 'removeSheet'); } catch (e) { console.error('[악보 삭제 실패]', e.message); } }
+  if (row && b.team) await sheetHeaders.settle(sheetHeaders.queue(String(b.team).trim(), scopeFrom(b), liveNotify), 8000);   // 맨 앞 악보를 지웠으면 다음 악보가 정식 머리말을 가짐
   backTo(req, res, b.team, scopeFrom(b));
 });
 
