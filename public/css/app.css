@@ -2350,3 +2350,5 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
   .cn-shead .cn-info { order: 4; flex: 1 1 100%; margin: 2px 0 0 !important; }
 }
 .pc-recs .ph-list { margin: 0; }
+/* 사용설명서 그림 — 밝은 화면 캡처라 그림자 · 바탕을 가볍게 */
+.gd-fig img { background: #FFFFFF !important; box-shadow: 0 6px 18px rgba(27,36,32,.10) !important; border-color: var(--line) !important; }
