@@ -2354,3 +2354,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .pc-recs .ph-list { margin: 0; }
 /* 사용설명서 그림 — 밝은 화면 캡처라 그림자 · 바탕을 가볍게 */
 .gd-fig img { background: #FFFFFF !important; box-shadow: 0 6px 18px rgba(27,36,32,.10) !important; border-color: var(--line) !important; }
+/* 스케줄표 위 도구 줄 — 아래 카드들과 오른쪽 끝을 맞춤 (스케줄표 카드는 메뉴보다 안쪽으로 들어가 있음) */
+.st-toolrow { padding: 0 16px; box-sizing: border-box; }
+@media (max-width: 560px) { .st-toolrow { padding: 0 8px; } }
