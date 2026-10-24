@@ -970,8 +970,21 @@ async function mySchedule(req, months) {
 }
 /** 이 사람이 [from, to] 에 서는 주일 · 행사와 연습 — 화면 목록 · 캘린더 구독(ics) 이 같이 씀. it.ev = 캘린더 일정 */
 async function scheduleOf(team, me, today, to, base) {
-  const [assignAll, offAll, evs, ts, gs] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), specialServices(team), timeSettings.get(team), practiceView.groups(team, today, to)]);
+  const rm = require('../lib/practiceReminder');
+  const [assignAll, offAll, evs, ts, gs, songRows, recRows, members] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), specialServices(team), timeSettings.get(team), practiceView.groups(team, today, to),
+    sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('녹음'), rm.teamMembers(team)]);
   const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+  const pastors = new Set(members.filter((m) => honorific.isPastorRoles(m['역할'])).map((m) => String(m['이름']).trim()));
+  const short = String(team).replace(/\s+/g, '');
+  const B = String(base || '').replace(/\/+$/, '');
+  /* 캘린더 일정 내용 — 안내 메일과 같은 순서: 시간 · 장소 / 내 포지션 / 콘티 곡 / 함께 서는 분 / (주일) 연습 녹음 / 유튜브 전곡 / 링크 */
+  const songLines = (sg) => sg.conti.map((x, i) => `${i + 1}. ${x.title}${x.key ? ` (${x.key})` : ''}${x.team ? ` - ${x.team}` : ''}`)
+    .concat(sg.final.map((x) => `✝ ${x.title}${x.key ? ` (${x.key})` : ''}`), sg.closing.map((x) => `♪ ${x.title}${x.key ? ` (${x.key})` : ''}`));
+  const block = (t, mode) => {
+    const sg = rm.songsOf(songRows, team, t), lu = rm.lineupOf(t, A, O, mode), sl = songLines(sg);
+    return { sg, text: [`[${practiceView.targetName(t)} 콘티]`].concat(sl.length ? sl : ['아직 곡이 없어요'], lu.length ? ['', '함께 서는 분: ' + rm.lineupText(lu, pastors)] : []).join('\n') };
+  };
+  const dd = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}/${x.getDate()}(${DOW[x.getDay()]})`; };
   const out = [];
   const targets = [];
   for (let d = today; d <= to; d = prac.addDays(d, 1)) if (new Date(d + 'T12:00:00').getDay() === 0) targets.push({ key: d, date: d, event: '', name: '' });
@@ -981,6 +994,15 @@ async function scheduleOf(team, me, today, to, base) {
     if (!st.pos.length) return;
     const offSun = O.some((r) => String(r['날짜']) === t.key && String(r['이름'] || '').trim() === me && String(r['구분'] || '').trim() !== '연습');
     const ev = serveEvent(team, t, st, ts, t.row || null, base);
+    {
+      const b = block(t, 'sun'), yt = rm.ytPlaylist([b.sg]), recs = rm.practiceRecs(recRows, team, t);
+      const q = t.event ? 'event=' + encodeURIComponent(t.event) : 'date=' + encodeURIComponent(t.date);
+      ev.title = `${short} ${t.event ? t.name : '주일'} - ${st.pos.join(' · ')}`;
+      ev.details = [ev.details.split('\n')[0] + (ts.place ? ' · ' + ts.place : ''), '내 포지션: ' + st.pos.join(' · '), '', b.text]
+        .concat(recs.length ? ['', '연습 녹음:'].concat(recs.map((r) => `· ${r.title} ${r.url}`)) : [])
+        .concat(['', yt ? '유튜브로 전곡 듣기: ' + yt : '', '예배 콘티: ' + B + `/conti?team=${encodeURIComponent(team)}&${q}`, '라이브 악보: ' + B + `/conti/practice?team=${encodeURIComponent(team)}&${q}`].filter((x, i) => x !== '' || i === 0))
+        .join('\n');
+    }
     out.push({ id: 'sun:' + t.key, kind: 'sun', date: t.date, time: ev.time, title: t.event ? `${t.name}` : `${practiceView.md(t.date)} 주일`,
       detail: `${t.event ? '주일 외 찬양' : '3부 예배'} · ${st.pos.join(' · ')}${ev.time ? ' · ' + timeSettings.fmt(ev.time) + ' 모임' : ''}`, off: offSun, google: practiceView.googleCalUrl(ev), ev });
   });
@@ -989,8 +1011,18 @@ async function scheduleOf(team, me, today, to, base) {
     if (!mine.length) return;
     const ev = practiceView.calEvent(team, g, mine.map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos })), base);
     ev.uid = `practice-${g.date}-${team.replace(/[^A-Za-z0-9가-힣]/g, '')}@praise-broadcast-hub`;
-    const dd = new Date(g.date + 'T12:00:00');
-    out.push({ id: 'prac:' + g.date, kind: 'prac', date: g.date, time: g.time, title: `${practiceView.md(g.date)} ${DOW[dd.getDay()]}요일 연습`,
+    {
+      const pos = Array.from(new Set([].concat(...mine.map((x) => x.pos))));
+      const blocks = mine.map((x) => block(x.t, 'prac')), yt = rm.ytPlaylist(blocks.map((b) => b.sg));
+      ev.title = `${short} 연습 - ${pos.join(' · ')}`;
+      ev.details = [`${dd(g.date)} ${timeSettings.fmt(g.time)}${g.place ? ' · ' + g.place : ''}`, '내 포지션: ' + pos.join(' · ')]
+        .concat(...blocks.map((b) => ['', b.text]))
+        .concat(['', yt ? '유튜브로 전곡 듣기: ' + yt : null, '연습 콘티: ' + B + `/practice-conti?team=${encodeURIComponent(team)}&pd=${encodeURIComponent(g.date)}`].filter((x) => x != null))
+        .join('\n');
+      ev.alarm = `${short} 연습`;
+    }
+    const dd2 = new Date(g.date + 'T12:00:00');
+    out.push({ id: 'prac:' + g.date, kind: 'prac', date: g.date, time: g.time, title: `${practiceView.md(g.date)} ${DOW[dd2.getDay()]}요일 연습`,
       detail: [timeSettings.fmt(g.time), g.place, mine.map((x) => practiceView.targetName(x.t)).join(' · ') + ' 콘티'].filter(Boolean).join(' · '),
       off: mine.every((x) => x.off), google: practiceView.googleCalUrl(ev), ev });
   });
@@ -1033,26 +1065,9 @@ router.get('/cal/mine.ics', requireTeam, async (req, res) => {
   const want = new Set(String(req.query.ids || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 60));
   if (!want.size) return res.status(400).type('text').send('넣을 일정을 골라 주세요.');
   const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-  const [assignAll, offAll, ts] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), timeSettings.get(team)]);
-  const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
-  const evs = [];
-  for (const id of want) {
-    const [kind, key] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
-    if (kind === 'sun') {
-      const isEv = /^ev-/.test(key), evRow = isEv ? await specialServiceById(team, key.slice(3)) : null;
-      if (isEv ? !evRow : !prac.isDate(key)) continue;
-      const t = isEv ? { key, date: evRow['날짜'], event: String(evRow['ID']), name: String(evRow['이름'] || '주일 외 찬양') } : { key, date: key, event: '', name: '' };
-      const st = practiceView.standing(me, t, A, O);
-      if (st.pos.length) evs.push(serveEvent(team, t, st, ts, evRow, base));
-    } else if (kind === 'prac' && prac.isDate(key)) {
-      const g = (await practiceView.groups(team, key, key))[0]; if (!g) continue;
-      const mine = g.targets.map((t) => Object.assign({ t }, practiceView.standing(me, t, A, O))).filter((x) => x.pos.length);
-      if (!mine.length) continue;
-      const ev = practiceView.calEvent(team, g, mine.map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos })), base);
-      ev.uid = `practice-${g.date}-${team.replace(/[^A-Za-z0-9가-힣]/g, '')}@praise-broadcast-hub`;
-      evs.push(ev);
-    }
-  }
+  const today = week.todayStr();
+  const r = await scheduleOf(team, me, prac.addDays(today, -31), prac.addDays(today, 200), base);
+  const evs = r.items.filter((it) => want.has(it.id)).map((it) => it.ev);
   if (!evs.length) return res.status(404).type('text').send('넣을 일정이 없어요.');
   evs.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
   res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store', 'Content-Disposition': `attachment; filename="my-schedule-${evs[0].date}.ics"` });
@@ -1080,6 +1095,12 @@ router.get('/cal/serve', requireTeam, async (req, res) => {
   } else {
     ev = serveEvent(team, t, st, ts, evRow, base);
   }
+  try {                                                                  // 나의 스케줄과 같은 제목 · 내용 (3부찬양팀 연습 - 포지션 · 콘티 · 함께 서는 분 …)
+    const pd = kind === 'prac' ? ev.date : t.date;
+    const r = await scheduleOf(team, me, prac.addDays(pd, -1), prac.addDays(t.date, 1), base);
+    const hit = r.items.find((it) => it.id === (kind === 'prac' ? 'prac:' + ev.date : 'sun:' + key));
+    if (hit) ev = hit.ev;
+  } catch (e) { /* 그대로 */ }
   if (req.query.to === 'google') return res.redirect(practiceView.googleCalUrl(ev));
   res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="${kind === 'prac' ? 'practice' : 'worship'}-${t.date}.ics"` });
   res.send(practiceView.icsText(ev));
