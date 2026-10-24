@@ -94,6 +94,8 @@ function contiUrl(team, scope) {
 function tellSong(req, team, scope, title) {
   try { notify.contiSongAdded(team, scope, title, String(req.ctx.member['이름'] || ''), String(req.ctx.member['이메일'] || '')); } catch (e) { console.error('[콘티 알림 예약 실패]', e && e.message); }
 }
+/** 한 곡에 악보가 여러 개일 때 순서 — 시트의 줄 순서 (▲▼ 로 바꾸면 줄 내용을 서로 바꿈 · 라이브 악보와 같은 순서) */
+const sheetOrder = (a, b) => (a.__row || 0) - (b.__row || 0);
 function backTo(req, res, team, scope) {
   const back = String((req.body && req.body.back) || '');
   if (/^\/practice-conti\?[^\s<>"]*$/.test(back)) return spa.redirect(req, res, back);      // 연습 콘티에서 고쳤으면 그 화면으로
@@ -1239,7 +1241,7 @@ async function makePackage(req, onProgress) {
     const all = [].concat(w.conti.map((s, i) => ({ s, kind: '콘티', no: i + 1 })), w.final.map((s) => ({ s, kind: '결단', no: 1 })), w.closing.map((s) => ({ s, kind: '폐회송', no: 1 })));
     const songs = [];
     for (const x of all) {
-      const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])));
+      const mine = w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort(sheetOrder);
       const sheets = [];
       for (const f of mine) {
         const o = splitOrigin(f);
@@ -1287,7 +1289,7 @@ function pkgSig({ w, members, pr, times, title, date, team, scope }) {
   const meta = (f) => [f['파일링크'], f['쪽'] || '', f['자르기'] || ''].join('|');
   const all = [].concat(w.conti, w.final, w.closing);
   const songs = all.map((s) => [s['ID'], s['제목'], s['팀'], s['Key'], s['BPM'], kakaoLib.formText(s['송폼']), s['비고'], s['유튜브'],
-    w.sheets.filter((f) => f['곡ID'] === s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각']))).map(meta)]);
+    w.sheets.filter((f) => f['곡ID'] === s['ID'] && f['파일링크']).sort(sheetOrder).map(meta)]);
   const extra = w.sheets.filter((r) => !r['곡ID'] && r['파일링크']).map(meta);
   // 라이브 악보 팀 필기도 지문에 — 확정한 뒤 필기를 고치면 "확정 이후 바뀜"
   const annos = team ? w.sheets.filter((f) => f['파일링크']).map((f) => { const a = teamAnnos(team, scope, f['파일링크']); return a ? [f['파일링크'], Object.keys(a).map((k) => a[k].map((it) => it.id + ':' + (it.ts || '')).join(',')).join('|')] : null; }).filter(Boolean) : [];
@@ -1418,7 +1420,7 @@ router.get('/conti/package/areas', requireTeam, async (req, res) => {
     const all = [].concat(w.conti.map((s, i) => ({ s, no: i + 1 })), w.final.map((s) => ({ s, no: '+' })), w.closing.map((s) => ({ s, no: '+' })));
     const out = [];
     all.forEach((x) => {
-      w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort((a, b) => String(a['올린시각']).localeCompare(String(b['올린시각'])))
+      w.sheets.filter((f) => f['곡ID'] === x.s['ID'] && f['파일링크']).sort(sheetOrder)
         .forEach((f) => out.push({ row: f.__row, no: x.no, title: String(x.s['제목'] || ''), name: String(f['제목'] || ''), spec: String(f['쪽'] || ''), crop: pkgPdf.parseCrop(f['자르기']) }));
     });
     res.json({ sheets: out });
