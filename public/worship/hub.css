@@ -2273,3 +2273,7 @@ html[data-theme="light"] .pv .pv-acts .pv-b .yi, html[data-theme="light"] .pv .p
 .pv .pv-chip .yi { width: 15px; height: 15px; vertical-align: -2px; }
 html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool .nm, html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool .ic { color: #1F2937 !important; }
 html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool.on .nm, html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool.on .ic { color: #FFFFFF !important; }
+/* 송폼 라벨 — 이 곡 송폼에 있는 칸은 앞에 따로 (기본 라벨과 사이에 가는 줄) */
+.pv-fbtag.sf:not(.on) { border-color: rgba(var(--g-a-rgb), .55); color: #e6d5b4; }
+.pv-fbsep { flex: none; width: 1px; align-self: stretch; margin: 4px 3px; background: var(--g-line2); }
+html[data-theme="light"] .pv-fbtag.sf:not(.on) { border-color: #24493C; color: #24493C; }

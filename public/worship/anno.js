@@ -27,8 +27,8 @@
     '#fff3b0': '연노랑', '#ffe0e0': '연분홍', '#dff5e1': '연초록', '#dbeafe': '연파랑', '#ede4ff': '연보라' };
   var STRETCH = { tie: 1, cresc: 1, decresc: 1 };
   /** 송폼 라벨 글자 — 서버(lib/realtime.js FBOX_TAG_RE)는 이 글자들과 같은 모양(영문 · 숫자 · 한글 8자 이내)만 받습니다. Int=인트로 V=절 P=프리코러스 C=후렴 B=브릿지 */
-  var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'P', 'C', 'C2', 'B', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
-  var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', P: '프리코러스', C: '후렴', C2: '후렴 2', B: '브릿지', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
+  var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'V4', 'P', 'C', 'C2', 'C3', 'B', 'B2', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
+  var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', V4: '4절', P: '프리코러스', C: '후렴', C2: '후렴 2', C3: '후렴 3', B: '브릿지', B2: '브릿지 2', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
   /** 글꼴 — 글자 · 코드 · 글자 모양 기호(음표 도장 · 다이내믹)에 씁니다. 서버는 이 키(sans · serif · hand)만 받습니다 */
   var FONT_KEYS = ['sans', 'paperlogy', 'pretendard', 'scdream', 'gowunbatang', 'suit', 'kopubdotum', 'chosungu', 'seoyun', 'yuntaeng', 'yeeun', 'popcorn', 'konkon', 'goding', 'positive', 'serif', 'hand', 'pen', 'dodum'];
   var FONT_NAMES = { sans: '고딕 (기기 글꼴)', paperlogy: '페이퍼로지', pretendard: '프리텐다드', scdream: '에스코어 드림', gowunbatang: '고운바탕', suit: '수트', kopubdotum: 'KoPub 돋움', chosungu: '조선굴림체', seoyun: '이서윤체', yuntaeng: '온글잎 윤탱체', yeeun: '그리운 예은체', popcorn: '그리운 팝콘체', konkon: '온글잎 콘콘체', goding: '고딕 아니고 고딩', positive: '온글잎 긍정체', serif: '명조 (Serif)', hand: '손글씨 (기기 글꼴)', pen: '나눔 펜 손글씨', dodum: '고운돋움 (손글씨체)' };
@@ -1453,7 +1453,7 @@
       peekAt: function (cx, cy, touch) { var r = cv.getBoundingClientRect(); if (!r.width) return false; var x = (cx - r.left) / r.width * S.W, y = (cy - r.top) / r.height * S.H; if (x < 0 || y < 0 || x > S.W || y > S.H) return false; return peek(pickAny(x, y, !!touch)); },
       flashing: function () { var f = S.iflash; return f && Date.now() - f.t0 < f.ms ? f.id : null; },
       peeking: function () { return S.peek && Date.now() < S.peek.until ? S.peek.id : null; },
-      setFboxTag: function (k) { k = String(k || '').slice(0, 8); if (/^[A-Za-z0-9\u3131-\uD7A3]{1,8}$/.test(k)) { S.fboxTag = k; S.placed = false; } }, setFboxSize: function (v) { S.fboxSize = clamp(+v || 0.028, 0.012, 0.06); },
+      setFboxTag: function (k) { k = String(k || '').slice(0, 10); if (/^[A-Za-z0-9\u3131-\uD7A3()]{1,10}$/.test(k)) { S.fboxTag = k; S.placed = false; } }, setFboxSize: function (v) { S.fboxSize = clamp(+v || 0.028, 0.012, 0.06); },
       setSymSize: function (s) { S.symSize = clamp(+s || 0.032, 0.012, 0.12); }, setTextSize: function (s) { S.textSize = clamp(+s || 0.024, 0.012, 0.08); if (S.editor) { S.editor.sz = S.textSize; S.editor.szSet = true; paintEditor(); } },
       setLayer: function (ly) { if (ly === 'team' || ly === 'mine') S.layer = ly; },
       setVisible: function (ly, on) { S.vis[ly] = !!on; invalidate(); },

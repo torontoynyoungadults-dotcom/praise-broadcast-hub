@@ -1966,7 +1966,7 @@
     function slotSave(k, i, v) { var a = slotSizes(k); a[i] = v; ls('sz.' + k, JSON.stringify(a)); }
     function slotDot(k, v, i) { if (k === 'white') return Math.max(4, Math.min(20, Math.round(v * 420))); if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(3, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
     S.szEdit = -1; S.eraseBack = ls('eraseback') !== '0';
-    S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
+    S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9\u3131-\uD7A3()]{1,10}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
     function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'white' ? 'white' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
     S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
     /* V865 — 마지막에 쓰던 색 · 굵기를 기억 (도구마다, 이 기기) */
@@ -2040,8 +2040,28 @@
         (hasClip ? '<button type="button" class="pv-tool sm" data-a="paste" title="붙여넣기 (Ctrl/⌘+V)"><span class="ic">' + I('paste') + '</span><span class="nm">붙여넣기</span></button>' : '') + '</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
       var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
+      /* 송폼 라벨 — 지금 곡의 송폼에 있는 칸(V4 · C(Voice) · Tag2 …)을 앞에 모두, 그 뒤에 기본 라벨 (콜아웃 · 같은 것은 한 번만) */
+      function fboxTagList() {
+        var out = [], seen = {}, cur = [];
+        try {
+          var idx = typeof badgeIdx === 'function' ? badgeIdx(S.page) : -1; if (idx < 0) idx = S.songIdx;
+          var sg = typeof songs !== 'undefined' && idx >= 0 ? songs[idx] : null, f = sg ? String(sg.form || '').trim() : '';
+          if (f) {
+            var toks = root.YNForm && root.YNForm.parse ? root.YNForm.parse(f) : [];
+            if (toks.length === 1 && /\s/.test(toks[0].k)) toks = String(toks[0].k).split(/\s+/).filter(Boolean).map(function (k) { return { k: k }; });
+            toks.forEach(function (t) {
+              if (!t || !t.k || (root.YNForm.isCall && root.YNForm.isCall(t.k))) return;
+              var k = String(t.k).replace(/^Intro$/i, 'Int').replace(/[^A-Za-z0-9\u3131-\uD7A3()]/g, '').slice(0, 10);
+              if (k && !seen[k]) { seen[k] = 1; cur.push({ k: k, sf: 1 }); }
+            });
+          }
+        } catch (e) { cur = []; }
+        out = cur;
+        var rest = YA.FBOX_TAGS.filter(function (k) { return !seen[k]; }).map(function (k, i) { return { k: k, sep: cur.length && i === 0 }; });
+        return out.concat(rest);
+      }
       var fbRow = S.tool !== 'fbox' ? '' :
-        '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
+        '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + fboxTagList().map(function (x) { var k = x.k; return (x.sep ? '<i class="pv-fbsep" aria-hidden="true"></i>' : '') + '<button type="button" class="pv-fbtag' + (x.sf ? ' sf' : '') + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h((x.sf ? '이 곡 송폼 · ' : '') + (YA.FBOX_NAMES[k] || k)) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
         '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
         '<div class="pv-tg">' + TOOLS.map(function (t) { var on = toolOn(t.t); return '<button class="pv-tool' + (on ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + on + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
@@ -2134,7 +2154,7 @@
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { toolsEl.addEventListener(n, holdStop); });
     doc.addEventListener('pointerup', holdStop);
     P.on('annochange', function () { clearTimeout(S.toolT); S.toolT = setTimeout(renderTools, 60); });
-    ['songedit', 'songs', 'page', 'sheet', 'cfg'].forEach(function (n) { P.on(n, function () { updateFormBadge(); }); });
+    ['songedit', 'songs', 'page', 'sheet', 'cfg'].forEach(function (n) { P.on(n, function () { updateFormBadge(); if (S.tool === 'fbox' && typeof renderTools === 'function') renderTools(); }); });   // 송폼 라벨 줄도 그 곡 송폼으로
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
     S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
     var origSetTool = setTool;
