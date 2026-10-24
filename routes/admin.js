@@ -149,6 +149,17 @@ router.get('/admin', requireAdmin, async (req, res) => {
           <select name="team" aria-label="팀">${activeTeams.map((t) => `<option>${esc(t['팀명'])}</option>`).join('')}</select>
           <button class="ph-btn" type="submit">나에게 시험 메일</button></form>` : ''}
       </div>
+      <details class="ph-add rm-now">
+        <summary>지금 보내기</summary>
+        <form method="post" action="/admin/practice-mail/now" class="ph-inlineform" onsubmit="return confirm('편성된 사람들에게 ${kind === 'prac' ? '연습' : '주일'} 안내를 지금 보낼까요?')">
+          <input type="hidden" name="kind" value="${kind}">
+          <p class="ph-sub" style="margin:0;">${kind === 'prac' ? '오늘부터 7일 안의 연습' : '다음 주일 (오늘이 주일이면 오늘)'}에 편성된 사람에게 바로 보내요. 요일 · 켜짐과 상관없고, 정해진 자동 안내도 그대로 나가요.</p>
+          <select name="team" aria-label="팀">${activeTeams.map((t) => `<option>${esc(t['팀명'])}</option>`).join('')}</select>
+          <select name="via" aria-label="보내는 방법"><option value="both">폰 알림 + 이메일</option><option value="push">폰 알림만</option>${mailer.configured() ? '<option value="mail">이메일만</option>' : ''}</select>
+          <label class="ph-hdrchk"><input type="checkbox" name="changed" value="1"> 제목 앞에 [변경] 붙이기 <small>(시간 · 날짜가 바뀌어 다시 알릴 때)</small></label>
+          <button class="ph-btn pri" type="submit">지금 보내기</button>
+        </form>
+      </details>
     </div>`);
   }
   const remCard = `<div class="ph-card" id="practice-mail">
@@ -238,6 +249,18 @@ router.post('/admin/practice-mail/test', requireAdmin, async (req, res) => {
     if (!m) msg = '앞으로 4주 안에 정해진 연습이 없어서 보낼 메일이 없어요.';
     else { await mailer.send({ to: String(req.member['이메일']), subject: '[시험] ' + m.subject, html: m.html, text: m.text, fromName: m.fromName }); msg = `${req.member['이메일']} 로 시험 메일을 보냈어요.`; }
   } catch (e) { msg = '시험 메일 실패: ' + (e && e.message); }
+  spa.redirect(req, res, '/admin?rm=' + encodeURIComponent(msg) + '#practice-mail');
+});
+router.post('/admin/practice-mail/now', requireAdmin, async (req, res) => {
+  const b = req.body || {}, kind = b.kind === 'sun' ? 'sun' : 'prac', team = String(b.team || '').trim() || myTeam(req);
+  const via = ['push', 'mail'].includes(b.via) ? b.via : 'both';
+  let msg;
+  try {
+    const r = await reminder.sendNow(kind, team, { push: via !== 'mail', mail: via !== 'push', changed: String(b.changed) === '1' });
+    msg = r.people.length
+      ? `${team} ${kind === 'prac' ? '연습' : '주일'} 안내 — 대상 ${r.people.length}명 (${r.people.join(', ')}) · ${via !== 'mail' ? `폰 알림 ${r.pushed}명${r.pushed < r.people.length ? ' (알림을 켜지 않은 사람은 못 받아요)' : ''}` : ''}${via === 'both' ? ' · ' : ''}${via !== 'push' ? `이메일 ${r.mailed}명${r.failed ? ' · 메일 실패 ' + r.failed : ''}` : ''}`
+      : `${team} — ${kind === 'prac' ? '7일 안에 연습' : '다음 주일'}에 편성된 사람이 없어서 보낼 곳이 없어요.`;
+  } catch (e) { msg = '지금 보내기 실패: ' + (e && e.message); }
   spa.redirect(req, res, '/admin?rm=' + encodeURIComponent(msg) + '#practice-mail');
 });
 router.post('/admin/practice-mail/toggle', requireAdmin, async (req, res) => {
