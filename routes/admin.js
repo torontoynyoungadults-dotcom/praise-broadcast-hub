@@ -130,7 +130,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
         </details>
       </div>
     </div>`; }).join('');
-  // 자동 안내 (푸시 + 이메일) — 월요일 연습 · 토요일 주일
+  // 자동 안내 (푸시 + 이메일) — 화요일 연습 · 토요일 주일
   const remMsg = String(req.query.rm || '');
   const remRows = [];
   for (const kind of ['prac', 'sun']) {
@@ -139,7 +139,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
     const sent = await Promise.all(activeTeams.map((t) => reminder.lastSentKind(kind, t['팀명']).catch(() => '')));
     remRows.push(`<div class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <div class="ph-li-main"><div class="ph-li-title">${kind === 'prac' ? '월요일 아침 · 연습 안내' : '토요일 아침 · 주일 안내'} ${on ? '<span class="rg-st on">켜짐</span>' : '<span class="rg-st off">꺼짐</span>'}</div>
+        <div class="ph-li-main"><div class="ph-li-title">${kind === 'prac' ? '화요일 아침 9시 · 연습 안내' : '토요일 아침 9시 · 주일 안내'} ${on ? '<span class="rg-st on">켜짐</span>' : '<span class="rg-st off">꺼짐</span>'}</div>
           <div class="ph-li-sub">${kind === 'prac' ? '이번 주 연습하는 콘티에 편성된 사람 (연습 불참 제외)' : '내일 주일에 편성된 사람 (주일 불참 제외)'}${activeTeams.map((t, i) => sent[i] ? ` · ${esc(t['팀명'])} 마지막 ${esc(sent[i])}` : '').join('')}</div></div>
         <form method="post" action="/admin/practice-mail/toggle"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="to" value="${on ? '0' : '1'}"><button class="ph-btn${on ? '' : ' pri'}" type="submit">${on ? '끄기' : '켜기'}</button></form>
       </div>
@@ -153,7 +153,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   }
   const remCard = `<div class="ph-card" id="practice-mail">
     <h2 class="ph-h2">자동 안내 (폰 알림 + 이메일)</h2>
-    <p class="ph-sub">편성된 사람에게만 아침 8시 이후에 한 번씩 보내요. 메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}</p>
+    <p class="ph-sub">편성된 사람에게만 아침 9시 이후에 한 번씩 보내요. 보내는 이름은 "3부찬양팀 Admin"처럼 팀 이름으로 나가요 (Render 의 MAIL_FROM 이 있어야 이름이 붙어요). 메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}</p>
     ${remRows.join('')}
     ${remMsg ? `<p class="ph-msg ${/실패|없/.test(remMsg) ? 'err' : 'ok'}">${esc(remMsg)}</p>` : ''}
   </div>`;
@@ -214,7 +214,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   spa.send(req, res, content, { title: '관리자' });
 });
 
-/* ---------- 월요일 연습 안내 ---------- */
+/* ---------- 자동 안내 (화 연습 · 토 주일) ---------- */
 function myTeam(req) {
   const want = String((req.query && req.query.team) || (req.body && req.body.team) || '').trim();
   const mine = String(req.member['소속팀'] || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -236,7 +236,7 @@ router.post('/admin/practice-mail/test', requireAdmin, async (req, res) => {
   try {
     const m = await reminder.preview(team, req.member, (req.body || {}).kind === 'sun' ? 'sun' : 'prac');
     if (!m) msg = '앞으로 4주 안에 정해진 연습이 없어서 보낼 메일이 없어요.';
-    else { await mailer.send({ to: String(req.member['이메일']), subject: '[시험] ' + m.subject, html: m.html, text: m.text }); msg = `${req.member['이메일']} 로 시험 메일을 보냈어요.`; }
+    else { await mailer.send({ to: String(req.member['이메일']), subject: '[시험] ' + m.subject, html: m.html, text: m.text, fromName: m.fromName }); msg = `${req.member['이메일']} 로 시험 메일을 보냈어요.`; }
   } catch (e) { msg = '시험 메일 실패: ' + (e && e.message); }
   spa.redirect(req, res, '/admin?rm=' + encodeURIComponent(msg) + '#practice-mail');
 });
@@ -244,7 +244,7 @@ router.post('/admin/practice-mail/toggle', requireAdmin, async (req, res) => {
   try { await reminder.setEnabledKind((req.body || {}).kind === 'sun' ? 'sun' : 'prac', String((req.body || {}).to) === '1'); } catch (e) { console.error('[연습 안내 켜기/끄기 실패]', e.message); }
   spa.redirect(req, res, '/admin#practice-mail');
 });
-/** 외부 깨우기 — GitHub Actions 가 월요일 아침에 부름 (?key=CRON_KEY). 켜져 있고 · 월요일 8시 이후 · 이번 주 아직 안 보냈을 때만 실제로 보냄 */
+/** 외부 깨우기 — GitHub Actions 가 화 · 토 아침에 부름 (?key=CRON_KEY). 켜져 있고 · 그 요일 9시 이후 · 아직 안 보냈을 때만 실제로 보냄 */
 router.all('/cron/practice-reminder', async (req, res) => {
   const key = String(process.env.CRON_KEY || '');
   if (!key || String(req.query.key || req.get('X-Cron-Key') || '') !== key) return res.status(403).json({ ok: false });
