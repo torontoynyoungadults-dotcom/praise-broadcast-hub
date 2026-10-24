@@ -2339,3 +2339,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 :root:not([data-theme="light"]) .ph-who-prac.on .ph-who-prac-head, :root:not([data-theme="light"]) .ph-who-prac-pos { color: #E9D3A4 !important; }
 :root:not([data-theme="light"]) .ph-who-prac-pos { border-color: rgba(233,211,164,.45) !important; }
 :root:not([data-theme="light"]) .ph-who-prac-dot { background: #E9D3A4 !important; box-shadow: 0 0 0 4px rgba(214,185,127,.3) !important; }
+
+/* 곡 머리 — 넓으면 제목 줄 오른쪽에 KEY · BPM · 유튜브, 좁으면(폰) 다음 줄로 */
+.cn-shead { flex-wrap: wrap !important; row-gap: 10px !important; }
+.cn-shead .cn-tb { flex: 1 1 160px !important; }
+.cn-shead .cn-info { margin: 0 0 0 auto !important; flex: none; }
+.cn-shead .cn-grip { order: 3; }
+@media (max-width: 560px) {
+  .cn-shead .cn-grip { order: 2; }
+  .cn-shead .cn-info { order: 4; flex: 1 1 100%; margin: 2px 0 0 !important; }
+}
+.pc-recs .ph-list { margin: 0; }

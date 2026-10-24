@@ -500,9 +500,9 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
     <div class="cn-shead">
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
       <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
+      ${info ? `<div class="cn-info" aria-label="곡 정보">${info}</div>` : ''}
       ${editable && !isFinal && !isClosing ? `<button type="button" class="cn-grip" data-cn-grip aria-label="끌어서 순서 바꾸기 (위·아래 방향키로도 옮겨요)" title="끌어서 순서 바꾸기"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>` : ''}
     </div>
-    ${info ? `<div class="cn-info" aria-label="곡 정보">${info}</div>` : ''}
     ${s['송폼'] ? `<div class="cn-sec cn-sec-form"><span class="cn-lab">송폼</span>${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}</div>` : ''}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
     ${songSheetsHtml(s, sheets, editable, edit, { tools: sheetTools })}
@@ -1160,6 +1160,21 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
         <div class="cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
         ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
         ${songsHtml || '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}
+        ${(() => {
+          const prs = w.recs.filter((r) => r['구분'] !== '예배'), marks = songsForMarks(w);
+          return `<div class="pc-sec pc-recs"><h3>연습 녹음</h3>
+          <div class="ph-list">${prs.length ? prs.map((r) => recItem(r, false, marks)).join('') : '<p class="ph-sub">아직 올린 연습 녹음이 없어요.</p>'}</div>
+          <details class="ph-add">
+            <summary>+ 연습 녹음 올리기</summary>
+            <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
+              <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="구분" value="연습"><input type="hidden" name="back" value="${esc(q(cur.date))}">
+              <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
+              <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
+              <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
+              <button class="ph-btn pri" type="submit">올리기</button>
+            </form>
+          </details></div>`;
+        })()}
       </section>`);
     }
     body = head + cards.join('');
@@ -2005,6 +2020,8 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
     '구분': b['구분'] === '예배' ? '예배' : '연습', '제목': title,
     '링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
   });
+  const back = String(b.back || '');
+  if (/^\/practice-conti\?[^\s]*$/.test(back)) return spa.redirect(req, res, back);      // 연습 콘티에서 올렸으면 그 화면으로
   backTo(req, res, team, scope);
 });
 
