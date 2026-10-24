@@ -81,10 +81,15 @@ global.fetch = async (url, opt) => {
   ok(v.right, '첫 파일이 1페이지뿐이어도 오른쪽에 다음 파일의 첫 페이지가 보임', v);
   ok(v.right && v.rightDarkR > v.rightDarkL * 3 && v.rightDarkR > 20, '오른쪽에 보이는 건 ② 파일(오른쪽 큰 네모)', v);
 
+  const songAt = () => page.evaluate(() => YNPractice.current().perf().song);
+  await page.evaluate(() => YNPractice.current().next());
+  v = await wait((x) => x.sheet === 1 && x.right);
+  ok(v.sheet === 1 && v.page === 1 && v.right, '다음 → 오른쪽(②)이 다른 곡이라 한 장만: ② 가 왼쪽, 오른쪽엔 ③ 1페이지', v);
   await page.evaluate(() => YNPractice.current().next());
   v = await wait((x) => x.sheet === 2 && x.right);
-  ok(v.sheet === 2 && v.page === 1, '다음 → 두 페이지를 건너뛰어 ③ 파일 1페이지 (① ② 를 한 쌍으로 봤으니)', v);
+  ok(v.sheet === 2 && v.page === 1, '다음 → 또 다른 곡이라 한 장: ③ 1페이지가 왼쪽', v);
   ok(v.right, '③ 1페이지의 오른쪽에는 ③ 의 2페이지', v);
+  void songAt;
   await page.evaluate(() => YNPractice.current().next());
   v = await wait((x) => x.sheet === 2 && x.page === 3);
   ok(v.sheet === 2 && v.page === 3, '다음 → ③ 3페이지', v);

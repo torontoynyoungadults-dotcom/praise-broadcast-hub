@@ -625,6 +625,11 @@
     /** 두 페이지 보기에서 "다음": 지금 보이는 오른쪽 페이지의 그다음으로 (파일 경계를 넘어서도). 처리했으면 true */
     function spreadNext(user) {
       var R = S.doc ? rightPosOf(S.doc, S.page) : null; if (!R) return false;
+      /* 오른쪽 페이지가 다른 곡이면 한 장만 넘김 — 오른쪽 악보가 왼쪽으로 와서 메트로놈 · 송폼 · Key 가 그 곡을 따라가고, 오른쪽엔 그다음 페이지 */
+      try {
+        var sL = resolveSong(sheets[S.sheetIdx], S.page), sR = resolveSong(sheets[R.s], R.p);
+        if (sL != null && sR != null && sL >= 0 && sR >= 0 && sR !== sL) { goPos(R, user); return true; }
+      } catch (e) { /* 곡을 모르면 예전처럼 두 장 */ }
       withDoc(R.s, function (dR) {
         var T = R.p < dR.n ? { s: R.s, p: R.p + 1 } : null;
         if (!T) { var j = stepSheet(R.s, 1); if (j >= 0) T = { s: j, p: 1 }; }
