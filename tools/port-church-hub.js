@@ -81,6 +81,8 @@ const { remapCss } = require('./theme-remap');
 const { remapV12 } = require('./theme-v12');   // V12 — 산호 → 상록 · 샴페인 골드 (화면별로)
 let css = root.toString();
 css = remapV12(remapCss(css));
+// V13 — 밝은 화면의 황동 글씨 · 갈색 경고색 · 산호 글씨 → 상록 / 차분한 적갈 (yn-adapt.css V13 와 같은 색)
+css = css.replace(/#8A5F22/gi, '#24493C').replace(/#a17d36/gi, '#9A4B3C').replace(/#A94B1F/gi, '#24493C');
 fs.writeFileSync(path.join(OUT, 'yn.css'),
   '/* 자동 생성 — tools/port-church-hub.js (church-app views/Worship.html · views/Theme.html · public/worship/hub.css 를 .yn 안으로,\n' +
   '   보라 · 주황 · 청록 → 이 앱 팔레트, tools/theme-remap.js → tools/theme-v12.js). 직접 고치지 마세요 — 이 앱에서 덧붙이는 규칙은 public/hub/yn-adapt.css */\n' + css + '\n');
@@ -145,7 +147,10 @@ const PATCHES = [
     `'<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + stOffBtn(picking) + viewSeg + '</div>' + stMinePanel(picking) +`],
   ['스케줄표 맨 아래 "내가 안 되는 날" 칸은 위로 옮겼음 (stMinePanel)', `'</div>' + mine;\n}`, `'</div>';\n}`],
   ['스케줄표 테이블 — 가로 화면용 칸 둘 더 (연습 · 곡) 머리', `'<th class="offc" rowspan="2">불가</th></tr>';`, `'<th class="offc" rowspan="2">불가</th>' + stXHead() + '</tr>';`],
-  ['스케줄표 테이블 — 달 줄이 더한 칸까지', `월</td><td colspan="' + (cols.length + 1) + '"></td></tr>';`, `월</td><td colspan="' + (cols.length + 3) + '"></td></tr>';`],
+  ['스케줄표 테이블 — 달 줄이 더한 칸까지', `월</td><td colspan="' + (cols.length + 1) + '"></td></tr>';`, `월</td><td colspan="' + (cols.length + 2) + '"></td></tr>';`],   /* 맨 앞 연습 칸(stXFrontMonth)이 따로 있어서 + 2 */
+  ['스케줄표 테이블 — 가로 화면은 맨 앞에 연습 칸 (연습일 · 주일 순) 머리', `  var head1 = '<tr class="g"><th class="dc" rowspan="2">날짜</th>' +`, `  var head1 = '<tr class="g">' + stXFrontHead() + '<th class="dc" rowspan="2">' + stDcHead() + '</th>' +`],
+  ['스케줄표 테이블 — 맨 앞 연습 칸 (달 줄)', `body += '<tr class="mrow"><td class="dc">'`, `body += '<tr class="mrow">' + stXFrontMonth(mo) + '<td class="dc">'`],
+  ['스케줄표 테이블 — 맨 앞 연습 칸 (줄)', `    var dateCell = '<td class="dc' + (r.event ? ' ev' : '')`, `    var dateCell = stXFront(r) + '<td class="dc' + (r.event ? ' ev' : '')`],
   ['스케줄표 테이블 — 가로 화면용 칸 둘 더 (연습 · 곡) 줄', `dateCell + cells + offCell + '</tr>';`, `dateCell + cells + offCell + stXCells(r) + '</tr>';`],
   ['아카이브 — 행사는 이름만', `'<span class="evtag">' + esc(d.event.kind) + '</span>' + esc(d.event.name)`, `esc(d.event.name)`],
   ['목회자는 "윤정환 목사" — 편성 고르기', `face(m.name) + esc(m.name) +`, `face(m.name) + esc(dispName(m.name)) +`],

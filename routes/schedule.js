@@ -16,6 +16,7 @@ const hubPage = require('../lib/hubPage');
 const schedLog = require('../lib/scheduleLog');
 const honorific = require('../lib/honorific');
 const avatar = require('../lib/avatar');
+const ui = require('../lib/uiIcons');
 const esc = pageShell.esc;
 
 const router = express.Router();
@@ -85,7 +86,7 @@ router.get('/schedule', requireTeam, async (req, res) => {
   await hubPage.send(req, res, {
     nav: 'schedule', tab: 'sched', title: `${team} 스케줄표`,
     hero: { eyebrow: `${team} · 스케줄표`, title: '스케줄표', sub: '포지션 편성 · 연습일 · 내가 안 되는 날' },
-    extra: `<div class="ph-adminrow" style="gap:8px;flex-wrap:wrap;"><a class="ph-mini" href="/schedule/history?team=${encodeURIComponent(team)}">🕘 변경 기록</a>${req.ctx.isAdmin ? `<a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}">엑셀로 스케줄 올리기</a>` : ''}</div>`,
+    extra: `<div class="ph-adminrow st-toolrow"><a class="ph-mini" href="/schedule/history?team=${encodeURIComponent(team)}">${ui.icon('timer')} 변경 기록</a>${req.ctx.isAdmin ? `<a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}">${ui.icon('download')} 엑셀로 스케줄 올리기</a>` : ''}<button type="button" class="ph-mini pri" data-mysched data-team="${pageShell.esc(team)}">${ui.icon('calendar')} 나의 스케줄</button></div>`,
   });
 });
 

@@ -685,5 +685,51 @@
     });
   }
 
+  /* ---------- 6) 곡 카드 "악보 보기" — 누르면 이 곡에 붙은 악보가 쭉 펼쳐짐 (PDF 는 쪽마다 그림 · 사진은 그대로).
+   *  처음 펼칠 때만 받아서 그리고(서버 대역폭 아끼려고 미리 받지 않음), 다시 누르면 접기만 ---------- */
+  function svRender(box) {
+    if (box.getAttribute('data-cn-sv-on')) return;
+    box.setAttribute('data-cn-sv-on', '1');
+    var host = box.querySelector('[data-cn-svpages]'), src = box.getAttribute('data-src'), name = box.getAttribute('data-name') || '악보';
+    function fail() { host.innerHTML = '<p class="cn-svwait">악보를 불러오지 못했어요. 위 제목을 눌러 새 창에서 열어 보세요.</p>'; box.removeAttribute('data-cn-sv-on'); }
+    fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); }).then(function (b) {
+      var type = String(b.type || '');
+      if (/^image\//.test(type)) {
+        var url = URL.createObjectURL(b);
+        host.innerHTML = '<img class="cn-svpage" alt="' + escH(name) + '" src="' + url + '">';
+        return;
+      }
+      return b.arrayBuffer().then(function (buf) {
+        return loadPdfjs().then(function (lib) { return lib.getDocument({ data: new Uint8Array(buf) }).promise; });
+      }).then(function (doc) {
+        host.innerHTML = '';
+        var w = Math.max(320, host.clientWidth || 640), dpr = Math.min(2, window.devicePixelRatio || 1);
+        var chain = Promise.resolve();
+        for (var p = 1; p <= doc.numPages; p++) (function (n) {
+          var fig = document.createElement('figure'); fig.className = 'cn-svfig';
+          var cv = document.createElement('canvas'); cv.className = 'cn-svpage'; cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', name + ' ' + n + '쪽');
+          fig.appendChild(cv);
+          if (doc.numPages > 1) { var cap = document.createElement('figcaption'); cap.textContent = n + ' / ' + doc.numPages; fig.appendChild(cap); }
+          host.appendChild(fig);
+          chain = chain.then(function () { return doc.getPage(n); }).then(function (pg) {
+            var v0 = pg.getViewport({ scale: 1 }), sc = (w / v0.width) * dpr, v = pg.getViewport({ scale: sc });
+            cv.width = Math.round(v.width); cv.height = Math.round(v.height);
+            cv.style.aspectRatio = v.width + ' / ' + v.height;
+            return pg.render({ canvasContext: cv.getContext('2d'), viewport: v }).promise;
+          });
+        })(p);
+        return chain;
+      });
+    }).catch(fail);
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-cn-svopen]') : null; if (!b) return;
+    e.preventDefault();
+    var wrap = b.closest('.ph-songsheets'), panel = wrap && wrap.querySelector('[data-cn-svpanel]'); if (!panel) return;
+    var open = panel.hidden;
+    panel.hidden = !open; b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) panel.querySelectorAll('[data-cn-sv]').forEach(svRender);
+  });
+
   document.addEventListener('ph:content-updated', mountAll);
 })();

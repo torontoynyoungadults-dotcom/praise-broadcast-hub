@@ -300,7 +300,7 @@ function schedTab() {
   var mineSet = {};
   ST.mine.forEach(function (x) { mineSet[x.date] = x; });
 
-  var head1 = '<tr class="g"><th class="dc" rowspan="2">날짜</th>' +
+  var head1 = '<tr class="g">' + stXFrontHead() + '<th class="dc" rowspan="2">' + stDcHead() + '</th>' +
     groups.map(function (g) { return '<th colspan="' + g[1].length + '">' + g[0] + '</th>'; }).join('') +
     '<th class="offc" rowspan="2">불가</th>' + stXHead() + '</tr>';
   var head2 = '<tr>' + cols.map(function (p) { return '<th>' + esc(ST_SHORT[p.key] || p.label) + '</th>'; }).join('') + '</tr>';
@@ -311,12 +311,12 @@ function schedTab() {
     var mo = r.date.slice(0, 7);
     if (mo !== lastMonth) {
       lastMonth = mo;
-      body += '<tr class="mrow"><td class="dc">' + Number(mo.split('-')[1]) + '월</td><td colspan="' + (cols.length + 3) + '"></td></tr>';
+      body += '<tr class="mrow">' + stXFrontMonth(mo) + '<td class="dc">' + Number(mo.split('-')[1]) + '월</td><td colspan="' + (cols.length + 2) + '"></td></tr>';
     }
     var off = offMap(r.off);
     var sel = picking && ST.pick.indexOf(r.key) !== -1;
     var mineOff = mineSet[r.key];
-    var dateCell = '<td class="dc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + (mineOff ? ' mineoff' : '') +
+    var dateCell = stXFront(r) + '<td class="dc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + (mineOff ? ' mineoff' : '') +
       '" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
       (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
       stPracShort(r) + '<b>' + WD[dt(r.date).getDay()] + ' ' + md(r.date) + '</b>' +

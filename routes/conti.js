@@ -289,14 +289,33 @@ function noteHtml(text, tagSet) {
 }
 
 /** 송폼 → 칩 (눈에 잘 띄게 — V · C · B 색 구분, 한글 이름 · 반복 · 마디 수) */
+/** 송폼 — DAW 트랙처럼: 섹션마다 블록 하나, 폭은 섹션 길이에 비례. 후렴만 상록으로 채우고 나머지는 흰 블록 위 가는 띠로만 구분.
+ *  인트로 · 아웃트로는 테두리만, 키 업은 블록 사이 가는 표시. 길면 다음 줄로 이어짐 (블록 최소 폭) */
+const DAW_GROW = { v: 1.2, pc: 0.9, c: 1.4, b: 1, io: 0.7, tag: 0.7, etc: 0.8 };
+function dawType(k) {
+  if (/^V\d?$/.test(k)) return 'v';
+  if (/^PC\d?$/.test(k)) return 'pc';
+  if (/^C(\d|\(Voice\))?$/.test(k)) return 'c';
+  if (/^B\d?$/.test(k)) return 'b';
+  if (/^(Intro|Out|End|Coda)$/.test(k)) return 'io';
+  if (/^Tag$/.test(k)) return 'tag';
+  return 'etc';
+}
 function formChips(form) {
   const toks = form ? YNForm.parse(form) : [];
-  if (!toks.length) return form ? `<div class="cn-sform"><span class="cn-fc cn-fc-etc"><b>${esc(form)}</b></span></div>` : '';
-  const cls = (k) => (/^V\d?$/.test(k) ? 'v' : /^PC\d?$/.test(k) ? 'pc' : /^C\d?$/.test(k) ? 'c' : /^B\d?$/.test(k) ? 'b' : /^(Intro|Out|Itld|Inst|Coda|End)$/.test(k) ? 'io' : 'etc');
-  return `<div class="cn-sform" aria-label="송폼">${toks.map((t) => {
+  if (!toks.length) return form ? `<ol class="cn-daw" aria-label="송폼"><li class="cn-blk t-etc" style="--g:1"><b>${esc(form)}</b></li></ol>` : '';
+  let n = 0;
+  const items = toks.map((t) => {
+    if (t.k === 'KeyUp') return '<li class="cn-kmark" title="키 업"><span aria-hidden="true">↑</span><i>Key</i></li>';
+    n++;
+    const ty = t.custom ? 'etc' : dawType(t.k);
     const ko = t.custom ? '' : YNForm.label(t.k, 'ko');
-    return `<span class="cn-fc cn-fc-${cls(t.k)}" title="${esc(ko || t.k)}"><b>${esc(t.k)}</b>${ko && ko !== t.k ? `<i>${esc(ko)}</i>` : ''}${t.bars ? `<small>${t.bars}마디</small>` : ''}${t.rep > 1 ? `<em>×${t.rep}</em>` : ''}</span>`;
-  }).join('<span class="cn-arrow" aria-hidden="true">›</span>')}</div>`;
+    const code = t.k === 'C(Voice)' ? 'C' : t.k;
+    const sub = t.k === 'C(Voice)' ? 'Voice' : (t.bars ? `${t.bars}마디` : (ko && ko !== t.k ? ko : ''));
+    const g = DAW_GROW[ty] * Math.min(t.rep || 1, 2);
+    return `<li class="cn-blk t-${ty}" style="--g:${g}" title="${esc((ko || t.k) + (t.rep > 1 ? ' ×' + t.rep : ''))}"><b>${esc(code)}${t.rep > 1 ? `<em>×${t.rep}</em>` : ''}</b>${sub ? `<i>${esc(sub)}</i>` : ''}</li>`;
+  });
+  return `<ol class="cn-daw" aria-label="송폼 순서 · ${n}섹션">${items.join('')}</ol>`;
 }
 
 /** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */
@@ -338,13 +357,33 @@ function moveBtns(f, i, n) {
   const one = (dir, ok, glyph, label) => (ok ? `<form method="post" action="/conti/sheets/move" style="display:inline;"><input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}<input type="hidden" name="dir" value="${dir}"><button class="ph-row-mv" type="submit" title="${label}" aria-label="${label}">${glyph}</button></form>` : '');
   return one('up', i > 0, '▲', '위로') + one('down', i < n - 1, '▼', '아래로');
 }
-/** 곡 한 줄 밑에 붙는 "이 곡 전용 악보" — 콘티 패키지 악보(packageSheetsCard)와는 별개로, 특정 곡(곡ID)에 묶인 것만. */
-function songSheetsHtml(s, sheets, editable, extra) {
+/** 화면에서 바로 펼쳐 볼 악보 주소 — 이 앱 주소(/sheet/<id>)로 열어야 권한 확인 · R2 를 거침. 곡별 쪽이 정해져 있으면 그 쪽만 */
+function sheetViewSrc(f) {
+  const spec = String(f['쪽'] || '').trim();
+  if (spec) return liveStore.openHref(f['팀ID'], f['파일링크'], spec, f['제목']);
+  return '/sheet/' + liveStore.sheetIdOf(f['팀ID'], f['파일링크']);
+}
+const CHEV = '<svg class="cn-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+/** 곡 카드 아래 — [악보 보기 N] 단추 하나. 누르면 이 곡에 붙은 악보가 화면에 쭉 펼쳐지고(쪽마다 그림),
+ *  악보마다 머리줄에 필기 · 자르기·헤더 · 순서 · 빼기. 악보가 없으면 "+ 이 곡 악보 올리기"만.
+ *  opts.tools: 고칠 수 없는 화면(연습 콘티)에서도 필기 단추는 보이게 */
+function songSheetsHtml(s, sheets, editable, extra, opts) {
   const mine = (sheets || []).filter((f) => f['곡ID'] === s['ID']);
-  const list = mine.map((f) => `<span class="ph-songsheet"><a class="ph-li-link" href="${esc(liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']))}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(f['제목'] || '악보')}${(f['쪽'] || (splitOrigin(f) || {}).spec) ? ` <small class="ph-pr">${esc(f['쪽'] || splitOrigin(f).spec)}쪽</small>` : ''}</a>${editable ? '<span class="cn-sheetacts">' : ''}${editable && mine.length > 1 ? moveBtns(f, mine.indexOf(f), mine.length) : ''}${editable ? annoLink(f) + reformatBtn(f) : ''}${editable ? `<form method="post" action="/conti/sheets/delete" style="display:inline;" onsubmit="return confirm('이 악보를 지울까요?')">
-    <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
-    <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
-  </form>` : ''}${editable ? '</span>' : ''}</span>`).join('');
+  const tools = editable || (opts && opts.tools);
+  const files = mine.map((f, i) => {
+    const pages = f['쪽'] || (splitOrigin(f) || {}).spec || '';
+    const open = liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']);
+    const del = editable ? `<form method="post" action="/conti/sheets/delete" class="cn-svdel" onsubmit="return confirm('이 악보를 지울까요?')">
+      <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
+      <button class="ph-row-del" type="submit" title="이 악보 빼기" aria-label="이 악보 빼기">${ui.icon('close')}</button></form>` : '';
+    return `<div class="cn-sv" data-cn-sv data-src="${esc(sheetViewSrc(f))}" data-name="${esc(f['제목'] || '악보')}">
+      <div class="cn-svh">
+        <a class="cn-svt" href="${esc(open)}" target="_blank" rel="noopener" title="새 창에서 열기">${ui.icon('page')}<b>${esc(f['제목'] || '악보')}</b>${pages ? `<small>${esc(pages)}쪽</small>` : ''}${mine.length > 1 ? `<small>${i + 1}/${mine.length}</small>` : ''}</a>
+        <span class="cn-svacts">${tools ? annoLink(f) + reformatBtn(f) : ''}${editable && mine.length > 1 ? moveBtns(f, i, mine.length) : ''}${del}</span>
+      </div>
+      <div class="cn-svpages" data-cn-svpages><p class="cn-svwait">악보 불러오는 중…</p></div>
+    </div>`;
+  }).join('');
   const addForm = editable ? `<details class="ph-add ph-songsheet-add">
     <summary>+ 이 곡 악보 올리기</summary>
     <form method="post" action="/conti/sheets" enctype="multipart/form-data" class="ph-inlineform">
@@ -359,12 +398,15 @@ function songSheetsHtml(s, sheets, editable, extra) {
     </form>
     <button type="button" class="ph-btn" data-sheet-search data-team="${esc(s['팀ID'])}" data-song="${esc(s['ID'])}" data-date="${esc(s['날짜'])}" data-event="${esc(s['행사ID'] || '')}" data-q="${esc(s['제목'] || '')}">${ui.icon('search')} 웹에서 악보 찾기</button>
   </details>` : '';
-  if (!list && !addForm && !extra) return '';
-  return `<div class="ph-songsheets">${mine.length ? `<div class="cn-sec cn-sec-sheets"><span class="cn-lab">악보 <small>${mine.length}</small></span><div class="cn-sheetlist">${list}</div></div>` : ''}<div class="cn-acts">${addForm}${extra || ''}</div></div>`;
+  if (!mine.length && !addForm && !extra) return '';
+  const btn = mine.length ? `<button type="button" class="cn-svbtn" data-cn-svopen aria-expanded="false">${ui.icon('page')}<span>악보 보기</span><b>${mine.length}</b>${CHEV}</button>` : '';
+  const panel = mine.length ? `<div class="cn-svpanel" data-cn-svpanel hidden>${files}${addForm}</div>` : '';
+  return `<div class="ph-songsheets"><div class="cn-acts">${btn}${mine.length ? '' : addForm}${extra || ''}</div>${panel}</div>`;
 }
 
 /** 이 예배의 유튜브 이어 듣기 — 콘티 순서대로 곡마다 올린 링크를 이어서 재생하고(설교 후 찬양은 맨 뒤), 유튜브가 만들어 주는 임시 재생목록(watch_videos)으로도 열 수 있게
  *  (public/js/conti-tools.js 의 [data-cn-yplay] 가 플레이어를 붙임) */
+const YT_MARK = '<svg class="cn-ytmark" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#C4302B"/><path d="M10 9v6l5-3z" fill="#fff"/></svg>';
 function ytPlayAllHtml(w, team) {
   const all = [].concat((w.conti || []).map((s, i) => ({ s, k: '콘티', n: i + 1 })), (w.final || []).map((s) => ({ s, k: '설교 후', n: 0 })), (w.closing || []).map((s) => ({ s, k: '폐회송', n: 0 })));
   const items = [];
@@ -374,16 +416,51 @@ function ytPlayAllHtml(w, team) {
   const open = 'https://www.youtube.com/watch_videos?video_ids=' + items.slice(0, 50).map((x) => x.id).join(',');
   return `<div class="cn-yplay" data-cn-yplay data-items="${esc(JSON.stringify(items))}" data-team="${esc(team || '')}" data-ytv="${esc(YTFORM_V)}">
     <div class="cn-yplay-bar">
-      <button type="button" class="cn-mini" data-cn-yplay-open aria-expanded="false">${ui.icon('play')} 유튜브로 이어 듣기 · ${items.length}곡</button>
-      <a class="cn-mini" href="${esc(open)}" target="_blank" rel="noopener" title="유튜브가 한 번에 재생목록으로 열어줘요 (유튜브 앱 · 화면을 꺼도 계속)">${ui.icon('link')} 유튜브에서 한 번에 열기</a>
-      ${missing ? `<span class="ph-sub">링크 없는 ${missing}곡은 빠져요</span>` : ''}
+      <button type="button" class="cn-ybig" data-cn-yplay-open aria-expanded="false">${YT_MARK}<span>유튜브 이어 듣기</span><small>${items.length}곡</small></button>
+      <a class="cn-ybig" href="${esc(open)}" target="_blank" rel="noopener" title="유튜브가 한 번에 재생목록으로 열어줘요 (유튜브 앱 · 화면을 꺼도 계속)">${YT_MARK}<span>유튜브에서 한 번에 열기</span></a>
     </div>
+    ${missing ? `<p class="cn-ymiss">링크 없는 ${missing}곡은 빠져요</p>` : ''}
     <div class="cn-yplayer" data-cn-yplayer hidden></div>
   </div>`;
 }
 
+/** 카카오톡 콘티 요약 글 — 부를 이름(목회자 · 인도자는 "OOO 목사")으로 채운 한 예배 자료 (예배 콘티 · 연습 콘티 같이 씀) */
+function kakaoFor({ date, scope, eventRow, pinfo, w, byPos, infoMap }) {
+  const honor = (n, pos) => honorific.forPos(pos, n, honorific.isPastorRoles((infoMap[n] || {}).역할));
+  const slotNames = {}; Object.keys(byPos).forEach((k) => { slotNames[k] = byPos[k].map((x) => honor(x.이름, k)); });
+  return kakaoLib.kakaoText({
+    date, event: scope.event && eventRow ? { name: eventRow['이름'] } : null, practice: pinfo && pinfo.p && pinfo.p.date && !pinfo.p.none ? pinfo.p : null, slots: slotNames,
+    songs: w.conti.map((r) => ({ title: r['제목'], team: r['팀'], key: r['Key'], form: kakaoLib.formText(r['송폼']), note: r['비고'], link: r['유튜브'] })),
+    finals: w.final.map((r) => ({ title: r['제목'], key: r['Key'], link: r['유튜브'] })),
+    closings: w.closing.map((r) => ({ title: r['제목'], key: r['Key'], link: r['유튜브'] })),
+  });
+}
+
+/** 콘티 맨 위 도구 상자 — 예배 콘티 · 연습 콘티가 같이 씀.
+ *  ① 라이브 악보(주) · 방송팀 화면  ② 인쇄용 PDF · 카톡 요약 · 오프라인  ③ 유튜브 이어 듣기 · 유튜브에서 한 번에 열기
+ *  카톡 · 오프라인 · 이어 듣기 단추는 가장 가까운 .ph-card 안의 칸을 찾아 쓰므로, 한 화면에 여러 개(연습 콘티) 있어도 따로 동작 */
+function contiToolbox({ team, scope, date, eventRow, w, kakao, stage }) {
+  const q = scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date);
+  const liveHref = `/conti/practice?team=${encodeURIComponent(team)}&${q}`;
+  const nSheets = new Set(w.sheets.filter((s) => s['파일링크']).map((s) => s['파일링크'])).size;
+  const liveBtn = `<a class="ph-btn pri ph-livebtn" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
+  const stageBtn = stage ? `<a class="ph-btn ph-stagebtn" href="${liveHref.replace('/conti/practice?', '/conti/stage?')}" title="방송팀 화면 — 지금 곡 · 송폼 · 콜아웃 위치 · 찬양팀 요청을 크게 봅니다">${ui.icon('media')} 방송팀 화면<small>지금 곡 · 송폼 · 요청 메시지 크게</small></a>` : '';
+  const has = w.conti.length || w.final.length || w.closing.length;
+  const pkgHref = `/conti/package.pdf?team=${encodeURIComponent(team)}&${q}`;
+  const pkgBtn = has ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-href="${esc(pkgHref)}" data-title="${esc(scope.event && eventRow ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>` : '';
+  const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
+  const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
+  const yt = ytPlayAllHtml(w, team);
+  return `<div class="ph-livebtns${stage ? '' : ' one'}">${liveBtn}${stageBtn}</div>
+    <div class="cn-toolrow">${pkgBtn}${kakaoBtn}${offBtn}</div>
+    ${yt}
+    <div class="cn-offpanel" data-cn-offpanel hidden></div>
+    ${w.conti.length && kakao ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details>` : ''}
+    <p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>`;
+}
+
 /** 곡 카드 — 청년부 앱처럼: ① 순서 · 제목 · Key · BPM ② 원곡팀 · 유튜브 ③ 송폼 ④ 설명 */
-function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps }) {
+function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps, sheetTools }) {
   const isFinal = kind === '결단';
   const isClosing = kind === '폐회송';
   const yt = s['유튜브'] ? ytLinkOf(s['유튜브']) : '';
@@ -418,7 +495,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
   const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
   const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(s['Key'])}</b></span>` : '';
   const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><b>${esc(bpm)}</b></span>` : '';
-  const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube"><i>YouTube</i><b>${ui.icon('play')} 영상</b></a>` : '';
+  const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube"><i>YouTube</i><b>${YT_MARK} 영상</b></a>` : '';
   const info = keyCell + bpmCell + ytBtn + jumpBtn;
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
@@ -429,7 +506,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
     ${info ? `<div class="cn-info" aria-label="곡 정보">${info}</div>` : ''}
     ${s['송폼'] ? `<div class="cn-sec cn-sec-form"><span class="cn-lab">송폼</span>${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}</div>` : ''}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
-    ${songSheetsHtml(s, sheets, editable, edit)}
+    ${songSheetsHtml(s, sheets, editable, edit, { tools: sheetTools })}
   </div>`;
 }
 /** 방송팀(PPT) 보기 전용 링크 칸 — 링크가 있으면 보여 주고 복사, 관리자는 만들기 · 새로 바꾸기 */
@@ -773,8 +850,6 @@ router.get('/conti', requireTeam, async (req, res) => {
     </div>`;
   }
 
-  const guestToken = await guestLink.tokenFor(team).catch(() => '');
-
   const hero = pageShell.hero(scope.event
     ? { eyebrow: `${team} · 주일 외 찬양 콘티`, title: eventRow['이름'], sub: week.labelKo(date) }
     : { eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
@@ -786,15 +861,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
   const markSongs = songsForMarks(w);                                     // 녹음 플레이어 — 곡 시작 위치 찍기
   const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
-  // 카카오톡 요약 — 부를 이름(목회자는 "OOO 목사")으로 채운 한 주 자료
-  const honor = (n, pos) => honorific.forPos(pos, n, honorific.isPastorRoles((infoMap[n] || {}).역할));       // 인도자 자리는 누구든 "OOO 목사"
-  const slotNames = {}; Object.keys(byPos).forEach((k) => { slotNames[k] = byPos[k].map((x) => honor(x.이름, k)); });
-  const kakao = kakaoLib.kakaoText({
-    date, event: scope.event ? { name: eventRow['이름'] } : null, practice: pinfo.p && pinfo.p.date && !pinfo.p.none ? pinfo.p : null, slots: slotNames,
-    songs: w.conti.map((r) => ({ title: r['제목'], team: r['팀'], key: r['Key'], form: kakaoLib.formText(r['송폼']), note: r['비고'], link: r['유튜브'] })),
-    finals: w.final.map((r) => ({ title: r['제목'], key: r['Key'], link: r['유튜브'] })),
-    closings: w.closing.map((r) => ({ title: r['제목'], key: r['Key'], link: r['유튜브'] })),
-  });
+  const kakao = kakaoFor({ date, scope, eventRow, pinfo, w, byPos, infoMap });
 
   const content = `
   ${pageShell.hubNav('conti', team)}
@@ -804,28 +871,11 @@ router.get('/conti', requireTeam, async (req, res) => {
   ${practice}
   ${(() => {
     const switcher = teamContext.teamSwitcher(ctx, { keep: scope.event ? { event: scope.event } : { date } });
-    // 라이브 악보 (church-app 그대로) — 주일예배는 날짜, 행사는 행사 콘티 그대로 엽니다 (서로 다른 방 · 다른 필기 범위)
-    const liveHref = scope.event
-      ? `/conti/practice?team=${encodeURIComponent(team)}&event=${encodeURIComponent(scope.event)}`
-      : `/conti/practice?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}`;
-    const nSheets = new Set(w.sheets.filter((s) => s['파일링크']).map((s) => s['파일링크'])).size;
-    const liveBtn = `<a class="ph-btn pri ph-livebtn" style="margin-top:12px;" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
-    const stageBtn = `<a class="ph-btn ph-stagebtn" href="${liveHref.replace('/conti/practice?', '/conti/stage?')}" title="방송팀 화면 — 지금 곡 · 송폼 · 콜아웃 위치 · 찬양팀 요청을 크게 봅니다">${ui.icon('media')} 방송팀 화면<small>지금 곡 · 송폼 · 요청 메시지 크게</small></a>`;
-    const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
-    const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
-    const pkgHref = `/conti/package.pdf?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}`;
-    const pkgBtn = w.conti.length || w.final.length || w.closing.length ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-href="${esc(pkgHref)}" data-title="${esc(scope.event ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>` : '';
-    const extras = `<div class="ph-livebtns">${liveBtn}${stageBtn}</div>` + `<div class="cn-toolrow">${pkgBtn}${kakaoBtn}${offBtn}</div>
-    ${guestPanel(req, team, scope, guestToken, ctx.isAdmin, req.query.gl === '1')}
-    <div class="cn-offpanel" data-cn-offpanel hidden></div>
-    ${w.conti.length ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details><p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>` : '<p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>'}`;
-    if (!switcher && !extras) return '';
-    return `<div class="ph-card">${switcher}${extras}</div>`;
+    return `<div class="ph-card cn-toolcard">${switcher}${contiToolbox({ team, scope, date, eventRow, w, kakao, stage: true })}</div>`;
   })()}
 
   ${lineup}
 
-  ${(() => { const y = ytPlayAllHtml(w, team); return y ? `<div class="ph-card cn-ycard"><h2 class="ph-h2">유튜브 이어 듣기</h2><p class="ph-sub" style="margin:-4px 0 10px;">곡마다 올린 유튜브 링크를 콘티 순서대로 이어서 들어요.</p>${y}</div>` : ''; })()}
 
   <div class="ph-card top-accent">
     <div class="cn-cardhead"><h2 class="ph-h2">콘티</h2>${w.conti.length > 1 ? `<button type="button" class="cn-mini" data-cn-reorder>${ui.icon('pencil')} 순서 바꾸기</button>` : ''}</div>
@@ -891,6 +941,87 @@ router.get('/conti', requireTeam, async (req, res) => {
  * 스케줄표에서 "캘린더에 추가" — 내가 서는 예배 하나의 연습(kind=prac) 또는 예배 당일(kind=sun)을 따로.
  *  ?team&key(주일 날짜 · ev-ID)&kind=prac|sun&to=google|ics  →  구글이면 구글 캘린더로 보내고, ics 면 캘린더 파일
  */
+/** 내가 서는 예배(주일 · 행사) 당일 일정 — 리허설 모임부터 예배 끝(시작 + 1시간 30분)까지 */
+function serveEvent(team, t, st, ts, evRow, base) {
+  const isEv = !!t.event, tname = practiceView.targetName(t);
+  const worship = timeSettings.parse(evRow && evRow['예배시간']) || ts.worship;
+  const meet = timeSettings.parse(evRow && evRow['리허설시간']) || (isEv ? '' : ts.rehearsal) || worship;
+  const [h, m] = worship.split(':').map(Number), em = Math.min(23 * 60 + 59, h * 60 + m + 90);
+  const end = `${String(Math.floor(em / 60)).padStart(2, '0')}:${String(em % 60).padStart(2, '0')}`;
+  const url = base + contiUrl(team, { event: t.event, date: t.date });
+  return { title: `${team} ${isEv ? t.name : '주일예배'} 찬양${st.pos.length ? ' (' + st.pos.join(' · ') + ')' : ''}`, date: t.date, time: meet, end, place: ts.place || '',
+    details: [meet !== worship ? `리허설 모임 ${timeSettings.fmt(meet)} · 예배 ${timeSettings.fmt(worship)}` : `예배 ${timeSettings.fmt(worship)}`, st.pos.length ? '내 포지션: ' + st.pos.join(' · ') : '', '콘티: ' + url].filter(Boolean).join('\n'),
+    url, alarm: `${tname} 찬양`, uid: `serve-${t.key}-${team.replace(/[^A-Za-z0-9가-힣]/g, '')}@praise-broadcast-hub` };
+}
+
+/** 나의 스케줄 — 앞으로 (기본 3개월) 내가 서는 주일 · 행사와 그 연습일. 스케줄표의 "나의 스케줄" 창이 읽음.
+ *  id = 'sun:<예배키>' | 'prac:<연습 날짜>' (한 금요일에 2주치를 연습하면 연습은 한 번) */
+async function mySchedule(req, months) {
+  const team = req.ctx.current, me = String(req.ctx.member['이름'] || '').trim();
+  const today = week.todayStr(), to = prac.addDays(today, Math.round(30.5 * months));
+  const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const [assignAll, offAll, evs, ts, gs] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), specialServices(team), timeSettings.get(team), practiceView.groups(team, today, to)]);
+  const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+  const out = [];
+  const targets = [];
+  for (let d = today; d <= to; d = prac.addDays(d, 1)) if (new Date(d + 'T12:00:00').getDay() === 0) targets.push({ key: d, date: d, event: '', name: '' });
+  evs.filter((e) => prac.isDate(e['날짜']) && e['날짜'] >= today && e['날짜'] <= to).forEach((e) => targets.push({ key: 'ev-' + e['ID'], date: e['날짜'], event: String(e['ID']), name: String(e['이름'] || '주일 외 찬양'), row: e }));
+  targets.forEach((t) => {
+    const st = practiceView.standing(me, t, A, O);
+    if (!st.pos.length) return;
+    const offSun = O.some((r) => String(r['날짜']) === t.key && String(r['이름'] || '').trim() === me && String(r['구분'] || '').trim() !== '연습');
+    const ev = serveEvent(team, t, st, ts, t.row || null, base);
+    out.push({ id: 'sun:' + t.key, kind: 'sun', date: t.date, time: ev.time, title: t.event ? `${t.name}` : `${practiceView.md(t.date)} 주일`,
+      detail: `${t.event ? '주일 외 찬양' : '3부 예배'} · ${st.pos.join(' · ')}${ev.time ? ' · ' + timeSettings.fmt(ev.time) + ' 모임' : ''}`, off: offSun, google: practiceView.googleCalUrl(ev) });
+  });
+  gs.forEach((g) => {
+    const mine = g.targets.map((t) => Object.assign({ t }, practiceView.standing(me, t, A, O))).filter((x) => x.pos.length);
+    if (!mine.length) return;
+    const ev = practiceView.calEvent(team, g, mine.map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos })), base);
+    const dd = new Date(g.date + 'T12:00:00');
+    out.push({ id: 'prac:' + g.date, kind: 'prac', date: g.date, time: g.time, title: `${practiceView.md(g.date)} ${DOW[dd.getDay()]}요일 연습`,
+      detail: [timeSettings.fmt(g.time), g.place, mine.map((x) => practiceView.targetName(x.t)).join(' · ') + ' 콘티'].filter(Boolean).join(' · '),
+      off: mine.every((x) => x.off), google: practiceView.googleCalUrl(ev) });
+  });
+  out.sort((a, b) => a.date.localeCompare(b.date) || (a.kind === 'prac' ? -1 : 1));
+  return { team, me, items: out };
+}
+router.get('/cal/mine', requireTeam, async (req, res) => {
+  try { res.set('Cache-Control', 'private, no-store'); res.json({ ok: true, result: await mySchedule(req, Math.min(6, Math.max(1, Number(req.query.months) || 3))) }); }
+  catch (e) { console.error('[나의 스케줄]', e && e.message); res.status(500).json({ ok: false, error: '불러오지 못했어요.' }); }
+});
+/** 나의 스케줄에서 고른 일정들을 캘린더 파일 하나로 — ?ids=sun:2026-10-25,prac:2026-10-23 (아이폰 · 맥 캘린더 · 구글 캘린더 가져오기) */
+router.get('/cal/mine.ics', requireTeam, async (req, res) => {
+  const team = req.ctx.current, me = String(req.ctx.member['이름'] || '').trim();
+  const want = new Set(String(req.query.ids || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 60));
+  if (!want.size) return res.status(400).type('text').send('넣을 일정을 골라 주세요.');
+  const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const [assignAll, offAll, ts] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), timeSettings.get(team)]);
+  const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+  const evs = [];
+  for (const id of want) {
+    const [kind, key] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
+    if (kind === 'sun') {
+      const isEv = /^ev-/.test(key), evRow = isEv ? await specialServiceById(team, key.slice(3)) : null;
+      if (isEv ? !evRow : !prac.isDate(key)) continue;
+      const t = isEv ? { key, date: evRow['날짜'], event: String(evRow['ID']), name: String(evRow['이름'] || '주일 외 찬양') } : { key, date: key, event: '', name: '' };
+      const st = practiceView.standing(me, t, A, O);
+      if (st.pos.length) evs.push(serveEvent(team, t, st, ts, evRow, base));
+    } else if (kind === 'prac' && prac.isDate(key)) {
+      const g = (await practiceView.groups(team, key, key))[0]; if (!g) continue;
+      const mine = g.targets.map((t) => Object.assign({ t }, practiceView.standing(me, t, A, O))).filter((x) => x.pos.length);
+      if (!mine.length) continue;
+      const ev = practiceView.calEvent(team, g, mine.map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos })), base);
+      ev.uid = `practice-${g.date}-${team.replace(/[^A-Za-z0-9가-힣]/g, '')}@praise-broadcast-hub`;
+      evs.push(ev);
+    }
+  }
+  if (!evs.length) return res.status(404).type('text').send('넣을 일정이 없어요.');
+  evs.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store', 'Content-Disposition': `attachment; filename="my-schedule-${evs[0].date}.ics"` });
+  res.send(practiceView.icsText(evs));
+});
+
 router.get('/cal/serve', requireTeam, async (req, res) => {
   const team = req.ctx.current, key = String(req.query.key || '').trim(), kind = req.query.kind === 'prac' ? 'prac' : 'sun';
   const isEvKey = /^ev-/.test(key);
@@ -910,14 +1041,7 @@ router.get('/cal/serve', requireTeam, async (req, res) => {
     const w = practiceView.whenOf(p.note, ts);
     ev = practiceView.calEvent(team, { date: p.date, time: w.time, place: w.place, targets: [t] }, st.pos.length ? [{ name: tname, pos: st.pos }] : null, base);
   } else {
-    const worship = timeSettings.parse(evRow && evRow['예배시간']) || ts.worship;
-    const meet = timeSettings.parse(evRow && evRow['리허설시간']) || (isEvKey ? '' : ts.rehearsal) || worship;
-    const [h, m] = worship.split(':').map(Number), em = Math.min(23 * 60 + 59, h * 60 + m + 90);       // 예배 시작 + 1시간 30분
-    const end = `${String(Math.floor(em / 60)).padStart(2, '0')}:${String(em % 60).padStart(2, '0')}`;
-    const url = base + contiUrl(team, { event: t.event, date: t.date });
-    ev = { title: `${team} ${t.event ? t.name : '주일예배'} 찬양${st.pos.length ? ' (' + st.pos.join(' · ') + ')' : ''}`, date: t.date, time: meet, end, place: ts.place || '',
-      details: [meet !== worship ? `리허설 모임 ${timeSettings.fmt(meet)} · 예배 ${timeSettings.fmt(worship)}` : `예배 ${timeSettings.fmt(worship)}`, st.pos.length ? '내 포지션: ' + st.pos.join(' · ') : '', '콘티: ' + url].filter(Boolean).join('\n'),
-      url, alarm: `${tname} 찬양` };
+    ev = serveEvent(team, t, st, ts, evRow, base);
   }
   if (req.query.to === 'google') return res.redirect(practiceView.googleCalUrl(ev));
   res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="${kind === 'prac' ? 'practice' : 'worship'}-${t.date}.ics"` });
@@ -1006,10 +1130,12 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
     const cards = [];
     for (const t of cur.targets) {
       const scope = { event: t.event, date: t.date };
+      const eventRow = t.event ? await specialServiceById(team, t.event) : null;
       const w = await loadWeek(team, scope);
-      const { byPos, roster } = await weekAssignments(team, scope);
+      const { byPos, roster, infoMap: wInfo } = await weekAssignments(team, scope);
+      const pinfo = await practiceInfo(team, scope, t.date);
       const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
-      const songCtx = { editable: false, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
+      const songCtx = { editable: false, sheetTools: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
       // 이 연습에 오는 사람 — 편성된 사람 중 '연습 불참'(또는 둘 다 불참)이 아닌 사람
       const inT = (r) => (t.event ? r['행사ID'] === t.event : (!r['행사ID'] && r['날짜'] === t.date));
       const offNames = new Set(O.filter((r) => String(r['날짜']) === t.key && String(r['구분'] || '').trim() !== '예배').map((r) => String(r['이름'] || '').trim()));
@@ -1022,17 +1148,19 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       const chip = (x) => `<span class="pc-person${x.off ? ' off' : ''}${x.name === me ? ' me' : ''}" title="${esc(x.pos.join(' · '))}${x.off ? ' — 연습 불참' : ''}">${avatar.avatarHtml(x.name, infoMap[x.name] || {}, 'sm', { noBadge: true })}<span class="pc-pn">${esc(honorific.isPastorRoles((infoMap[x.name] || {}).역할) || x.pos.some((p) => honorific.isLeadPos(p)) ? honorific.withTitle(x.name) : x.name)}</span><span class="pc-pp">${esc(x.pos.join(' · '))}</span></span>`;
       const coming = people.filter((x) => !x.off), away = people.filter((x) => x.off);
       const contiHref = contiUrl(team, scope);
-      const liveHref = `/conti/practice?team=${encodeURIComponent(team)}&${t.event ? 'event=' + encodeURIComponent(t.event) : 'date=' + encodeURIComponent(t.date)}`;
-      const songs = w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx)))
-        .concat(w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))))
-        .concat(w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))));
-      cards.push(`<section class="ph-card top-accent pc-target" aria-label="${esc(practiceView.targetName(t))} 콘티">
+      const kakao = kakaoFor({ date: t.date, scope, eventRow, pinfo, w, byPos, infoMap: wInfo });
+      const sec = (title, list) => (list.length ? `<div class="pc-sec"><h3>${title}</h3><div class="cn-songs">${list.join('')}</div></div>` : '');
+      const songsHtml = sec('콘티', w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))))
+        + sec('설교 후 찬양', w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))))
+        + sec('폐회송', w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))));
+      cards.push(`<section class="ph-card pc-target" aria-label="${esc(practiceView.targetName(t))} 콘티">
         <div class="pc-thead">
-          <h2 class="ph-h2">${esc(practiceView.targetName(t))} 콘티</h2>
-          <div class="pc-tlinks"><a class="cn-mini" href="${liveHref}">${ui.icon('note')} 라이브 악보</a><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기</a></div>
+          <div><h2 class="ph-h2">${esc(practiceView.targetName(t))} 콘티</h2><p class="pc-tdate">${esc(week.labelKo(t.date))}${cur.targets.length > 1 ? ` · ${cur.targets.indexOf(t) + 1} / ${cur.targets.length}` : ''}</p></div>
+          <div class="pc-tlinks"><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기 ${ui.icon('next')}</a></div>
         </div>
+        <div class="cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
         ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
-        <div class="cn-songs">${songs.length ? songs.join('') : '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}</div>
+        ${songsHtml || '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}
       </section>`);
     }
     body = head + cards.join('');

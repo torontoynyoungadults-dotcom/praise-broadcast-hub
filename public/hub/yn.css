@@ -381,7 +381,7 @@
   html[data-theme="light"] :where(.yn):not(html) .mdbox { background: #FFFBEB !important; color: #1C3D35 !important; border: 1px solid rgba(138,95,34,.28) !important; border-left: 5px solid #1F4A3F !important; box-shadow: 0 1px 2px rgba(18,39,34,.05), 0 6px 18px rgba(18,39,34,.07) !important; }
   html[data-theme="light"] :where(.yn):not(html) .mdbox .mdh, html[data-theme="light"] :where(.yn):not(html) .mdbox .mdh b { color: #21453D !important; }
   html[data-theme="light"] :where(.yn):not(html) .mdbox .mdt { color: #1C3D35 !important; }
-  html[data-theme="light"] :where(.yn):not(html) .mdbox .mdnone { color: #8A5F22 !important; }
+  html[data-theme="light"] :where(.yn):not(html) .mdbox .mdnone { color: #24493C !important; }
   html[data-theme="light"] :where(.yn):not(html) .mdbox .mdbtn { background: #FFFFFF !important; color: #21453D !important; border-color: rgba(138,95,34,.45) !important; }
   html[data-theme="light"] :where(.yn):not(html) .mdbox .mdarea { background: #FFFFFF !important; color: #122722 !important; border-color: rgba(18,39,34,.24) !important; }
 
@@ -397,10 +397,10 @@
   }
   :where(.yn) .soi svg { width: 17px; height: 17px; }
   :where(.yn) .solo .sob { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  :where(.yn) .solo .sot { width: 100%; font-size: 12.5px; font-weight: 800; color: #a17d36; letter-spacing: .08em; }
+  :where(.yn) .solo .sot { width: 100%; font-size: 12.5px; font-weight: 800; color: #9A4B3C; letter-spacing: .08em; }
   :where(.yn) .solo .nm { background: #fff; border-color: #E3D0A9; font-size: 16px; }
   :where(.yn) .solo .nm .fc { width: 30px; height: 30px; font-size: 14px; }
-  :where(.yn) .solo .nm em, :where(.yn) .ssw em { font-style: normal; font-size: 13.5px; font-weight: 750; color: #a17d36; margin-left: 2px; }
+  :where(.yn) .solo .nm em, :where(.yn) .ssw em { font-style: normal; font-size: 13.5px; font-weight: 750; color: #9A4B3C; margin-left: 2px; }
   :where(.yn) .solosum {
     background: #12211E; color: #FFFFFF; border-radius: var(--r-md); padding: 12px 13px 6px; margin-bottom: 12px;
   }
@@ -598,8 +598,8 @@
   :where(.yn) .stmine input { width: 18px; height: 18px; margin: 0; accent-color: #DCC08C; }
   :where(.yn) .stmine.on { border-color: #DCC08C; background: rgba(220,192,140,.16); color: #EEE2CB; }
   html[data-theme="light"] :where(.yn) .stmine { border-color: rgba(18,39,34,.22); background: #fff; color: #122722; }
-  html[data-theme="light"] :where(.yn) .stmine.on { border-color: #8A5F22; background: rgba(138,95,34,.10); color: #6B4715; }
-  html[data-theme="light"] :where(.yn) .stmine input { accent-color: #8A5F22; }
+  html[data-theme="light"] :where(.yn) .stmine.on { border-color: #24493C; background: rgba(138,95,34,.10); color: #6B4715; }
+  html[data-theme="light"] :where(.yn) .stmine input { accent-color: #24493C; }
   /* v7.0 — PDF 보고서 단추 (예배콘티 · 스케줄표 · 통계 · 장비 · 수리) */
   :where(.yn) .docbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
   :where(.yn) .docbar .docbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 12px; font-weight: 800; }
@@ -1029,7 +1029,7 @@
   }
   :where(.yn):not(html) .st.준비중, :where(.yn):not(html) .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
   :where(.yn):not(html) .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
-  :where(.yn):not(html) .st.마감 { background: #A17D36 !important; color: #FFFFFF !important; }
+  :where(.yn):not(html) .st.마감 { background: #9A4B3C !important; color: #FFFFFF !important; }
 
   :where(.yn):not(html) .wk, :where(.yn):not(html) .wk * { color: #FFFFFF !important; }
   :where(.yn):not(html) .wk .d, :where(.yn):not(html) .wk .n { color: #E4E0DA !important; }
@@ -1137,8 +1137,8 @@
 
   /* 상태색 */
   --good: #1D7A56;  --good-bg: #E6F2EC;
-  --warn: #A17D36;  --warn-bg: #FBF2E1;
-  --bad:  #a17d36;  --bad-bg:  #F2EAD9;
+  --warn: #9A4B3C;  --warn-bg: #FBF2E1;
+  --bad:  #9A4B3C;  --bad-bg:  #F2EAD9;
 
   /* 그림자 */
   --sh-1: 0 1px 2px rgba(17,32,29,.05);
@@ -1158,7 +1158,7 @@
   --orange: var(--tone);
   --danger: var(--bad);
   --low: var(--bad);
-  --mid: #A17D36;
+  --mid: #9A4B3C;
   --mid-bg: var(--bad-bg);
   --absent: var(--bad);
   --absent-bg: var(--bad-bg);
@@ -1941,13 +1941,13 @@
    · 세션 / 연습(악보) 화면은 무대 조명 아래에서도 눈부시지 않도록 늘 어두운 화면을 씁니다.
    --------------------------------------------------------- */
 /* ---- v6 밝은 화면 — 깔끔한 흰 카드 · 선명한 글씨 (예전 베이지 · 사진 바탕 대신) ----
-   토큰: 바탕 #F2F7F4 · 카드 흰색 · 글씨 #122722 / #2c5c51 / #678880 · 선 rgba(18,39,34,.09) · 강조 #F39E70(v6.1 · 글씨용 #A94B1F) */
+   토큰: 바탕 #F2F7F4 · 카드 흰색 · 글씨 #122722 / #2c5c51 / #678880 · 선 rgba(18,39,34,.09) · 강조 #F39E70(v6.1 · 글씨용 #24493C) */
 html[data-theme="light"] :where(.yn) {
   color-scheme: light;
   --lt-bg: #F2F7F4; --lt-card: #FFFFFF; --lt-card-2: #F9FBFA; --lt-sunk: #ECF5F1;
   --lt-ink: #122722; --lt-ink-2: #2c5c51; --lt-ink-3: #678880; --lt-ink-4: #9AB2AC;
   --lt-line: rgba(18,39,34,.09); --lt-line-2: rgba(18,39,34,.16);
-  --lt-or: #1F4A3F; --lt-or-ink: #8A5F22; --lt-or-soft: rgba(31,74,63,.14); --lt-on-or: #15211D;   /* v6.1 — 밝은 화면 메인 색 #F39E70 (글씨용은 진한 청록 #A94B1F · 색 칸 위 글씨 #17302A) */
+  --lt-or: #1F4A3F; --lt-or-ink: #24493C; --lt-or-soft: rgba(31,74,63,.14); --lt-on-or: #15211D;   /* v6.1 — 밝은 화면 메인 색 #F39E70 (글씨용은 진한 청록 #24493C · 색 칸 위 글씨 #17302A) */
   --lt-sh-1: 0 1px 2px rgba(18,39,34,.05);
   --lt-sh-2: 0 1px 2px rgba(18,39,34,.04), 0 6px 20px rgba(18,39,34,.06);
   --lt-ring: 0 0 0 3px rgba(31,74,63,.32);
@@ -1988,7 +1988,7 @@ html[data-theme="light"] :where(.yn):not(html) .sermoncard {
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 html[data-theme="light"] :where(.yn):not(html) .sermoncard .sc-t { color: var(--lt-ink) !important; }
-html[data-theme="light"] :where(.yn):not(html) .sermoncard .sc-k { color: #8A5F22 !important; }
+html[data-theme="light"] :where(.yn):not(html) .sermoncard .sc-k { color: #24493C !important; }
 html[data-theme="light"] :where(.yn):not(html) .sermoncard .sc-d, html[data-theme="light"] :where(.yn):not(html) .sermoncard .sc-go { color: var(--lt-ink-3) !important; }
 html[data-theme="light"] :where(.yn):not(html) .toggle button:not(.on-present):not(.on-absent) {
   background: #FFFFFF !important; border: 1.5px solid rgba(18,39,34,.30) !important; color: var(--lt-ink-2) !important; box-shadow: none !important;
@@ -1999,15 +1999,15 @@ html[data-theme="light"] :where(.yn):not(html) .panel .stpick button:not(.picked
 html[data-theme="light"] :where(.yn):not(html) .tile .td, html[data-theme="light"] :where(.yn):not(html) .tile small { color: var(--lt-ink-3) !important; }
 html[data-theme="light"] :where(.yn):not(html) #dash .tiles.adm .tile { background: var(--lt-card) !important; }
 /* 포털 타일 아이콘 — 밝은 바탕에서는 진한 색으로 (어두운 화면용 옅은 색이 흰 바탕에 묻히지 않게) */
-html[data-theme="light"] :where(.yn) #dash .tile.leader { --mc: #8A5F22; --mc-soft: rgba(138,95,34,.10); }
+html[data-theme="light"] :where(.yn) #dash .tile.leader { --mc: #24493C; --mc-soft: rgba(138,95,34,.10); }
 html[data-theme="light"] :where(.yn) #dash .tile.team { --mc: #15803D; --mc-soft: rgba(21,128,61,.10); }
-html[data-theme="light"] :where(.yn) #dash .tile.expense, html[data-theme="light"] :where(.yn) #dash .tile.budget, html[data-theme="light"] :where(.yn) #dash .tile.acct { --mc: #8A5F22; --mc-soft: rgba(138,95,34,.11); }
-html[data-theme="light"] :where(.yn) #dash .tile.newfamily { --mc: #8A5F22; --mc-soft: rgba(138,95,34,.10); }
+html[data-theme="light"] :where(.yn) #dash .tile.expense, html[data-theme="light"] :where(.yn) #dash .tile.budget, html[data-theme="light"] :where(.yn) #dash .tile.acct { --mc: #24493C; --mc-soft: rgba(138,95,34,.11); }
+html[data-theme="light"] :where(.yn) #dash .tile.newfamily { --mc: #24493C; --mc-soft: rgba(138,95,34,.10); }
 html[data-theme="light"] :where(.yn) #dash .tile.mission { --mc: #047857; --mc-soft: rgba(4,120,87,.10); }
-html[data-theme="light"] :where(.yn) #dash .tile.worship, html[data-theme="light"] :where(.yn) #dash .tile.minutes { --mc: #8A5F22; --mc-soft: rgba(138,95,34,.10); }
-html[data-theme="light"] :where(.yn) #dash .tile.equipment { --mc: #8A5F22; --mc-soft: rgba(138,95,34,.10); }
-html[data-theme="light"] :where(.yn) #dash .tile.bulletin { --mc: #8A5F22; --mc-soft: rgba(31,74,63,.14); }
-html[data-theme="light"] :where(.yn) #dash .tile.bulletinEdit { --mc: #8A5F22; --mc-soft: rgba(138,95,34,.10); }
+html[data-theme="light"] :where(.yn) #dash .tile.worship, html[data-theme="light"] :where(.yn) #dash .tile.minutes { --mc: #24493C; --mc-soft: rgba(138,95,34,.10); }
+html[data-theme="light"] :where(.yn) #dash .tile.equipment { --mc: #24493C; --mc-soft: rgba(138,95,34,.10); }
+html[data-theme="light"] :where(.yn) #dash .tile.bulletin { --mc: #24493C; --mc-soft: rgba(31,74,63,.14); }
+html[data-theme="light"] :where(.yn) #dash .tile.bulletinEdit { --mc: #24493C; --mc-soft: rgba(138,95,34,.10); }
 html[data-theme="light"] :where(.yn) #dash .tile.forms { --mc: #0369A1; --mc-soft: rgba(3,105,161,.10); }
 html[data-theme="light"] :where(.yn) #dash .tile.cellapp { --mc: #CF473E; --mc-soft: rgba(207,71,62,.09); }
 
@@ -2074,7 +2074,7 @@ html[data-theme="light"] :where(.yn):not(html) .asfloat b { color: #12332B; }
 /* 찬양 허브 안의 도구 칸(가사 · 악보 자르기 · 송폼 만들기)은 어두운 유리 변수를 쓰므로 밝은 화면에서는 변수만 밝게 */
 html[data-theme="light"] :where(.yn):not(html) :is(.ht, .lyp, .fb) {
   --g-bg: #FFFFFF; --g-bg2: #F2F8F5; --g-solid: #FFFFFF; --g-line: rgba(18,39,34,.10); --g-line2: rgba(18,39,34,.18);
-  --g-ink: #122722; --g-sub: #4c645e; --g-dim: #678880; --g-a2: #8A5F22;
+  --g-ink: #122722; --g-sub: #4c645e; --g-dim: #678880; --g-a2: #24493C;
 }
 
 /* v6.1 — 밝은 화면 메인 색 #F39E70: 색으로 채운 단추 · 탭 위 글씨는 진한 청록(#17302A, 대비 5.8) — 흰 글씨는 이 색 위에서 잘 안 읽힙니다 */
@@ -2106,7 +2106,7 @@ html[data-fs="3"] :where(.yn):not(html) > .shell { zoom: 1.4; }
 :where(.yn) .ynfs b { min-width: 26px; text-align: center; font-size: 13px; font-weight: 800; color: var(--tone, #D6B97F); }
 :where(.yn) .ynfs button:focus-visible { outline: 2px solid var(--tone); outline-offset: 1px; }
 html[data-theme="light"] :where(.yn) .ynfs { background: #FFFFFF; border-color: var(--lt-line-2); color: #1C3D35; box-shadow: var(--lt-sh-1); }
-html[data-theme="light"] :where(.yn) .ynfs b { color: var(--lt-or-ink, #8A5F22); }
+html[data-theme="light"] :where(.yn) .ynfs b { color: var(--lt-or-ink, #24493C); }
 html[data-theme="light"] :where(.yn) .ynfs button:active { background: #E4EEE9; }
 html.eq-embed :where(.yn) .ynfs { display: none !important; }
 
@@ -2184,7 +2184,7 @@ html[data-theme="light"] :where(.yn) .ynwel { background: rgba(255, 255, 255, .9
 html[data-theme="light"] :where(.yn) .ynwel li { color: #1C3D35; }
 html[data-theme="light"] :where(.yn) .ynwel button { background: #183D33; color: #FBF8F1; }
 html[data-theme="light"] :where(.yn) .ynwel button.g { background: #E4EEE9; color: #1C3D35; }
-html[data-theme="light"] :where(.yn) .ynwel .st { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .ynwel .st { color: #24493C; }
 
 /* ===== public/worship/hub.css ===== */
 /* ============================================================
@@ -2419,8 +2419,8 @@ html[data-theme="light"] :where(.yn) .ynwel .st { color: #8A5F22; }
 :where(.yn) .pk-w { height: 100%; box-sizing: border-box; border: 1px solid #b8b0a4; border-top: 0; background: linear-gradient(#fdfbf7, #e9e3d8); border-radius: 0 0 7px 7px; color: #223e39; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
 :where(.yn) .pk-w .pk-lb { font-size: 11px; font-weight: 800; pointer-events: none; } :where(.yn) .pk-w .pk-lb i { font-style: normal; font-size: 9px; opacity: .7; }
 :where(.yn) .pk-b { height: 62%; z-index: 2; border: 1px solid #000; border-top: 0; background: linear-gradient(#3b3b3b, #080e0d); border-radius: 0 0 5px 5px; box-shadow: 0 3px 6px rgba(0, 0, 0, .5); }
-:where(.yn) .pk-w.scale { background: linear-gradient(#fff2df, #ebdec3); } :where(.yn) .pk-w.tonic { background: linear-gradient(#e2cea7, #e2cb9c); } :where(.yn) .pk-b.scale { background: linear-gradient(#6c3d29, #12221f); } :where(.yn) .pk-b.tonic { background: linear-gradient(#e2cb9c, #a17d36); }
-:where(.yn) .pk-w.on { background: linear-gradient(#e9dbbe, #e2cb9c); transform: translateY(1px); } :where(.yn) .pk-b.on { background: linear-gradient(#e2cb9c, #a17d36); }
+:where(.yn) .pk-w.scale { background: linear-gradient(#fff2df, #ebdec3); } :where(.yn) .pk-w.tonic { background: linear-gradient(#e2cea7, #e2cb9c); } :where(.yn) .pk-b.scale { background: linear-gradient(#6c3d29, #12221f); } :where(.yn) .pk-b.tonic { background: linear-gradient(#e2cb9c, #9A4B3C); }
+:where(.yn) .pk-w.on { background: linear-gradient(#e9dbbe, #e2cb9c); transform: translateY(1px); } :where(.yn) .pk-b.on { background: linear-gradient(#e2cb9c, #9A4B3C); }
 :where(.yn) .pk-info { margin-top: 9px; font-size: 13.5px; color: var(--g-a2); font-weight: 700; min-height: 1.5em; line-height: 1.5; } :where(.yn) .pk-info.bad { color: #f8b4a6; }
 @media (max-width: 640px) { :where(.yn) .pk-board { height: 128px; } :where(.yn) .pk-w .pk-lb { font-size: 9.5px; } }
 
@@ -3382,18 +3382,18 @@ html[data-theme="light"] :where(.yn) .pv, html[data-theme="light"] :where(.yn) .
   --g-bg: rgba(255, 255, 255, .86); --g-bg2: rgba(255, 255, 255, .7); --g-solid: #FFFFFF;
   --g-line: rgba(18, 39, 34, .12); --g-line2: rgba(18, 39, 34, .2);
   --g-ink: #122722; --g-sub: #4c645e; --g-dim: #678880;
-  --g-a: #183D33; --g-a2: #8A5F22; --g-a-rgb: 243, 158, 112; --g-ok: #15803D; --g-bad: #AB2D21;
+  --g-a: #183D33; --g-a2: #24493C; --g-a-rgb: 243, 158, 112; --g-ok: #15803D; --g-bad: #AB2D21;
 }
 html[data-theme="light"] :where(.yn) .pv {
   --v6-bg: #EEF5F2; --v6-sf: rgba(255, 255, 255, .97); --v6-sf2: rgba(18, 39, 34, .05); --v6-sf3: rgba(18, 39, 34, .09);
   --v6-line: rgba(18, 39, 34, .09); --v6-line2: rgba(18, 39, 34, .16); --v6-ink: #122722; --v6-sub: #4c645e; --v6-dim: #678880;
   --v6-a: #1F4A3F; --v6-a-soft: rgba(31, 74, 63, .2); --v6-sh: 0 1px 2px rgba(18, 39, 34, .06), 0 12px 32px rgba(18, 39, 34, .14);
-  --g-a: #183D33; --g-a2: #8A5F22; --g-line: var(--v6-line); --g-line2: var(--v6-line2); --g-ink: var(--v6-ink); --g-sub: var(--v6-sub); --g-dim: var(--v6-dim);
+  --g-a: #183D33; --g-a2: #24493C; --g-line: var(--v6-line); --g-line2: var(--v6-line2); --g-ink: var(--v6-ink); --g-sub: var(--v6-sub); --g-dim: var(--v6-dim);
   color: var(--v6-ink);
   background: radial-gradient(1200px 600px at 50% -200px, rgba(31, 74, 63, .14), transparent 70%), var(--v6-bg);
 }
 html[data-theme="light"] :where(.yn) .pv header.pv-top, html[data-theme="light"] :where(.yn) .pv .pv-top { background: rgba(255, 255, 255, .94); border-bottom-color: var(--v6-line2); box-shadow: 0 1px 2px rgba(18, 39, 34, .05); }
-html[data-theme="light"] :where(.yn) .pv .pv-b[aria-pressed="true"], html[data-theme="light"] :where(.yn) .pv .pv-b.on, html[data-theme="light"] :where(.yn) .pv:not(.pv-compact) .pv-tools .pv-dk[aria-pressed="true"], html[data-theme="light"] :where(.yn) .pv .pv-metro .pv-lv-tts[aria-pressed="true"] { background: var(--v6-a-soft); border-color: rgba(24, 61, 51, .6); color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .pv .pv-b[aria-pressed="true"], html[data-theme="light"] :where(.yn) .pv .pv-b.on, html[data-theme="light"] :where(.yn) .pv:not(.pv-compact) .pv-tools .pv-dk[aria-pressed="true"], html[data-theme="light"] :where(.yn) .pv .pv-metro .pv-lv-tts[aria-pressed="true"] { background: var(--v6-a-soft); border-color: rgba(24, 61, 51, .6); color: #24493C; }
 html[data-theme="light"] :where(.yn) .pv .pv-seg button.on { box-shadow: 0 1px 2px rgba(18, 39, 34, .12); background: #FFFFFF; }
 html[data-theme="light"] :where(.yn) .pv-seg button.on, html[data-theme="light"] :where(.yn) .pv-tool.on, html[data-theme="light"] :where(.yn) .pv-mc.on { background: #1F4A3F; color: #FBF8F1; }
 html[data-theme="light"] :where(.yn) .pv:not(.pv-compact) .pv-tools .pv-tool.on, html[data-theme="light"] :where(.yn) .pv .pv-btn2.primary, html[data-theme="light"] :where(.yn) .pv .pv-radio button.on, html[data-theme="light"] :where(.yn) .pv .pv-seg button.primary, html[data-theme="light"] :where(.yn) .pv .pv-metro .pv-lv-go, html[data-theme="light"] :where(.yn) .pv.pv-narrow.pv-moreopen .pv-morebtn { background: #1F4A3F !important; color: #FBF8F1 !important; box-shadow: 0 4px 14px rgba(31, 74, 63, .35); }
@@ -3407,7 +3407,7 @@ html[data-theme="light"] :where(.yn) .pv .pv-piano-x { background: rgba(18, 39, 
 html[data-theme="light"] :where(.yn) .pv-loading { background: rgba(238, 245, 242, .7); }
 html[data-theme="light"] :where(.yn) .pv-col { border-color: rgba(18, 39, 34, .3); }
 html[data-theme="light"] :where(.yn) .pv-chip, html[data-theme="light"] :where(.yn) .pv-pill { background: rgba(18, 39, 34, .04); }
-html[data-theme="light"] :where(.yn) .pv-lead.me { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .pv-lead.me { color: #24493C; }
 html[data-theme="light"] :where(.yn) .pv-follow.off { color: #AB2D21; background: rgba(207, 71, 62, .08); border-color: rgba(207, 71, 62, .35); }
 html[data-theme="light"] :where(.yn) .pv-follow.on { color: #15803D; background: rgba(21, 128, 61, .08); border-color: rgba(21, 128, 61, .35); }
 html[data-theme="light"] :where(.yn) .pv-conn.online { color: #15803D; border-color: rgba(21, 128, 61, .35); }
@@ -3418,7 +3418,7 @@ html[data-theme="light"] :where(.yn) .pv input[type=range]::-moz-range-thumb { b
 /* v6.3 — 예배 타이머 막대 (timer.js 가 넣는 .yt-bar) 도 밝은 화면에서 밝게 */
 html[data-theme="light"] :where(.yn) .yt-bar, html[data-theme="light"] :where(.yn) .yt-panel {
   --yt-bg: rgba(255, 255, 255, .95); --yt-bg2: rgba(18, 39, 34, .05); --yt-line: rgba(18, 39, 34, .14); --yt-ink: #122722; --yt-sub: #4c645e;
-  --yt-a: #183D33; --yt-a2: #8A5F22; --yt-ok: #15803D; --yt-warn: #8A5F22; --yt-bad: #AB2D21;
+  --yt-a: #183D33; --yt-a2: #24493C; --yt-ok: #15803D; --yt-warn: #24493C; --yt-bad: #AB2D21;
 }
 html[data-theme="light"] :where(.yn) .yt-chip.idle .yt-v { color: #2c5c51 !important; }
 html[data-theme="light"] :where(.yn) .yt-ib, html[data-theme="light"] :where(.yn) .yt-btn, html[data-theme="light"] :where(.yn) .yt-in { background: rgba(18, 39, 34, .05) !important; color: #122722 !important; color-scheme: light; }
@@ -3484,7 +3484,7 @@ html[data-theme="light"] :where(.yn) .yg-tile { background: linear-gradient(160d
 html[data-theme="light"] :where(.yn) .yg-tile span { color: #4c645e; }
 html[data-theme="light"] :where(.yn) .yg-chip { background: #F2F8F5; border-color: rgba(18, 39, 34, .16); }
 html[data-theme="light"] :where(.yn) .yg-chip.top { background: rgba(31, 74, 63, .25); border-color: #183D33; }
-html[data-theme="light"] :where(.yn) .yg-chip b { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .yg-chip b { color: #24493C; }
 html[data-theme="light"] :where(.yn) .yg-sc i { background: linear-gradient(180deg, #DAE4DF, #2D6858); box-shadow: none; }
 html[data-theme="light"] :where(.yn) .yg-tl { border-left-color: rgba(18, 39, 34, .2); }
 html[data-theme="light"] :where(.yn) .yg-tl li::before { background: #fff; }
@@ -3542,11 +3542,11 @@ html[data-theme="light"] :where(.yn) .yg-tl em { color: #FBF8F1; background: #1F
 :where(.yn) .rp-form input { min-width: 0; }
 html[data-theme="light"] :where(.yn) .sv-kv, html[data-theme="light"] :where(.yn) .sv-txt, html[data-theme="light"] :where(.yn) .sv-ann { background: #F9FBFA; border-color: rgba(18, 39, 34, .12); color: #122722; }
 html[data-theme="light"] :where(.yn) .sv-ord li { border-bottom-color: rgba(18, 39, 34, .09); }
-html[data-theme="light"] :where(.yn) .sv-ord li b { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .sv-ord li b { color: #24493C; }
 html[data-theme="light"] :where(.yn) .sv-ann { border-left-color: #1F4A3F; }
 html[data-theme="light"] :where(.yn) .rp-card { background: #FFFFFF; border-color: rgba(18, 39, 34, .12); color: #122722; box-shadow: 0 1px 2px rgba(18, 39, 34, .05); }
 html[data-theme="light"] :where(.yn) .rp-card.open, html[data-theme="light"] :where(.yn) .rp-dock.on { border-color: #1F4A3F; }
-html[data-theme="light"] :where(.yn) .rp-pill { background: rgba(31, 74, 63, .16); color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .rp-pill { background: rgba(31, 74, 63, .16); color: #24493C; }
 html[data-theme="light"] :where(.yn) .rp-det, html[data-theme="light"] :where(.yn) .rp-hist .rp-h { border-color: rgba(18, 39, 34, .1); }
 @media (max-width: 560px) { :where(.yn) .rp-g .w2 { grid-column: span 1; } }
 :where(.yn) .rp-dock .msg:empty { display: none; }
@@ -3671,10 +3671,10 @@ html[data-theme="light"] :where(.yn) .rp-det, html[data-theme="light"] :where(.y
 html[data-theme="light"] :where(.yn) .libnav { background: rgba(255, 255, 255, .85); border-color: rgba(18, 39, 34, .26); box-shadow: 0 2px 10px rgba(18, 39, 34, .08); }
 html[data-theme="light"] :where(.yn) .libnav button { color: #1C3D35; }
 html[data-theme="light"] :where(.yn) .libnav button.on { background: linear-gradient(135deg, #3A6B5E, #1F4A3F); color: #FBF8F1; box-shadow: 0 4px 12px rgba(138, 95, 34, .35); }
-html[data-theme="light"] :where(.yn) .lib-fbtn b { background: #8A5F22; color: #fff; }
-html[data-theme="light"] :where(.yn) .lib-sum b { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .lib-fbtn b { background: #24493C; color: #fff; }
+html[data-theme="light"] :where(.yn) .lib-sum b { color: #24493C; }
 html[data-theme="light"] :where(.yn) .rp-card.lsong { background: linear-gradient(150deg, rgba(255, 255, 255, .98), rgba(249, 251, 250, .9)); border: 1px solid rgba(18, 39, 34, .26); box-shadow: 0 1px 0 #fff inset, 0 6px 18px rgba(18, 39, 34, .10); color: #122722; }
-html[data-theme="light"] :where(.yn) .rp-card.lsong.open, html[data-theme="light"] :where(.yn) .rp-card.lsong.picked { border-color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .rp-card.lsong.open, html[data-theme="light"] :where(.yn) .rp-card.lsong.picked { border-color: #24493C; }
 html[data-theme="light"] :where(.yn) .rp-card.lsong.picked { box-shadow: 0 0 0 2px rgba(138, 95, 34, .25), 0 6px 18px rgba(18, 39, 34, .10); }
 html[data-theme="light"] :where(.yn) .lmono { background: linear-gradient(135deg, #3A6B5E, #1F4A3F); color: #FBF8F1; box-shadow: none; }
 html[data-theme="light"] :where(.yn) .ltx small, html[data-theme="light"] :where(.yn) .luse small { color: #4c645e; opacity: 1; }
@@ -3682,13 +3682,13 @@ html[data-theme="light"] :where(.yn) .lc { background: #F2F8F5; border-color: rg
 html[data-theme="light"] :where(.yn) .lc.key { background: #ECF0EC; border-color: #1F4A3F; color: #7A3A17; }
 html[data-theme="light"] :where(.yn) .lc.sh { background: #E6F3EE; border-color: #7DD3FC; color: #075985; }
 html[data-theme="light"] :where(.yn) .lpick i { border-color: #678880; background: #fff; }
-html[data-theme="light"] :where(.yn) .lpick input:checked + i { background: #8A5F22; border-color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .lpick input:checked + i { background: #24493C; border-color: #24493C; }
 html[data-theme="light"] :where(.yn) .lpick input:checked + i::after { border-color: #fff; }
 html[data-theme="light"] :where(.yn) .lsong .rp-det { background: #F9FBFA; border-top-color: rgba(18, 39, 34, .18); }
 html[data-theme="light"] :where(.yn) .lsong .rp-sh { background: #fff; border-color: rgba(18, 39, 34, .22); }
 html[data-theme="light"] :where(.yn) .lsong .rp-hist .rp-h { border-bottom-color: rgba(18, 39, 34, .14); }
 html[data-theme="light"] :where(.yn) .rec-play { background: linear-gradient(135deg, #3A6B5E, #1F4A3F); color: #FBF8F1; box-shadow: 0 4px 12px rgba(138, 95, 34, .35); }
-html[data-theme="light"] :where(.yn) .rec.playing { border-color: #8A5F22 !important; box-shadow: 0 0 0 2px rgba(138, 95, 34, .25) !important; }
+html[data-theme="light"] :where(.yn) .rec.playing { border-color: #24493C !important; box-shadow: 0 0 0 2px rgba(138, 95, 34, .25) !important; }
 html[data-theme="light"] :where(.yn) .rec.cued:not(.playing) { border-color: rgba(138, 95, 34, .55) !important; }
 html[data-theme="light"] :where(.yn) .plr { background: linear-gradient(160deg, rgba(255, 255, 255, .97), rgba(242, 248, 245, .95)); color: #122722; border-color: rgba(18, 39, 34, .28);
   box-shadow: 0 18px 44px rgba(18, 39, 34, .28), 0 1px 0 #fff inset; }
@@ -3696,14 +3696,14 @@ html[data-theme="light"] :where(.yn) .plr-cover, html[data-theme="light"] :where
 html[data-theme="light"] :where(.yn) .plr-cover i { background: #fff; } html[data-theme="light"] :where(.yn) .plr-b.main { color: #fff; box-shadow: 0 6px 16px rgba(138, 95, 34, .45); }
 html[data-theme="light"] :where(.yn) .plr-open, html[data-theme="light"] :where(.yn) .plr-x { color: #122722; background: #fff; border-color: rgba(18, 39, 34, .3); }
 html[data-theme="light"] :where(.yn) .plr-b { background: rgba(18, 39, 34, .08); color: #122722; } html[data-theme="light"] :where(.yn) .plr-b.sm { background: transparent; }
-html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-webkit-slider-runnable-track { background: linear-gradient(90deg, #8A5F22 var(--p), rgba(18, 39, 34, .22) var(--p)); }
+html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-webkit-slider-runnable-track { background: linear-gradient(90deg, #24493C var(--p), rgba(18, 39, 34, .22) var(--p)); }
 html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-moz-range-track { background: rgba(18, 39, 34, .22); }
-html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-moz-range-progress { background: #8A5F22; }
-html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-webkit-slider-thumb { background: #fff; border-color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-moz-range-progress { background: #24493C; }
+html[data-theme="light"] :where(.yn) .plr-seek input[type=range]::-webkit-slider-thumb { background: #fff; border-color: #24493C; }
 html[data-theme="light"] :where(.yn) .plr-spd { background: rgba(18, 39, 34, .08); } html[data-theme="light"] :where(.yn) .plr-spd button, html[data-theme="light"] :where(.yn) .plr-spd select { color: #122722; }
-html[data-theme="light"] :where(.yn) .plr-spd button.on { background: #8A5F22; color: #fff; }
-html[data-theme="light"] :where(.yn) .plr-ab { color: #122722; background: #fff; border-color: rgba(18, 39, 34, .3); } html[data-theme="light"] :where(.yn) .plr-ab.on { background: #ECF0EC; border-color: #8A5F22; }
-html[data-theme="light"] :where(.yn) .plr-vol input { accent-color: #8A5F22; } html[data-theme="light"] :where(.yn) .plr-err { color: #AB2D21; }
+html[data-theme="light"] :where(.yn) .plr-spd button.on { background: #24493C; color: #fff; }
+html[data-theme="light"] :where(.yn) .plr-ab { color: #122722; background: #fff; border-color: rgba(18, 39, 34, .3); } html[data-theme="light"] :where(.yn) .plr-ab.on { background: #ECF0EC; border-color: #24493C; }
+html[data-theme="light"] :where(.yn) .plr-vol input { accent-color: #24493C; } html[data-theme="light"] :where(.yn) .plr-err { color: #AB2D21; }
 
 /* ============================================================
    v6.9 — 밝은 화면 보완: 유튜브 참고 영상 창 · 송폼/메트로놈 탭의 고정 막대 (예전엔 밝은 화면에서도 검게 남아 있었음)
@@ -3724,13 +3724,13 @@ html[data-theme="light"] :where(.yn) .pv-yth { color: #122722; }
 html[data-theme="light"] :where(.yn) .pv-yth a, html[data-theme="light"] :where(.yn) .pv-yth button { background: rgba(18, 39, 34, .07); }
 html[data-theme="light"] :where(.yn) .pv-yth a:hover, html[data-theme="light"] :where(.yn) .pv-yth button:hover { background: rgba(31, 74, 63, .3); }
 html[data-theme="light"] :where(.yn) .yt-lb, html[data-theme="light"] :where(.yn) .yt-abinfo { color: #4c645e; }
-html[data-theme="light"] :where(.yn) .yt-ctl.looping .yt-abinfo, html[data-theme="light"] :where(.yn) .yt-kn, html[data-theme="light"] :where(.yn) .yt-kstat, html[data-theme="light"] :where(.yn) .yt-msg { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .yt-ctl.looping .yt-abinfo, html[data-theme="light"] :where(.yn) .yt-kn, html[data-theme="light"] :where(.yn) .yt-kstat, html[data-theme="light"] :where(.yn) .yt-msg { color: #24493C; }
 html[data-theme="light"] :where(.yn) .yt-msg.bad, html[data-theme="light"] :where(.yn) .yt-kstat.bad { color: #AB2D21; }
 html[data-theme="light"] :where(.yn) .yt-b { background: #fff; color: #122722; border-color: rgba(18, 39, 34, .2); }
 html[data-theme="light"] :where(.yn) .yt-b.ghost { background: transparent; }
 html[data-theme="light"] :where(.yn) .yt-b.on { background: #1F4A3F; color: #FBF8F1; border-color: transparent; }
 html[data-theme="light"] :where(.yn) .yt-warn { background: rgba(31, 74, 63, .12); border-color: rgba(24, 61, 51, .5); color: #122722; }
-html[data-theme="light"] :where(.yn) .yt-warn b { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .yt-warn b { color: #24493C; }
 html[data-theme="light"] :where(.yn) .yt-note { color: #678880; }
 :where(.yn) .yt-skip .yt-b { min-width: 84px; }
 
@@ -3805,13 +3805,13 @@ html[data-theme="light"] :where(.yn) .yt-note { color: #678880; }
 html[data-theme="light"] :where(.yn) .satchip { background: #FFFFFF; border-color: rgba(18, 39, 34, .14); color: #122722; }
 html[data-theme="light"] :where(.yn) .satchip.on { background: linear-gradient(135deg, #3A6B5E, #1F4A3F); color: #FBF8F1; box-shadow: 0 6px 16px rgba(24, 61, 51, .35); }
 html[data-theme="light"] :where(.yn) .satchip.on i { color: #15211D; } html[data-theme="light"] :where(.yn) .satchip.now { box-shadow: inset 0 0 0 1.5px rgba(24, 61, 51, .8); }
-html[data-theme="light"] :where(.yn) .satchip i.bible { color: #8A5F22; } html[data-theme="light"] :where(.yn) .satchip i.life { color: #15803D; }
+html[data-theme="light"] :where(.yn) .satchip i.bible { color: #24493C; } html[data-theme="light"] :where(.yn) .satchip i.life { color: #15803D; }
 html[data-theme="light"] :where(.yn) .satcal { border-color: rgba(18, 39, 34, .2); background: #fff; }
 html[data-theme="light"] :where(.yn) .satseg { background: rgba(18, 39, 34, .05); border-color: rgba(18, 39, 34, .14); }
 html[data-theme="light"] :where(.yn) .satseg button.on { background: linear-gradient(135deg, #3A6B5E, #1F4A3F); color: #FBF8F1; box-shadow: 0 4px 12px rgba(24, 61, 51, .3); }
 html[data-theme="light"] :where(.yn) .satvs { border-color: rgba(18, 39, 34, .14); background: #fff; }
 html[data-theme="light"] :where(.yn) .satvh { background: rgba(18, 39, 34, .05); } html[data-theme="light"] :where(.yn) .satv { border-top-color: rgba(18, 39, 34, .09); }
-html[data-theme="light"] :where(.yn) .satv .vn { color: #8A5F22; }
+html[data-theme="light"] :where(.yn) .satv .vn { color: #24493C; }
 html[data-theme="light"] :where(.yn) .satnote { border-top-color: rgba(18, 39, 34, .18); }
 html[data-theme="light"] :where(.yn) .satmy { background: rgba(31, 74, 63, .12); border-color: rgba(24, 61, 51, .45); }
 html[data-theme="light"] :where(.yn) .satp { background: #fff; border-color: rgba(18, 39, 34, .12); color: #122722; } html[data-theme="light"] :where(.yn) .satp.has { background: #F6FAFB; }
@@ -3826,7 +3826,7 @@ html[data-theme="light"] :where(.yn) .satst.bad { color: #AB2D21; }
    · 주일 편성의 각진 칸 → "이 주의 말씀" 과 같은 하늘색 둥근 상자 (테두리는 연한 하늘색, 눌러 열리면 진한 하늘색)
    · 라이브 악보 시작 단추 → 테마색(하늘색 #F39E70) 으로
    ========================================================= */
-html[data-theme="light"] :where(.yn):not(html) .lu .lh { color: #8A5F22; font-size: 12px; letter-spacing: .1em; margin: 0 0 8px 4px; }
+html[data-theme="light"] :where(.yn):not(html) .lu .lh { color: #24493C; font-size: 12px; letter-spacing: .1em; margin: 0 0 8px 4px; }
 html[data-theme="light"] :where(.yn):not(html) .lu .lh:after { background: linear-gradient(90deg, rgba(24, 61, 51, .35), transparent); }
 html[data-theme="light"] :where(.yn):not(html) .lu .lr {
   background: linear-gradient(180deg, #FBFAF7 0%, #FFF0E6 100%) !important;
@@ -3841,8 +3841,8 @@ html[data-theme="light"] :where(.yn):not(html) .lu2 .rows .lr { border: 1px soli
 html[data-theme="light"] :where(.yn):not(html) button.lr:hover { border-color: rgba(24, 61, 51, .7) !important; background: linear-gradient(180deg, #F7F5F0, #E8EEEB) !important; }
 html[data-theme="light"] :where(.yn):not(html) button.lr:active { transform: scale(.992); }
 html[data-theme="light"] :where(.yn):not(html) .lu .lr.open { background: #E4EAE7 !important; border-color: #183D33 !important; box-shadow: 0 0 0 3px rgba(31, 74, 63, .22) !important; }
-html[data-theme="light"] :where(.yn):not(html) .lr .pl { color: #8A5F22; font-weight: 800; }
-html[data-theme="light"] :where(.yn):not(html) .lr .pl .si { background: #FFFFFF !important; color: #8A5F22 !important; box-shadow: inset 0 0 0 1px rgba(24, 61, 51, .35); }
+html[data-theme="light"] :where(.yn):not(html) .lr .pl { color: #24493C; font-weight: 800; }
+html[data-theme="light"] :where(.yn):not(html) .lr .pl .si { background: #FFFFFF !important; color: #24493C !important; box-shadow: inset 0 0 0 1px rgba(24, 61, 51, .35); }
 html[data-theme="light"] :where(.yn):not(html) .lr .pe { color: #12302A; font-weight: 700; }
 html[data-theme="light"] :where(.yn):not(html) .lr .pe.none { color: #7F9C93; font-weight: 600; }
 html[data-theme="light"] :where(.yn):not(html) .lr .ed { color: #183D33; }
@@ -3853,7 +3853,7 @@ html[data-theme="light"] :where(.yn):not(html) .pvstartbtn, html[data-theme="lig
   border: 1px solid rgba(255, 255, 255, .55) !important; box-shadow: 0 10px 26px rgba(24, 61, 51, .38), inset 0 1px 0 rgba(255, 255, 255, .5) !important;
 }
 html[data-theme="light"] :where(.yn):not(html) .pvstartbtn small { color: #15211D; opacity: .78; }
-html[data-theme="light"] :where(.yn):not(html) .pvstartbtn:focus-visible { outline: 3px solid #8A5F22; }
+html[data-theme="light"] :where(.yn):not(html) .pvstartbtn:focus-visible { outline: 3px solid #24493C; }
 html[data-theme="light"] :where(.yn):not(html) .pvauto { background: #FBFAF7; border-color: rgba(24, 61, 51, .35); color: #FBF8F1; }
 html[data-theme="light"] :where(.yn):not(html) .pvgo:not(.pvstartbtn) { background: linear-gradient(135deg, #DAE4DF, #2E6356); color: #FBF8F1; box-shadow: 0 6px 16px rgba(24, 61, 51, .3); }
 
@@ -3911,7 +3911,7 @@ html[data-theme="light"] :where(.yn):not(html) .pvgo:not(.pvstartbtn) { backgrou
 :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input) { border-radius: 7px !important; border: 1.5px solid rgba(255, 255, 255, .38) !important; background: rgba(255, 255, 255, .05) !important; }
 :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked { background: #d6b97f !important; border-color: #e6d3a8 !important; }
 html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input) { background: #fff !important; border-color: rgba(15, 23, 42, .35) !important; }
-html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked { background: #8A5F22 !important; border-color: #8A5F22 !important; }
+html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked { background: #24493C !important; border-color: #24493C !important; }
 html[data-theme="light"] :where(.yn):not(html) .panel input[type=checkbox]:not(.pv-switch input):not(.lpick input):checked::after { border-color: #fff; }
 
 /* ================= V20 — 체크 표시를 칸 한가운데에 (SVG) =================

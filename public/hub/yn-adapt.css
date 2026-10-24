@@ -17,7 +17,7 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
   --lt-ink: #15211D; --lt-ink-2: #2E4A42; --lt-ink-3: #6D7873; --lt-ink-4: #9AA39F;
   --lt-line: rgba(21, 33, 29, .10); --lt-line-2: rgba(21, 33, 29, .17);
   --lt-sh-2: 0 1px 2px rgba(21, 33, 29, .04), 0 12px 32px -18px rgba(21, 33, 29, .18);
-  --lt-or: #1F4A3F; --lt-or-ink: #8A5F22; --lt-or-soft: rgba(31, 74, 63, .12); --lt-on-or: #FBF8F1; --lt-ring: 0 0 0 3px rgba(31, 74, 63, .22);
+  --lt-or: #1F4A3F; --lt-or-ink: #24493C; --lt-or-soft: rgba(31, 74, 63, .12); --lt-on-or: #FBF8F1; --lt-ring: 0 0 0 3px rgba(31, 74, 63, .22);
 }
 
 /* 산호 칸(지금 고른 것 · 주 단추) — 어두운 화면 · 밝은 화면 모두 칸은 부드러운 산호, 그 위 글씨는 진한 숲색.
@@ -30,8 +30,8 @@ html[data-theme="light"] .yn :is(.wk.on, .sesbar button.on, .pick.on, .evseg but
   .panel .submit, #cropper .cbtns button.go, .st td.dc.sel, .stc.sel .stch .ck, .submit, .pwsubmit, .dirbtn) { background: var(--lt-or) !important; border-color: transparent !important; }
 
 /* 통계 막대 · 숫자 막대 — 밝은 화면에서도 진한 산호 대신 부드러운 산호 + 살구 노랑 */
-html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: linear-gradient(90deg, var(--lt-or), #A67C3A); }
-html[data-theme="light"] .yn .mcol .mbar { background: linear-gradient(180deg, #A67C3A, var(--lt-or)); }
+html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: linear-gradient(90deg, var(--lt-or), #24493C); }
+html[data-theme="light"] .yn .mcol .mbar { background: linear-gradient(180deg, #24493C, var(--lt-or)); }
 /* 팀 고르기 (팀이 둘 이상일 때) */
 .ph-teamcard { padding: 14px 16px; }
 
@@ -47,7 +47,7 @@ html[data-theme="light"] .yn .mcol .mbar { background: linear-gradient(180deg, #
 .yn .stch .stpr:hover, .yn .stch .stpr:focus-visible { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .5); outline: none; }
 .yn .stch .stpr.set { color: var(--accent) !important; }
 html[data-theme="light"] .yn .stch .stpr { color: #2F5348 !important; }
-html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #A94B1F !important; }
+html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #24493C !important; }
 html[data-theme="light"] .yn .st .dc .stpr { color: #2F5348; }
 .yn .stch .stpr.none, .yn .st .stpr.none { opacity: .72; }
 .yn .st .dc .stpr { cursor: pointer; }
@@ -78,7 +78,7 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #2F5348; }
 .yn .yc-sh .prchk .pcn { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .yn .yc-sh .prchk .pcn b { font-size: 14px; font-weight: 800; }
 .yn .yc-sh .prchk .pcn i { font-style: normal; font-size: 12px; color: #5A7168; }
-.yn .yc-sh .prchk .pcs { flex: none; font-style: normal; font-size: 12px; font-weight: 800; color: #A94B1F; }
+.yn .yc-sh .prchk .pcs { flex: none; font-style: normal; font-size: 12px; font-weight: 800; color: #24493C; }
 
 /* ---------- 스케줄표 머리 — [스케줄표] [내가 안 되는 날] ........ [카드|테이블] 한 줄 ---------- */
 .yn .stpanel > .sechead { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
@@ -93,7 +93,7 @@ html[data-theme="light"] .yn .st .dc .stpr { color: #2F5348; }
 .yn .stoffbtn svg { width: 16px; height: 16px; flex: none; }
 .yn .stoffbtn:hover, .yn .stoffbtn.on { background: rgba(var(--tone-rgb), .24); border-color: rgba(var(--tone-rgb), .6); }
 .yn .stoffbtn .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--accent); color: var(--on-tone); }
-html[data-theme="light"] .yn .stoffbtn { color: #A94B1F; }
+html[data-theme="light"] .yn .stoffbtn { color: #24493C; }
 .yn .stmine { margin: 2px 0 12px; }
 .yn .stmine-in { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 16px; background: rgba(var(--tone-rgb), .09); border: 1px solid rgba(var(--tone-rgb), .26); }
 .yn .offchips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
@@ -325,3 +325,103 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal { -
 .yn .chg-banner .chg-by, .yn .chg-daybox .chg-by { color: var(--ink-3); opacity: 1; }
 .yn .chg-list li, .yn .chg-daybox li { color: var(--ink-1); }
 .yn .chg-banner .chg-row b { color: var(--ink-1); }
+
+/* ======================================================================
+   V13 — 차분한 상록 (app.css V13 와 같은 색) — 스케줄표 · 라이브러리
+   · 강조는 진한 상록 하나, 나머지는 따뜻한 회색. 황동 · 호박 · 살구 · 세이지 칸 색은 쓰지 않음
+   · 테이블: 가로 화면은 맨 앞에 "연습" 칸 → "주일" 칸 → 편성. 폰은 날짜 칸 위 작은 줄로 연습일 (역시 주일보다 앞)
+   ====================================================================== */
+html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
+  --accent: #24493C !important; --tone: #24493C !important; --tone-rgb: 36, 73, 60 !important; --on-tone: #FFFFFF;
+  --tone-soft: #F1F0EB; --tone-line: #DAD8D0;
+  --lt-bg: #F2F1EC; --lt-card: #FFFFFF; --lt-card-2: #F6F5F0; --lt-sunk: #F1F0EB;
+  --lt-ink: #1B2420; --lt-ink-2: #4A544F; --lt-ink-3: #5F6863; --lt-ink-4: #8A8F8C;
+  --lt-line: #E3E2DC; --lt-line-2: #DAD8D0;
+  --lt-or: #24493C; --lt-or-ink: #24493C; --lt-or-soft: #F1F0EB; --lt-on-or: #FFFFFF; --lt-ring: 0 0 0 3px rgba(36, 73, 60, .2);
+  --ink-1: #1B2420; --ink-2: #4A544F; --ink-3: #5F6863; --ink-4: #8A8F8C;
+  --hair: #E3E2DC; --hair-2: #DAD8D0;
+  --bad: #9A4B3C; --bad-bg: #F3E9E5; --good: #24493C; --good-bg: #EEF2EF;
+  --chg: #24493C; --chg-rgb: 36, 73, 60; --chg-ink: #24493C;
+}
+html[data-theme="light"] .yn { --grid: #E3E2DC; --grid-hd: #DAD8D0; --st-head: #F6F5F0; --st-date: #FFFFFF; --st-zebra: transparent; --st-mrow: #F1F0EB; --st-ev: #FAFAF7; }
+.yn.yn-main, .yn.yn-portal { --chg: #CFE0D8; --chg-rgb: 207, 224, 216; --chg-ink: #CFE0D8; --accent: #CFE0D8; --tone: #2D5A48; --tone-rgb: 45, 90, 72; --on-tone: #FFFFFF; }
+.yn { --grid: #29312D; --grid-hd: #353E39; --st-head: #1D2421; --st-date: #161C19; --st-zebra: transparent; --st-mrow: #202825; --st-ev: #1A201D; }
+
+/* 패널 · 머리 칩 */
+html[data-theme="light"] .yn .panel { background: #FFFFFF !important; border: 1px solid #E3E2DC !important; box-shadow: none !important; }
+html[data-theme="light"] .yn .sechead .chip { background: transparent !important; color: #1B2420 !important; border: 0 !important; padding-left: 0 !important; font-size: 18px !important; font-weight: 800 !important; }
+.yn .sechead .chip::before { display: none !important; }
+html[data-theme="light"] .yn .stseg { background: #F6F5F0 !important; border: 0 !important; }
+html[data-theme="light"] .yn :is(.stseg button.on, .wk.on, .seg button.on) { background: #24493C !important; color: #FFFFFF !important; }
+html[data-theme="light"] .yn .sttools select, html[data-theme="light"] .yn .hlsel, html[data-theme="light"] .yn .rangesel { background: #FFFFFF !important; border: 1px solid #DAD8D0 !important; color: #1B2420 !important; border-radius: 14px !important; }
+html[data-theme="light"] .yn .stmine { background: #FFFFFF !important; border: 1px solid #DAD8D0 !important; color: #1B2420 !important; border-radius: 14px !important; }
+html[data-theme="light"] .yn .stmine input { accent-color: #24493C; }
+html[data-theme="light"] .yn .docbar .btn, html[data-theme="light"] .yn .docbtn { background: #FFFFFF !important; border: 1px solid #DAD8D0 !important; color: #1B2420 !important; }
+
+/* 이름 칩 — 강조 · 불가 · 객원 */
+html[data-theme="light"] .yn .tn.hl, html[data-theme="light"] .yn .tp.hl { background: #24493C !important; color: #FFFFFF !important; box-shadow: none !important; }
+html[data-theme="light"] .yn .st td.c .tn.hl { background: #24493C !important; color: #FFFFFF !important; }
+html[data-theme="light"] .yn .tn.off, html[data-theme="light"] .yn .tp.off { background: #F3E9E5 !important; color: #9A4B3C !important; }
+html[data-theme="light"] .yn .tn.guest, html[data-theme="light"] .yn .tp.guest { background: transparent !important; color: #1B2420 !important; box-shadow: none !important; outline: 1px dashed #8A8F8C; outline-offset: -1px; border: 0 !important; }
+html[data-theme="light"] .yn .tp { background: #F6F5F0 !important; color: #1B2420 !important; }
+
+/* 테이블 */
+html[data-theme="light"] .yn .stwrap { border-color: #DAD8D0 !important; background: #FFFFFF !important; }
+html[data-theme="light"] .yn .st tr.evr td, html[data-theme="light"] .yn .st td.dc.ev { background: #FAFAF7 !important; }
+html[data-theme="light"] .yn .st tr.evr td.dc { box-shadow: inset 3px 0 0 #24493C; }
+html[data-theme="light"] .yn .st td.dc .dcn { color: #24493C !important; }
+html[data-theme="light"] .yn .st td.dc .stpr, html[data-theme="light"] .yn .st td.dc .sd { color: #5F6863 !important; }
+.yn .st td.dc .sd .prw, .yn .stpr .prw { background: #F1F0EB !important; color: #4A544F; }
+.yn .st .dch-w { display: none; }
+.yn .st td.xc.pc { position: relative; text-align: left; padding: 6px 10px; }
+.yn .st td.xc.pc b { font-size: 14px; white-space: nowrap; }
+.yn .st td.xc.pc em { color: var(--ink-3) !important; font-weight: 700; }
+.yn .st td.xc.pc.none .pn { font-size: 12.5px; }
+.yn .st tr.mrow td.xc.pc { background: var(--st-mrow) !important; color: var(--ink-1) !important; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-align: center; }
+html[data-theme="light"] .yn .st td.xc.pc { background: #FFFFFF; }
+@media (min-width: 900px) and (orientation: landscape) {
+  .yn .st .dch-n { display: none; } .yn .st .dch-w { display: inline; }
+  .yn .st th.xc.pc, .yn .st td.xc.pc { position: sticky; left: 0; z-index: 2; min-width: 118px; width: 118px; max-width: 118px; border-right: 1px solid var(--grid) !important; }
+  .yn .st thead th.xc.pc { z-index: 4; top: 0; }
+  .yn .st .dc { left: 118px !important; }
+  .yn .st td.xc.pc i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+  .yn .st tr.mrow td.dc { color: transparent !important; }
+}
+
+/* 카드 보기 */
+html[data-theme="light"] .yn .stc { background: #FFFFFF !important; border: 1px solid #E3E2DC !important; box-shadow: none !important; border-radius: 20px !important; }
+html[data-theme="light"] .yn .stch { color: #1B2420 !important; }
+html[data-theme="light"] .yn .stch .stpr { background: #F6F5F0 !important; border-color: #E3E2DC !important; color: #4A544F !important; }
+html[data-theme="light"] .yn .stch .stpr.set, html[data-theme="light"] .yn .stch .stpr:hover { color: #24493C !important; border-color: #24493C !important; }
+html[data-theme="light"] .yn .stmon { color: #5F6863 !important; }
+html[data-theme="light"] .yn .stcc { background: #FFFFFF !important; }
+html[data-theme="light"] .yn .stcc .pl { color: #5F6863 !important; }
+html[data-theme="light"] .yn .stoff { background: #F6F5F0 !important; color: #4A544F !important; }
+html[data-theme="light"] .yn .stoff b { color: #9A4B3C !important; }
+html[data-theme="light"] .yn .stch .mo, html[data-theme="light"] .yn .stch .oc { background: #F3E9E5 !important; color: #9A4B3C !important; }
+
+/* 내가 안 되는 날 */
+html[data-theme="light"] .yn .offd.on { background: #9A4B3C !important; border-color: #9A4B3C !important; }
+html[data-theme="light"] .yn .offd.on.half { background: repeating-linear-gradient(135deg, #9A4B3C 0 7px, #B9776A 7px 14px) !important; }
+html[data-theme="light"] .yn .offd.on i { color: #9A4B3C !important; }
+html[data-theme="light"] .yn .offd { border-color: #DAD8D0 !important; }
+html[data-theme="light"] .yn .offc-peek span, html[data-theme="light"] .yn .offc-n { background: #F3E9E5 !important; color: #9A4B3C !important; }
+html[data-theme="light"] .yn .offc-go { border-color: #DAD8D0 !important; color: #1B2420 !important; }
+html[data-theme="light"] .yn .offc-ed { background: #F6F5F0 !important; }
+
+/* 변경 강조 — 호박색 대신 상록 */
+html[data-theme="light"] .yn .chg-banner, html[data-theme="light"] .yn .chg-daybox { background: #F6F5F0 !important; border-color: #DAD8D0 !important; }
+html[data-theme="light"] .yn .chg-banner .chg-btn[data-a="ok"] { background: #24493C !important; border-color: #24493C !important; color: #FFFFFF !important; }
+html[data-theme="light"] .yn .chg-banner .chg-btn { color: #1B2420 !important; border-color: #DAD8D0 !important; background: #FFFFFF; }
+html[data-theme="light"] .yn .st td.dc.chg-day b::after, html[data-theme="light"] .yn .stch.chg-day b::after { color: #FFFFFF !important; background: #24493C !important; }
+html[data-theme="light"] .yn .chg-k { background: #ECEBE5 !important; }
+.yn .chg-banner .chg-dot { box-shadow: 0 0 0 4px rgba(var(--chg-rgb), .18); }
+
+/* 시트(아래에서 올라오는 흰 창) */
+.yn .yc-sh .chipbtn { color: #1B2420 !important; background: #F6F5F0 !important; border-color: #DAD8D0 !important; }
+.yn .yc-sh .prchk { background: #FFFFFF !important; border-color: #E3E2DC !important; color: #1B2420 !important; }
+.yn .yc-sh .prchk .pcs { color: #5F6863 !important; }
+.yn .yc-sh .prchk .pcn i { color: #5F6863 !important; }
+.yn .yc-sh input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .yn .yc-sh select, .yn .yc-sh textarea { background-color: #FFFFFF !important; border-color: #DAD8D0 !important; color: #1B2420 !important; -webkit-text-fill-color: #1B2420; }
+.yn .yc-sh .btn.accent { background: #24493C !important; color: #FFFFFF !important; }
+html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: #24493C !important; }

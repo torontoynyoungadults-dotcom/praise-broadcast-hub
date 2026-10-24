@@ -230,16 +230,22 @@ function stPracBox(r) {
     (w ? '<span class="stprw">같은 날 연습 · ' + esc(w) + '</span>' : '') +
     (D.canEdit ? ' <button type="button" class="btn mini" onclick="YC.close();stPractice(\'' + esc(jsq(r.key)) + '\')">바꾸기</button>' : '') + '</div></div>';
 }
-/** 테이블의 가로 화면용 칸 — 연습(날짜 · 메모 · 같이 연습하는 예배) · 곡 수. 세로 화면 · 폰에서는 CSS 로 숨김 */
-function stXHead() { return '<th class="xc" rowspan="2">연습</th><th class="xc xs" rowspan="2">곡</th>'; }
-function stXCells(r) {
+/** 테이블의 가로 화면용 칸 — 맨 앞에 연습(날짜 · 메모 · 같이 연습하는 예배), 맨 뒤에 곡 수. 세로 화면 · 폰에서는 CSS 로 숨기고
+ *  날짜 칸 위 작은 줄(stPracShort)로 연습일을 보여 줌 — 어느 화면이든 연습일이 주일보다 앞에 */
+function stDcHead() { return '<span class="dch-n">날짜</span><span class="dch-w">주일</span>'; }
+function stXFrontHead() { return '<th class="xc pc" rowspan="2">연습</th>'; }
+function stXFrontMonth(mo) { return '<td class="xc pc">' + Number(String(mo).split('-')[1]) + '월</td>'; }
+function stXFront(r) {
   var p = r.practice || null, w = stPracWith(r);
   var none = !p || p.none || p.unset || !p.date;
-  var pc = '<td class="xc pc' + (D.canEdit ? ' ed' : '') + '"' + (D.canEdit ? ' onclick="stPractice(\'' + esc(jsq(r.key)) + '\')"' : '') + '>' +
+  return '<td class="xc pc' + (D.canEdit ? ' ed' : '') + (none ? ' none' : '') + '"' + (D.canEdit ? ' onclick="stPractice(\'' + esc(jsq(r.key)) + '\')"' : '') +
+    ' title="' + esc((D.canEdit ? '연습일 바꾸기' : '연습일') + (w ? ' — 같은 날 연습: ' + w : '')) + '">' +
     (none ? '<span class="pn">' + esc(stPracLabel(p)) + '</span>' : '<b>' + WD[dt(p.date).getDay()] + ' ' + md(p.date) + '</b>') +
-    (p && p.note ? '<i>' + esc(p.note) + '</i>' : '') + (w ? '<em>함께 · ' + esc(w) + '</em>' : '') + '</td>';
-  var sc = '<td class="xc xs" onclick="stDay(\'' + esc(jsq(r.key)) + '\')">' + (r.songs ? '<b>' + r.songs + '</b>곡' : '<span class="pn">—</span>') + '</td>';
-  return pc + sc;
+    (p && p.note && !none ? '<i>' + esc(p.note) + '</i>' : '') + (w ? '<em>+' + r.practiceWith.length + ' 함께</em>' : '') + '</td>';
+}
+function stXHead() { return '<th class="xc xs" rowspan="2">곡</th>'; }
+function stXCells(r) {
+  return '<td class="xc xs" onclick="stDay(\'' + esc(jsq(r.key)) + '\')">' + (r.songs ? '<b>' + r.songs + '</b>곡' : '<span class="pn">—</span>') + '</td>';
 }
 /** 'YYYY-MM-DD' + n일 (현지 날짜 그대로) */
 function stDayPlus(d, n) {
