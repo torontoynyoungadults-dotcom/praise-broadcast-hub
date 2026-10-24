@@ -111,13 +111,22 @@ async function teamRoster(team) {
   return members.filter((m) => String(m['소속팀'] || '').split(',').map((s) => s.trim()).includes(team)).map((m) => m['이름']).filter(Boolean);
 }
 
+/** 주일 편성 이름 아래 — 마이크 라인 · 인이어 번호 작은 배지 (직접 그린 선 아이콘 + 번호) */
+const IO_ICON = {
+  mic: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.6" y="1.6" width="4.8" height="8" rx="2.4"/><path d="M3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2.4"/></svg>',
+  iem: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 9.6a3.3 3.3 0 1 1 3.9-3.2c0 1.6-1.4 2-1.4 3.4 0 1.5-1 2.6-2.4 2.6"/><circle cx="6.4" cy="6.5" r="1" class="k"/><path d="M11.6 4.2c.9.9 1.4 2 1.4 3.3s-.5 2.4-1.4 3.3"/></svg>',
+};
+function ioBadges(parts) {
+  if (!parts || !parts.length) return '';
+  return `<span class="lu-io">${parts.map((p) => `<span class="lu-b ${p.k}" title="${p.k === 'mic' ? '마이크 라인' : '인이어'} ${esc(p.v)}">${IO_ICON[p.k]}<i>${p.k === 'mic' ? 'MIC' : 'IEM'}</i><b>${esc(p.v)}</b></span>`).join('')}</span>`;
+}
 function lineupCell(scope, team, posKey, names, roster, infoMap, snd) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할, 객원: !!infoMap[n].객원 }));   // 객원은 팀원 선택에서 추천에 안 넣고 따로 모음
   const lead = honorific.isLeadPos(posKey);       // 인도자 칸에 들어간 이름은 누구든(객원 포함) "OOO 목사"
   const isP = (n) => lead || honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
   const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !honorific.isPastorRoles((infoMap[n] || {}).역할)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
   const chipName = (n) => (isP(n) ? honorific.withTitle(n) : shortOf(n));       // 목회자 · 인도자는 항상 "윤정환 목사"(줄이지 않음)
-  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md', { noBadge: true })}<span class="ph-chipname">${esc(chipName(n.이름))}</span>${(() => { const t = soundSetup.tagFor(snd, posKey, n.이름); return t ? `<span class="lu-io">${esc(t)}</span>` : ''; })()}</span>`;
+  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md', { noBadge: true })}<span class="ph-chipname">${esc(chipName(n.이름))}</span>${ioBadges(soundSetup.partsFor(snd, posKey, n.이름))}</span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
   const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm', { noBadge: true })}<span>${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}</span>
       <form method="post" action="/conti/lineup/unassign">

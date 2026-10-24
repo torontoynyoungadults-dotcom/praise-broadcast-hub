@@ -2406,3 +2406,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .lu-io { flex-basis: 100%; margin: 1px 0 0 38px; font-size: 12px; font-weight: 700; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .lu-io { white-space: normal !important; margin-left: 38px !important; line-height: 1.35; }
 @media (max-width: 560px) { .lu-io { margin-left: 0 !important; font-size: 11.5px; } }
+
+/* 주일 편성 — 마이크 · 인이어 배지 */
+.lu-io { display: flex !important; flex-wrap: wrap; gap: 4px; margin: 4px 0 0 38px !important; font-size: 12px !important; color: inherit !important; }
+.lu-b { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px 0 6px; border-radius: 7px; background: var(--glass); border: 1px solid var(--line-hi); color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
+.lu-b svg { width: 12px; height: 12px; fill: none; stroke: var(--icon); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.lu-b svg .k { fill: var(--icon); stroke: none; }
+.lu-b i { font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .08em; color: var(--dim); }
+.lu-b b { font-size: 12.5px; font-weight: 800; }
+.lu-b.iem { background: var(--glass-2); }
+@media (max-width: 560px) { .lu-io { margin-left: 0 !important; } .lu-b i { display: none; } }
+.lu-io .lu-b { flex: none !important; width: auto !important; min-width: 0 !important; }
+@media (max-width: 560px) { .lu-io { gap: 3px; } .lu-b { padding: 0 6px 0 5px; gap: 3px; height: 21px; } }
