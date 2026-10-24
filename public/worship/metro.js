@@ -544,8 +544,15 @@
     /* 잠금 화면 · 다른 앱: 메트로놈이 멈춰 있으면 소리 장치(AudioContext)도 잠재웁니다 — 깨어 있으면(prime) 소리가 없어도 iOS 가 "재생 중"으로 보고
        잠금 화면에 재생 카드를 띄웁니다. 화면으로 돌아오면 다시 깨웁니다 (같은 장치라 누르지 않아도 됨). */
     var napped = false;
-    function onVisible() {
+    function onVisible(ev) {
       if (typeof document === 'undefined') return;
+      /* v12.x — 앱을 닫거나 다른 화면으로 떠날 때(pagehide)는 돌고 있어도 완전히 멈추고 소리 장치를 잠재웁니다.
+         (잠금 화면 · 다른 앱으로 잠깐 갈 때는 visibilitychange 만 오므로 메트로놈은 그대로 이어집니다) */
+      if (ev && ev.type === 'pagehide') {
+        if (sched.running || starting) stop();
+        if (ctx && ctx.state === 'running' && ctx.suspend) { napped = true; try { var sp0 = ctx.suspend(); if (sp0 && sp0.catch) sp0.catch(function () {}); } catch (e) { /* 무시 */ } }
+        return;
+      }
       if (document.visibilityState === 'hidden') {
         if (ctx && !sched.running && ctx.state === 'running' && ctx.suspend) { napped = true; try { var sp = ctx.suspend(); if (sp && sp.catch) sp.catch(function () {}); } catch (e) { /* 무시 */ } }
         return;
@@ -922,24 +929,36 @@
      *   · 처음 한 번만 resume 이 끝나길 기다립니다 (화면을 처음 누를 때 prime 이 미리 깨워 두므로 보통 해당 없음).
      */
     var starting = false;                                   // V842 — 소리 장치를 깨우는 중(시작을 눌렀지만 첫 박 전)
+    /* v12.x — 시작 번호: 소리 장치가 늦게 깨어나는 동안(아이폰은 몇 초 걸리기도 함) 멈춤을 누르면, 뒤늦게 깨어난 시작이
+       메트로놈을 다시 켜던 문제("꺼도 계속 나와")를 막습니다. 멈춤 · 새 시작마다 번호가 바뀌고, 옛 번호의 시작은 버립니다. */
+    var runGen = 0;
+    /* v12.x — 소리 없는 재생(미디어 채널)을 지금 막 켰으면 아이폰이 소리 경로를 바꾸는 0.3초쯤 동안 박이 사라집니다
+       ("켜면 나왔다가 몇 음 묵음"). 그럴 때만 첫 박을 그만큼 늦게 예약합니다. 이미 켜져 있으면 바로. */
+    var isIOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    function mediaSettle() {
+      var wasOn = !!(Media.el && !Media.el.paused && Media.el.getAttribute('src'));
+      Media.start();
+      return (!wasOn && !Media.mix && isIOS) ? 0.35 : 0;
+    }
     function start(countInBars) {
       var c;
       try { c = ensureCtx(); } catch (e) { notify('error', { message: e.message }); return { ok: false, error: e.message }; }
+      var gen = ++runGen;
       var go = function (delay) {
         starting = false;
-        if (destroyed) return;
+        if (destroyed || gen !== runGen) return;                       // 그 사이 멈춤(또는 새 시작)을 눌렀으면 버림
         if (c.state !== 'running') { notify('error', { message: HELP.blocked }); return; }
         sched.start(countInBars || 0, delay);
         pump(); startTimer();
         if (!raf) raf = requestAnimationFrame(frame);
         emitState();
-        warmup();                                                       // 음성 합성 예열은 첫 박을 예약한 뒤에 (박을 늦추지 않게)
+        /* 음성 합성 예열(warmup)은 여기서 하지 않습니다 — 아이폰은 음성 합성이 처음 켜질 때 소리 장치를 잠깐 다시 잡아 박이 몇 개 빠졌습니다. 화면을 누를 때(prime) 미리 합니다 */
       };
-      Media.start(); starting = true;
-      if (c.state === 'running') go(0.005);
+      var settle = mediaSettle(); starting = true;
+      if (c.state === 'running') go(0.005 + settle);
       else {
         var r = c.resume ? c.resume() : null;
-        if (r && r.then) r.then(function () { go(0.02); }, function () { notify('error', { message: HELP.blocked }); }); else go(0.02);
+        if (r && r.then) r.then(function () { go(0.02 + settle); }, function () { if (gen === runGen) { starting = false; notify('error', { message: HELP.blocked }); } }); else go(0.02 + settle);
       }
       if (!speechOk) notify('info', { message: HELP.noSpeech });
       return { ok: true };
@@ -953,10 +972,10 @@
       var c;
       try { c = ensureCtx(); } catch (e) { notify('error', { message: e.message }); return { ok: false, error: e.message }; }
       inMs = Number(inMs); if (!isFinite(inMs)) inMs = 0;
+      var gen = ++runGen;
       var go = function () {
-        if (destroyed) return;
+        if (destroyed || gen !== runGen) return;
         if (c.state !== 'running') { notify('error', { message: HELP.blocked }); return; }
-        warmup();
         // resume 가 끝난 시점에서 다시 계산하면 그 사이 지난 시간이 반영됩니다 — 기준은 호출 시각
         var anchor = c.currentTime + (inMs - (Date.now() - t0)) / 1000;
         sched.startAt(anchor, countInBars || 0);
@@ -965,7 +984,7 @@
         emitState();
       };
       var t0 = Date.now();
-      Media.start();
+      mediaSettle();
       var r = c.resume ? c.resume() : null;
       if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
       if (!speechOk) notify('info', { message: HELP.noSpeech });
@@ -984,7 +1003,9 @@
       return t;
     }
     function stop() {
+      runGen++; starting = false;                                     // 아직 깨어나는 중인 시작도 취소
       sched.stop(); stopTimer(); q.length = 0;
+      try { if (ctx) cutScheduled(); } catch (e) { /* 무시 */ }          // 이미 예약해 둔 딸깍 · 음성도 바로 끔
       pending.forEach(function (p) { clearTimeout(p.timeout); });
       pending = [];
       pendingCount = false; countRemain = 0; countdownArmed = false; countdownActive = false;      // v8.39
@@ -1108,7 +1129,7 @@
       hold: function (on) { try { return Media.setHold(on); } catch (e) { return false; } },
       /** 유튜브 · 음악 앱과 같이 듣기 (다른 앱 소리를 줄이지 않음 · 대신 무음 스위치를 끄고 씀) */
       mix: function () { return !!Media.mix; }, setMix: function (on) { try { return Media.setMix(on); } catch (e) { return false; } },
-      prime: function () { try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); warmClick(); return true; } catch (e) { return false; } },
+      prime: function () { try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); warmClick(); if (!sched.running) warmup(); return true; } catch (e) { return false; } },
       /** 오디오가 깨어 있어 누르는 즉시 시작할 수 있는지 */
       ready: function () { return !!(ctx && ctx.state === 'running'); }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 2)); applyVoiceGain(); },
       setMode: function (m) { set('mode', ['downbeat', 'lead', 'now'].indexOf(m) === -1 ? 'lead' : m); },
