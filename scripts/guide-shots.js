@@ -105,7 +105,7 @@ const SHOTS = {
     marks: ['.pc-strip .ph-wstrip-cell.on', '.pc-head', '.pc-target .pc-thead', '.pc-target .cn-toolcard', '.pc-target .pc-people'] },
   practice_rec: { url: '/practice-conti', clip: ['.pc-target .pc-recs'], pad: 12 },
   schedule: { url: '/schedule', wait: '.st', clip: ['.st-toolrow', '.stpanel'], maxH: 1050,
-    marks: ['.st-toolrow a[href^="/schedule/history"]', '.offcard', '.stseg', '.sttools', '.stmbs', 'th.dc'] },
+    marks: ['.st-toolrow', '.offcard', '.stseg', '.sttools', '.stmbs', 'th.dc'] },
   mysched: { url: '/schedule', wait: '.st', w: 640, before: async (p) => { await p.click('.stmbs .stmb:nth-child(2)'); await p.waitForSelector('.calbox .calb'); await p.waitForTimeout(300); },
     clip: ['.stmbs', '.calbox'], pad: 12, marks: ['.calb:nth-child(1)', '.calb:nth-child(2)', '.calb:nth-child(3)', '.calfoot'] },
   events: { url: '/events', clip: ['.ph-card'], maxH: 520 },

@@ -86,7 +86,7 @@ router.get('/schedule', requireTeam, async (req, res) => {
   await hubPage.send(req, res, {
     nav: 'schedule', tab: 'sched', title: `${team} 스케줄표`,
     hero: { eyebrow: `${team} · 스케줄표`, title: '스케줄표', sub: '포지션 편성 · 연습일 · 내가 안 되는 날' },
-    extra: `<div class="ph-adminrow st-toolrow"><a class="ph-mini" href="/schedule/history?team=${encodeURIComponent(team)}">${ui.icon('timer')} 변경 기록</a>${req.ctx.isAdmin ? `<a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}">${ui.icon('download')} 엑셀로 스케줄 올리기</a>` : ''}</div>`,
+    extra: `<div class="ph-adminrow st-toolrow"><a class="ph-mini" href="/schedule/history?team=${encodeURIComponent(team)}">${ui.icon('timer')} 변경 기록</a><button type="button" class="ph-mini" onclick="hubDoc('hubScheduleDoc',[TOKEN,ST.range],'stDocMsg')" title="스케줄표 PDF 미리보기 · 다운로드">${ui.icon('page')} PDF</button>${req.ctx.isAdmin ? `<a class="ph-mini" href="/schedule/import?team=${encodeURIComponent(team)}" title="엑셀로 스케줄 올리기">${ui.icon('download')} 엑셀 올리기</a>` : ''}</div>`,
   });
 });
 

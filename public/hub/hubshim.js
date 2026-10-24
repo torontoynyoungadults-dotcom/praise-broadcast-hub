@@ -539,8 +539,8 @@ function offOne(key) {
 }
 
 /* ---------------------------------------------------------------- V14 스케줄 화면 — 청년부 앱(church-app v11) 스케줄과 같은 차림
- * 머리(제목 · 카드/테이블) → 기간 · 사람 강조 (반반) → [내 스케줄만 보기] [캘린더에 추가] (누르면 아래로 펼침)
- * → "○○ 자리 기준 순서 · 방송 칸은 숨김 [모든 자리 보기]" → PDF → 안내 · 범례 → 표/카드.
+ * 머리(제목 · 카드/테이블) → 한 줄: 기간 · 사람 강조 · [내 일정만] [캘린더] [모든 자리] · 범례 (폰은 두 줄)
+ * → 캘린더를 누르면 아래로 펼침 → 표/카드. PDF 는 맨 위 도구 줄(routes/schedule.js).
  * 테이블 날짜 칸은 한 칸에 "연습일(작게) / 주일(굵게)" — 따로 있던 연습 칸 · 곡 칸은 뺌 (연습 시간 · 곡은 날짜를 누르면 나옴) */
 var ST_KIND_NAME = { sing: '싱어', keys: '건반', drum: '드럼', bass: '베이스', egt: '일렉', agt: '어쿠기타' };
 var stViewGroupsBase = stViewGroups;
@@ -584,16 +584,15 @@ function calBox() {
   else if (L && L.feed) {
     var items = (L.items || []).filter(function (it) { return !it.off; });
     var ics = (window.PH_BASE || '') + '/cal/mine.ics?team=' + encodeURIComponent(HUB.team || '') + '&ids=' + encodeURIComponent(items.map(function (it) { return it.id; }).join(','));
-    h += '<p class="calh">' + esc(dispName(D.who)) + ' 님이 서는 연습 · 주일 예배 · 행사' + (items.length ? ' ' + items.length + '개' : '') + '가 들어갑니다. 한 번 추가해 두면 편성이 바뀔 때 캘린더도 저절로 바뀝니다.</p>' +
+    h += '<p class="calh">내 일정 ' + items.length + '개 · 한 번 추가하면 바뀐 편성도 따라가요.</p>' +
       '<div class="calbtns">' +
-        '<a class="calb" href="' + esc(L.feed.webcal) + '">' + calIco('apple') + '<span>애플 캘린더<small>아이폰 · 아이패드 · 맥</small></span></a>' +
-        '<a class="calb" href="' + esc(L.feed.google) + '" target="_blank" rel="noopener">' + calIco('google') + '<span>구글 캘린더<small>웹에서 「추가」를 누르면 폰 앱에도</small></span></a>' +
-        (items.length ? '<a class="calb" href="' + esc(ics) + '">' + calIco('file') + '<span>.ics 내려받기<small>Outlook 등 · 지금 일정만</small></span></a>' : '') +
+        '<a class="calb" href="' + esc(L.feed.webcal) + '">' + calIco('apple') + '<span>애플<small>아이폰 · 아이패드 · 맥</small></span></a>' +
+        '<a class="calb" href="' + esc(L.feed.google) + '" target="_blank" rel="noopener">' + calIco('google') + '<span>구글<small>웹에서 「추가」를 누르면 폰 앱에도</small></span></a>' +
+        (items.length ? '<a class="calb" href="' + esc(ics) + '">' + calIco('file') + '<span>.ics 파일<small>Outlook 등 · 지금 일정만</small></span></a>' : '') +
       '</div>' +
-      '<div class="calfoot"><button type="button" class="btn mini" onclick="calCopy(this)">주소 복사</button>' +
-        (L.feed.outlook ? '<a class="btn mini" href="' + esc(L.feed.outlook) + '" target="_blank" rel="noopener">아웃룩에 구독</a>' : '') +
-        '<button type="button" class="btn mini" data-mysched data-team="' + esc(HUB.team || '') + '">날짜 골라 넣기</button></div>' +
-      '<p class="calnote">이 주소는 나만의 주소예요. 다른 사람에게 보내지 마세요.</p>';
+      '<div class="calfoot"><button type="button" class="btn mini" onclick="calCopy(this)" title="나만의 주소예요 — 다른 사람에게 보내지 마세요">주소 복사</button>' +
+        (L.feed.outlook ? '<a class="btn mini" href="' + esc(L.feed.outlook) + '" target="_blank" rel="noopener">아웃룩</a>' : '') +
+        '<button type="button" class="btn mini" data-mysched data-team="' + esc(HUB.team || '') + '">날짜 골라 넣기</button></div>';
   }
   return h + '</div>';
 }
@@ -673,22 +672,22 @@ function schedTab() {
   }).join('') + '</div>';
 
   var kind = table ? stViewerKind() : '';
-  var roleBar = kind ? '<div class="strole"><span>' + (ST.allCols ? '모든 자리를 기본 순서로 보는 중' : esc(ST_KIND_NAME[kind] || '내') + ' 자리 기준 순서' + (D.committee ? '' : ' · 방송 칸은 숨김')) + '</span>' +
-    '<button type="button" class="btn mini" onclick="ST.allCols=!ST.allCols;render();">' + (ST.allCols ? '내 자리 기준으로' : '모든 자리 보기') + '</button></div>' : '';
+  var roleBtn = kind ? '<button type="button" class="stmb sm' + (ST.allCols ? ' on' : '') + '" aria-pressed="' + (ST.allCols ? 'true' : 'false') + '" title="' +
+    esc(ST.allCols ? '모든 자리를 기본 순서로 보는 중' : (ST_KIND_NAME[kind] || '내') + ' 자리 기준 순서' + (D.committee ? '' : ' · 방송 칸은 숨김')) + '" onclick="ST.allCols=!ST.allCols;render();">모든 자리</button>' : '';
 
   return stOffCard() + '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄</span>' + viewSeg + '</div>' +
-      '<div class="sttools">' + rangeSel + hlSel + '</div>' +
-      (D.who ? '<div class="stmbs">' +
-        '<button type="button" class="stmb' + (ST.onlyMine ? ' on' : '') + '" aria-pressed="' + (ST.onlyMine ? 'true' : 'false') + '" onclick="stOnlyMine(!ST.onlyMine)">내 스케줄만 보기</button>' +
-        '<button type="button" class="stmb' + (CAL.open ? ' on' : '') + '" aria-expanded="' + (CAL.open ? 'true' : 'false') + '" onclick="calToggle()">' + calIco('apple') + '캘린더에 추가</button></div>' + calBox() : '') +
-      roleBar +
-      '<div class="docbar">' + docBtn('스케줄 PDF 미리보기 · 다운로드', 'hubDoc(\'hubScheduleDoc\',[TOKEN,ST.range],\'stDocMsg\')') + '<p class="msg docmsg" id="stDocMsg"></p></div>' +
-      '<p class="hint sthint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.'
-        : (D.canEdit ? '칸을 누르면 바로 배정합니다. 날짜를 누르면 그날 자세히 볼 수 있어요.'
-                     : '날짜를 누르면 그날 편성과 불가 사유를 볼 수 있어요.')) + '</p>' +
-      '<p class="lg"><span class="tn off">불가</span><span class="tn hl">강조</span><span class="tn guest">객원</span></p>' +
+      '<div class="stctl"><div class="sttools">' + rangeSel + hlSel + '</div>' +
+        '<div class="stmbs">' +
+          (D.who ? '<button type="button" class="stmb sm' + (ST.onlyMine ? ' on' : '') + '" aria-pressed="' + (ST.onlyMine ? 'true' : 'false') + '" onclick="stOnlyMine(!ST.onlyMine)">내 일정만</button>' +
+            '<button type="button" class="stmb sm' + (CAL.open ? ' on' : '') + '" aria-expanded="' + (CAL.open ? 'true' : 'false') + '" onclick="calToggle()">' + calIco('apple') + '캘린더</button>' : '') +
+          roleBtn +
+          '<span class="lg"><span class="tn off">불가</span><span class="tn hl">강조</span><span class="tn guest">객원</span></span>' +
+        '</div></div>' +
+      (D.who ? calBox() : '') +
+      '<p class="msg docmsg" id="stDocMsg"></p>' +
+      (picking ? '<p class="hint sthint">안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.</p>' : '') +
       bar +
-      (ST.onlyMine && !shown.length ? '<p class="empty" style="margin:14px 4px;">이 기간에 ' + esc(dispName(D.who)) + ' 님이 서는 날이 없어요. 기간을 바꾸거나 \'내 스케줄만 보기\'를 꺼 보세요.</p>' :
+      (ST.onlyMine && !shown.length ? '<p class="empty" style="margin:14px 4px;">이 기간에 ' + esc(dispName(D.who)) + ' 님이 서는 날이 없어요. 기간을 바꾸거나 \'내 일정만\'을 꺼 보세요.</p>' :
       !table ? stCards(groups, kn, picking, mineSet)
         : '<div class="stwrap"><table class="st"><thead>' + head1 + head2 + '</thead><tbody>' + body + '</tbody></table></div>') +
       '<p class="msg" id="stMsg"></p>' +
