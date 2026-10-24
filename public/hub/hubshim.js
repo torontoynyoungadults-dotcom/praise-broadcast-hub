@@ -604,14 +604,14 @@ function calGBox(L) {
   if (CAL.gmsg) h += '<p class="calg-msg">' + esc(CAL.gmsg) + '</p>';
   if (G.connected) {
     h += '<p class="calg-t"><b>구글 캘린더에 연동돼 있어요</b>' + (G.account ? ' · ' + esc(G.account) : '') + '</p>' +
-      '<p class="calg-s">내가 서는 연습 · 주일 예배 · 행사가 구글 「내 캘린더」에 들어가 있고, 편성이 바뀌면 30분 안에 같이 바뀌어요.' + (G.at ? ' 마지막으로 맞춘 때: ' + esc(new Date(G.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '') + '</p>' +
+      '<p class="calg-s">구글 캘린더의 「' + esc(G.calName || '찬양팀') + '」 캘린더에 내가 서는 연습 · 주일 예배 · 행사가 들어가 있고, 편성이 바뀌면 30분 안에 같이 바뀌어요.' + (G.at ? ' 마지막으로 맞춘 때: ' + esc(new Date(G.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '') + '</p>' +
       '<div class="calfoot"><button type="button" class="btn mini" onclick="calGSync(this)">지금 맞추기</button><button type="button" class="btn mini ghost" onclick="calGOff()">연동 해제</button></div>';
   } else if (G.avail) {
     h += '<p class="calg-t"><b>구글 로그인 연동은 이렇게 돼요</b></p><ul class="calg-l">' +
       '<li>한 번 「구글 캘린더 연동」을 누르고 구글에서 동의해요.</li>' +
-      '<li>앱이 내 구글 「내 캘린더」에 연습 · 주일 예배 · 행사를 직접 넣어요. 구글 계정을 연결한 아이폰 · 맥의 애플 캘린더에도 그대로 보여요.</li>' +
+      '<li>앱이 내 구글 캘린더에 「' + esc(G.calName || '찬양팀') + '」 캘린더를 따로 만들어, 연습 · 주일 예배 · 행사를 넣어요.</li>' +
       '<li>편성이 바뀌면 앱이 그 일정을 고치거나 지워요.</li></ul>' +
-      (G.broken ? '<p class="calg-msg">연동이 끊어졌어요. 다시 연동해 주세요.</p>' : '') +
+      (G.broken ? '<p class="calg-msg">연동을 다시 해 주세요.</p>' : '') +
       '<p class="calg-s">처음 동의할 때 「확인되지 않은 앱」 경고가 뜨면 <b>고급</b> → <b>이동</b>을 누르고, 캘린더 항목에 체크해 주세요.</p>' +
       '<a class="btn accent calg-go" href="' + esc((window.PH_BASE || '') + '/cal/google/connect?team=' + encodeURIComponent(HUB.team || '')) + '">' + calIco('google') + '구글 캘린더 연동</a>';
   } else {
@@ -631,7 +631,7 @@ function calGSync(btn) {
   }).catch(function () { CAL.gmsg = '맞추지 못했어요.'; render(); });
 }
 function calGOff() {
-  if (!confirm('구글 캘린더 연동을 해제할까요? 앱이 넣은 앞으로의 일정도 구글 캘린더에서 지워져요.')) return;
+  if (!confirm('구글 캘린더 연동을 해제할까요? 앱이 만든 찬양팀 캘린더도 지워져요.')) return;
   calGPost('/cal/google/disconnect').then(function (j) { CAL.gmsg = j && j.ok ? '연동을 해제했어요.' : ((j && j.error) || '해제하지 못했어요.'); calLoad(); })
     .catch(function () { CAL.gmsg = '해제하지 못했어요.'; render(); });
 }
