@@ -55,8 +55,17 @@ router.get('/auth/sso', async (req, res) => {
 
 router.get('/auth/google/callback', async (req, res) => {
   const { code, state, error } = req.query;
+  const st = session.verifyState(String(state || ''));
+  if (st && st.cal) {                                                   // 구글 캘린더 연동에서 돌아옴 (lib/calSync.js)
+    const back = (m) => res.redirect('/schedule?team=' + encodeURIComponent(st.t || '') + '&gcal=' + encodeURIComponent(m));
+    if (error) return back('취소했어요.');
+    try {
+      const r = await require('../lib/calSync').finish(code, st);
+      return back(r && !r.error ? `연동했어요 · 일정 ${r.total}개를 넣었어요.` : ((r && r.error) || '연동했어요. 일정은 곧 들어가요.'));
+    } catch (e) { console.error('[구글 캘린더 연동 실패]', e && e.message); return back((e && e.message && /권한|체크/.test(e.message)) ? e.message : '연동하지 못했어요. 다시 시도해 주세요.'); }
+  }
   if (error) return res.redirect('/?err=' + encodeURIComponent('구글 로그인이 취소되었습니다.'));
-  if (!session.verifyState(String(state || ''))) return res.redirect('/?err=' + encodeURIComponent('로그인 시간이 지났습니다. 다시 시도해주세요.'));
+  if (!st) return res.redirect('/?err=' + encodeURIComponent('로그인 시간이 지났습니다. 다시 시도해주세요.'));
   try {
     const client = loginClient(redirectUri());
     const { tokens } = await client.getToken(String(code || ''));

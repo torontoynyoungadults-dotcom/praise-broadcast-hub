@@ -506,3 +506,19 @@ html[data-theme="light"] .yn .stpanel .lg .tn.off { background: #F3E9E5 !importa
   .yn a.calb small { display: none; }
   .yn .calfoot { gap: 6px; margin-top: 8px; }
 }
+/* 구글 캘린더 연동 칸 */
+.yn button.calb { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 14px; border-radius: 14px; background: var(--lt-card, #fff); border: 1px solid var(--hair, #E3E2DC); color: var(--ink-1); font: inherit; font-size: 14.5px; font-weight: 700; line-height: 1.3; text-align: left; cursor: pointer; }
+.yn button.calb small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.yn button.calb.on { border-color: var(--tone); box-shadow: inset 0 0 0 1px var(--tone); }
+.yn .calg { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--lt-card, #fff); border: 1px solid var(--hair, #E3E2DC); }
+.yn .calg-t { margin: 0 0 6px; font-size: 14px; color: #1B2420; }
+.yn .calg-l { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.6; color: #33443F; }
+.yn .calg-s { margin: 0 0 10px; font-size: 12.5px; line-height: 1.55; color: #5F6863; }
+.yn .calg-msg { margin: 0 0 8px; padding: 7px 10px; border-radius: 9px; background: #EEF2EF; font-size: 13px; font-weight: 700; color: #24493C; }
+.yn .calg-go { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 16px; border-radius: 12px; text-decoration: none; font-weight: 800; }
+.yn .calg-go .calic { color: inherit; width: 18px; height: 18px; }
+.yn .calg-alt { margin: 10px 0 0; } .yn .calg-alt a { color: #24493C; font-weight: 700; }
+html:not([data-theme="light"]) .yn .calg, html:not([data-theme="light"]) .yn button.calb { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); color: #ECEEEC; }
+html:not([data-theme="light"]) .yn .calg-t { color: #ECEEEC; } html:not([data-theme="light"]) .yn .calg-l { color: #C9CECB; } html:not([data-theme="light"]) .yn .calg-s { color: #A9B0AC; }
+html:not([data-theme="light"]) .yn .calg-msg { background: rgba(214,185,127,.12); color: #E8D3A6; } html:not([data-theme="light"]) .yn .calg-alt a { color: #D6B97F; }
+@media (max-width: 560px) { .yn button.calb { flex-direction: column; justify-content: center; gap: 4px; min-height: 64px; padding: 8px 4px; text-align: center; font-size: 12.5px; } .yn button.calb small { display: none; } }

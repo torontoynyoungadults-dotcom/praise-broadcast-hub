@@ -587,15 +587,63 @@ function calBox() {
     h += '<p class="calh">내 일정 ' + items.length + '개 · 한 번 추가하면 바뀐 편성도 따라가요.</p>' +
       '<div class="calbtns">' +
         '<a class="calb" href="' + esc(L.feed.webcal) + '">' + calIco('apple') + '<span>애플<small>아이폰 · 아이패드 · 맥</small></span></a>' +
-        '<a class="calb" href="' + esc(L.feed.google) + '" target="_blank" rel="noopener">' + calIco('google') + '<span>구글<small>웹에서 「추가」를 누르면 폰 앱에도</small></span></a>' +
+        '<button type="button" class="calb' + (CAL.g ? ' on' : '') + '" onclick="CAL.g=!CAL.g;render();" aria-expanded="' + (CAL.g ? 'true' : 'false') + '">' + calIco('google') + '<span>구글<small>' + (L.gcal && L.gcal.connected ? '연동됨 · 자동으로 들어가요' : '구글 계정으로 연동') + '</small></span></button>' +
         (items.length ? '<a class="calb" href="' + esc(ics) + '">' + calIco('file') + '<span>.ics 파일<small>Outlook 등 · 지금 일정만</small></span></a>' : '') +
       '</div>' +
+      calGBox(L) +
       '<div class="calfoot"><button type="button" class="btn mini" onclick="calCopy(this)" title="나만의 주소예요 — 다른 사람에게 보내지 마세요">주소 복사</button>' +
         (L.feed.outlook ? '<a class="btn mini" href="' + esc(L.feed.outlook) + '" target="_blank" rel="noopener">아웃룩</a>' : '') +
         '<button type="button" class="btn mini" data-mysched data-team="' + esc(HUB.team || '') + '">날짜 골라 넣기</button></div>';
   }
   return h + '</div>';
 }
+/** 구글 캘린더 — 구글 계정 연동 설명 · 연동 단추 (연동돼 있으면 상태 · 지금 넣기 · 해제) */
+function calGBox(L) {
+  if (!CAL.g) return '';
+  var G = L.gcal || {}, h = '<div class="calg">';
+  if (CAL.gmsg) h += '<p class="calg-msg">' + esc(CAL.gmsg) + '</p>';
+  if (G.connected) {
+    h += '<p class="calg-t"><b>구글 캘린더에 연동돼 있어요</b>' + (G.account ? ' · ' + esc(G.account) : '') + '</p>' +
+      '<p class="calg-s">내가 서는 연습 · 주일 예배 · 행사가 구글 「내 캘린더」에 들어가 있고, 편성이 바뀌면 30분 안에 같이 바뀌어요.' + (G.at ? ' 마지막으로 맞춘 때: ' + esc(new Date(G.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '') + '</p>' +
+      '<div class="calfoot"><button type="button" class="btn mini" onclick="calGSync(this)">지금 맞추기</button><button type="button" class="btn mini ghost" onclick="calGOff()">연동 해제</button></div>';
+  } else if (G.avail) {
+    h += '<p class="calg-t"><b>구글 로그인 연동은 이렇게 돼요</b></p><ul class="calg-l">' +
+      '<li>한 번 「구글 캘린더 연동」을 누르고 구글에서 동의해요.</li>' +
+      '<li>앱이 내 구글 「내 캘린더」에 연습 · 주일 예배 · 행사를 직접 넣어요. 구글 계정을 연결한 아이폰 · 맥의 애플 캘린더에도 그대로 보여요.</li>' +
+      '<li>편성이 바뀌면 앱이 그 일정을 고치거나 지워요.</li></ul>' +
+      (G.broken ? '<p class="calg-msg">연동이 끊어졌어요. 다시 연동해 주세요.</p>' : '') +
+      '<p class="calg-s">처음 동의할 때 「확인되지 않은 앱」 경고가 뜨면 <b>고급</b> → <b>이동</b>을 누르고, 캘린더 항목에 체크해 주세요.</p>' +
+      '<a class="btn accent calg-go" href="' + esc((window.PH_BASE || '') + '/cal/google/connect?team=' + encodeURIComponent(HUB.team || '')) + '">' + calIco('google') + '구글 캘린더 연동</a>';
+  } else {
+    h += '<p class="calg-s">구글 계정 연동은 아직 준비 중이에요. 지금은 구독 주소로 넣을 수 있어요 (바뀐 내용은 반나절쯤 걸려 들어와요).</p>';
+  }
+  if (!G.connected && L.feed) h += '<p class="calg-s calg-alt"><a href="' + esc(L.feed.google) + '" target="_blank" rel="noopener">로그인 없이 구독 주소로 추가 ›</a></p>';
+  return h + '</div>';
+}
+function calGPost(path) {
+  return fetch((window.PH_BASE || '') + path + '?team=' + encodeURIComponent(HUB.team || ''), { method: 'POST', credentials: 'same-origin' }).then(function (r) { return r.json(); });
+}
+function calGSync(btn) {
+  btn.disabled = true; btn.textContent = '맞추는 중…';
+  calGPost('/cal/google/sync').then(function (j) {
+    CAL.gmsg = j && j.ok ? '맞췄어요 · 일정 ' + j.result.total + '개' + (j.result.added || j.result.changed || j.result.removed ? ' (새로 ' + j.result.added + ' · 바뀜 ' + j.result.changed + ' · 지움 ' + j.result.removed + ')' : '') : ((j && j.error) || '맞추지 못했어요.');
+    calLoad();
+  }).catch(function () { CAL.gmsg = '맞추지 못했어요.'; render(); });
+}
+function calGOff() {
+  if (!confirm('구글 캘린더 연동을 해제할까요? 앱이 넣은 앞으로의 일정도 구글 캘린더에서 지워져요.')) return;
+  calGPost('/cal/google/disconnect').then(function (j) { CAL.gmsg = j && j.ok ? '연동을 해제했어요.' : ((j && j.error) || '해제하지 못했어요.'); calLoad(); })
+    .catch(function () { CAL.gmsg = '해제하지 못했어요.'; render(); });
+}
+(function () {                                                          // 구글 연동에서 돌아왔을 때 — 캘린더 칸을 펼쳐 결과를 보여 줌
+  try {
+    var q = new URLSearchParams(location.search), m = q.get('gcal');
+    if (!m) return;
+    CAL.open = true; CAL.g = true; CAL.gmsg = m;
+    q.delete('gcal'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
+    setTimeout(function () { if (!CAL.data && !CAL.busy) calLoad(); }, 0);
+  } catch (e) { /* 그대로 */ }
+})();
 function schedTab() {
   if (!ST.rows) {
     return '<div class="panel"><p class="hint" style="margin-top:0;">' +

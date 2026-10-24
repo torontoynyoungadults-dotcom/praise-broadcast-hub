@@ -966,7 +966,9 @@ async function mySchedule(req, months) {
   const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
   const r = await scheduleOf(team, me, today, prac.addDays(today, Math.round(30.5 * months)), base);
   r.items.forEach((it) => { delete it.ev; });
-  return Object.assign(r, { feed: feedUrls(team, me, base) });
+  let gcal = { avail: false };
+  try { gcal = await require('../lib/calSync').status(String(req.ctx.member['이메일'] || req.session.email || ''), team); } catch (e) { /* 없음 */ }
+  return Object.assign(r, { feed: feedUrls(team, me, base), gcal });
 }
 /** 이 사람이 [from, to] 에 서는 주일 · 행사와 연습 — 화면 목록 · 캘린더 구독(ics) 이 같이 씀. it.ev = 캘린더 일정 */
 async function scheduleOf(team, me, today, to, base) {
@@ -1032,6 +1034,21 @@ async function scheduleOf(team, me, today, to, base) {
 router.get('/cal/mine', requireTeam, async (req, res) => {
   try { res.set('Cache-Control', 'private, no-store'); res.json({ ok: true, result: await mySchedule(req, Math.min(6, Math.max(1, Number(req.query.months) || 3))) }); }
   catch (e) { console.error('[나의 스케줄]', e && e.message); res.status(500).json({ ok: false, error: '불러오지 못했어요.' }); }
+});
+/* ---------- 구글 캘린더 연동 (lib/calSync.js) — 연동 시작 · 지금 넣기 · 해제 */
+const myEmail = (req) => String(req.ctx.member['이메일'] || (req.session && req.session.email) || '').trim().toLowerCase();
+router.get('/cal/google/connect', requireTeam, (req, res) => {
+  const calSync = require('../lib/calSync');
+  if (!calSync.available()) return res.status(400).type('text').send('구글 캘린더 연동이 아직 설정되지 않았어요. 관리자에게 문의해 주세요.');
+  res.redirect(calSync.connectUrl(require('../lib/session'), myEmail(req), req.ctx.current));
+});
+router.post('/cal/google/sync', requireTeam, async (req, res) => {
+  try { const r = await require('../lib/calSync').syncOne(myEmail(req), req.ctx.current); res.json(r && !r.error ? { ok: true, result: r } : { ok: false, error: (r && r.error) || '연동되어 있지 않아요.' }); }
+  catch (e) { console.error('[구글 캘린더 지금 넣기]', e && e.message); res.status(500).json({ ok: false, error: '넣지 못했어요.' }); }
+});
+router.post('/cal/google/disconnect', requireTeam, async (req, res) => {
+  try { await require('../lib/calSync').disconnect(myEmail(req), req.ctx.current); res.json({ ok: true }); }
+  catch (e) { console.error('[구글 캘린더 해제]', e && e.message); res.status(500).json({ ok: false, error: '해제하지 못했어요.' }); }
 });
 /* ---------- 캘린더 구독 (자동 연동) — 캘린더 앱이 몇 시간마다 이 주소를 다시 읽어서, 스케줄이 바뀌면 캘린더도 바뀜.
  * 캘린더 앱은 로그인을 못 하므로 (팀 · 이름) 서명으로 확인. 지난 2주 ~ 앞으로 6개월, 불가로 표시한 날은 빠짐 */
@@ -2141,6 +2158,7 @@ router.post('/conti/guest-link', requireTeam, async (req, res) => {
 
 module.exports = router;
 module.exports.setLiveNotify = setLiveNotify;
+module.exports.scheduleOf = scheduleOf;
 // 방송팀 보기 전용 화면(routes/guest.js)이 같은 조회 · 카드 모양을 쓰도록
 module.exports.shared = {
   loadWeek, songCard, packageSheetsCard, commentItem, practiceInfo, practiceCard, specialServices, specialServiceById, scopeFields, formChips,
