@@ -2018,6 +2018,8 @@ html.ph-nt-open { overflow: hidden; }
 .ph-who-prac-head { display: block; font-size: 15.5px; font-weight: 700; color: var(--hero-ink); }
 .ph-who-prac.on .ph-who-prac-head { color: var(--hero-sun); }
 .ph-who-prac-det { display: block; margin-top: 1px; font-size: 13px; color: var(--hero-ink-sub); }
+.ph-who-prac-det + .ph-who-prac-det { margin-top: 3px; }
+.ph-who-prac-k { color: var(--hero-ink); font-weight: 600; margin-right: 6px; }
 .ph-who-prac-dot { flex: none; width: 9px; height: 9px; margin-top: 7px; border-radius: 50%; background: var(--hero-sun); box-shadow: 0 0 0 4px var(--hero-sun-glow); }
 .ph-who-prac-txt { min-width: 0; }
 .ph-who-prac-pos { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 700; line-height: 20px; color: var(--hero-sun); border: 1px solid rgba(233,211,164,.4); vertical-align: 1px; }
