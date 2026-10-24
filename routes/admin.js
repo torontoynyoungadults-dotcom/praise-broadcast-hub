@@ -140,7 +140,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
     remRows.push(`<div class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <div class="ph-li-main"><div class="ph-li-title">${kind === 'prac' ? '화요일 아침 9시 · 연습 안내' : '토요일 아침 9시 · 주일 안내'} ${on ? '<span class="rg-st on">켜짐</span>' : '<span class="rg-st off">꺼짐</span>'}</div>
-          <div class="ph-li-sub">${kind === 'prac' ? '이번 주 연습하는 콘티에 편성된 사람 (연습 불참 제외)' : '내일 주일에 편성된 사람 (주일 불참 제외)'}${activeTeams.map((t, i) => sent[i] ? ` · ${esc(t['팀명'])} 마지막 ${esc(sent[i])}` : '').join('')}</div></div>
+          <div class="ph-li-sub">${kind === 'prac' ? '이번 주 연습하는 콘티에 편성된 사람 (연습 불참 제외) · 콘티가 준비 중이면 다 올라오고 1시간 뒤 한 번 더' : '내일 주일에 편성된 사람 (주일 불참 제외) · 연습 안내 뒤 바뀐 Key · BPM · 송폼 표시'}${activeTeams.map((t, i) => sent[i] ? ` · ${esc(t['팀명'])} 마지막 ${esc(sent[i])}` : '').join('')}</div></div>
         <form method="post" action="/admin/practice-mail/toggle"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="to" value="${on ? '0' : '1'}"><button class="ph-btn${on ? '' : ' pri'}" type="submit">${on ? '끄기' : '켜기'}</button></form>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
