@@ -425,3 +425,5 @@ html[data-theme="light"] .yn .chg-k { background: #ECEBE5 !important; }
 .yn .yc-sh input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .yn .yc-sh select, .yn .yc-sh textarea { background-color: #FFFFFF !important; border-color: #DAD8D0 !important; color: #1B2420 !important; -webkit-text-fill-color: #1B2420; }
 .yn .yc-sh .btn.accent { background: #24493C !important; color: #FFFFFF !important; }
 html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: #24493C !important; }
+/* V13.1 — 다크 모드 포인트는 샴페인 골드 (예전처럼) */
+html:not([data-theme="light"]) .yn.yn-main, html:not([data-theme="light"]) .yn.yn-portal { --accent: #D6B97F; --tone: #D6B97F; --tone-rgb: 214, 185, 127; --on-tone: #1A160E; --chg: #D6B97F; --chg-rgb: 214, 185, 127; --chg-ink: #DDC28E; }

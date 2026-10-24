@@ -494,7 +494,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
   const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
   const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(s['Key'])}</b></span>` : '';
   const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><b>${esc(bpm)}</b></span>` : '';
-  const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="YouTube" aria-label="YouTube"><i>YouTube</i><b>${YT_MARK} 영상</b></a>` : '';
+  const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="유튜브 영상" aria-label="유튜브 영상">${YT_MARK}</a>` : '';
   const info = keyCell + bpmCell + ytBtn + jumpBtn;
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">

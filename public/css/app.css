@@ -2307,3 +2307,35 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .lu-grid > .ph-poscell.lu-w3 { grid-column: span 4; }
 .lu-grid > .ph-poscell[open] { grid-column: 1 / -1 !important; }
 @media (max-width: 560px) { .lu-grid > .ph-poscell.lu-w4 { grid-column: span 6; } }
+
+/* ---------- V13.1 ---------- */
+/* 맨 위 배너 — 사진을 누르면 내 정보 수정 (사진 옆 작은 연필) */
+.ph-who-me { position: relative; flex: none; display: inline-flex; text-decoration: none; border-radius: 50%; }
+.ph-who-edit { position: absolute; right: -7px; bottom: -4px; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
+  background: #FFFFFF; color: #1B2420; box-shadow: 0 0 0 2px rgba(20,30,26,.55); }
+.ph-who-edit .yi { width: 11px; height: 11px; stroke-width: 2.2; }
+.ph-who-me:hover .ph-who-edit, .ph-who-me:focus-visible .ph-who-edit { background: var(--accent); color: var(--on-accent); }
+.ph-who-me:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* 곡 정보 — KEY · BPM 작은 칩, 유튜브는 아이콘만 */
+.cn-song .cn-info { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px !important; margin-top: 12px !important; }
+.cn-cell { flex-direction: row !important; align-items: baseline !important; gap: 6px !important; padding: 5px 11px !important; border-radius: 10px !important; min-height: 32px; box-sizing: border-box; }
+.cn-cell i { font-size: 10px !important; letter-spacing: .08em; }
+.cn-cell b { font-size: 15.5px !important; line-height: 1.2 !important; }
+.cn-cell.yt { align-items: center !important; justify-content: center; padding: 0 !important; width: 40px; height: 32px; }
+.cn-cell.yt .cn-ytmark { width: 22px; height: 22px; }
+.cn-song .cn-info .cn-recjump { padding: 6px 11px !important; border-radius: 10px !important; }
+
+/* 다크 모드 — 포인트는 예전처럼 샴페인 골드 */
+:root:not([data-theme="light"]) {
+  --accent: #D6B97F; --accent-2: #C9A869; --accent-ink: #DDC28E; --accent-rgb: 214, 185, 127; --on-accent: #1A160E;
+  --mint-ink: #DDC28E; --c-a: #D6B97F; --c-a2: #DDC28E; --c-a-rgb: 214, 185, 127; --c-mint: #DDC28E;
+}
+:root:not([data-theme="light"]) .ph-livebtn small { color: rgba(26,22,14,.72) !important; }
+:root:not([data-theme="light"]) .cn-blk.t-c::before { background: rgba(26,22,14,.35); }
+:root:not([data-theme="light"]) .msd-box svg { stroke: var(--on-accent); }
+:root:not([data-theme="light"]) .ph-hero-eyebrow { color: #D6B97F !important; }
+:root:not([data-theme="light"]) .ph-hero-eyebrow::before { background: #D6B97F !important; }
+:root:not([data-theme="light"]) .ph-who-prac.on .ph-who-prac-head, :root:not([data-theme="light"]) .ph-who-prac-pos { color: #E9D3A4 !important; }
+:root:not([data-theme="light"]) .ph-who-prac-pos { border-color: rgba(233,211,164,.45) !important; }
+:root:not([data-theme="light"]) .ph-who-prac-dot { background: #E9D3A4 !important; box-shadow: 0 0 0 4px rgba(214,185,127,.3) !important; }
