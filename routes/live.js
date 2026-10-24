@@ -198,6 +198,7 @@ async function renderLive(req, res, o) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:where(html, body, *){touch-action:manipulation}</style>
 <meta name="theme-color" content="#0A1311">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -317,6 +318,7 @@ async function renderStage(req, res, o) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:where(html, body, *){touch-action:manipulation}</style>
 <meta name="theme-color" content="#060B0A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
