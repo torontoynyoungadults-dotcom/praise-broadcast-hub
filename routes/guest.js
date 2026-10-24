@@ -107,7 +107,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
   const [w, assign, evs, pinfo] = await Promise.all([sh.loadWeek(team, scope), sheetsDb.readAll('찬양편성'), sh.specialServices(team), sh.practiceInfo(team, scope, date)]);
   // 달력 띠 — 로그인 화면(routes/conti.js)과 똑같은 모양 (±3주 + 주일 외 찬양 칸 + 날짜 직접 고르기)
   const stripEvents = evs.map((e) => ({ id: e['ID'], name: String(e['이름'] || '주일 외 찬양'), date: e['날짜'] }));
-  const strip = pageShell.weekStrip({ basePath: `${base}/conti`, team, date, assignRows: assign.filter((r) => r['팀ID'] === team), events: stripEvents, activeEvent: scope.event ? scope.event : '' });
+  const strip = pageShell.weekStrip({ basePath: `${base}/conti`, team, date, assignRows: assign.filter((r) => r['팀ID'] === team), events: stripEvents, pracRows: (await sheetsDb.readAll('연습일정')).filter((r) => r['팀ID'] === team), activeEvent: scope.event ? scope.event : '' });
   const dayBanner = scope.event
     ? `<div class="ph-card ph-eventsbanner"><p class="ph-sub">${esc(eventRow['이름'])} 콘티예요 — 주일예배와는 별도 기록입니다. <a href="${base}/conti?date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p></div>`
     : '';

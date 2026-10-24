@@ -130,24 +130,31 @@ router.get('/admin', requireAdmin, async (req, res) => {
         </details>
       </div>
     </div>`; }).join('');
-  // 월요일 연습 안내 (푸시 + 이메일)
-  const remOn = await reminder.enabled().catch(() => false);
-  const remSent = await Promise.all(activeTeams.map((t) => reminder.lastSent(t['팀명']).catch(() => '')));
+  // 자동 안내 (푸시 + 이메일) — 월요일 연습 · 토요일 주일
   const remMsg = String(req.query.rm || '');
+  const remRows = [];
+  for (const kind of ['prac', 'sun']) {
+    const K = reminder.KINDS[kind];
+    const on = await reminder.enabledKind(kind).catch(() => false);
+    const sent = await Promise.all(activeTeams.map((t) => reminder.lastSentKind(kind, t['팀명']).catch(() => '')));
+    remRows.push(`<div class="ph-list-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="ph-li-main"><div class="ph-li-title">${kind === 'prac' ? '월요일 아침 · 연습 안내' : '토요일 아침 · 주일 안내'} ${on ? '<span class="rg-st on">켜짐</span>' : '<span class="rg-st off">꺼짐</span>'}</div>
+          <div class="ph-li-sub">${kind === 'prac' ? '이번 주 연습하는 콘티에 편성된 사람 (연습 불참 제외)' : '내일 주일에 편성된 사람 (주일 불참 제외)'}${activeTeams.map((t, i) => sent[i] ? ` · ${esc(t['팀명'])} 마지막 ${esc(sent[i])}` : '').join('')}</div></div>
+        <form method="post" action="/admin/practice-mail/toggle"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="to" value="${on ? '0' : '1'}"><button class="ph-btn${on ? '' : ' pri'}" type="submit">${on ? '끄기' : '켜기'}</button></form>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${activeTeams.map((t) => `<a class="ph-btn" href="/admin/practice-mail/preview?kind=${kind}&team=${encodeURIComponent(t['팀명'])}" target="_blank" rel="noopener">${esc(t['팀명'])} 미리보기</a>`).join('')}
+        ${mailer.configured() ? `<form method="post" action="/admin/practice-mail/test" style="display:flex;gap:8px;flex-wrap:wrap;"><input type="hidden" name="kind" value="${kind}">
+          <select name="team" aria-label="팀">${activeTeams.map((t) => `<option>${esc(t['팀명'])}</option>`).join('')}</select>
+          <button class="ph-btn" type="submit">나에게 시험 메일</button></form>` : ''}
+      </div>
+    </div>`);
+  }
   const remCard = `<div class="ph-card" id="practice-mail">
-    <h2 class="ph-h2">월요일 연습 안내</h2>
-    <p class="ph-sub">매주 월요일 아침 8시 이후, 이번 주 연습하는 콘티에 편성된 사람에게만 폰 알림과 이메일을 보내요. '연습 불참'으로 표시한 사람은 빼요.</p>
-    <div class="ph-list-item" style="flex-wrap:wrap;gap:8px;">
-      <div class="ph-li-main"><div class="ph-li-title">지금 ${remOn ? '<span class="rg-st on">켜짐</span>' : '<span class="rg-st off">꺼짐</span>'}</div>
-        <div class="ph-li-sub">메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}${activeTeams.map((t, i) => remSent[i] ? ` · ${esc(t['팀명'])} 마지막 ${esc(remSent[i])} 주` : '').join('')}</div></div>
-      <form method="post" action="/admin/practice-mail/toggle"><input type="hidden" name="to" value="${remOn ? '0' : '1'}"><button class="ph-btn${remOn ? '' : ' pri'}" type="submit">${remOn ? '끄기' : '켜기'}</button></form>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-      ${activeTeams.map((t) => `<a class="ph-btn" href="/admin/practice-mail/preview?team=${encodeURIComponent(t['팀명'])}" target="_blank" rel="noopener">${esc(t['팀명'])} 메일 미리보기</a>`).join('')}
-      ${mailer.configured() ? `<form method="post" action="/admin/practice-mail/test" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <select name="team" aria-label="팀">${activeTeams.map((t) => `<option>${esc(t['팀명'])}</option>`).join('')}</select>
-        <button class="ph-btn" type="submit">나에게 시험 메일 보내기</button></form>` : ''}
-    </div>
+    <h2 class="ph-h2">자동 안내 (폰 알림 + 이메일)</h2>
+    <p class="ph-sub">편성된 사람에게만 아침 8시 이후에 한 번씩 보내요. 메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}</p>
+    ${remRows.join('')}
     ${remMsg ? `<p class="ph-msg ${/실패|없/.test(remMsg) ? 'err' : 'ok'}">${esc(remMsg)}</p>` : ''}
   </div>`;
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 시간 · 허브 문구를 관리합니다.' });
@@ -215,10 +222,11 @@ function myTeam(req) {
 }
 router.get('/admin/practice-mail/preview', requireAdmin, async (req, res) => {
   const team = myTeam(req);
-  const m = await reminder.preview(team, req.member).catch((e) => { console.error('[연습 안내 미리보기 실패]', e.message); return null; });
+  const kind = req.query.kind === 'sun' ? 'sun' : 'prac';
+  const m = await reminder.preview(team, req.member, kind).catch((e) => { console.error('[안내 미리보기 실패]', e.message); return null; });
   if (!m) return res.type('html').send('<p style="font:16px sans-serif;padding:24px">앞으로 4주 안에 정해진 연습이 없어서 미리 볼 메일이 없어요.</p>');
   const bar = `<div style="font:14px/1.5 -apple-system,sans-serif;background:#122722;color:#F5F0E4;padding:12px 16px;">
-    <b>메일 미리보기</b> · 받는 사람 ${esc(m.to)}${m.sample ? ' · <span style="color:#D6B97F">앞으로 4주 안에 서는 연습이 없어 가장 가까운 연습으로 만든 견본이에요</span>' : ''}<br>
+    <b>메일 미리보기</b> · 받는 사람 ${esc(m.to)}${m.sample ? ' · <span style="color:#D6B97F">앞으로 서는 날이 없어 가장 가까운 날로 만든 견본이에요</span>' : ''}<br>
     제목: ${esc(m.subject)}<br>푸시: ${esc(m.push.title)} — ${esc(m.push.body)}</div>`;
   res.type('html').send(m.html.replace(/<body([^>]*)>/, '<body$1>' + bar));
 });
@@ -226,14 +234,14 @@ router.post('/admin/practice-mail/test', requireAdmin, async (req, res) => {
   const team = myTeam(req);
   let msg;
   try {
-    const m = await reminder.preview(team, req.member);
+    const m = await reminder.preview(team, req.member, (req.body || {}).kind === 'sun' ? 'sun' : 'prac');
     if (!m) msg = '앞으로 4주 안에 정해진 연습이 없어서 보낼 메일이 없어요.';
     else { await mailer.send({ to: String(req.member['이메일']), subject: '[시험] ' + m.subject, html: m.html, text: m.text }); msg = `${req.member['이메일']} 로 시험 메일을 보냈어요.`; }
   } catch (e) { msg = '시험 메일 실패: ' + (e && e.message); }
   spa.redirect(req, res, '/admin?rm=' + encodeURIComponent(msg) + '#practice-mail');
 });
 router.post('/admin/practice-mail/toggle', requireAdmin, async (req, res) => {
-  try { await reminder.setEnabled(String((req.body || {}).to) === '1'); } catch (e) { console.error('[연습 안내 켜기/끄기 실패]', e.message); }
+  try { await reminder.setEnabledKind((req.body || {}).kind === 'sun' ? 'sun' : 'prac', String((req.body || {}).to) === '1'); } catch (e) { console.error('[연습 안내 켜기/끄기 실패]', e.message); }
   spa.redirect(req, res, '/admin#practice-mail');
 });
 /** 외부 깨우기 — GitHub Actions 가 월요일 아침에 부름 (?key=CRON_KEY). 켜져 있고 · 월요일 8시 이후 · 이번 주 아직 안 보냈을 때만 실제로 보냄 */
@@ -241,7 +249,7 @@ router.all('/cron/practice-reminder', async (req, res) => {
   const key = String(process.env.CRON_KEY || '');
   if (!key || String(req.query.key || req.get('X-Cron-Key') || '') !== key) return res.status(403).json({ ok: false });
   const r = await reminder.ensure();
-  res.json({ ok: true, ran: r.ran, why: r.why || '', teams: (r.teams || []).map((t) => ({ team: t.team, people: t.people, pushed: t.pushed, mailed: t.mailed, failed: t.failed, skipped: t.skipped })) });
+  res.json({ ok: true, ran: r.ran, why: r.why || '', teams: (r.teams || []).map((t) => ({ kind: t.kind, team: t.team, ran: t.ran, why: t.why, people: t.people, pushed: t.pushed, mailed: t.mailed, failed: t.failed })) });
 });
 
 router.post('/admin/guest-link', requireAdmin, async (req, res) => {

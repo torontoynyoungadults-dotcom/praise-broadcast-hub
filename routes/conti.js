@@ -764,7 +764,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   const allAssignRows = (await sheetsDb.readAll('찬양편성')).filter((r) => r['팀ID'] === team);
   const evs = (await specialServices(team)).map((e) => ({ id: e['ID'], name: String(e['이름'] || '주일 외 찬양'), date: e['날짜'] }));
   // 달력 띠 — 주일 외 찬양(부흥회 등)는 같은 날짜라도 날짜 칸 옆에 따로 (눌러서 오감)
-  const strip = pageShell.weekStrip({ basePath: '/conti', team, date, assignRows: allAssignRows, events: evs, activeEvent: scope.event ? scope.event : '' });
+  const pracRows = (await sheetsDb.readAll('연습일정')).filter((r) => r['팀ID'] === team);
+  const strip = pageShell.weekStrip({ basePath: '/conti', team, date, assignRows: allAssignRows, events: evs, pracRows, activeEvent: scope.event ? scope.event : '' });
   if (scope.event) {
     dayBanner = `<div class="ph-card ph-eventsbanner">
       <p class="ph-sub">${esc(eventRow['이름'])} 콘티예요 — 주일예배와는 별도 기록입니다. <a href="/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p>

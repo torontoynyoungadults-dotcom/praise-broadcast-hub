@@ -2003,20 +2003,22 @@ html.ph-nt-open { overflow: hidden; }
    · 서는 날 = 금빛 점 + 금빛 강조 · 불참 = 점선 · 편성 없음 = 흐리게
    ====================================================================== */
 .ph-who-prac {
-  display: flex; align-items: stretch; gap: 0; margin-top: 14px; border-radius: 12px; overflow: visible;
+  display: flex; align-items: stretch; gap: 0; margin-top: 14px; width: fit-content; max-width: 100%; border-radius: 12px; overflow: visible;
   background: rgba(10,18,15,.34); border: 1px solid rgba(255,255,255,.14);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 .ph-who-prac-link {
-  flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px 11px 12px; border-radius: 12px 0 0 12px;
+  flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px 11px 12px; border-radius: 12px;
   color: var(--hero-ink); text-decoration: none; font-size: 14.5px; line-height: 1.55; letter-spacing: -.01em; text-wrap: pretty;
   transition: background .15s var(--ease);
 }
 .ph-who-prac.free .ph-who-prac-link, .ph-who-prac.off .ph-who-prac-link { border-radius: 12px; }
 .ph-who-prac-link:hover { background: rgba(255,255,255,.06); }
 .ph-who-prac-link:focus-visible, .ph-calbtn:focus-visible { outline: 2px solid var(--hero-sun); outline-offset: -2px; }
-.ph-who-prac b { font-weight: 700; color: var(--hero-sun); }
-.ph-who-prac-dot { flex: none; width: 9px; height: 9px; margin-top: 8px; border-radius: 50%; background: var(--hero-sun); box-shadow: 0 0 0 4px var(--hero-sun-glow); }
+.ph-who-prac-head { display: block; font-size: 15.5px; font-weight: 700; color: var(--hero-ink); }
+.ph-who-prac.on .ph-who-prac-head { color: var(--hero-sun); }
+.ph-who-prac-det { display: block; margin-top: 1px; font-size: 13px; color: var(--hero-ink-sub); }
+.ph-who-prac-dot { flex: none; width: 9px; height: 9px; margin-top: 7px; border-radius: 50%; background: var(--hero-sun); box-shadow: 0 0 0 4px var(--hero-sun-glow); }
 .ph-who-prac-txt { min-width: 0; }
 .ph-who-prac-pos { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 700; line-height: 20px; color: var(--hero-sun); border: 1px solid rgba(233,211,164,.4); vertical-align: 1px; }
 .ph-who-prac.off .ph-who-prac-dot { background: transparent; border: 1.5px dashed var(--hero-ink-sub); box-shadow: none; }
@@ -2032,11 +2034,11 @@ html.ph-nt-open { overflow: hidden; }
 .ph-calpop a { display: block; padding: 10px 12px; border-radius: 8px; color: var(--hero-ink); text-decoration: none; font-size: 14px; font-weight: 600; }
 .ph-calpop a:hover, .ph-calpop a:focus-visible { background: rgba(255,255,255,.08); outline: none; }
 @media (min-width: 900px) and (orientation: landscape) {
-  .ph-hero-text > .ph-who-prac { grid-column: 1 / -1; margin-top: 16px; }
+  .ph-hero-text > .ph-who-prac { grid-column: 1 / -1; justify-self: start; margin-top: 16px; }
 }
 @media (max-width: 560px) {
   .ph-who-prac { flex-direction: column; }
-  .ph-who-prac-link { font-size: 13.5px; padding: 9px 12px 10px 11px; border-radius: 12px 12px 0 0; }
+  .ph-who-prac-link { font-size: 13.5px; padding: 9px 12px 10px 11px; }
   .ph-calmenu { border-left: 0; border-top: 1px solid rgba(255,255,255,.14); }
   .ph-calbtn { width: 100%; padding: 9px 12px; border-radius: 0 0 12px 12px; justify-content: center; }
   .ph-calpop { left: 0; right: 0; }

@@ -1,4 +1,4 @@
-# 월요일 아침 연습 안내 — Render 무료 서버는 쉬는 동안 잠들어서, 월요일 아침에 한 번 깨워 보내게 합니다.
+# 자동 안내 — 월요일 아침 연습 안내 · 토요일 아침 주일 안내. Render 무료 서버는 쉬는 동안 잠들어서, 그 아침에 한 번 깨워 보내게 합니다.
 # 저장소 Settings → Secrets and variables → Actions 에 두 값을 넣어 주세요:
 #   HUB_URL  = 앱 주소 (예: https://praise-broadcast-hub.onrender.com)
 #   CRON_KEY = Render 환경변수 CRON_KEY 와 같은 값
@@ -6,8 +6,8 @@
 name: practice-reminder
 on:
   schedule:
-    - cron: '7 12 * * 1'   # 월 08:07 토론토 (여름 · EDT)
-    - cron: '7 13 * * 1'   # 월 08:07 토론토 (겨울 · EST) / 여름에는 09:07 — 이미 보냈으면 건너뜀
+    - cron: '7 12 * * 1,6'   # 월(연습 안내) · 토(주일 안내) 08:07 토론토 (여름 · EDT)
+    - cron: '7 13 * * 1,6'   # 08:07 토론토 (겨울 · EST) / 여름에는 09:07 — 이미 보냈으면 건너뜀
   workflow_dispatch: {}
 jobs:
   ping:
