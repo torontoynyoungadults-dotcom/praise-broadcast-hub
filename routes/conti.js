@@ -295,33 +295,18 @@ function noteHtml(text, tagSet) {
 }
 
 /** 송폼 → 칩 (눈에 잘 띄게 — V · C · B 색 구분, 한글 이름 · 반복 · 마디 수) */
-/** 송폼 — DAW 트랙처럼: 섹션마다 블록 하나, 폭은 섹션 길이에 비례. 후렴만 상록으로 채우고 나머지는 흰 블록 위 가는 띠로만 구분.
- *  인트로 · 아웃트로는 테두리만, 키 업은 블록 사이 가는 표시. 길면 다음 줄로 이어짐 (블록 최소 폭) */
-const DAW_GROW = { v: 1.2, pc: 0.9, c: 1.4, b: 1, io: 0.7, tag: 0.7, etc: 0.8 };
-function dawType(k) {
-  if (/^V\d?$/.test(k)) return 'v';
-  if (/^PC\d?$/.test(k)) return 'pc';
-  if (/^C(\d|\(Voice\))?$/.test(k)) return 'c';
-  if (/^B\d?$/.test(k)) return 'b';
-  if (/^(Intro|Out|End|Coda)$/.test(k)) return 'io';
-  if (/^Tag$/.test(k)) return 'tag';
-  return 'etc';
-}
+/** 송폼 — 글자 한 줄 (회색 칸 안) */
 function formChips(form) {
   const toks = form ? YNForm.parse(form) : [];
-  if (!toks.length) return form ? `<ol class="cn-daw" aria-label="송폼"><li class="cn-blk t-etc" style="--g:1"><b>${esc(form)}</b></li></ol>` : '';
-  let n = 0;
-  const items = toks.map((t) => {
-    if (t.k === 'KeyUp') return '<li class="cn-kmark" title="키 업"><span aria-hidden="true">↑</span><i>Key</i></li>';
-    n++;
-    const ty = t.custom ? 'etc' : dawType(t.k);
-    const ko = t.custom ? '' : YNForm.label(t.k, 'ko');
-    const code = t.k === 'C(Voice)' ? 'C' : t.k;
-    const sub = t.k === 'C(Voice)' ? 'Voice' : (t.bars ? `${t.bars}마디` : (ko && ko !== t.k ? ko : ''));
-    const g = DAW_GROW[ty] * Math.min(t.rep || 1, 2);
-    return `<li class="cn-blk t-${ty}" style="--g:${g}" title="${esc((ko || t.k) + (t.rep > 1 ? ' ×' + t.rep : ''))}"><b>${esc(code)}${t.rep > 1 ? `<em>×${t.rep}</em>` : ''}</b>${sub ? `<i>${esc(sub)}</i>` : ''}</li>`;
-  });
-  return `<ol class="cn-daw" aria-label="송폼 순서 · ${n}섹션">${items.join('')}<li class="cn-daw-rest" aria-hidden="true"></li></ol>`;   // 마지막 줄 빈 자리 — 마지막 줄 블록이 늘어나 길게 보이지 않게
+  if (!toks.length) return form ? `<p class="cn-ftext">${esc(form)}</p>` : '';
+  // 송폼은 글자로 한 줄 — "Intro (8마디) › V1 › C ×2 › Itld (4마디) › …" (길면 다음 줄로)
+  const one = (t) => {
+    if (t.k === 'KeyUp') return 'Key ↑';
+    const code = t.k === 'C(Voice)' ? 'C (Voice)' : t.k;
+    return code + (t.bars ? ` (${t.bars}마디)` : '') + (t.rep > 1 ? ` ×${t.rep}` : '');
+  };
+  // 화살표는 앞 칸에 붙여서 — 줄이 바뀔 때 줄 맨 앞에 › 가 오지 않게
+  return `<p class="cn-ftext" aria-label="송폼">${toks.map((t, i) => `<span class="cn-ft">${esc(one(t))}${i < toks.length - 1 ? '<i aria-hidden="true">›</i>' : ''}</span>`).join(' ')}</p>`;
 }
 
 /** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */
@@ -412,7 +397,7 @@ function songSheetsHtml(s, sheets, editable, extra, opts) {
 
 /** 이 예배의 유튜브 이어 듣기 — 콘티 순서대로 곡마다 올린 링크를 이어서 재생하고(설교 후 찬양은 맨 뒤), 유튜브가 만들어 주는 임시 재생목록(watch_videos)으로도 열 수 있게
  *  (public/js/conti-tools.js 의 [data-cn-yplay] 가 플레이어를 붙임) */
-const YT_MARK = '<svg class="cn-ytmark" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#C4302B"/><path d="M10 9v6l5-3z" fill="#fff"/></svg>';
+const YT_MARK = '<svg class="cn-ytmark" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.6" y="5.2" width="18.8" height="13.6" rx="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10.2 9.4v5.2l4.6-2.6z" fill="currentColor"/></svg>';
 function ytPlayAllHtml(w, team) {
   const all = [].concat((w.conti || []).map((s, i) => ({ s, k: '콘티', n: i + 1 })), (w.final || []).map((s) => ({ s, k: '설교 후', n: 0 })), (w.closing || []).map((s) => ({ s, k: '폐회송', n: 0 })));
   const items = [];

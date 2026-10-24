@@ -98,7 +98,7 @@ const SHOTS = {
   lineup: { url: '/conti', clip: ['.lu-card'] },
   song: { url: '/conti', before: async (p) => { await p.click('#song-c00 [data-cn-svopen]'); await p.waitForTimeout(1500); },
     clip: ['#song-c00'], maxH: 820,
-    marks: ['#song-c00 .cn-shead .cn-tb', '#song-c00 .cn-info', '#song-c00 .cn-daw', '#song-c00 [data-cn-svopen]', '#song-c00 .cn-sv .ph-annolink[href]', '#song-c00 .cn-sv [data-sheet-reformat]', '#song-c00 .cn-edit > summary'] },
+    marks: ['#song-c00 .cn-shead .cn-tb', '#song-c00 .cn-info', '#song-c00 .cn-ftext', '#song-c00 [data-cn-svopen]', '#song-c00 .cn-sv .ph-annolink[href]', '#song-c00 .cn-sv [data-sheet-reformat]', '#song-c00 .cn-edit > summary'] },
   addsong: { url: '/conti', clip: ['[data-cn-import]', '[data-cn-import] + details + details'], pad: 12,
     marks: ['[data-cn-import] > summary', '[data-cn-import] + details > summary', '[data-cn-import] + details + details > summary'] },
   practice: { url: '/practice-conti', clip: ['.pc-strip', '.pc-target'], maxH: 1000,

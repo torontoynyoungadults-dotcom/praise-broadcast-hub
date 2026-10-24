@@ -2367,3 +2367,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .cn-daw .cn-daw-rest { display: none; }
 .cn-daw .cn-kmark { width: auto; }
 @media (max-width: 420px) { .cn-daw { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); } }
+
+/* 송폼 — 글자로 (회색 칸 · 길면 다음 줄) */
+.cn-ftext { margin: 0; padding: 12px 16px; border-radius: 14px; background: var(--glass-2); color: var(--ink); font-size: 16px; font-weight: 650; line-height: 1.7; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.cn-ftext .cn-ft { white-space: nowrap; }
+.cn-ftext i { font-style: normal; margin: 0 .45em; color: var(--dim); font-weight: 500; }
+@media (max-width: 420px) { .cn-ftext { font-size: 15px; padding: 10px 14px; } }
+/* 유튜브 — 직접 그린 선 아이콘, 글자색 */
+.cn-ytmark { color: var(--ink); }
+.cn-cell.yt .cn-ytmark { width: 21px; height: 21px; }
+.cn-ybig .cn-ytmark { color: var(--ink); width: 21px; height: 21px; }
+.cn-ftext i { margin: 0 .1em 0 .4em !important; }
