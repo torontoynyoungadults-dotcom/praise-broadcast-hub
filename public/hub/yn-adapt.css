@@ -23,10 +23,10 @@ html[data-theme="light"] .yn.yn-main, html[data-theme="light"] .yn.yn-portal {
 /* 산호 칸(지금 고른 것 · 주 단추) — 어두운 화면 · 밝은 화면 모두 칸은 부드러운 산호, 그 위 글씨는 진한 숲색.
    (church-app 은 이 칸들 위에 흰 글씨를 썼는데 연한 산호 위에서는 대비가 모자랍니다 — 가독성 지킴이가 고치기 전부터 처음부터 맞게) */
 .yn :is(.wk.on, .sesbar button.on, .pick.on, .evseg button.on, .stseg button.on, .ssf .seg button.on, .rpc.on, .bk2.open .more, .dpk .d.on, .sidecal .dpk .d.on,
-  .tn.hl:not(.st .tn.hl), .ntp, .ssd .soon, .libnav button.on, .pgtabs button.on, .tabs button.on, .panel .picklist button.picked, .btn.accent, .btn.orange, .panel .submit,
+  .tn.hl:not(.st .tn.hl):not(.lg .tn.hl), .ntp, .ssd .soon, .libnav button.on, .pgtabs button.on, .tabs button.on, .panel .picklist button.picked, .btn.accent, .btn.orange, .panel .submit,
   #cropper .cbtns button.go, .stc.sel .stch .ck) { color: var(--on-tone) !important; }
 html[data-theme="light"] .yn :is(.wk.on, .sesbar button.on, .pick.on, .evseg button.on, .stseg button.on, .ssf .seg button.on, .rpc.on, .bk2.open .more, .dpk .d.on,
-  .sidecal .dpk .d.on, .tn.hl:not(.st .tn.hl), .ntp, .ssd .soon, .libnav button.on, .pgtabs button.on, .tabs button.on, .panel .picklist button.picked, .btn.accent, .btn.orange,
+  .sidecal .dpk .d.on, .tn.hl:not(.st .tn.hl):not(.lg .tn.hl), .ntp, .ssd .soon, .libnav button.on, .pgtabs button.on, .tabs button.on, .panel .picklist button.picked, .btn.accent, .btn.orange,
   .panel .submit, #cropper .cbtns button.go, .st td.dc.sel, .stc.sel .stch .ck, .submit, .pwsubmit, .dirbtn) { background: var(--lt-or) !important; border-color: transparent !important; }
 
 /* 통계 막대 · 숫자 막대 — 밝은 화면에서도 진한 산호 대신 부드러운 산호 + 살구 노랑 */
@@ -379,14 +379,6 @@ html[data-theme="light"] .yn .st td.dc .stpr, html[data-theme="light"] .yn .st t
 .yn .st td.xc.pc.none .pn { font-size: 12.5px; }
 .yn .st tr.mrow td.xc.pc { background: var(--st-mrow) !important; color: var(--ink-1) !important; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-align: center; }
 html[data-theme="light"] .yn .st td.xc.pc { background: #FFFFFF; }
-@media (min-width: 900px) and (orientation: landscape) {
-  .yn .st .dch-n { display: none; } .yn .st .dch-w { display: inline; }
-  .yn .st th.xc.pc, .yn .st td.xc.pc { position: sticky; left: 0; z-index: 2; min-width: 118px; width: 118px; max-width: 118px; border-right: 1px solid var(--grid) !important; }
-  .yn .st thead th.xc.pc { z-index: 4; top: 0; }
-  .yn .st .dc { left: 118px !important; }
-  .yn .st td.xc.pc i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
-  .yn .st tr.mrow td.dc { color: transparent !important; }
-}
 
 /* 카드 보기 */
 html[data-theme="light"] .yn .stc { background: #FFFFFF !important; border: 1px solid #E3E2DC !important; box-shadow: none !important; border-radius: 20px !important; }
@@ -427,3 +419,66 @@ html[data-theme="light"] .yn .chg-k { background: #ECEBE5 !important; }
 html[data-theme="light"] .yn :is(.srow .fill, .mcol .mbar, .bar > span, .bar > i) { background: #24493C !important; }
 /* V13.1 — 다크 모드 포인트는 샴페인 골드 (예전처럼) */
 html:not([data-theme="light"]) .yn.yn-main, html:not([data-theme="light"]) .yn.yn-portal { --accent: #D6B97F; --tone: #D6B97F; --tone-rgb: 214, 185, 127; --on-tone: #1A160E; --chg: #D6B97F; --chg-rgb: 214, 185, 127; --chg-ink: #DDC28E; }
+
+/* ======================================================================
+   V14 — 스케줄 화면을 청년부 앱 스케줄 차림으로 (hubshim.js schedTab)
+   ====================================================================== */
+.yn .stpanel .sechead { margin-bottom: 14px; }
+.yn .stpanel .sttools { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 4px 10px; }
+.yn .stpanel .sttools select { width: 100% !important; max-width: none !important; min-height: 46px; font-size: 15px; font-weight: 700; border-radius: 12px !important; margin: 0 !important; }
+.yn .stmbs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 4px 12px; }
+.yn .stmb {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 15px; border-radius: 999px;
+  border: 1px solid var(--hair-2, #DAD8D0); background: transparent; color: var(--ink-2, #4A544F);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.yn .stmb .calic { width: 17px; height: 17px; }
+.yn .stmb.on { background: var(--tone) !important; border-color: var(--tone) !important; color: var(--on-tone, #fff) !important; }
+.yn .stmb.on .calic { color: inherit; }
+.yn .calbox { margin: 0 4px 14px; padding: 14px; border-radius: 16px; background: var(--st-head, #F6F5F0); }
+.yn .calbox .calh { margin: 0 0 12px; font-size: 13.5px; line-height: 1.65; color: #4A544F !important; }
+html:not([data-theme="light"]) .yn .calbox .calh { color: #C9CECB !important; }
+.yn .calbtns { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.yn a.calb {
+  display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 14px; border-radius: 14px;
+  background: var(--lt-card, #fff); border: 1px solid var(--hair, #E3E2DC); color: var(--ink-1) !important;
+  text-decoration: none; font-size: 14.5px; font-weight: 700; line-height: 1.3;
+}
+.yn a.calb:hover { border-color: var(--tone); }
+.yn a.calb small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.yn .calic { width: 22px; height: 22px; flex: none; color: var(--tone); }
+.yn .calic .f { fill: currentColor; fill-opacity: .12; }
+.yn .calfoot { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.yn .calfoot .btn.mini { min-height: 34px; text-decoration: none; }
+.yn .calnote { margin: 10px 0 0; font-size: 12px; color: var(--ink-3); }
+.yn .strole { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 4px 10px; font-size: 13px; color: var(--ink-3); }
+.yn .stpanel .docbar { margin: 0 4px 10px !important; }
+.yn .stpanel .docbar .docbtn { min-height: 42px; border-radius: 12px !important; font-weight: 700; }
+.yn .stpanel .sthint { margin: 0 4px 6px !important; }
+.yn .stpanel .lg { display: flex; gap: 6px; margin: 0 4px 12px; white-space: normal; }
+.yn .stpanel .lg .tn { margin: 0; border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 700; }
+
+/* 테이블 — 회색 머리 · 날짜 칸 한 칸 (연습 작게 / 주일 굵게) · 강조는 옅은 바탕 · 불가 칸은 옅은 붉은 바탕 */
+.yn .st td.dc .stpr { display: block; font-size: 11.5px; font-weight: 600; line-height: 1.35; white-space: nowrap; cursor: pointer; }
+.yn .st td.dc .stpr.none { opacity: .75; }
+.yn .st td.dc b { display: block; white-space: nowrap; }
+.yn .st td.dc .dcn { display: block; max-width: 120px; white-space: normal; font-size: 11.5px; line-height: 1.35; font-weight: 700; }
+html[data-theme="light"] .yn .st thead th, html[data-theme="light"] .yn .st thead th.dc { background: #F1F0EB !important; color: #4A544F !important; font-weight: 700; }
+html[data-theme="light"] .yn .st tr.mrow td, html[data-theme="light"] .yn .st tr.mrow td.dc { background: #FAFAF7 !important; color: #5F6863 !important; }
+html[data-theme="light"] .yn .st td.dc { background: #F8F7F3 !important; }
+html[data-theme="light"] .yn .st td.offc, html[data-theme="light"] .yn .st th.offc { background: #FBF3F1 !important; }
+html[data-theme="light"] .yn .st thead th.offc { color: #9A4B3C !important; }
+html[data-theme="light"] .yn .st td.c.hlc { background: #EEF2EF !important; }
+html[data-theme="light"] .yn .st td.c .tn.hl, html[data-theme="light"] .yn .tn.hl, html[data-theme="light"] .yn .tp.hl { background: #DCE6E0 !important; color: #1F3F33 !important; font-weight: 800; }
+html:not([data-theme="light"]) .yn .st td.offc, html:not([data-theme="light"]) .yn .st th.offc { background: rgba(196, 110, 92, .10) !important; }
+html:not([data-theme="light"]) .yn .st td.c.hlc { background: rgba(214, 185, 127, .08) !important; }
+html:not([data-theme="light"]) .yn .st td.c .tn.hl, html:not([data-theme="light"]) .yn .tn.hl, html:not([data-theme="light"]) .yn .tp.hl { background: rgba(214, 185, 127, .2) !important; color: #E8D3A6 !important; }
+html:not([data-theme="light"]) .yn .stmbs .stmb { border-color: rgba(255,255,255,.16); color: #D8DCD9; }
+html:not([data-theme="light"]) .yn .calbox { background: rgba(255,255,255,.04); }
+html:not([data-theme="light"]) .yn a.calb { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); color: #ECEEEC !important; }
+@media (max-width: 560px) {
+  .yn .stpanel .sttools select { font-size: 14.5px; }
+  .yn .calbtns { grid-template-columns: 1fr; }
+}
+html[data-theme="light"] body .yn .stpanel .lg .tn.hl.hl, html[data-theme="light"] body .yn .stpanel .tp.hl.hl { background: #DCE6E0 !important; color: #1F3F33 !important; }
+html[data-theme="light"] .yn .stpanel .lg .tn.off { background: #F3E9E5 !important; color: #9A4B3C !important; }

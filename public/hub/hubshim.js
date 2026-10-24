@@ -538,6 +538,163 @@ function offOne(key) {
   markOff([key], r, part);
 }
 
+/* ---------------------------------------------------------------- V14 스케줄 화면 — 청년부 앱(church-app v11) 스케줄과 같은 차림
+ * 머리(제목 · 카드/테이블) → 기간 · 사람 강조 (반반) → [내 스케줄만 보기] [캘린더에 추가] (누르면 아래로 펼침)
+ * → "○○ 자리 기준 순서 · 방송 칸은 숨김 [모든 자리 보기]" → PDF → 안내 · 범례 → 표/카드.
+ * 테이블 날짜 칸은 한 칸에 "연습일(작게) / 주일(굵게)" — 따로 있던 연습 칸 · 곡 칸은 뺌 (연습 시간 · 곡은 날짜를 누르면 나옴) */
+var ST_KIND_NAME = { sing: '싱어', keys: '건반', drum: '드럼', bass: '베이스', egt: '일렉', agt: '어쿠기타' };
+var stViewGroupsBase = stViewGroups;
+stViewGroups = function () { return ST.allCols ? stGroups() : stViewGroupsBase(); };
+function stPracMini(r) {
+  var p = r.practice || null, none = !p || p.none || p.unset || !p.date, w = stPracWith(r);
+  return '<span class="sd stpr' + (none ? ' none' : '') + '"' + (D.canEdit ? ' onclick="event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')"' : '') +
+    ' title="' + esc((D.canEdit ? '연습일 바꾸기' : '연습일') + (w ? ' — 같은 날 연습: ' + w : '')) + '">' +
+    (none ? esc(stPracLabel(p)) : '연습 ' + WD[dt(p.date).getDay()] + ' ' + md(p.date)) + (w ? ' <i class="prw">+' + r.practiceWith.length + '</i>' : '') + '</span>';
+}
+var CAL = { open: false, data: null, err: '', busy: false };
+function calToggle() {
+  CAL.open = !CAL.open; render();
+  if (CAL.open && !CAL.data && !CAL.busy) calLoad();
+}
+function calLoad() {
+  CAL.busy = true; CAL.err = ''; render();
+  fetch((window.PH_BASE || '') + '/cal/mine?team=' + encodeURIComponent(HUB.team || ''), { credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || '캘린더 주소를 만들지 못했습니다.'); CAL.busy = false; CAL.data = j.result; render(); })
+    .catch(function (e) { CAL.busy = false; CAL.err = (e && e.message) || '캘린더 주소를 만들지 못했습니다.'; render(); });
+}
+function calCopy(btn) {
+  var u = CAL.data && CAL.data.feed && CAL.data.feed.https; if (!u) return;
+  var ok = function () { btn.textContent = '복사했습니다'; setTimeout(function () { btn.textContent = '주소 복사'; }, 1800); };
+  try { navigator.clipboard.writeText(u).then(ok, function () { prompt('주소를 복사하세요', u); }); } catch (e) { prompt('주소를 복사하세요', u); }
+}
+function calIco(k) {
+  var p = {
+    apple: '<rect x="3.5" y="4.5" width="17" height="16" rx="3.5" class="f"/><path d="M3.5 9.5h17M8 2.8v3.4M16 2.8v3.4"/><path d="M8.5 13.5h2M13.5 13.5h2M8.5 16.8h2"/>',
+    google: '<rect x="3.5" y="4.5" width="17" height="16" rx="3.5" class="f"/><path d="M3.5 9.5h17M8 2.8v3.4M16 2.8v3.4"/><path d="M15.2 15.1a3.3 3.3 0 1 1-1-2.4M15.2 13.4h-2.6"/>',
+    file: '<path class="f" d="M7 3.8h6.6L18 8.2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2z"/><path d="M13.4 3.8v4.6H18M12 11.5v5M9.6 14.4l2.4 2.4 2.4-2.4"/>'
+  }[k];
+  return '<svg class="calic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+}
+function calBox() {
+  if (!CAL.open) return '';
+  var L = CAL.data, h = '<div class="calbox">';
+  if (CAL.busy) h += '<p class="hint" style="margin:0;">주소를 만드는 중…</p>';
+  else if (CAL.err) h += '<p class="msg err" style="margin:0;">' + esc(CAL.err) + '</p>';
+  else if (L && L.feed) {
+    var items = (L.items || []).filter(function (it) { return !it.off; });
+    var ics = (window.PH_BASE || '') + '/cal/mine.ics?team=' + encodeURIComponent(HUB.team || '') + '&ids=' + encodeURIComponent(items.map(function (it) { return it.id; }).join(','));
+    h += '<p class="calh">' + esc(dispName(D.who)) + ' 님이 서는 연습 · 주일 예배 · 행사' + (items.length ? ' ' + items.length + '개' : '') + '가 들어갑니다. 한 번 추가해 두면 편성이 바뀔 때 캘린더도 저절로 바뀝니다.</p>' +
+      '<div class="calbtns">' +
+        '<a class="calb" href="' + esc(L.feed.webcal) + '">' + calIco('apple') + '<span>애플 캘린더<small>아이폰 · 아이패드 · 맥</small></span></a>' +
+        '<a class="calb" href="' + esc(L.feed.google) + '" target="_blank" rel="noopener">' + calIco('google') + '<span>구글 캘린더<small>웹에서 「추가」를 누르면 폰 앱에도</small></span></a>' +
+        (items.length ? '<a class="calb" href="' + esc(ics) + '">' + calIco('file') + '<span>.ics 내려받기<small>Outlook 등 · 지금 일정만</small></span></a>' : '') +
+      '</div>' +
+      '<div class="calfoot"><button type="button" class="btn mini" onclick="calCopy(this)">주소 복사</button>' +
+        (L.feed.outlook ? '<a class="btn mini" href="' + esc(L.feed.outlook) + '" target="_blank" rel="noopener">아웃룩에 구독</a>' : '') +
+        '<button type="button" class="btn mini" data-mysched data-team="' + esc(HUB.team || '') + '">날짜 골라 넣기</button></div>' +
+      '<p class="calnote">이 주소는 나만의 주소예요. 다른 사람에게 보내지 마세요.</p>';
+  }
+  return h + '</div>';
+}
+function schedTab() {
+  if (!ST.rows) {
+    return '<div class="panel"><p class="hint" style="margin-top:0;">' +
+      esc((ST_RANGES.filter(function (x) { return x[0] === ST.range; })[0] || ST_RANGES[0])[1]) + ' 스케줄을 불러오는 중…</p>' +
+      '<i class="skel line" style="width:55%;"></i><i class="skel line" style="width:85%;"></i>' +
+      '<i class="skel line" style="width:70%;"></i><i class="skel line" style="width:40%;"></i></div>';
+  }
+  var table = ST.view !== 'card';
+  var groups = table ? stViewGroups() : stGroups();
+  var cols = [];
+  groups.forEach(function (g) { cols = cols.concat(g[1]); });
+  var kn = known();
+  var picking = !!ST.pick;
+  var mineSet = {};
+  ST.mine.forEach(function (x) { mineSet[x.date] = x; });
+
+  var head1 = '<tr class="g"><th class="dc" rowspan="2">날짜</th>' +
+    groups.map(function (g) { return '<th colspan="' + g[1].length + '">' + g[0] + '</th>'; }).join('') +
+    '<th class="offc" rowspan="2">불가</th></tr>';
+  var head2 = '<tr>' + cols.map(function (p) { return '<th>' + esc(ST_SHORT[p.key] || p.label) + '</th>'; }).join('') + '</tr>';
+
+  var lastMonth = '', body = '', shown = stShown();
+  shown.forEach(function (r) {
+    var mo = r.date.slice(0, 7);
+    if (mo !== lastMonth) {
+      lastMonth = mo;
+      body += '<tr class="mrow"><td class="dc">' + Number(mo.split('-')[1]) + '월</td><td colspan="' + (cols.length + 1) + '"></td></tr>';
+    }
+    var off = offMap(r.off);
+    var sel = picking && ST.pick.indexOf(r.key) !== -1;
+    var mineOff = mineSet[r.key];
+    var dateCell = '<td class="dc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + (mineOff ? ' mineoff' : '') +
+      '" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
+      (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
+      stPracMini(r) + '<b>' + WD[dt(r.date).getDay()] + ' ' + md(r.date) + '</b>' +
+      ((r.event || mineOff) ? '<span class="dcn' + (r.event ? ' stev' : '') + '">' + (r.event ? esc(r.event.name) : '') + (mineOff ? (r.event ? ' · ' : '') + stMineTag(mineOff, r) : '') + '</span>' : '') + '</td>';
+
+    var cells = cols.map(function (p) {
+      var names = r.slots[p.key] || [];
+      var inner = names.length ? names.map(function (n) {
+        var cls = 'tn' + (off[n] ? ' off' : '') + (n === ST.hl ? ' hl' : '') + (kn[n] ? '' : ' guest');
+        return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — ' + off[n] : '')) + '">' + esc(shortName(n, p.key)) + '</span>';
+      }).join('') : '<span class="tn none">·</span>';
+      var edit = D.canEdit && !picking;
+      return '<td class="c' + (edit ? ' ed' : '') + (names.indexOf(ST.hl) !== -1 && ST.hl ? ' hlc' : '') + '"' +
+        (edit ? ' onclick="stCell(\'' + r.key + '\',\'' + p.key + '\')"' : '') + '>' + inner + '</td>';
+    }).join('');
+
+    var offCell = '<td class="offc" onclick="stDay(\'' + r.key + '\')">' + (r.off.length ? r.off.map(function (x) { return stOffTn(x, r); }).join('') : '') + '</td>';
+    body += '<tr class="r' + (r.event ? ' evr' : '') + '">' + dateCell + cells + offCell + '</tr>';
+  });
+
+  var people = D.members.map(function (m) { return m.name; });
+  var hlSel = '<select class="hlsel" onchange="ST.hl=this.value;render();" aria-label="사람 강조">' +
+    '<option value="">사람 강조 없음</option>' +
+    people.map(function (n) { return '<option value="' + esc(n) + '"' + (n === ST.hl ? ' selected' : '') + '>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'; }).join('') +
+    '</select>';
+  var rangeSel = '<select class="rangesel" onchange="stRange(this.value)" aria-label="기간">' + ST_RANGES.map(function (x) {
+    return '<option value="' + x[0] + '"' + (ST.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>';
+  }).join('') + '</select>';
+
+  var bar = picking
+    ? '<div class="stbar"><div class="stbar-in">' +
+        '<div class="stbar-t">' + (ST.pick.length ? ST.pick.length + '개 날짜 선택됨' : '아래 표에서 안 되는 날짜를 누르세요') + '</div>' +
+        stPartSeg() + '<div class="addrow"><input type="text" id="offReason" placeholder="사유 — 예: 출장 · 시험 · 가족 행사" maxlength="100" ' +
+          'onkeydown="if(event.key===\'Enter\')saveOff()">' +
+          '<button class="btn" onclick="ST.pick=null;render();">취소</button>' +
+          '<button class="btn accent" onclick="saveOff()">저장</button></div>' +
+        '<p class="msg" id="offMsg" style="margin:6px 0 0;min-height:0;"></p></div></div>'
+    : '';
+
+  var viewSeg = '<div class="seg stseg">' + [['card', '카드'], ['table', '테이블']].map(function (v) {
+    return '<button type="button" class="' + (ST.view === v[0] ? 'on' : '') + '" onclick="ST.view=\'' + v[0] + '\';render();">' + v[1] + '</button>';
+  }).join('') + '</div>';
+
+  var kind = table ? stViewerKind() : '';
+  var roleBar = kind ? '<div class="strole"><span>' + (ST.allCols ? '모든 자리를 기본 순서로 보는 중' : esc(ST_KIND_NAME[kind] || '내') + ' 자리 기준 순서' + (D.committee ? '' : ' · 방송 칸은 숨김')) + '</span>' +
+    '<button type="button" class="btn mini" onclick="ST.allCols=!ST.allCols;render();">' + (ST.allCols ? '내 자리 기준으로' : '모든 자리 보기') + '</button></div>' : '';
+
+  return stOffCard() + '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄</span>' + viewSeg + '</div>' +
+      '<div class="sttools">' + rangeSel + hlSel + '</div>' +
+      (D.who ? '<div class="stmbs">' +
+        '<button type="button" class="stmb' + (ST.onlyMine ? ' on' : '') + '" aria-pressed="' + (ST.onlyMine ? 'true' : 'false') + '" onclick="stOnlyMine(!ST.onlyMine)">내 스케줄만 보기</button>' +
+        '<button type="button" class="stmb' + (CAL.open ? ' on' : '') + '" aria-expanded="' + (CAL.open ? 'true' : 'false') + '" onclick="calToggle()">' + calIco('apple') + '캘린더에 추가</button></div>' + calBox() : '') +
+      roleBar +
+      '<div class="docbar">' + docBtn('스케줄 PDF 미리보기 · 다운로드', 'hubDoc(\'hubScheduleDoc\',[TOKEN,ST.range],\'stDocMsg\')') + '<p class="msg docmsg" id="stDocMsg"></p></div>' +
+      '<p class="hint sthint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.'
+        : (D.canEdit ? '칸을 누르면 바로 배정합니다. 날짜를 누르면 그날 자세히 볼 수 있어요.'
+                     : '날짜를 누르면 그날 편성과 불가 사유를 볼 수 있어요.')) + '</p>' +
+      '<p class="lg"><span class="tn off">불가</span><span class="tn hl">강조</span><span class="tn guest">객원</span></p>' +
+      bar +
+      (ST.onlyMine && !shown.length ? '<p class="empty" style="margin:14px 4px;">이 기간에 ' + esc(dispName(D.who)) + ' 님이 서는 날이 없어요. 기간을 바꾸거나 \'내 스케줄만 보기\'를 꺼 보세요.</p>' :
+      !table ? stCards(groups, kn, picking, mineSet)
+        : '<div class="stwrap"><table class="st"><thead>' + head1 + head2 + '</thead><tbody>' + body + '</tbody></table></div>') +
+      '<p class="msg" id="stMsg"></p>' +
+    '</div>';
+}
+
 /* ---------------------------------------------------------------- 시작 */
 document.addEventListener('DOMContentLoaded', function () {
   if (!TOKEN) { var b = el('body'); if (b) b.innerHTML = '<div class="panel"><p class="empty">다시 들어와 주세요.</p></div>'; return; }
