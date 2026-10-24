@@ -64,6 +64,7 @@
     var url;
     try { url = new URL(a.getAttribute('href'), location.href); } catch (err) { return; }
     if (url.origin !== location.origin || !isSpaPath(url.pathname)) return;
+    if (/\.ics$/i.test(url.pathname)) return;                      // 캘린더 파일 — 그대로 열어야 폰이 "캘린더에 추가"를 띄움
     e.preventDefault();
     loadPartial(url.pathname + url.search, true);
   });

@@ -47,6 +47,7 @@ const YTFORM_V = (() => { try { return String(Math.floor(require('fs').statSync(
 const guestLink = require('../lib/guestLink');
 const timeSettings = require('../lib/timeSettings');
 const closingHymn = require('../lib/closingHymn');
+const practiceView = require('../lib/practiceView');
 const notify = require('../lib/notify');
 const router = express.Router();
 
@@ -885,7 +886,39 @@ router.get('/conti', requireTeam, async (req, res) => {
 });
 
 /* ================= 연습 콘티 — 연습일 기준으로 묶어 보기 (한 번에 2주치를 연습하면 그 날짜에 두 콘티가 함께) ================= */
-const practiceView = require('../lib/practiceView');
+/** 메일 속 "아이폰 캘린더" 링크 — 로그인 없이 (서명으로 확인) */
+router.get('/practice-cal.ics', async (req, res) => {
+  const team = String(req.query.team || ''), pd = String(req.query.pd || ''), name = String(req.query.n || '');
+  const reminder = require('../lib/practiceReminder');
+  if (!team || !prac.isDate(pd) || !name || String(req.query.s || '') !== reminder.calSig(team, pd, name)) return res.status(403).type('text').send('링크가 올바르지 않아요.');
+  const g = (await practiceView.groups(team, pd, pd))[0];
+  if (!g) return res.status(404).type('text').send('그 날짜에 정해진 연습이 없어요.');
+  const [assignAll, offAll] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정')]);
+  const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+  const mine = g.targets.map((t) => Object.assign({ t }, practiceView.standing(name, t, A, O))).filter((x) => x.pos.length && !x.off).map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos }));
+  const ev = practiceView.calEvent(team, g, mine, process.env.BASE_URL || `${req.protocol}://${req.get('host')}`);
+  res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="practice-${pd}.ics"` });
+  res.send(practiceView.icsText(ev));
+});
+
+/** 연습 일정 .ics — 아이폰 · 맥 캘린더에 바로 추가 (내가 서는 콘티 이름 · 내 포지션을 적음) */
+router.get('/practice-conti/calendar.ics', requireTeam, async (req, res) => {
+  const team = req.ctx.current, pd = String(req.query.pd || '');
+  if (!prac.isDate(pd)) return res.status(400).type('text').send('날짜를 확인해주세요.');
+  const g = (await practiceView.groups(team, pd, pd))[0];
+  if (!g) return res.status(404).type('text').send('그 날짜에 정해진 연습이 없어요.');
+  const me = String(req.ctx.member['이름'] || '').trim();
+  const [assignAll, offAll] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정')]);
+  const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+  const mine = g.targets.map((t) => Object.assign({ t }, practiceView.standing(me, t, A, O))).filter((x) => x.pos.length && !x.off)
+    .map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos }));
+  const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const ev = practiceView.calEvent(team, g, mine, base);
+  res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store',
+    'Content-Disposition': `inline; filename="practice-${pd}.ics"` });
+  res.send(practiceView.icsText(ev));
+});
+
 router.get('/practice-conti', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
@@ -928,6 +961,9 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
           <span class="ph-pr-with">${cur.targets.length > 1 ? `이 날 ${cur.targets.length}개 콘티를 함께 연습해요 · ` : ''}${cur.targets.map((t) => esc(practiceView.targetName(t))).join(' · ')}</span></div>
         <a class="ph-pr-edit" href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 바꾸기 ${ui.icon('next')}</a>
       </div>
+      <div class="pc-cal"><span class="pc-callab">${ui.icon('calendar')} 캘린더에 추가</span>
+        <a class="cn-mini" href="/practice-conti/calendar.ics?team=${encodeURIComponent(team)}&pd=${encodeURIComponent(cur.date)}">아이폰 · 맥 캘린더</a>
+        <a class="cn-mini" href="${esc(practiceView.googleCalUrl(practiceView.calEvent(team, cur, null, process.env.BASE_URL || `${req.protocol}://${req.get('host')}`)))}" target="_blank" rel="noopener">구글 캘린더</a></div>
     </div>`;
     const cards = [];
     for (const t of cur.targets) {

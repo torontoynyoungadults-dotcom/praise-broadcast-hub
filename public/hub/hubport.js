@@ -268,6 +268,12 @@ function stRange(v) {
   render(); loadSched();
 }
 
+/* 내가 서는 날만 — 편성 칸 어디든 내 이름이 있는 날 (기기에 기억) */
+try { ST.onlyMine = localStorage.getItem('ph.st.onlyMine') === '1'; } catch (e) { ST.onlyMine = false; }
+function stServes(r) { var me = D.who; if (!me) return false; return Object.keys(r.slots || {}).some(function (k) { return (r.slots[k] || []).indexOf(me) !== -1; }); }
+function stShown() { return ST.onlyMine ? (ST.rows || []).filter(stServes) : (ST.rows || []); }
+function stOnlyMine(on) { ST.onlyMine = !!on; try { localStorage.setItem('ph.st.onlyMine', on ? '1' : '0'); } catch (e) {} render(); }
+
 function stRow(key) { return (ST.rows || []).filter(function (r) { return r.key === key; })[0]; }
 
 function stSync(w) {
@@ -300,7 +306,8 @@ function schedTab() {
   var head2 = '<tr>' + cols.map(function (p) { return '<th>' + esc(ST_SHORT[p.key] || p.label) + '</th>'; }).join('') + '</tr>';
 
   var lastMonth = '', body = '';
-  ST.rows.forEach(function (r) {
+  var shown = stShown();
+  shown.forEach(function (r) {
     var mo = r.date.slice(0, 7);
     if (mo !== lastMonth) {
       lastMonth = mo;
@@ -358,14 +365,16 @@ function schedTab() {
   }).join('') + '</select>';
 
   return stOffCard() + '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + stOffBtn(picking) + viewSeg + '</div>' + stMinePanel(picking) +
-      '<div class="sttools">' + rangeSel + hlSel + '</div>' +
+      '<div class="sttools">' + rangeSel + hlSel +
+        (D.who ? '<label class="stmine' + (ST.onlyMine ? ' on' : '') + '"><input type="checkbox"' + (ST.onlyMine ? ' checked' : '') + ' onchange="stOnlyMine(this.checked)"> 내가 서는 날만</label>' : '') + '</div>' +
       '<div class="docbar" style="margin:0 4px 8px;">' + docBtn('스케줄표 PDF 미리보기 · 다운로드', 'hubDoc(\'hubScheduleDoc\',[TOKEN,ST.range],\'stDocMsg\')') + '<p class="msg docmsg" id="stDocMsg"></p></div>' +
       '<p class="hint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.'
         : (D.canEdit ? '칸을 누르면 바로 배정합니다. 날짜를 누르면 그날 자세히 볼 수 있어요.'
                      : '날짜를 누르면 그날 편성과 불가 사유를 볼 수 있어요.')) +
         ' <span class="lg"><span class="tn off">불가</span> <span class="tn hl">강조</span> <span class="tn guest">객원</span></span></p>' +
       bar +
-      (ST.view === 'card' ? stCards(groups, kn, picking, mineSet)
+      (ST.onlyMine && !shown.length ? '<p class="empty" style="margin:14px 4px;">이 기간에 ' + esc(dispName(D.who)) + ' 님이 서는 날이 없어요. 기간을 바꾸거나 \'내가 서는 날만\'을 꺼 보세요.</p>' :
+      ST.view === 'card' ? stCards(groups, kn, picking, mineSet)
         : '<div class="stwrap"><table class="st"><thead>' + head1 + head2 + '</thead><tbody>' + body + '</tbody></table></div>') +
       '<p class="msg" id="stMsg"></p>' +
     '</div>';
@@ -373,7 +382,7 @@ function schedTab() {
 
 function stCards(groups, kn, picking, mineSet) {
   var lastMonth = '', out = '';
-  ST.rows.forEach(function (r) {
+  stShown().forEach(function (r) {
     var mo = r.date.slice(0, 7);
     if (mo !== lastMonth) { lastMonth = mo; out += '<p class="stmon">' + Number(mo.split('-')[0]) + '년 ' + Number(mo.split('-')[1]) + '월</p>'; }
     var off = offMap(r.off);

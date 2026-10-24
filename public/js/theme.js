@@ -77,3 +77,15 @@
   document.addEventListener('ph:content-updated', paint);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint); else paint();
 })();
+
+/* 배너의 "캘린더에 추가" 메뉴 — 바깥을 누르거나 하나를 고르면 닫힘 */
+(function () {
+  if (window.__phCalBound) return; window.__phCalBound = true;
+  document.addEventListener('click', function (e) {
+    var open = document.querySelectorAll('.ph-calmenu[open]');
+    for (var i = 0; i < open.length; i++) {
+      var m = open[i];
+      if (!m.contains(e.target) || (e.target.closest && e.target.closest('.ph-calpop a'))) m.removeAttribute('open');
+    }
+  });
+})();

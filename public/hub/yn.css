@@ -588,6 +588,13 @@
   :where(.yn) .sttools { padding: 0 4px 8px; display: flex; gap: 7px; flex-wrap: wrap; }
   :where(.yn) .sttools select { flex: 1 1 150px; font-size: 15.5px; padding: 9px 30px 9px 12px; }
   :where(.yn) .sttools .rangesel { font-weight: 750; }
+  :where(.yn) .stmine { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 0 14px; min-height: 42px; border-radius: 12px; cursor: pointer; font-size: 14.5px; font-weight: 700;
+    border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); user-select: none; }
+  :where(.yn) .stmine input { width: 18px; height: 18px; margin: 0; accent-color: #DCC08C; }
+  :where(.yn) .stmine.on { border-color: #DCC08C; background: rgba(220,192,140,.16); color: #EEE2CB; }
+  html[data-theme="light"] :where(.yn) .stmine { border-color: rgba(18,39,34,.22); background: #fff; color: #122722; }
+  html[data-theme="light"] :where(.yn) .stmine.on { border-color: #8A5F22; background: rgba(138,95,34,.10); color: #6B4715; }
+  html[data-theme="light"] :where(.yn) .stmine input { accent-color: #8A5F22; }
   /* v7.0 — PDF 보고서 단추 (예배콘티 · 스케줄표 · 통계 · 장비 · 수리) */
   :where(.yn) .docbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
   :where(.yn) .docbar .docbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 12px; font-weight: 800; }
@@ -3564,6 +3571,12 @@ html[data-theme="light"] :where(.yn) .rp-det, html[data-theme="light"] :where(.y
 :where(.yn) .lib-sum b { color: #E8D9BA; }
 :where(.yn) .lib-grid { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
 @media (min-width: 900px) { :where(.yn) .lib-grid { grid-template-columns: 1fr 1fr; } }
+:where(.yn) #rpList { margin: 0 12px; }           /* 곡 목록 · 콘티에 넣기 칸이 위 검색 카드와 같은 폭으로 (가장자리가 들쭉날쭉하지 않게) */
+@media (max-width: 600px) { :where(.yn) #rpList { margin: 0 8px; } }
+@media (min-width: 1180px), (min-width: 1024px) and (orientation: landscape) {
+  :where(.yn) #rpList { margin: 0; }
+  :where(.yn):not(html) #rpDock > .panel { margin-left: 0 !important; margin-right: 0 !important; }
+}
 :where(.yn) .rp-card.lsong { margin: 0; border-radius: 16px; overflow: hidden; background: linear-gradient(150deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .04)); border: 1px solid rgba(255, 255, 255, .18);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .22); transition: border-color .15s, transform .1s; }
 :where(.yn) .rp-card.lsong.open { grid-column: 1 / -1; border-color: rgba(220, 192, 140, .7); }
