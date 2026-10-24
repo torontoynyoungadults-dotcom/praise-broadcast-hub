@@ -145,6 +145,7 @@
     function add(n, v) { var i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); }
     add('team', ctx.team); add('곡ID', ctx.song); add('date', ctx.date); if (ctx.event) add('event', ctx.event);
     add('제목', $('.ss-title').value.trim());
+    if (/^\/practice-conti/.test(location.pathname)) add('back', location.pathname + location.search);     // 연습 콘티에서 열었으면 그 화면으로 돌아옴
     picked.forEach(function (u) { add('url', u); });
     document.body.appendChild(f); close(); f.requestSubmit ? f.requestSubmit() : f.submit();
     setTimeout(function () { f.remove(); }, 4000);

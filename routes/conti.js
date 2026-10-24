@@ -94,7 +94,14 @@ function tellSong(req, team, scope, title) {
   try { notify.contiSongAdded(team, scope, title, String(req.ctx.member['이름'] || ''), String(req.ctx.member['이메일'] || '')); } catch (e) { console.error('[콘티 알림 예약 실패]', e && e.message); }
 }
 function backTo(req, res, team, scope) {
+  const back = String((req.body && req.body.back) || '');
+  if (/^\/practice-conti\?[^\s<>"]*$/.test(back)) return spa.redirect(req, res, back);      // 연습 콘티에서 고쳤으면 그 화면으로
   spa.redirect(req, res, contiUrl(team, scope));
+}
+/** 연습 콘티 화면의 폼에 "돌아올 곳"을 넣어 줌 — 예배 콘티와 같은 폼 · 같은 저장을 그대로 쓰고, 저장 뒤에는 연습 콘티로 */
+function withBack(html, back) {
+  const hid = `<input type="hidden" name="back" value="${esc(back)}">`;
+  return html.replace(/(<form\b[^>]*\bmethod="post"[^>]*>)/g, `$1${hid}`);
 }
 
 /* ---------- 주일 편성 (church-app의 "이 주의 편성" — 이번 주 포지션 배정) ---------- */
@@ -1134,7 +1141,8 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       const { byPos, roster, infoMap: wInfo } = await weekAssignments(team, scope);
       const pinfo = await practiceInfo(team, scope, t.date);
       const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
-      const songCtx = { editable: false, sheetTools: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
+      const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
+      const hist = await historyFor(team, scope);
       // 이 연습에 오는 사람 — 편성된 사람 중 '연습 불참'(또는 둘 다 불참)이 아닌 사람
       const inT = (r) => (t.event ? r['행사ID'] === t.event : (!r['행사ID'] && r['날짜'] === t.date));
       const offNames = new Set(O.filter((r) => String(r['날짜']) === t.key && String(r['구분'] || '').trim() !== '예배').map((r) => String(r['이름'] || '').trim()));
@@ -1148,18 +1156,18 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       const coming = people.filter((x) => !x.off), away = people.filter((x) => x.off);
       const contiHref = contiUrl(team, scope);
       const kakao = kakaoFor({ date: t.date, scope, eventRow, pinfo, w, byPos, infoMap: wInfo });
-      const sec = (title, list) => (list.length ? `<div class="pc-sec"><h3>${title}</h3><div class="cn-songs">${list.join('')}</div></div>` : '');
-      const songsHtml = sec('콘티', w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))))
+      const sec = (title, list, extra) => (list.length || extra ? `<div class="pc-sec"><h3>${title}</h3>${list.length ? `<div class="cn-songs">${list.join('')}</div>` : '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}${extra || ''}</div>` : '');
+      const songsHtml = sec('콘티', w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))), `<div class="pc-add">${songForm('콘티', team, scope, roster, byPos, hist)}</div>`)
         + sec('설교 후 찬양', w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))))
         + sec('폐회송', w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))));
-      cards.push(`<section class="ph-card pc-target" aria-label="${esc(practiceView.targetName(t))} 콘티">
+      cards.push(withBack(`<section class="ph-card pc-target" aria-label="${esc(practiceView.targetName(t))} 콘티">
         <div class="pc-thead">
           <div><h2 class="ph-h2">${esc(practiceView.targetName(t))} 콘티</h2><p class="pc-tdate">${esc(week.labelKo(t.date))}${cur.targets.length > 1 ? ` · ${cur.targets.indexOf(t) + 1} / ${cur.targets.length}` : ''}</p></div>
           <div class="pc-tlinks"><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기 ${ui.icon('next')}</a></div>
         </div>
         <div class="cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
         ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
-        ${songsHtml || '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}
+        ${songsHtml}
         ${(() => {
           const prs = w.recs.filter((r) => r['구분'] !== '예배'), marks = songsForMarks(w);
           return `<div class="pc-sec pc-recs"><h3>연습 녹음</h3>
@@ -1167,7 +1175,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
           <details class="ph-add">
             <summary>+ 연습 녹음 올리기</summary>
             <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
-              <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="구분" value="연습"><input type="hidden" name="back" value="${esc(q(cur.date))}">
+              <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="구분" value="연습">
               <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
               <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
               <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
@@ -1175,7 +1183,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
             </form>
           </details></div>`;
         })()}
-      </section>`);
+      </section>`, q(cur.date)));
     }
     body = head + cards.join('');
   }

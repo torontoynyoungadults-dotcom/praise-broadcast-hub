@@ -181,6 +181,7 @@
      (spa.js 가 폼 제출을 받아 보던 자리에서 화면을 다시 불러옴) */
   function postForm(action, fields) {
     var f = document.createElement('form'); f.method = 'post'; f.action = action; f.hidden = true;
+    if (/^\/practice-conti/.test(location.pathname) && !fields.back) fields.back = location.pathname + location.search;     // 연습 콘티에서 열었으면 그 화면으로 돌아옴
     Object.keys(fields).forEach(function (k) { if (fields[k] == null || fields[k] === '') return; var i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = String(fields[k]); f.appendChild(i); });
     document.body.appendChild(f);
     if (f.requestSubmit) f.requestSubmit(); else f.submit();
