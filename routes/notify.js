@@ -32,7 +32,7 @@ router.get('/notify/state', async (req, res) => {
       team ? notify.inbox(team, ctx.member['이메일']) : [],
     ]);
     res.set('Cache-Control', 'no-store');
-    res.json({ ok: true, key, team, items, canSend: !!team && !guest, subscribed: await notify.hasSub(String(ctx.member['이메일']).toLowerCase(), String(req.query.ep || '')).catch(() => false) });
+    res.json({ ok: true, key, team, items, canSend: !!team && !guest, mail: String(ctx.member['메일수신'] || '').trim() !== '끔', subscribed: await notify.hasSub(String(ctx.member['이메일']).toLowerCase(), String(req.query.ep || '')).catch(() => false) });
   } catch (e) { fail(res, e); }
 });
 
@@ -48,6 +48,14 @@ router.post('/notify/unsubscribe', async (req, res) => {
   try {
     const ctx = await me(req, res); if (!ctx) return;
     await notify.unsubscribe(String(ctx.member['이메일']).toLowerCase(), String((req.body || {}).endpoint || ''));
+    res.json({ ok: true });
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/notify/mail', async (req, res) => {
+  try {
+    const ctx = await me(req, res); if (!ctx) return;
+    await require('../lib/mailPref').set(String(ctx.member['이메일']), !!(req.body || {}).on);
     res.json({ ok: true });
   } catch (e) { fail(res, e); }
 });

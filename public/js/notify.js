@@ -120,6 +120,12 @@
       (on ? '새 콘티 곡이나 악보가 올라오면 바로 알려 드려요.' : '새 콘티 곡이나 악보가 올라오면 폰에 바로 알려 드려요.') + '</small></div>' +
       '<button type="button" class="ph-nt-sw" role="switch" aria-checked="' + on + '" data-nt="' + (on ? 'off' : 'on') + '" aria-label="이 기기 알림"><i></i></button></div>' + (S.pushErr ? '<p class="ph-nt-err">' + esc(S.pushErr) + '</p>' : '');
   }
+  function mailRow() {
+    var on = S.st.mail !== false;
+    return '<div class="ph-nt-push' + (on ? ' on' : '') + '"><div><b>' + (on ? '이메일로 안내를 받고 있어요' : '이메일 안내 받기') + '</b><small>' +
+      (on ? '연습 · 주일 안내와 콘티가 올라왔다는 메일을 보내 드려요.' : '꺼져 있어요. 연습 · 주일 안내 메일이 오지 않아요.') + '</small></div>' +
+      '<button type="button" class="ph-nt-sw" role="switch" aria-checked="' + on + '" data-nt="' + (on ? 'mailoff' : 'mailon') + '" aria-label="이메일 안내"><i></i></button></div>';
+  }
   function sendBox() {
     var st = S.st; if (!st.canSend) return '';
     return '<div class="ph-nt-send"><h4>팀에 알림 보내기</h4>' +
@@ -142,7 +148,7 @@
     var inn = $('.ph-nt-in', el);
     if (!S.st) { inn.innerHTML = head() + '<p class="ph-nt-none">불러오는 중…</p>'; return; }
     var keep = inn.querySelector('.ph-nt-msg') === document.activeElement, pos = inn.scrollTop;
-    inn.innerHTML = head() + pushRow() + sendBox() + '<h4 class="ph-nt-h2">받은 알림</h4>' + list();
+    inn.innerHTML = head() + pushRow() + mailRow() + sendBox() + '<h4 class="ph-nt-h2">받은 알림</h4>' + list();
     inn.scrollTop = pos;
     if (keep) { var m = inn.querySelector('.ph-nt-msg'); if (m) { m.focus(); try { m.setSelectionRange(m.value.length, m.value.length); } catch (e) { /* */ } } }
   }
@@ -170,6 +176,7 @@
     if (a === 'close') close();
     else if (a === 'on') { b.disabled = true; S.pushErr = ''; turnOn().then(function (j) { S.pushErr = j.ok ? '' : (j.error || ''); return load(); }); }
     else if (a === 'off') { b.disabled = true; turnOff().then(function () { return load(); }); }
+    else if (a === 'mailon' || a === 'mailoff') { b.disabled = true; S.st.mail = a === 'mailon'; render(); post('/notify/mail', { on: a === 'mailon' }).then(function () { return load(); }); }
     else if (a === 'send') send();
   }
   function send() {

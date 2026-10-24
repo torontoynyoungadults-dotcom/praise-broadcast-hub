@@ -195,7 +195,8 @@ const sub = (n) => ({ endpoint: 'https://push.example/' + n, keys: { p256dh: 'p'
     const items = await page.locator('.ph-nt-item').count();
     ok(items >= 1, '[' + theme + '] 알림 창에 받은 알림 목록', items);
     ok(await page.locator('.ph-nt-pick').count() === 0, '[' + theme + '] 악보 고르기 목록 없음');
-    ok(await page.locator('.ph-nt-push').count() === 1, '[' + theme + '] 이 기기로 알림 받기 줄');
+    ok(await page.locator('.ph-nt-push').count() === 2, '[' + theme + '] 이 기기로 알림 받기 · 이메일 안내 받기 줄');
+    ok(await page.locator('[data-nt="mailoff"]').count() === 1, '[' + theme + '] 이메일 안내는 기본으로 켜짐');
     const inView = await page.evaluate(() => { const r = document.querySelector('.ph-nt-box').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; });
     ok(inView, '[' + theme + '] 알림 창이 화면 안');
     if (theme === 'dark') await page.screenshot({ path: (process.env.SHOTS || '/tmp') + '/notify-dark.png' }); else await page.screenshot({ path: (process.env.SHOTS || '/tmp') + '/notify-light.png' });
