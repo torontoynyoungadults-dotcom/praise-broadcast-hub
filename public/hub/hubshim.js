@@ -199,6 +199,20 @@ function stPracHtml(r) {
     (D.canEdit ? ' onclick="event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')}"' : '') +
     '>' + (p && !p.none && !p.unset && p.date ? '<i class="prl">연습</i>' : '') + esc(stPracLabel(p)) + (w ? '<i class="prw" title="같은 날 연습: ' + esc(w) + '">+' + r.practiceWith.length + '</i>' : '') + '</span>';
 }
+/** 날짜 자세히 시트 — 내가 서는 날이면 연습 · 예배를 따로 캘린더에 넣기 (구글 / 아이폰 · 맥) */
+function stCalBox(r) {
+  if (!D.who || !Object.keys(r.slots || {}).some(function (k) { return (r.slots[k] || []).indexOf(D.who) !== -1; })) return '';
+  var base = (window.PH_BASE || '') + '/cal/serve?team=' + encodeURIComponent(HUB.team || '') + '&key=' + encodeURIComponent(r.key);
+  var p = r.practice || null, hasPrac = p && !p.none && !p.unset && p.date;
+  function row(label, when, kind) {
+    return '<div class="stcal-r"><span class="stcal-l"><b>' + esc(label) + '</b>' + esc(when) + '</span>' +
+      '<a class="btn mini" href="' + esc(base + '&kind=' + kind + '&to=google') + '" target="_blank" rel="noopener">구글</a>' +
+      '<a class="btn mini" href="' + esc(base + '&kind=' + kind + '&to=ics') + '">아이폰 · 맥</a></div>';
+  }
+  return '<div class="stme stcal"><div class="gl">내 캘린더에 넣기</div>' +
+    (hasPrac ? row('연습', WD[dt(p.date).getDay()] + ' ' + md(p.date), 'prac') : '') +
+    row(r.event ? '예배' : '주일', (r.event ? WD[dt(r.date).getDay()] + ' ' : '') + md(r.date), 'sun') + '</div>';
+}
 /** 테이블 보기의 날짜 칸 위 작은 줄 */
 function stPracShort(r) {
   var p = r.practice || null;

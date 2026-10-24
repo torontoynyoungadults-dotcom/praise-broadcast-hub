@@ -886,6 +886,43 @@ router.get('/conti', requireTeam, async (req, res) => {
 });
 
 /* ================= 연습 콘티 — 연습일 기준으로 묶어 보기 (한 번에 2주치를 연습하면 그 날짜에 두 콘티가 함께) ================= */
+/**
+ * 스케줄표에서 "캘린더에 추가" — 내가 서는 예배 하나의 연습(kind=prac) 또는 예배 당일(kind=sun)을 따로.
+ *  ?team&key(주일 날짜 · ev-ID)&kind=prac|sun&to=google|ics  →  구글이면 구글 캘린더로 보내고, ics 면 캘린더 파일
+ */
+router.get('/cal/serve', requireTeam, async (req, res) => {
+  const team = req.ctx.current, key = String(req.query.key || '').trim(), kind = req.query.kind === 'prac' ? 'prac' : 'sun';
+  const isEvKey = /^ev-/.test(key);
+  const evRow = isEvKey ? await specialServiceById(team, key.slice(3)) : null;
+  if (isEvKey ? !evRow : !prac.isDate(key)) return res.status(400).type('text').send('날짜를 확인해주세요.');
+  const t = isEvKey ? { key, date: evRow['날짜'], event: String(evRow['ID']), name: String(evRow['이름'] || '주일 외 찬양') } : { key, date: key, event: '', name: '' };
+  const me = String(req.ctx.member['이름'] || '').trim();
+  const [assignAll, offAll, pracAll, ts] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), sheetsDb.readAll('연습일정'), timeSettings.get(team)]);
+  const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+  const st = practiceView.standing(me, t, A, O);
+  const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const tname = practiceView.targetName(t);
+  let ev;
+  if (kind === 'prac') {
+    const p = prac.practiceFor(key, t.date, pracAll.filter((r) => r['팀ID'] === team), timeSettings.practiceNote(ts));
+    if (p.none || p.unset || !p.date) return res.status(404).type('text').send('이 예배는 연습일이 정해지지 않았어요.');
+    const w = practiceView.whenOf(p.note, ts);
+    ev = practiceView.calEvent(team, { date: p.date, time: w.time, place: w.place, targets: [t] }, st.pos.length ? [{ name: tname, pos: st.pos }] : null, base);
+  } else {
+    const worship = timeSettings.parse(evRow && evRow['예배시간']) || ts.worship;
+    const meet = timeSettings.parse(evRow && evRow['리허설시간']) || (isEvKey ? '' : ts.rehearsal) || worship;
+    const [h, m] = worship.split(':').map(Number), em = Math.min(23 * 60 + 59, h * 60 + m + 90);       // 예배 시작 + 1시간 30분
+    const end = `${String(Math.floor(em / 60)).padStart(2, '0')}:${String(em % 60).padStart(2, '0')}`;
+    const url = base + contiUrl(team, { event: t.event, date: t.date });
+    ev = { title: `${team} ${t.event ? t.name : '주일예배'} 찬양${st.pos.length ? ' (' + st.pos.join(' · ') + ')' : ''}`, date: t.date, time: meet, end, place: ts.place || '',
+      details: [meet !== worship ? `리허설 모임 ${timeSettings.fmt(meet)} · 예배 ${timeSettings.fmt(worship)}` : `예배 ${timeSettings.fmt(worship)}`, st.pos.length ? '내 포지션: ' + st.pos.join(' · ') : '', '콘티: ' + url].filter(Boolean).join('\n'),
+      url, alarm: `${tname} 찬양` };
+  }
+  if (req.query.to === 'google') return res.redirect(practiceView.googleCalUrl(ev));
+  res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="${kind === 'prac' ? 'practice' : 'worship'}-${t.date}.ics"` });
+  res.send(practiceView.icsText(ev));
+});
+
 /** 메일 속 "아이폰 캘린더" 링크 — 로그인 없이 (서명으로 확인) */
 router.get('/practice-cal.ics', async (req, res) => {
   const team = String(req.query.team || ''), pd = String(req.query.pd || ''), name = String(req.query.n || '');

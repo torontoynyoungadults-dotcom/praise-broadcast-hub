@@ -438,6 +438,7 @@ function stDay(key) {
     (r.verse ? '<div class="verse" style="margin-bottom:10px;"><div class="vq">' + esc(r.verse) + '</div></div>' : '') +
     (r.off.length ? '<div class="offbar"><b>불가</b><br>' + r.off.map(function (x) { return esc(dispName(x.name)) + ' — ' + esc(stOffWhy(x, r)); }).join('<br>') + '</div>' : '') +
     lines + stPracBox(r) +
+    (typeof stCalBox === 'function' ? stCalBox(r) : '') +
     stMeBox(r, key, mine) +
     '<div class="yc-acts"><button class="btn dark" onclick="YC.close();goWeek(\'' + esc(jsq(key)) + '\')">이 날 예배 준비 열기 &rsaquo;</button></div>';
   YC.sheet(html, {});

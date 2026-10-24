@@ -577,6 +577,11 @@
   :where(.yn) .yc-sh .nm { margin: 2px 0; }
   :where(.yn) .stsub { font-size: 14.5px; color: var(--ink-3); margin: -8px 0 12px; }
   :where(.yn) .stme { margin-top: 14px; background: var(--canvas); border-radius: var(--r-md); padding: 12px; }
+  :where(.yn) .stcal-r { display: flex; align-items: center; gap: 6px; padding: 6px 0; }
+  :where(.yn) .stcal-r + .stcal-r { border-top: 1px solid var(--hair); }
+  :where(.yn) .stcal-l { flex: 1; min-width: 0; font-size: 14.5px; }
+  :where(.yn) .stcal-l b { display: inline-block; min-width: 2.6em; margin-right: 6px; font-weight: 800; }
+  :where(.yn) .stcal-r .btn { text-decoration: none; }
   :where(.yn) .stme .gl, :where(.yn) .gl2 { font-size: 12.5px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; margin-bottom: 8px; }
   :where(.yn) .gl2 { margin: 16px 0 7px; }
   :where(.yn) .yc-sh .pgroup { margin-bottom: 12px; }
