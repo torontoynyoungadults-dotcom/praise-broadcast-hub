@@ -292,7 +292,7 @@ function schedTab() {
       '<i class="skel line" style="width:55%;"></i><i class="skel line" style="width:85%;"></i>' +
       '<i class="skel line" style="width:70%;"></i><i class="skel line" style="width:40%;"></i></div>';
   }
-  var groups = stGroups();
+  var groups = (ST.view !== 'card' && typeof stViewGroups === 'function') ? stViewGroups() : stGroups();   // 테이블은 보는 사람 포지션 순서로 (hubshim)
   var cols = [];
   groups.forEach(function (g) { cols = cols.concat(g[1]); });
   var kn = known();

@@ -199,6 +199,39 @@ function stPracHtml(r) {
     (D.canEdit ? ' onclick="event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();stPractice(\'' + esc(jsq(r.key)) + '\')}"' : '') +
     '>' + (p && !p.none && !p.unset && p.date ? '<i class="prl">연습</i>' : '') + esc(stPracLabel(p)) + (w ? '<i class="prw" title="같은 날 연습: ' + esc(w) + '">+' + r.practiceWith.length + '</i>' : '') + '</span>';
 }
+/* 스케줄표 테이블 — 보는 사람의 포지션(회원 역할)에 맞춰 칸 순서를 바꿉니다.
+   · 싱어(인도자 · 남싱 · 여싱): 싱어 먼저, 그다음 세션
+   · 세션(건반 · 드럼 · 베이스 · 일렉 · 어쿠기타): 내 악기와 가까운 세션부터, 그다음 싱어
+   · 싱어 · 세션에게는 방송(음향 · PPT · 방송총괄) 칸을 숨김 (관리자는 배정해야 하니 맨 뒤에 그대로)
+   · 방송팀 · 목회자 · 역할이 없는 사람은 원래 순서 그대로. 카드 보기는 그대로 */
+var ST_VIEW = {
+  sing: [['싱어', ['인도자', '남성싱어', '여성싱어']], ['세션', ['드럼', '베이스', '일렉', '피아노', '신디', '어쿠기타']]],
+  keys: [['세션', ['피아노', '신디', '드럼', '베이스', '일렉', '어쿠기타']], ['싱어', ['인도자', '남성싱어', '여성싱어']]],
+  drum: [['세션', ['드럼', '베이스', '일렉', '피아노', '신디', '어쿠기타']], ['싱어', ['인도자', '남성싱어', '여성싱어']]],
+  bass: [['세션', ['베이스', '드럼', '일렉', '피아노', '신디', '어쿠기타']], ['싱어', ['인도자', '남성싱어', '여성싱어']]],
+  egt: [['세션', ['일렉', '드럼', '베이스', '피아노', '신디', '어쿠기타']], ['싱어', ['인도자', '남성싱어', '여성싱어']]],
+  agt: [['세션', ['어쿠기타', '일렉', '드럼', '베이스', '피아노', '신디']], ['싱어', ['인도자', '남성싱어', '여성싱어']]]
+};
+var ST_ROLE_KIND = { 인도자: 'sing', 남싱: 'sing', 여싱: 'sing', 건반: 'keys', 드럼: 'drum', 베이스: 'bass', 일렉: 'egt', 어쿠기타: 'agt' };
+function stViewerKind() {
+  var me = (D.members || []).filter(function (m) { return m.name === D.who; })[0];
+  var roles = me && me.role ? String(me.role).split(/\s*[·,]\s*/) : [];
+  if (roles.some(function (r) { return r === '음향' || r === 'PPT' || r === '총무'; })) return '';      // 방송팀은 전체
+  for (var i = 0; i < roles.length; i++) if (ST_ROLE_KIND[roles[i]]) return ST_ROLE_KIND[roles[i]];
+  return '';
+}
+function stViewGroups() {
+  var kind = stViewerKind();
+  if (!kind || !ST_VIEW[kind]) return stGroups();
+  var has = {}; D.positions.forEach(function (p) { has[p.key] = p; });
+  var out = ST_VIEW[kind].map(function (g) { return [g[0], g[1].filter(function (k) { return has[k]; }).map(function (k) { return has[k]; })]; }).filter(function (g) { return g[1].length; });
+  if (D.committee) {                                                    // 관리자는 방송 칸도 배정해야 하니 맨 뒤에
+    var b = ['음향', 'PPT', '방송총괄'].filter(function (k) { return has[k]; }).map(function (k) { return has[k]; });
+    if (b.length) out.push(['방송', b]);
+  }
+  return out;
+}
+
 /** 날짜 자세히 시트 — 내가 서는 날이면 연습 · 예배를 따로 캘린더에 넣기 (구글 / 아이폰 · 맥) */
 function stCalBox(r) {
   if (!D.who || !Object.keys(r.slots || {}).some(function (k) { return (r.slots[k] || []).indexOf(D.who) !== -1; })) return '';
