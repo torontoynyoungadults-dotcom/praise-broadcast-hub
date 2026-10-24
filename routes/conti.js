@@ -314,7 +314,7 @@ function formChips(form) {
     const g = DAW_GROW[ty] * Math.min(t.rep || 1, 2);
     return `<li class="cn-blk t-${ty}" style="--g:${g}" title="${esc((ko || t.k) + (t.rep > 1 ? ' ×' + t.rep : ''))}"><b>${esc(code)}${t.rep > 1 ? `<em>×${t.rep}</em>` : ''}</b>${sub ? `<i>${esc(sub)}</i>` : ''}</li>`;
   });
-  return `<ol class="cn-daw" aria-label="송폼 순서 · ${n}섹션">${items.join('')}</ol>`;
+  return `<ol class="cn-daw" aria-label="송폼 순서 · ${n}섹션">${items.join('')}<li class="cn-daw-rest" aria-hidden="true"></li></ol>`;   // 마지막 줄 빈 자리 — 마지막 줄 블록이 늘어나 길게 보이지 않게
 }
 
 /** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */
