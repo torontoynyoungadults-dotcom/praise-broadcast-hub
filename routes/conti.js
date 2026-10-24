@@ -884,6 +884,95 @@ router.get('/conti', requireTeam, async (req, res) => {
   spa.send(req, res, content, { title: scope.event ? `${team} ${eventRow['이름']}` : `${team} 예배콘티` });
 });
 
+/* ================= 연습 콘티 — 연습일 기준으로 묶어 보기 (한 번에 2주치를 연습하면 그 날짜에 두 콘티가 함께) ================= */
+const practiceView = require('../lib/practiceView');
+router.get('/practice-conti', requireTeam, async (req, res) => {
+  const ctx = req.ctx;
+  const team = ctx.current;
+  const isGuest = guestAccess.isGuest(ctx.member);
+  const today = week.todayStr();
+  let gs = await practiceView.groups(team, prac.addDays(today, -21), prac.addDays(today, 56));
+  if (isGuest) {                                                         // 객원 멤버는 서는 예배만
+    for (const g of gs) {
+      const ok = [];
+      for (const t of g.targets) if (await guestAccess.canSee(ctx.member, team, { event: t.event, date: t.date })) ok.push(t);
+      g.targets = ok;
+    }
+    gs = gs.filter((g) => g.targets.length);
+  }
+  const want = prac.isDate(req.query.pd) ? String(req.query.pd) : '';
+  const cur = gs.find((g) => g.date === want) || gs.find((g) => g.date >= today) || gs[gs.length - 1] || null;
+  const q = (d) => `/practice-conti?team=${encodeURIComponent(team)}&pd=${encodeURIComponent(d)}`;
+  const me = String(ctx.member['이름'] || '').trim();
+
+  // 날짜 띠 — 예배콘티의 달력 띠와 같은 모양, 칸 아래에는 "몇 주치"를 적음
+  const strip = gs.length ? `<div class="ph-wstrip pc-strip"><div class="ph-wstrip-scroll">${gs.map((g) => {
+    const dd = new Date(g.date + 'T12:00:00'), on = cur && g.date === cur.date;
+    const sub = g.targets.length > 1 ? `${g.targets.length}개 콘티` : (g.targets[0].event ? g.targets[0].name : `${Number(g.targets[0].date.slice(5, 7))}/${Number(g.targets[0].date.slice(8, 10))} 주일`);
+    return `<a class="ph-wstrip-cell pc-cell${on ? ' on' : ''}${g.date < today ? ' past' : ''}${g.targets.length > 1 ? ' multi' : ''}" href="${q(g.date)}"${on ? ' aria-current="page"' : ''}>
+      <span class="ph-wstrip-month">${dd.getMonth() + 1}월 · ${DOW[dd.getDay()]}</span>
+      <span class="ph-wstrip-day">${dd.getDate()}</span>
+      <span class="ph-wstrip-ratio">${esc(sub)}</span>
+    </a>`; }).join('')}</div></div>` : '';
+
+  let body;
+  if (!cur) {
+    body = `<div class="ph-card"><p class="ph-sub">지난 3주 · 앞으로 8주 안에 정해진 연습이 없어요. 연습일은 <a href="/schedule?team=${encodeURIComponent(team)}">스케줄표</a>에서 정해요.</p></div>`;
+  } else {
+    const [assignAll, offAll, infoMap] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), avatar.teamInfoMap(team)]);
+    const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
+    const head = `<div class="ph-card ph-practicecard pc-head">
+      <div class="ph-pr-row">
+        <span class="ph-pr-ic">${ui.icon('metronome')}</span>
+        <div class="ph-pr-main"><span class="ph-pr-label">연습</span><b>${esc(mdDow(cur.date))}</b>${cur.note ? `<span class="ph-pr-note">${esc(cur.note)}</span>` : ''}
+          <span class="ph-pr-with">${cur.targets.length > 1 ? `이 날 ${cur.targets.length}개 콘티를 함께 연습해요 · ` : ''}${cur.targets.map((t) => esc(practiceView.targetName(t))).join(' · ')}</span></div>
+        <a class="ph-pr-edit" href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 바꾸기 ${ui.icon('next')}</a>
+      </div>
+    </div>`;
+    const cards = [];
+    for (const t of cur.targets) {
+      const scope = { event: t.event, date: t.date };
+      const w = await loadWeek(team, scope);
+      const { byPos, roster } = await weekAssignments(team, scope);
+      const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
+      const songCtx = { editable: false, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
+      // 이 연습에 오는 사람 — 편성된 사람 중 '연습 불참'(또는 둘 다 불참)이 아닌 사람
+      const inT = (r) => (t.event ? r['행사ID'] === t.event : (!r['행사ID'] && r['날짜'] === t.date));
+      const offNames = new Set(O.filter((r) => String(r['날짜']) === t.key && String(r['구분'] || '').trim() !== '예배').map((r) => String(r['이름'] || '').trim()));
+      const people = [];
+      ALL_POSITIONS.forEach((p) => A.filter((r) => inT(r) && canonicalPosition(String(r['포지션'] || '').trim()) === p).forEach((r) => {
+        const n = String(r['이름'] || '').trim(); if (!n) return;
+        const ex = people.find((x) => x.name === n); if (ex) { if (!ex.pos.includes(p)) ex.pos.push(p); return; }
+        people.push({ name: n, pos: [p], off: offNames.has(n) });
+      }));
+      const chip = (x) => `<span class="pc-person${x.off ? ' off' : ''}${x.name === me ? ' me' : ''}" title="${esc(x.pos.join(' · '))}${x.off ? ' — 연습 불참' : ''}">${avatar.avatarHtml(x.name, infoMap[x.name] || {}, 'sm', { noBadge: true })}<span class="pc-pn">${esc(honorific.isPastorRoles((infoMap[x.name] || {}).역할) || x.pos.some((p) => honorific.isLeadPos(p)) ? honorific.withTitle(x.name) : x.name)}</span><span class="pc-pp">${esc(x.pos.join(' · '))}</span></span>`;
+      const coming = people.filter((x) => !x.off), away = people.filter((x) => x.off);
+      const contiHref = contiUrl(team, scope);
+      const liveHref = `/conti/practice?team=${encodeURIComponent(team)}&${t.event ? 'event=' + encodeURIComponent(t.event) : 'date=' + encodeURIComponent(t.date)}`;
+      const songs = w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx)))
+        .concat(w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))))
+        .concat(w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))));
+      cards.push(`<section class="ph-card top-accent pc-target" aria-label="${esc(practiceView.targetName(t))} 콘티">
+        <div class="pc-thead">
+          <h2 class="ph-h2">${esc(practiceView.targetName(t))} 콘티</h2>
+          <div class="pc-tlinks"><a class="cn-mini" href="${liveHref}">${ui.icon('note')} 라이브 악보</a><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기</a></div>
+        </div>
+        ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
+        <div class="cn-songs">${songs.length ? songs.join('') : '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}</div>
+      </section>`);
+    }
+    body = head + cards.join('');
+  }
+
+  const content = `
+  ${pageShell.hubNav('practice', team)}
+  ${pageShell.hero({ eyebrow: `${team} · 연습 콘티`, title: '연습 콘티', sub: cur ? week.labelKo(cur.date) : '' })}
+  ${strip}
+  ${teamContext.teamSwitcher(ctx, {}) ? `<div class="ph-card">${teamContext.teamSwitcher(ctx, {})}</div>` : ''}
+  ${body}`;
+  spa.send(req, res, content, { title: `${team} 연습 콘티` });
+});
+
 /* 라이브 악보(/conti/practice)는 routes/live.js 로 옮겼습니다 — church-app 의 라이브 악보를 그대로 씁니다. */
 
 /** 인쇄용 PDF 패키지 — 표지(연습 일시 · 멤버 · 콘티 · 유튜브 QR) + 곡마다 머리말/악보/꼬리말, US Letter 흑백.  ?crop=0 이면 악보 위 제목 자르기를 끔 */
