@@ -164,7 +164,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   }
   const remCard = `<div class="ph-card" id="practice-mail">
     <h2 class="ph-h2">자동 안내 (폰 알림 + 이메일)</h2>
-    <p class="ph-sub">편성된 사람에게만 아침 9시 이후에 한 번씩 보내요. 보내는 이름은 "3부찬양팀 Admin"처럼 팀 이름으로 나가요 (Render 의 MAIL_FROM 이 있어야 이름이 붙어요). 메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}</p>
+    <p class="ph-sub">편성된 사람에게만 아침 9시 이후에 한 번씩 보내요. 보내는 이름은 "영락 3부찬양팀"처럼 팀 이름으로 나가요 (Render 의 MAIL_FROM 이 있어야 이름이 붙어요). 메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}</p>
     ${remRows.join('')}
     ${remMsg ? `<p class="ph-msg ${/실패|없/.test(remMsg) ? 'err' : 'ok'}">${esc(remMsg)}</p>` : ''}
   </div>`;
