@@ -2418,3 +2418,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 @media (max-width: 560px) { .lu-io { margin-left: 0 !important; } .lu-b i { display: none; } }
 .lu-io .lu-b { flex: none !important; width: auto !important; min-width: 0 !important; }
 @media (max-width: 560px) { .lu-io { gap: 3px; } .lu-b { padding: 0 6px 0 5px; gap: 3px; height: 21px; } }
+.msd-sub { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding: 14px; border-radius: 14px; background: var(--glass-2); }
+.msd-sub > b { font-size: 14.5px; font-weight: 800; }
+.msd-sub > span { font-size: 13px; color: var(--sub); line-height: 1.5; }
+.msd-sub .msd-note { text-align: left; }
+.msd-subbtns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.msd-btn.sm { min-height: 42px; font-size: 13.5px; font-weight: 700; text-decoration: none; padding: 0 8px; }
+@media (max-width: 520px) { .msd-subbtns { grid-template-columns: 1fr 1fr; } }

@@ -70,7 +70,13 @@
           '구글 캘린더에 ' + n + '개 추가</button>' +
         '<button type="button" class="msd-btn" data-msd-ics' + (n ? '' : ' disabled') + '>' +
           '<svg viewBox="0 0 24 24" aria-hidden="true" class="msd-dl"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>아이폰 · 맥 캘린더용 파일 받기 (.ics)</button>' +
-        '<p class="msd-note">스케줄이 바뀌면 알림으로 알려 드려요. 바뀐 날은 다시 넣어 주세요.</p>';
+        '<p class="msd-note">파일로 넣은 일정은 그때의 사본이에요. 스케줄이 바뀌어도 자동으로 따라가게 하려면 아래 <b>자동 연동</b>을 쓰세요.</p>' +
+        (st.feed ? '<div class="msd-sub"><b>자동 연동 (구독)</b><span>한 번만 하면 내가 서는 주일 · 연습이 캘린더에 계속 들어오고, 스케줄이 바뀌면 캘린더도 저절로 바뀌어요.</span>' +
+          '<div class="msd-subbtns"><a class="msd-btn sm" href="' + esc(st.feed.webcal) + '">아이폰 · 맥</a>' +
+          '<a class="msd-btn sm" href="' + esc(st.feed.google) + '" target="_blank" rel="noopener">구글 캘린더</a>' +
+          '<a class="msd-btn sm" href="' + esc(st.feed.outlook) + '" target="_blank" rel="noopener">아웃룩</a>' +
+          '<button type="button" class="msd-btn sm" data-msd-copy="' + esc(st.feed.https) + '">주소 복사</button></div>' +
+          '<span class="msd-note" data-msd-copymsg>구글은 바뀐 내용이 들어오기까지 몇 시간 걸릴 수 있어요. 이 주소는 나만의 주소라 다른 사람에게 보내지 마세요.</span></div>' : '');
     }
   }
 
@@ -84,7 +90,7 @@
       if (st !== me) return;
       if (!j || !j.ok) throw new Error((j && j.error) || '불러오지 못했어요.');
       var a = added();
-      st.items = j.result.items || [];
+      st.items = j.result.items || []; st.feed = j.result.feed || null;
       st.items.forEach(function (it) { st.sel[it.id] = !a[it.id] && !it.off; });     // 아직 안 넣은 날 · 불가가 아닌 날만 미리 체크
       if (!st.items.some(function (it) { return st.sel[it.id]; })) st.items.forEach(function (it) { st.sel[it.id] = !it.off; });
       render();
@@ -102,6 +108,13 @@
     if (t.closest('[data-msd-google]')) { st.google = true; render(); return; }
     if (t.closest('[data-msd-back]')) { st.google = false; render(); return; }
     if ((b = t.closest('[data-msd-g]'))) { markAdded([b.getAttribute('data-msd-g')]); setTimeout(render, 0); return; }     // 링크는 그대로 새 창으로
+    if ((b = t.closest('[data-msd-copy]'))) {
+      var u = b.getAttribute('data-msd-copy'), m = st.el.querySelector('[data-msd-copymsg]');
+      var ok = function () { if (m) m.textContent = '주소를 복사했어요. 캘린더 앱의 "구독 / URL로 추가"에 붙여 넣으세요.'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(ok, function () { window.prompt('이 주소를 복사하세요', u); });
+      else window.prompt('이 주소를 복사하세요', u);
+      return;
+    }
     if (t.closest('[data-msd-ics]')) {
       var ids = st.items.filter(function (it) { return st.sel[it.id]; }).map(function (it) { return it.id; });
       if (!ids.length) return;

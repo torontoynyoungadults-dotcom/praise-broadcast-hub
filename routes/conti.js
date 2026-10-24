@@ -962,8 +962,14 @@ function serveEvent(team, t, st, ts, evRow, base) {
  *  id = 'sun:<예배키>' | 'prac:<연습 날짜>' (한 금요일에 2주치를 연습하면 연습은 한 번) */
 async function mySchedule(req, months) {
   const team = req.ctx.current, me = String(req.ctx.member['이름'] || '').trim();
-  const today = week.todayStr(), to = prac.addDays(today, Math.round(30.5 * months));
+  const today = week.todayStr();
   const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const r = await scheduleOf(team, me, today, prac.addDays(today, Math.round(30.5 * months)), base);
+  r.items.forEach((it) => { delete it.ev; });
+  return Object.assign(r, { feed: feedUrls(team, me, base) });
+}
+/** 이 사람이 [from, to] 에 서는 주일 · 행사와 연습 — 화면 목록 · 캘린더 구독(ics) 이 같이 씀. it.ev = 캘린더 일정 */
+async function scheduleOf(team, me, today, to, base) {
   const [assignAll, offAll, evs, ts, gs] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), specialServices(team), timeSettings.get(team), practiceView.groups(team, today, to)]);
   const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
   const out = [];
@@ -976,16 +982,17 @@ async function mySchedule(req, months) {
     const offSun = O.some((r) => String(r['날짜']) === t.key && String(r['이름'] || '').trim() === me && String(r['구분'] || '').trim() !== '연습');
     const ev = serveEvent(team, t, st, ts, t.row || null, base);
     out.push({ id: 'sun:' + t.key, kind: 'sun', date: t.date, time: ev.time, title: t.event ? `${t.name}` : `${practiceView.md(t.date)} 주일`,
-      detail: `${t.event ? '주일 외 찬양' : '3부 예배'} · ${st.pos.join(' · ')}${ev.time ? ' · ' + timeSettings.fmt(ev.time) + ' 모임' : ''}`, off: offSun, google: practiceView.googleCalUrl(ev) });
+      detail: `${t.event ? '주일 외 찬양' : '3부 예배'} · ${st.pos.join(' · ')}${ev.time ? ' · ' + timeSettings.fmt(ev.time) + ' 모임' : ''}`, off: offSun, google: practiceView.googleCalUrl(ev), ev });
   });
   gs.forEach((g) => {
     const mine = g.targets.map((t) => Object.assign({ t }, practiceView.standing(me, t, A, O))).filter((x) => x.pos.length);
     if (!mine.length) return;
     const ev = practiceView.calEvent(team, g, mine.map((x) => ({ name: practiceView.targetName(x.t), pos: x.pos })), base);
+    ev.uid = `practice-${g.date}-${team.replace(/[^A-Za-z0-9가-힣]/g, '')}@praise-broadcast-hub`;
     const dd = new Date(g.date + 'T12:00:00');
     out.push({ id: 'prac:' + g.date, kind: 'prac', date: g.date, time: g.time, title: `${practiceView.md(g.date)} ${DOW[dd.getDay()]}요일 연습`,
       detail: [timeSettings.fmt(g.time), g.place, mine.map((x) => practiceView.targetName(x.t)).join(' · ') + ' 콘티'].filter(Boolean).join(' · '),
-      off: mine.every((x) => x.off), google: practiceView.googleCalUrl(ev) });
+      off: mine.every((x) => x.off), google: practiceView.googleCalUrl(ev), ev });
   });
   out.sort((a, b) => a.date.localeCompare(b.date) || (a.kind === 'prac' ? -1 : 1));
   return { team, me, items: out };
@@ -993,6 +1000,32 @@ async function mySchedule(req, months) {
 router.get('/cal/mine', requireTeam, async (req, res) => {
   try { res.set('Cache-Control', 'private, no-store'); res.json({ ok: true, result: await mySchedule(req, Math.min(6, Math.max(1, Number(req.query.months) || 3))) }); }
   catch (e) { console.error('[나의 스케줄]', e && e.message); res.status(500).json({ ok: false, error: '불러오지 못했어요.' }); }
+});
+/* ---------- 캘린더 구독 (자동 연동) — 캘린더 앱이 몇 시간마다 이 주소를 다시 읽어서, 스케줄이 바뀌면 캘린더도 바뀜.
+ * 캘린더 앱은 로그인을 못 하므로 (팀 · 이름) 서명으로 확인. 지난 2주 ~ 앞으로 6개월, 불가로 표시한 날은 빠짐 */
+function feedSig(team, name) {
+  return require('crypto').createHmac('sha256', String(process.env.SESSION_SECRET || 'dev')).update(['feed', team, name].join('|')).digest('hex').slice(0, 24);
+}
+function feedUrls(team, name, base) {
+  const q = new URLSearchParams({ team, n: name, s: feedSig(team, name) }).toString();
+  const https = String(base || '').replace(/\/+$/, '') + '/cal/feed.ics?' + q;
+  const webcal = https.replace(/^https?:\/\//, 'webcal://');
+  return {
+    https, webcal,
+    google: 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal),
+    outlook: 'https://outlook.live.com/calendar/0/addfromweb?url=' + encodeURIComponent(https) + '&name=' + encodeURIComponent(`영락 ${String(team).replace(/\s+/g, '')} · ${name}`),
+  };
+}
+router.get('/cal/feed.ics', async (req, res) => {
+  const team = String(req.query.team || ''), name = String(req.query.n || '');
+  if (!team || !name || String(req.query.s || '') !== feedSig(team, name)) return res.status(403).type('text').send('링크가 올바르지 않아요.');
+  try {
+    const today = week.todayStr(), base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const r = await scheduleOf(team, name, prac.addDays(today, -14), prac.addDays(today, 183), base);
+    const evs = r.items.filter((it) => !it.off).map((it) => it.ev);
+    res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, max-age=900', 'Content-Disposition': 'inline; filename="schedule.ics"' });
+    res.send(practiceView.icsText(evs, { name: `영락 ${team.replace(/\s+/g, '')} · ${name}`, refresh: 'PT3H' }));
+  } catch (e) { console.error('[캘린더 구독]', e && e.message); res.status(500).type('text').send('잠시 후 다시 시도해 주세요.'); }
 });
 /** 나의 스케줄에서 고른 일정들을 캘린더 파일 하나로 — ?ids=sun:2026-10-25,prac:2026-10-23 (아이폰 · 맥 캘린더 · 구글 캘린더 가져오기) */
 router.get('/cal/mine.ics', requireTeam, async (req, res) => {
