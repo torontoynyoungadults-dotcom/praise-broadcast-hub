@@ -1535,7 +1535,7 @@
       onAdd: function (layer, it) { annoSend(layer, it, 'add'); }, onDel: function (layer, id) { annoSend(layer, { id: id }, 'del'); },
       onClear: function (layer, ids, pg, all) { annoClear(layer, ids, pg, all); },
       onLive: function (m) { if (rt && rt.online && !(sheets[S.sheetIdx] && sheets[S.sheetIdx].mine)) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
-      onChange: function () { P.emit('annochange'); },
+      onChange: function () { P.emit('annochange'); try { acachePersist(); } catch (e) { /* 저장 못 해도 화면은 그대로 */ } },
       onMessage: function (t, bad) { toast(t, bad); },
       keepEditor: function (a) { return !!(a && (toolsEl.contains(a) || (drawerEl && drawerEl.contains(a)) || (TP && TP.pop && TP.pop.contains(a)))); },
       teamBlocked: function () {
@@ -1610,10 +1610,45 @@
     S.mineCache = {};
     function mineCacheGet(file, sc) { var e = S.mineCache[file + '|' + sc]; return e && Date.now() - e.at < MINE_TTL ? e : null; }
     function mineCachePut(file, sc, items) { S.mineCache[file + '|' + sc] = { at: Date.now(), items: (items || []).slice() }; }
+    /* ---- 필기를 이 기기에도 저장 (안정화) ----
+       악보를 열 때마다 서버 응답(실시간 8초 · 시트 읽기)을 기다리는 동안, 또 오프라인일 때 필기가 비어 보이던 문제:
+       마지막으로 받은 필기를 기기에 저장해 두었다가 악보를 열자마자 먼저 보여 주고, 서버 응답이 오면 최신으로 바꿉니다. (서버 응답을 받기 전에는 서버로 저장하지 않으므로 덮어쓸 위험 없음) */
+    var ACACHE_KEY = 'yn.anno.cache.v1', ACACHE_MAX = 40;
+    S.acApplied = {}; S.acT = 0;
+    function acacheRead() { try { var o = JSON.parse(root.localStorage.getItem(ACACHE_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } }
+    function acacheGet(file, sc) { var e = acacheRead()[file + '|' + sc]; return e && Array.isArray(e.team) && Array.isArray(e.mine) ? e : null; }
+    function acacheWrite(all) {
+      var keep = function (n) { var ks = Object.keys(all).sort(function (a, b) { return (all[b].at || 0) - (all[a].at || 0); }); ks.slice(n).forEach(function (k) { delete all[k]; }); };
+      keep(ACACHE_MAX);
+      try { root.localStorage.setItem(ACACHE_KEY, JSON.stringify(all)); } catch (e) { keep(8); try { root.localStorage.setItem(ACACHE_KEY, JSON.stringify(all)); } catch (e2) { /* 저장 공간이 없으면 그냥 건너뜀 */ } }
+    }
+    function acachePersist() {
+      clearTimeout(S.acT);
+      S.acT = setTimeout(function () {
+        S.acT = 0; if (S.dead || !S.doc || !sheets[S.sheetIdx] || !an) return;
+        var file = fileId(), all = acacheRead(), now = Date.now(), dirty = false, mineSheet = onMineSheet();
+        scopes().forEach(function (sc) {
+          var k = file + '|' + sc, okT = !mineSheet && (S.teamFrom[sc] || S.acApplied[k]), okM = S.mineLoaded[k] || S.acApplied[k];
+          if (!okT && !okM) return;                                                       // 아직 아무것도 못 받았으면 (빈 화면으로) 저장해 둔 것을 덮지 않음
+          var e = all[k] || { team: [], mine: [] }, inSc = function (i) { return (S.scopeOf[i.id] || S.scopeKey) === sc; };
+          if (okT) e.team = an.items('team').filter(inSc);
+          if (okM) e.mine = an.items('mine').filter(inSc);
+          e.at = now; all[k] = e; dirty = true;
+        });
+        if (dirty) acacheWrite(all);
+      }, 800);
+    }
     function loadAnno() {
       var id = ++S.annoId, file = fileId(); S.teamFrom = {}; S.scopeOf = {}; S.unsent = {}; S.recent = {}; S.delRecent = {}; S.localMine = {}; S.delMine = {};
       scopes().forEach(function (sc) { delete S.mineLoaded[file + '|' + sc]; });
-      an.setItems('team', []); an.setItems('mine', []);
+      S.acApplied = {}; an.setItems('team', []); an.setItems('mine', []);
+      var mineF0 = onMineSheet();
+      scopes().forEach(function (sc) {                                                   // 기기에 저장해 둔 필기를 먼저 보여 줌 (서버 응답이 오면 최신으로 바뀜)
+        var c = acacheGet(file, sc); if (!c) return;
+        S.acApplied[file + '|' + sc] = 1;
+        if (!mineF0) replaceScope('team', sc, c.team);
+        replaceScope('mine', sc, c.mine);
+      });
       var rtOn = !!(rt && rt.online), mineF = onMineSheet();                            // 실시간이 연결돼 있으면 팀 필기는 그쪽에서 받으므로 시트 읽기를 아낍니다
       if (opts.callServer) scopes().forEach(function (sc) { loadOne(id, file, sc, 0, rtOn || mineF); });
       if (!mineF) loadTeam(id, file);                                                    // v9.13 — 나만 보는 악보에는 팀 필기가 없음 (실시간으로 이 악보를 묻지도 않음)
@@ -1630,13 +1665,30 @@
         if (r.me) an.setPerms(String(r.me), !!r.canEdit);
       }, function (e) {
         if (id !== S.annoId) return;
-        if (tries < 3) { setTimeout(function () { if (id === S.annoId) loadOne(id, file, sc, tries + 1, mineOnly); }, 4000 * (tries + 1)); return; }
+        if (tries < 4) { setTimeout(function () { if (id === S.annoId) loadOne(id, file, sc, tries + 1, mineOnly); }, 1500 * (tries + 1)); return; }                    // 안정화 — 첫 재시도를 4초 → 1.5초로
+        if (S.acApplied[file + '|' + sc]) return;                                       // 기기에 저장해 둔 필기가 이미 보이는 중이면 알림 없이 (오프라인 등)
         toast('저장된 필기를 불러오지 못했습니다. 새로 쓴 "나만 보기" 필기는 불러오기가 끝난 뒤에 저장됩니다: ' + ((e && e.message) || ''), true);
       });
     }
+    function retryMine() {                                                               // 오프라인 · 느린 망 때문에 아직 못 받은 "내 필기"를 연결이 돌아오면 다시 받음
+      if (!S.doc || !opts.callServer || !sheets[S.sheetIdx]) return;
+      var file = fileId(), mineF = onMineSheet();
+      scopes().forEach(function (sc) { if (!S.mineLoaded[file + '|' + sc]) loadOne(S.annoId, file, sc, 0, mineF || !!(rt && rt.online)); });
+    }
+    try { root.addEventListener('online', function () { if (!S.dead) retryMine(); }); } catch (e) { /* 무시 */ }
     function loadTeam(id, file) {
       if (!rt || !rt.online) return;
-      var tk = ++S.teamId;                                                               // 팀 필기를 거듭 요청하면 가장 마지막 응답만 반영 (먼저 보낸 느린 응답이 나중에 덮지 않게)
+      var tk = ++S.teamId;
+      scopes().forEach(function (sc) {                                                   // 실시간 응답이 2.5초 안에 없으면 시트에서 먼저 받아 보여 줌 (예전엔 8초 뒤에야)
+        setTimeout(function () {
+          if (id !== S.annoId || tk !== S.teamId || S.dead || S.teamFrom[sc] || !opts.callServer || file !== fileId()) return;
+          opts.callServer('worshipAnnoLoad', [opts.token, file, sc, false], function (r) {
+            if (id !== S.annoId || S.dead || !r || !Array.isArray(r.team) || S.teamFrom[sc] || file !== fileId()) return;
+            replaceScope('team', sc, r.team); S.teamFrom[sc] = 'http';
+          }, function () { /* 실시간 응답을 계속 기다림 */ });
+        }, 2500);
+      });
+                                                                    // 팀 필기를 거듭 요청하면 가장 마지막 응답만 반영 (먼저 보낸 느린 응답이 나중에 덮지 않게)
       scopes().forEach(function (sc) {
         rt.call('anno:load', { file: file, scope: sc }).then(function (r) { if (id !== S.annoId || tk !== S.teamId || file !== fileId()) return; S.teamFrom[sc] = 'rt'; replaceScope('team', sc, r.items || []); }, function (e) {
           if (id !== S.annoId) return;
@@ -1867,7 +1919,7 @@
         if (S.hadClick && !r.clicker) rt.claimClick(false).then(function () { renderChips(); P.emit('clicker'); }, function () { S.hadClick = false; });
         rt.call('prefs', { page: S.follow, metro: S.followM }).catch(function () {});      // 접속자 목록에 내 따라가기 상태 표시
         if (r.you) an.setPerms(r.you.name, r.you.canEdit);
-        if (S.doc) loadTeam(S.annoId, fileId());                                  // 안정화 — annoId 를 올리면 아직 오는 중인 "내 필기" 불러오기 응답이 버려져 내 필기가 통째로 안 보이던 문제
+        if (S.doc) { loadTeam(S.annoId, fileId()); retryMine(); }                                  // 안정화 — annoId 를 올리면 아직 오는 중인 "내 필기" 불러오기 응답이 버려져 내 필기가 통째로 안 보이던 문제
         if (r.nav && !rt.isLeader) applyNav(r.nav, false);
         if (r.metro) P.emit('metro', r.metro);
       });
