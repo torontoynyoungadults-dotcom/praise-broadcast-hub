@@ -148,6 +148,17 @@
   function dlStatus() { return { state: DL.state, pct: DL.pct, done: DL.done, total: DL.total, sheets: DL.sheets, sheetsDone: DL.sheetsDone, pages: DL.pages, bytes: DL.bytes, failed: DL.failed, msg: DL.msg, quiet: DL.quiet, rec: dlRecord(), supported: !!(window.caches && window.isSecureContext !== false) }; }
   function dlNotify() { var s = dlStatus(); dlListeners.slice().forEach(function (f) { try { f(s); } catch (e) {} }); }
   function dlEnabled() { return !!dlRecord(); }
+  /** 보관한 페이지의 열쇠 — 서비스워커(sw.js)의 pageKey 와 같은 규칙: 콘티 · 라이브 악보 · 방송팀 화면은 team · date · event 만 */
+  function pageKey(href) {
+    try {
+      var u = new URL(href, location.href), PB = window.PH_BASE || '', r = PB && u.pathname.indexOf(PB) === 0 ? (u.pathname.slice(PB.length) || '/') : u.pathname;
+      if (!/^\/conti(\/(practice|stage))?$/.test(r)) return u.href;
+      var t = u.searchParams.get('team'), ev = u.searchParams.get('event'), d = u.searchParams.get('date'), q = [];
+      if (t) q.push('team=' + encodeURIComponent(t));
+      if (ev) q.push('event=' + encodeURIComponent(ev)); else if (d) q.push('date=' + encodeURIComponent(d));
+      return u.origin + u.pathname + (q.length ? '?' + q.join('&') : '');
+    } catch (e) { return href; }
+  }
   function abs(u) { try { return new URL(u, location.href); } catch (e) { return null; } }
 
   /** 한 파일을 받으면서 진행 상황을 알립니다 (용량을 알면 %, 모르면 받은 만큼) */
@@ -181,6 +192,30 @@
       var a = abs(u); if (a && a.origin === location.origin) out.push(a.pathname);
     }
     return out;
+  }
+
+  /** 받은 라이브 악보 페이지에서 접속 토큰 · 방 · 악보 목록을 읽음 (window.__LIVE__ = {...}) */
+  function liveBootOf(html) {
+    try {
+      var m = /window\.__LIVE__ = (\{[\s\S]*?\});<\/script>/.exec(html); if (!m) return null;
+      var b = JSON.parse(m[1]); if (!b || !b.token || !b.room) return null;
+      return { token: b.token, room: b.room, sheets: (b.sheets || []).map(function (x) { return x && x.id; }).filter(Boolean) };
+    } catch (e) { return null; }
+  }
+  function apiCall(name, args) {
+    return fetch('/api/' + encodeURIComponent(name), { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ args: args }) })
+      .then(function (r) { return r.json(); }).then(function (d) { if (d && d.ok) store(name, args, d.result); }).catch(function () { /* 못 받아도 무시 */ });
+  }
+  function prefetchLive(boots) {
+    var jobs = [];
+    boots.forEach(function (b) {
+      jobs.push(['worshipCfgLoad', [b.token, b.room]], ['worshipSongsOf', [b.token, b.room]]);
+      b.sheets.forEach(function (id) { jobs.push(['worshipAnnoLoad', [b.token, id, 'song', false]], ['worshipAnnoLoad', [b.token, id, b.room, false]]); });
+    });
+    var i = 0;
+    function lane() { if (i >= jobs.length || dlCancelFlag) return Promise.resolve(); var j = jobs[i++]; return apiCall(j[0], j[1]).then(lane); }
+    var ls = []; for (var n = 0; n < Math.min(3, jobs.length); n++) ls.push(lane());
+    return Promise.all(ls);
   }
 
   /** 시작. opts = { team, date, event } (콘티 화면 단추의 data-*), quiet = 조용히(빠진 것만 채우기) */
@@ -231,15 +266,18 @@
       DL.sheets = sheetIds.length; DL.pages = plan.pages.length;
       DL.total = plan.pages.length + extra.length + sheetIds.length; DL.msg = '받는 중…'; dlNotify();
       // 1) 페이지 (늘 새로 받음) — 받으면서 그 페이지가 쓰는 화면 파일 주소를 모읍니다
-      var found = [];
+      var found = [], boots = [];
       return pool(plan.pages, function (u) {
-        var key = abs(u).href;
-        return oneJob(caches3[0], key, u, true, false, false).then(function (got) { if (!got) return; return textOf(got.blob).then(function (t) { if (/<html/i.test(t)) found = found.concat(assetsOf(t)); }); });
+        var key = pageKey(abs(u).href);
+        return oneJob(caches3[0], key, u, true, false, false).then(function (got) { if (!got) return; return textOf(got.blob).then(function (t) { if (/<html/i.test(t)) found = found.concat(assetsOf(t)); var lv = liveBootOf(t); if (lv) boots.push(lv); }); });
       }).then(function () {
         found.forEach(function (p) { if (!seen[p] && /\.(js|css|png|jpe?g|svg|webp|ico|webmanifest|woff2?)$/i.test(p)) { seen[p] = 1; extra.push(p); } });
         DL.total = plan.pages.length + extra.length + sheetIds.length; bump();
+        // 1.5) 라이브 악보 화면이 열릴 때 서버에 묻는 것(곡 목록 · 설정 · 저장된 필기)도 미리 받아 둠 — 한 번도 열어 보지 않은 예배도 인터넷 없이 필기가 보이도록 (못 받아도 무시)
+        DL.msg = '곡 · 필기 정보 받는 중…'; dlNotify();
+        return prefetchLive(boots).then(function () { DL.msg = '받는 중…'; dlNotify();
         // 2) 화면 파일 · PDF 도구 · 음원 큐 (이미 있으면 건너뜀)
-        return pool(extra, function (u) { return oneJob(caches3[1], location.origin + u.replace(/\?.*$/, ''), u, true, false, true); });
+        return pool(extra, function (u) { return oneJob(caches3[1], location.origin + u.replace(/\?.*$/, ''), u, true, false, true); }); });
       }).then(function () {
         // 3) 악보 (이미 있으면 건너뜀)
         return pool(sheetIds, function (id) { var u = '/sheet/' + encodeURIComponent(id); return oneJob(caches3[2], u, u, true, true, true); });
@@ -296,7 +334,7 @@
       var lp = location.pathname, PB = window.PH_BASE || ''; if (PB && lp.indexOf(PB) === 0) lp = lp.slice(PB.length) || '/';   // 교회 앱 안(/praise)에서 열려도 같은 규칙
       if (!/^\/(conti(\/practice)?)?$/.test(lp)) return;
       navigator.serviceWorker.ready.then(function () {
-        return fetch(location.href, { credentials: 'same-origin' }).then(function (r) { if (r.ok) return caches.open(PAGES).then(function (c) { return c.put(location.href, r); }); });
+        return fetch(location.href, { credentials: 'same-origin' }).then(function (r) { if (r.ok) return caches.open(PAGES).then(function (c) { return c.put(pageKey(location.href), r); }); });
       }).catch(function () {});
     } catch (e) {}
   }

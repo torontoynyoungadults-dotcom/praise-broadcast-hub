@@ -18,6 +18,36 @@ var PAGES_MAX = 80, PHOTOS_MAX = 150;
 var BASE = ''; try { BASE = new URL(self.registration.scope).pathname.replace(/\/$/, ''); } catch (e) {}
 function rel(p) { return BASE && p.indexOf(BASE) === 0 ? (p.slice(BASE.length) || '/') : p; }
 
+/** 보관한 페이지의 열쇠 — 콘티 · 라이브 악보 · 방송팀 화면은 team · date · event 만 열쇠로 씁니다.
+ *  (&sheet= · &page= · &back= 같은 값이 붙은 링크도 같은 예배 화면이므로 보관본이 열리게. public/js/offline.js 의 pageKey 와 같은 규칙) */
+function pageKey(href) {
+  try {
+    var u = new URL(href), r = rel(u.pathname);
+    if (!/^\/conti(\/(practice|stage))?$/.test(r)) return u.href;
+    var t = u.searchParams.get('team'), ev = u.searchParams.get('event'), d = u.searchParams.get('date'), q = [];
+    if (t) q.push('team=' + encodeURIComponent(t));
+    if (ev) q.push('event=' + encodeURIComponent(ev)); else if (d) q.push('date=' + encodeURIComponent(d));
+    return u.origin + u.pathname + (q.length ? '?' + q.join('&') : '');
+  } catch (e) { return href; }
+}
+/** 정확히 같은 열쇠가 없을 때(예: 주소에 날짜가 없는 /conti) — 같은 화면 중 오늘에 가장 가까운 날짜의 보관본 */
+function nearestPage(cache, href) {
+  var u; try { u = new URL(href); } catch (e) { return Promise.resolve(null); }
+  var r = rel(u.pathname), team = u.searchParams.get('team'), today = Date.now();
+  if (r === '/') r = '/conti';
+  return cache.keys().then(function (ks) {
+    var best = null, bd = 1e18;
+    ks.forEach(function (k) {
+      var ku; try { ku = new URL(k.url); } catch (e) { return; }
+      if (rel(ku.pathname) !== r) return;
+      if (team && ku.searchParams.get('team') && ku.searchParams.get('team') !== team) return;
+      var dt = ku.searchParams.get('date'), t = dt ? Date.parse(dt + 'T12:00:00') : NaN, dist = isNaN(t) ? 1e17 : Math.abs(t - today);
+      if (dist < bd) { bd = dist; best = k; }
+    });
+    return best ? cache.match(best) : null;
+  }).catch(function () { return null; });
+}
+
 /** 보관할 수 있는 페이지 — 로그인 · 관리자 · 업로드/저장 같은 것은 제외 */
 var PAGE_OK = /^\/($|conti(\/(practice|stage))?$|schedule(\/.*)?$|library(\/.*)?$|notices(\/.*)?$|events(\/.*)?$|roster(\/.*)?$|equipment(\/.*)?$|b\/[A-Za-z0-9_-]+(\/(conti|schedule|stage))?$)/;
 
@@ -145,7 +175,11 @@ self.addEventListener('fetch', function (event) {
 
   if (req.mode === 'navigate') {
     if (!PAGE_OK.test(rel(p))) return;
-    event.respondWith(netFirst(req, PAGES, 9000, req.url).then(function (res) { return res || offlinePage(); }).catch(function () { return offlinePage(); }));
+    var pk = pageKey(req.url);
+    event.respondWith(netFirst(req, PAGES, 9000, pk).then(function (res) {
+      if (res) return res;
+      return caches.open(PAGES).then(function (c) { return nearestPage(c, req.url); }).then(function (hit) { return hit || offlinePage(); });
+    }).catch(function () { return offlinePage(); }));
     return;
   }
   if (/\.(js|css|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|webmanifest|json|mp3)$/i.test(p)) {

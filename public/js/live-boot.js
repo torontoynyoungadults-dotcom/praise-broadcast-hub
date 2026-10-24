@@ -106,10 +106,19 @@
   /* 닫은 뒤 브라우저 기록(bfcache)으로 이 페이지가 다시 보이면 — 빈 화면 대신 콘티로 */
   window.addEventListener('pageshow', function (e) { if (closed || (e.persisted && window.YNPractice && !window.YNPractice.isOpen())) location.replace(backUrl()); });
 
+  /** 주소의 ?sheet= · ?page= 를 따름 — 기기에 보관해 둔 화면(오프라인)은 주소와 상관없이 같은 HTML 이라 서버가 정한 시작 악보가 아닐 수 있음 */
+  function urlStart() {
+    var id = B.start, pg = B.startPage || 1;
+    try {
+      var q = new URLSearchParams(location.search), sh = q.get('sheet');
+      if (sh && sh !== B.start && (B.sheets || []).some(function (x) { return x.id === sh; })) { id = sh; pg = Math.max(1, Math.min(999, parseInt(q.get('page'), 10) || 1)); }
+    } catch (e) { /* 서버가 정한 값 그대로 */ }
+    return { id: id, page: pg };
+  }
   function boot() {
     if (!window.YNPractice) { fallback('라이브 악보 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
     var api = window.YNPractice.open({
-      token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: B.start, startPage: B.startPage || 1,
+      token: B.token, room: B.room, me: B.me, sheets: B.sheets || [], songs: B.songs || [], start: urlStart().id, startPage: urlStart().page,
       canEdit: !B.ro, readOnly: !!B.ro, callServer: callServer, sheetFix: B.ro || B.guest ? null : sheetFixApi(), recs: B.recs || [], lineup: B.lineup || [],
       onClose: leave
     });
