@@ -2300,3 +2300,10 @@ html.ph-nt-open { overflow: hidden; }
 .ph-avatar { background: var(--glass-3) !important; color: var(--ink) !important; }
 .ph-themesw-knob { background: #FFFFFF !important; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
+
+/* 주일 편성 — 줄마다 한 묶음 (싱어 4 / 리듬 3 / 건반 · 어쿠 3 / 방송 3) */
+.lu-grid { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+.lu-grid > .ph-poscell.lu-w4 { grid-column: span 3; }
+.lu-grid > .ph-poscell.lu-w3 { grid-column: span 4; }
+.lu-grid > .ph-poscell[open] { grid-column: 1 / -1 !important; }
+@media (max-width: 560px) { .lu-grid > .ph-poscell.lu-w4 { grid-column: span 6; } }

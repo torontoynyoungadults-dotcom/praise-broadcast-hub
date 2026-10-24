@@ -22,7 +22,7 @@ const nas = require('../lib/nas');
 const shortNames = require('../lib/shortName');
 const guestGate = require('../lib/guestGate');
 const guestAccess = require('../lib/guestAccess');
-const { POSITION_GROUPS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
+const { POSITION_GROUPS, POSITION_ROWS, ALL_POSITIONS, canonicalPosition } = require('../lib/positions');
 const { orderOf } = require('../lib/songKind');
 const { positionIconSvg } = require('../lib/positionIcons');
 const rosterPicker = require('../lib/rosterPicker');
@@ -143,9 +143,8 @@ async function weekAssignments(team, scope) {
 
 async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmin) {
   // 스케줄표의 "카드" 보기와 같은 모양 — 머리(날짜) + 3칸 격자 한 장. 칸을 누르면 그 칸이 한 줄 전체로 펼쳐져 배정 · 해제 (스케줄표 카드보다 글씨 · 사진을 조금 크게)
-  const keys = ALL_POSITIONS.slice();
-  const cells = keys.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap)).join('')
-    + '<div class="lu-fill" aria-hidden="true"></div>'.repeat((3 - keys.length % 3) % 3);
+  // 줄마다 한 묶음 — 싱어 4칸 / 드럼 · 베이스 · 일렉 / 피아노 · 신디 · 어쿠기타 / 음향 · PPT · 방송총괄 (12칸 격자에서 4칸 줄은 3씩, 3칸 줄은 4씩)
+  const cells = POSITION_ROWS.map((row) => row.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap).replace('<details class="ph-poscell"', `<details class="ph-poscell lu-w${row.length}"`)).join('')).join('');
   const head = scope.event
     ? `<b>${esc(week.shortKo(scope.date, true))}</b>${eventName ? `<span class="lu-evn">${esc(eventName)}</span>` : ''}`
     : `<b>${esc(week.shortKo(scope.date, true))}</b>`;
