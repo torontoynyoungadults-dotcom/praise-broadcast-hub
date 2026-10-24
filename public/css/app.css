@@ -2378,3 +2378,31 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .cn-cell.yt .cn-ytmark { width: 21px; height: 21px; }
 .cn-ybig .cn-ytmark { color: var(--ink); width: 21px; height: 21px; }
 .cn-ftext i { margin: 0 .1em 0 .4em !important; }
+
+/* ---------- 마이크 · 인이어 (/sound) ---------- */
+.snd .ph-card { margin-bottom: 14px; }
+.snd-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 8px; margin-top: 10px; }
+.snd-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: var(--glass-2); }
+.snd-who { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.snd-who b { font-size: 15px; font-weight: 750; white-space: nowrap; }
+.snd-who small { font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snd-ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--glass); color: var(--icon); }
+.snd-ic svg { width: 18px; height: 18px; }
+.snd-f { flex: none; display: flex; flex-direction: column; gap: 2px; }
+.snd-f i { font-style: normal; font-size: 10.5px; font-weight: 750; color: var(--dim); letter-spacing: .02em; }
+.snd-in { width: 74px; height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-hi); background: var(--glass); color: var(--ink); font: inherit; font-size: 16px; font-weight: 750; text-align: center; font-variant-numeric: tabular-nums; }
+.snd-in:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.snd-more { margin-top: 12px; }
+.snd-p16s { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
+.snd-p16 { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px; border-radius: 12px; background: var(--glass-2); }
+.snd-p16 span { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--glass); font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.snd-p16 input { flex: 1; min-width: 0; height: 36px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line-hi); background: var(--glass); color: var(--ink); font: inherit; font-size: 15px; }
+.snd-save { position: sticky; bottom: 12px; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 0; }
+.snd-save .ph-btn { min-width: 160px; box-shadow: 0 8px 22px rgba(0,0,0,.18); }
+.snd-save .ph-msg { margin: 0; }
+@media (max-width: 420px) { .snd-list { grid-template-columns: 1fr; } .snd-in { width: 62px; } }
+/* 주일 편성 — 이름 아래 마이크 · 인이어 번호 */
+.ph-namechip { flex-wrap: wrap; }
+.lu-io { flex-basis: 100%; margin: 1px 0 0 38px; font-size: 12px; font-weight: 700; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lu-io { white-space: normal !important; margin-left: 38px !important; line-height: 1.35; }
+@media (max-width: 560px) { .lu-io { margin-left: 0 !important; font-size: 11.5px; } }

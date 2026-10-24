@@ -42,6 +42,7 @@ const sheetHeaders = require('../lib/sheetHeaders');
 const pkgDrive = require('../lib/pkgDrive');
 const liveStore = require('../lib/liveStore');
 const ytForm = require('../lib/ytForm');
+const soundSetup = require('../lib/soundSetup');
 /* 유튜브 송폼 태그 화면 파일(public/worship/ytform.js)의 버전 — 이어 듣기 상자가 처음 열릴 때 불러옴 */
 const YTFORM_V = (() => { try { return String(Math.floor(require('fs').statSync(require('path').join(__dirname, '..', 'public', 'worship', 'ytform.js')).mtimeMs)); } catch (e) { return String(Date.now()); } })();
 const guestLink = require('../lib/guestLink');
@@ -110,13 +111,13 @@ async function teamRoster(team) {
   return members.filter((m) => String(m['소속팀'] || '').split(',').map((s) => s.trim()).includes(team)).map((m) => m['이름']).filter(Boolean);
 }
 
-function lineupCell(scope, team, posKey, names, roster, infoMap) {
+function lineupCell(scope, team, posKey, names, roster, infoMap, snd) {
   const rosterObjs = Object.keys(infoMap).map((n) => ({ 이름: n, 역할: infoMap[n].역할, 객원: !!infoMap[n].객원 }));   // 객원은 팀원 선택에서 추천에 안 넣고 따로 모음
   const lead = honorific.isLeadPos(posKey);       // 인도자 칸에 들어간 이름은 누구든(객원 포함) "OOO 목사"
   const isP = (n) => lead || honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
   const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !honorific.isPastorRoles((infoMap[n] || {}).역할)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
   const chipName = (n) => (isP(n) ? honorific.withTitle(n) : shortOf(n));       // 목회자 · 인도자는 항상 "윤정환 목사"(줄이지 않음)
-  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md', { noBadge: true })}<span class="ph-chipname">${esc(chipName(n.이름))}</span></span>`;
+  const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md', { noBadge: true })}<span class="ph-chipname">${esc(chipName(n.이름))}</span>${(() => { const t = soundSetup.tagFor(snd, posKey, n.이름); return t ? `<span class="lu-io">${esc(t)}</span>` : ''; })()}</span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
   const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm', { noBadge: true })}<span>${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}</span>
       <form method="post" action="/conti/lineup/unassign">
@@ -151,7 +152,8 @@ async function weekAssignments(team, scope) {
 async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmin) {
   // 스케줄표의 "카드" 보기와 같은 모양 — 머리(날짜) + 3칸 격자 한 장. 칸을 누르면 그 칸이 한 줄 전체로 펼쳐져 배정 · 해제 (스케줄표 카드보다 글씨 · 사진을 조금 크게)
   // 줄마다 한 묶음 — 싱어 4칸 / 드럼 · 베이스 · 일렉 / 피아노 · 신디 · 어쿠기타 / 음향 · PPT · 방송총괄 (12칸 격자에서 4칸 줄은 3씩, 3칸 줄은 4씩)
-  const cells = POSITION_ROWS.map((row) => row.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap).replace('<details class="ph-poscell"', `<details class="ph-poscell lu-w${row.length}"`)).join('')).join('');
+  const snd = await soundSetup.get(team).catch(() => null);
+  const cells = POSITION_ROWS.map((row) => row.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap, snd).replace('<details class="ph-poscell"', `<details class="ph-poscell lu-w${row.length}"`)).join('')).join('');
   const head = scope.event
     ? `<b>${esc(week.shortKo(scope.date, true))}</b>${eventName ? `<span class="lu-evn">${esc(eventName)}</span>` : ''}`
     : `<b>${esc(week.shortKo(scope.date, true))}</b>`;
@@ -161,7 +163,7 @@ async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmi
       <div class="lu-head">${head}<span class="lu-hint">칸을 누르면 바로 배정해요</span></div>
       <div class="lu-grid">${cells}</div>
     </div>
-    <p class="ph-sub" style="margin-top:10px;">${isAdmin ? `<a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>` : ''}${scope.event ? '' : `${isAdmin ? ' · ' : ''}<a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`}</p>
+    <p class="ph-sub" style="margin-top:10px;">${[`<a href="/sound?team=${encodeURIComponent(team)}">마이크 · 인이어 번호 →</a>`, isAdmin ? `<a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>` : '', scope.event ? '' : `<a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`].filter(Boolean).join(' · ')}</p>
   </div>`;
 }
 

@@ -83,6 +83,7 @@ app.use(require('./routes/scheduleImport'));   // /schedule/import (관리자) �
 app.use(require('./routes/schedule'));
 app.use(require('./routes/events'));
 app.use(require('./routes/library'));
+app.use(require('./routes/sound'));   // /sound — 마이크 · 인이어 · P16 설정
 app.use(require('./routes/equipment'));
 app.use(require('./routes/drive'));   // /drive — 미디어팀 NAS(Synology) 파일 보기 · 재생 (lib/nas.js)
 app.use(require('./routes/admin'));
