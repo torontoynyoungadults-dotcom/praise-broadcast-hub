@@ -867,6 +867,7 @@
         '<div class="pv-sec"><h4>소리 · 큐 설정</h4>' +
           '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="2" step="0.05" data-o="voice"><output data-role="voiceout"></output></label>' +
                     '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="mix"> 유튜브 · 음악 앱과 같이 듣기 <small>(뒤에서 틀어 둔 유튜브 소리를 줄이지 않아요. 대신 아이폰 · 아이패드 무음 스위치를 끄고 써 주세요)</small></label>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="countdown"> 콜아웃 뒤 "Three, Two, One" 세어주기</label>' +
@@ -955,7 +956,7 @@
         else if (lock) note.innerHTML = I('metronome') + '<b>' + h((root.YNHon ? root.YNHon.say(rt.clicker) : rt.clicker + ' 님이')) + '</b> 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
-        q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.voiceSel === 'male' ? 'mix' : (c.voiceSel || 'mix'); q('[data-role="voiceout"]').textContent = '×' + (Math.round(c.voice * 10) / 10);
+        q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; if (q('[data-o="mix"]') && m.mix) q('[data-o="mix"]').checked = m.mix(); q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.voiceSel === 'male' ? 'mix' : (c.voiceSel || 'mix'); q('[data-role="voiceout"]').textContent = '×' + (Math.round(c.voice * 10) / 10);
         q('[data-o="countdown"]').checked = c.countdown === true; q('[data-o="cdskip"]').checked = c.cdSkip !== false; q('[data-o="cdreset"]').checked = c.cdReset !== false; q('[data-o="cdreset"]').disabled = !c.countdown;
         var sbB = q('[data-a="sub"]'); if (sbB) { sbB.classList.toggle('on', c.sub === 2); sbB.setAttribute('aria-pressed', c.sub === 2 ? 'true' : 'false'); }
         var caB = q('[data-o="countall"]'); if (caB) caB.checked = !!c.countAll;
@@ -1081,7 +1082,7 @@
         else if (o === 'flash') m.setFlash(t.checked); else if (o === 'flashall') m.setFlashAll(t.checked); else if (o === 'pitch') m.setPitch(+t.value);
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
         else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'gender') m.setGender(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
-        else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked); else if (o === 'speak') m.setSpeak(t.checked);
+        else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked); else if (o === 'speak') m.setSpeak(t.checked); else if (o === 'mix') { if (m.setMix) m.setMix(t.checked); }
         else if (o === 'countdown') { m.setCountdown(t.checked); syncAllStrips(); }
         else if (o === 'countall') { m.setCountAll(t.checked); syncAllStrips(); }
         else if (o === 'cdskip') m.setCountdownSkip(t.checked);

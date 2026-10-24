@@ -342,11 +342,26 @@
     } catch (e) { silentUrl = null; }
     return silentUrl;
   }
+  /* v12.x — "유튜브 · 음악 앱과 같이 듣기" (이 기기에 기억 · yn.metro.mix)
+     켜면 소리 없는 재생으로 소리 채널을 붙잡지 않고, 다른 앱 소리와 섞이는 'ambient' 로 둡니다.
+     → 유튜브 앱을 뒤에서 틀어 둔 채 라이브 악보로 돌아와도 유튜브 볼륨이 줄지 않습니다.
+     대신 iOS 무음(진동) 스위치가 켜져 있으면 메트로놈 · 콜아웃이 들리지 않으니, 스위치를 끄고 씁니다. */
+  var MIX_KEY = 'yn.metro.mix';
+  function readMix() { try { return typeof localStorage !== 'undefined' && localStorage.getItem(MIX_KEY) === '1'; } catch (e) { return false; } }
   var Media = {
-    el: null, on: false,
+    el: null, on: false, mix: readMix(),
+    ambient: function () { try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* 지원하지 않는 브라우저 */ } },
+    setMix: function (on) {
+      Media.mix = !!on;
+      try { localStorage.setItem(MIX_KEY, Media.mix ? '1' : '0'); } catch (e) { /* 저장이 막혀도 이번 화면에서는 동작 */ }
+      if (Media.mix) { Media.on = false; try { if (Media.el) Media.el.pause(); } catch (e) { /* 무시 */ } try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 무시 */ } Media.ambient(); }
+      else if (Media.hold) Media.start();
+      return Media.mix;
+    },
     /** 사용자가 누른 순간에 부르세요. 이미 켜져 있으면 아무 일도 하지 않습니다 */
     start: function () {
       if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+      if (Media.mix) { Media.ambient(); return true; }                        // 같이 듣기 — 소리 채널을 붙잡지 않음
       try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { /* 지원하지 않는 브라우저 */ }
       try {
         if (Media.el && !Media.el.getAttribute('src')) { var u2 = silentWavUrl(); if (!u2) return false; Media.el.src = u2; }   // 잠금 화면에서 치워 둔 뒤 다시 (같은 <audio> 라 누르지 않아도 재생됨)
@@ -372,6 +387,7 @@
     hold: false,
     setHold: function (on) {
       Media.hold = !!on;
+      if (on && Media.mix) { Media.ambient(); return true; }
       if (on) { if (!Media.el || Media.el.paused) Media.start(); return !!(Media.el && !Media.el.paused); }
       Media.stop(true); return false;
     },
@@ -396,7 +412,7 @@
     onVis: function () {
       if (typeof document === 'undefined') return;
       if (document.visibilityState === 'hidden') Media.park();
-      else if (Media.parked && Media.hold) Media.start();
+      else if (Media.parked && Media.hold && !Media.mix) Media.start();
     },
     release: function () {
       Media.hold = false; Media.stop(true);
@@ -1090,6 +1106,8 @@
       startIn: startIn,
       /** 사용자가 화면을 누른 순간에 소리 장치를 미리 깨워 둡니다 (아이폰 · 크롬은 눌러야 소리가 나옵니다) — 원격 시작에 필요 */
       hold: function (on) { try { return Media.setHold(on); } catch (e) { return false; } },
+      /** 유튜브 · 음악 앱과 같이 듣기 (다른 앱 소리를 줄이지 않음 · 대신 무음 스위치를 끄고 씀) */
+      mix: function () { return !!Media.mix; }, setMix: function (on) { try { return Media.setMix(on); } catch (e) { return false; } },
       prime: function () { try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); warmClick(); return true; } catch (e) { return false; } },
       /** 오디오가 깨어 있어 누르는 즉시 시작할 수 있는지 */
       ready: function () { return !!(ctx && ctx.state === 'running'); }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 2)); applyVoiceGain(); },
