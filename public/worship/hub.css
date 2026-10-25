@@ -2277,3 +2277,6 @@ html[data-theme="light"] .pv.pv-compact .pv-drawer .pv-tools .pv-tool.on .nm, ht
 .pv-fbtag.sf:not(.on) { border-color: rgba(var(--g-a-rgb), .55); color: #e6d5b4; }
 .pv-fbsep { flex: none; width: 1px; align-self: stretch; margin: 4px 3px; background: var(--g-line2); }
 html[data-theme="light"] .pv-fbtag.sf:not(.on) { border-color: #24493C; color: #24493C; }
+
+/* 예배 모드 — 떠 있는 「도구 열기」 알약 숨김 (도구가 접혀 있을 때 알약을 보이게 하는 규칙보다 우선) */
+.pv.pv-worship .pv-toolsbtn, .pv.pv-worship.pv-toolshide .pv-toolsbtn, .pv:not(.pv-compact).pv-worship.pv-toolshide .pv-toolsbtn { display: none !important; }
