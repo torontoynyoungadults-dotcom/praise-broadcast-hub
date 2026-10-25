@@ -6,7 +6,7 @@
  *     유튜브 카드는 속도(공식 API)와 "악보 코드 키" 만 바꾸고, 소리로 키를 바꿔 연습하려면 이 파일의 카드(녹음 · 내 오디오 파일)를 씁니다.
  *
  *  · 음높이: 미디어 요소 ➔ MediaElementSource ➔ 음높이 변환기 ➔ 음량 ➔ 스피커.
- *      - 변환기는 AudioWorklet(pitch-worklet.js: WSOLA 늘이기 + 리샘플) — 길이는 그대로, 음높이만 반음 단위로 −3 ~ +3.
+ *      - 변환기는 AudioWorklet(pitch-worklet.js: WSOLA 늘이기 + 리샘플) — 길이는 그대로, 음높이만 반음 단위로 −6 ~ +6 (V892 — 악보 키와 같은 범위).
  *      - AudioWorklet 을 못 쓰는 기기는 일반 노드(DelayNode 두 개를 톱니파로 흔드는 방식)로 대신합니다 (소리가 조금 떨릴 수 있음).
  *  · 템포: 미디어 요소의 playbackRate 0.75 ~ 1.25 (0.05 단위) + preservesPitch = true (브라우저의 시간 늘이기) — 음높이 변환과 서로 독립.
  *  · 내 오디오 파일은 이 기기 안에서 blob 주소로만 재생합니다 (어디에도 올리지 않습니다).
@@ -18,7 +18,7 @@
 }(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
 
-  var KEY_MIN = -3, KEY_MAX = 3, TEMPO_MIN = 0.75, TEMPO_MAX = 1.25, TEMPO_STEP = 0.05;
+  var KEY_MIN = -6, KEY_MAX = 6, TEMPO_MIN = 0.75, TEMPO_MAX = 1.25, TEMPO_STEP = 0.05;          // V892 — 키는 악보 키(−6 ~ +6)와 같은 범위
   var MAJ = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];                          // 화음 탭의 목표 조 목록과 같은 표기
   var MIN = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'];
   var LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -27,7 +27,7 @@
   var doc = root.document;
 
   /* ============================================================ 순수 함수 */
-  /** 키 이동(반음) — 정수로 반올림하고 −3 ~ +3 로 자름. 숫자가 아니면 0 */
+  /** 키 이동(반음) — 정수로 반올림하고 −6 ~ +6 로 자름. 숫자가 아니면 0 */
   function clampKey(n) { n = Math.round(+n); return isFinite(n) ? clamp(n, KEY_MIN, KEY_MAX) : 0; }
   /** 템포 배수 — 0.05 단위로 맞추고 0.75 ~ 1.25 로 자름. 숫자가 아니면 1 */
   function clampTempo(r) { r = +r; if (!isFinite(r)) return 1; r = Math.round(r / TEMPO_STEP) * TEMPO_STEP; return +clamp(r, TEMPO_MIN, TEMPO_MAX).toFixed(2); }
@@ -59,7 +59,7 @@
   }
   /** 두 키 사이의 가까운 쪽 반음 수 (−5 ~ +6) */
   function semitonesBetween(a, b) { var A = parseKeyName(a), B = parseKeyName(b); if (!A || !B) return null; var d = mod(B.pc - A.pc, 12); return d > 6 ? d - 12 : d; }
-  /** 원래 키 → 목표 키가 ±3 반음 안이면 그 반음 수, 밖이면 null (연습 키 이동 범위 밖) */
+  /** 원래 키 → 목표 키가 ±6 반음 안이면 그 반음 수, 밖이면 null (연습 키 이동 범위 밖) */
   function shiftFromKeys(orig, target) { var d = semitonesBetween(orig, target); return d != null && d >= KEY_MIN && d <= KEY_MAX ? d : null; }
   function normTitle(s) { return String(s || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[\s_\-\.\(\)\[\]·,]/g, ''); }
   /** 이 곡에 맞는 녹음 고르기 — 제목이 같거나 서로 포함하면 앞으로 (연습 녹음 > 예배 녹음), 나머지는 뒤에 그대로 */
@@ -69,7 +69,7 @@
       if (!r || !r.play) return;
       var nr = normTitle(r.title), sc = 0;
       if (nt && nr) { if (nr === nt) sc = 3; else if (nr.indexOf(nt) >= 0 || (nr.length >= 2 && nt.indexOf(nr) >= 0)) sc = 2; }
-      out.push({ r: r, i: i, match: sc > 0, score: sc * 2 + (r.kind !== '예배' ? 1 : 0) });
+      out.push({ r: r, i: i, match: sc > 0, score: sc * 4 + (r.kind === '참고' ? 2 : r.kind !== '예배' ? 1 : 0) });      // V892 — 같은 곡이면 참고 음원 > 연습 > 예배
     });
     out.sort(function (a, b) { return b.score - a.score || a.i - b.i; });
     return out.map(function (x) { var o = {}; for (var k in x.r) o[k] = x.r[k]; o.match = x.match; return o; });
@@ -193,6 +193,7 @@
     '.as-tr{display:flex;align-items:center;gap:10px}.as-play{flex:none;width:46px;height:46px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff9d47,#ff7a1c);color:#1a0f05;font-size:18px;font-weight:900;cursor:pointer}.as-play:disabled{opacity:.4;cursor:default}' +
     '.as-seek{flex:1;min-width:0}.as-time{flex:none;font-size:12px;font-variant-numeric:tabular-nums;color:var(--g-sub,#d4cfc7);min-width:78px;text-align:right}' +
     '.as-keys{display:flex;gap:4px;flex:1 1 220px}.as-keys .as-b{flex:1 1 0;min-width:0;padding:7px 0;text-align:center}' +
+    '.as-kv{flex:1.2 1 0;align-self:center;text-align:center;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}.as-kv.on{color:#FFB066}html[data-theme=light] .as-kv.on{color:#0E7C86}' +
     '.as-kn{flex:1 1 100%;font-size:13px;font-weight:800;color:#ffb066}' +
     '.as-tv{flex:none;min-width:52px;text-align:center;font-weight:900;font-variant-numeric:tabular-nums}.as-tempo{flex:1;min-width:90px}' +
     '.as-vol{flex:1;min-width:90px}' +
@@ -230,7 +231,7 @@
         '<div class="as-row"><button type="button" class="as-b" data-a="pick">' + YI('folder') + ' 내 오디오 파일 고르기</button><input type="file" data-o="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac,.opus" class="as-hide" aria-label="내 오디오 파일"></div></div>' +
       '<div class="as-tr"><button type="button" class="as-play" data-a="play" aria-label="재생" disabled>▶</button><input type="range" class="as-seek" data-o="seek" min="0" max="1000" step="1" value="0" aria-label="재생 위치" disabled><span class="as-time" aria-live="off">0:00 / 0:00</span></div>' +
       '<div class="as-row as-krow" role="group" aria-label="키 (반음)"><span class="as-lb">키</span><div class="as-keys">' +
-        [-3, -2, -1, 0, 1, 2, 3].map(function (n) { return '<button type="button" class="as-b" data-key="' + n + '" aria-pressed="false" aria-label="키 ' + fmtShift(n) + ' 반음">' + (n === 0 ? '0' : fmtShift(n)) + '</button>'; }).join('') + '</div>' +
+        '<button type="button" class="as-b" data-ks="-1" aria-label="키 반음 내리기">−1</button><span class="as-kv" aria-live="polite">0</span><button type="button" class="as-b" data-ks="1" aria-label="키 반음 올리기">+1</button>' + '</div>' +
         '<span class="as-kn" aria-live="polite"></span></div>' +
       '<div class="as-msg as-hs" role="status" aria-live="polite"></div>' +
       '<div class="as-row"><button type="button" class="as-b ghost" data-a="startnote">' + YI('piano_small') + ' 목표 키 시작음</button><button type="button" class="as-b ghost" data-a="reset">키 · 템포 원래대로</button></div>' +
@@ -270,7 +271,8 @@
     /* ---- 화면 ---- */
     function paint() {
       var n = st.key, canKey = !!g.sh;
-      Array.prototype.forEach.call(box.querySelectorAll('[data-key]'), function (b) { var on = +b.getAttribute('data-key') === n; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.disabled = !canKey; });
+      q('.as-kv').textContent = n ? fmtShift(n) : '0'; q('.as-kv').classList.toggle('on', n !== 0);
+      q('[data-ks="-1"]').disabled = !canKey || n <= KEY_MIN; q('[data-ks="1"]').disabled = !canKey || n >= KEY_MAX;
       knEl.textContent = keyLabel(opt.songKey, n);
       tvEl.textContent = fmtTempo(st.tempo); tempoR.value = String(Math.round(st.tempo * 100)); fill(tempoR); fill(volR); fill(seek);
       q('[data-t="-1"]').disabled = st.tempo <= TEMPO_MIN + 1e-9; q('[data-t="1"]').disabled = st.tempo >= TEMPO_MAX - 1e-9;
@@ -319,8 +321,8 @@
 
     box.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
-      var a = b.getAttribute('data-a'), k = b.getAttribute('data-key'), t = b.getAttribute('data-t');
-      if (k != null) applyKey(+k);
+      var a = b.getAttribute('data-a'), k = b.getAttribute('data-ks'), t = b.getAttribute('data-t');
+      if (k != null) applyKey(st.key + (+k));
       else if (t != null) applyTempo(st.tempo + (+t) * TEMPO_STEP);
       else if (a === 'play') toggle();
       else if (a === 'pick') fileIn.click();

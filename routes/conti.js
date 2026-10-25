@@ -911,15 +911,17 @@ router.get('/conti', requireTeam, async (req, res) => {
     <h2 class="ph-h2">녹음</h2>
     ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
     <h3 class="ph-h3">연습 녹음</h3>
-    <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배').length ? w.recs.filter((r) => r['구분'] !== '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
+    <h3 class="ph-h3">참고 음원 <span class="ph-sub" style="font-weight:500">— 곡 MP3 · 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</span></h3>
+    <div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div>
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
       <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
         <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
         <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
-        <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option></select>
+        <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option><option value="참고">참고 음원 (곡 MP3)</option></select>
         <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
         <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
         <button class="ph-btn pri" type="submit">올리기</button>
@@ -1238,7 +1240,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
         ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
         ${songsHtml}
         ${(() => {
-          const prs = w.recs.filter((r) => r['구분'] !== '예배'), marks = songsForMarks(w);
+          const prs = w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고'), marks = songsForMarks(w);
           return `<div class="pc-sec pc-recs"><h3>연습 녹음</h3>
           <div class="ph-list">${prs.length ? prs.map((r) => recItem(r, false, marks)).join('') : '<p class="ph-sub">아직 올린 연습 녹음이 없어요.</p>'}</div>
           <details class="ph-add">
@@ -2094,7 +2096,7 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
   if (!title) title = await autoRecTitle(req.file, String(b['링크'] || '').trim());
   await sheetsDb.appendRow('녹음', {
     'ID': 'R' + Date.now().toString(36), '팀ID': team, ...scopeFields(scope),
-    '구분': b['구분'] === '예배' ? '예배' : '연습', '제목': title,
+    '구분': b['구분'] === '예배' ? '예배' : b['구분'] === '참고' ? '참고' : '연습', '제목': title,      // V892 — 참고 = 곡 참고 음원 (라이브 악보에서 키 바꿔 재생)
     '링크': link, '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(),
   });
   const back = String(b.back || '');

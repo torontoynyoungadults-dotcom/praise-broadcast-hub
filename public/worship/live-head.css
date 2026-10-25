@@ -219,3 +219,9 @@ html body .pv .pv-drawer .pv-keyctl .pv-kslbl { flex: 1.6 1 0; }
 html body .pv .pv-keyctl .pv-kssave { min-width: 52px; color: #1a0f05 !important; background: linear-gradient(135deg, #ff9d47, #ff7a1c) !important; border-color: transparent !important; font-size: 13px; }
 html[data-theme="light"] body .pv .pv-keyctl .pv-kssave { color: #fff !important; background: #0E7C86 !important; }
 html body .pv .pv-kssave[hidden] { display: none !important; }
+
+/* V892 — 참고 음원 (유튜브 옆) */
+html body .pv .pv-refbtn { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; white-space: nowrap; }
+html body .pv .pv-refbtn svg { width: 18px; height: 18px; flex: none; }
+html body .pv.pv-narrow .pv-refbtn .pv-mt { display: none; }
+html body .pv.pv-narrow .pv-refbtn { margin-left: 0; padding: 0 10px; }

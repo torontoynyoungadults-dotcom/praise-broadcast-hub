@@ -202,7 +202,7 @@
         '<button type="button" class="pv-b pv-wsbtn" data-a="ws-off" hidden aria-label="예배 모드 켜짐 — 두 번 눌러 끄기" title="예배 모드 — 두 번 누르면 꺼집니다">' + I('lock') + '<span class="pv-tx"> 예배 모드</span></button>' +
         '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="클릭 켜기" title="클릭 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
         '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−1</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-kssave" data-a="ks-save" hidden title="이 키를 팀 모두의 악보에 저장" aria-label="바꾼 키를 팀에 저장">저장</button></div>' +
-        '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button>' +
+        '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button><button type="button" class="pv-b pv-refbtn" style="display:none" title="이 곡의 참고 음원 — 지금 악보 키로 바꿔 재생" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + '<span class="pv-mt">참고 음원</span></button>' +
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="메뉴 열기 (도구 · 보기 · 더 보기)" title="메뉴 열기 / 닫기"><span class="ic">' + I('more') + '</span><span class="nm">메뉴</span></button>' +
@@ -1439,7 +1439,7 @@
       S.songIdx = i >= 0 && i < songs.length ? i : -1;
       var s = songs[S.songIdx], t = $('.pv-songinfo');
       t.textContent = s ? [s.title, s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ') : '';
-      setYt(s);
+      setYt(s); setRef(s);
       updateFormBadge();
       P.emit('song', s || null, S.songIdx);
       if (!silent) sendNav();
@@ -1462,6 +1462,36 @@
       };
     }
     function setYt(s) { var id = s ? ytIdOf(s.link) : ''; if (ytBox && ytBtn.getAttribute('data-id') !== id) closeYt(); ytBtn.style.display = id ? '' : 'none'; ytBtn.setAttribute('data-id', id); if (!id) closeYt(); }
+    /* V892 — 참고 음원: 허브 「녹음」 에서 구분 「참고 음원」 으로 올린 이 곡의 MP3 를 지금 악보 키(팀 키 · 내 −1 / +1)로 바꿔 재생.
+       재생기(audio-shift.js)는 처음 누를 때만 불러옵니다 — 라이브 악보를 여는 속도는 그대로 */
+    var refBtn = $('.pv-refbtn');
+    function refOf(sg) {
+      if (!sg) return null; var nt = normName(sg.title), best = null;
+      (opts.recs || []).forEach(function (r) {
+        if (!r || r.kind !== '참고' || !r.play) return; var nr = normName(r.title); if (!nt || !nr) return;
+        var sc = nr === nt ? 3 : (nr.indexOf(nt) >= 0 || (nr.length >= 2 && nt.indexOf(nr) >= 0)) ? 2 : 0;
+        if (sc && (!best || sc > best.sc)) best = { r: r, sc: sc };
+      });
+      return best ? best.r : null;
+    }
+    function setRef(sg) { if (refBtn) refBtn.style.display = refOf(sg) ? '' : 'none'; }
+    function loadAS() {
+      if (root.YNAudioShift) return Promise.resolve(root.YNAudioShift);
+      if (S.asLoad) return S.asLoad;
+      S.asLoad = new Promise(function (res, rej) {
+        var cur = doc.querySelector('script[src*="/worship/practice.js"]'), qv = cur ? ((/\?.*$/.exec(cur.getAttribute('src') || '') || [''])[0]) : '';
+        var sc = doc.createElement('script'); sc.src = '/worship/audio-shift.js' + qv; sc.async = true;
+        sc.onload = function () { if (root.YNAudioShift) res(root.YNAudioShift); else { S.asLoad = null; rej(new Error('참고 음원 재생기를 불러오지 못했습니다.')); } };
+        sc.onerror = function () { S.asLoad = null; rej(new Error('참고 음원 재생기를 불러오지 못했습니다 (인터넷 연결을 확인해 주세요).')); };
+        doc.head.appendChild(sc);
+      });
+      return S.asLoad;
+    }
+    if (refBtn) refBtn.onclick = function () {
+      var sg = songs[S.songIdx], r = refOf(sg); if (!r) return;
+      if (S.compact) setDrawer(false);
+      loadAS().then(function () { closeYt(); P.openAudioShift({ src: r.play, title: r.title }); }, function (e) { toast(e.message, true); });
+    };
     ytBtn.onclick = function () {
       var id = ytBtn.getAttribute('data-id'); if (!id) return;
       if (ytBox) { closeYt(); return; }
@@ -3143,7 +3173,7 @@
       var b = el.querySelector('.pv-prepbtn'); if (!b) return; var t = prepFresh(), mt = b.querySelector('.pv-mt');
       if (mt) mt.textContent = S.prep && S.prep.run ? '준비 중… (눌러서 멈춤)' : t ? '예배 전 전체 준비 · ✓ ' + hhmm(t) : '예배 전 전체 준비';
     }
-    function ksOfSong(sg) { var v = parseInt(ls('ks.' + (sg ? normName(sg.title) : '_')), 10); return isFinite(v) ? clamp(v, -3, 3) : 0; }
+    function ksOfSong(sg) { var v = parseInt(ls('ks.' + (sg ? normName(sg.title) : '_')), 10); return isFinite(v) ? clamp(v, -6, 6) : 0; }
     var prepEl = null;
     function prepCard(html, cls, buttons) {
       if (!prepEl) { prepEl = doc.createElement('div'); prepEl.setAttribute('role', 'status'); prepEl.setAttribute('aria-live', 'polite'); prepEl.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (!b) return; var k = b.getAttribute('data-k'); if (k === 'stop' && S.prep) { S.prep.cancel = true; b.disabled = true; b.textContent = '멈추는 중…'; } else if (k === 'x') prepHide(); }); }
