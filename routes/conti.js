@@ -2109,7 +2109,7 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
   const scope = scopeFrom(b);
   let title = String(b['제목'] || '').trim();
   let link = String(b['링크'] || '').trim();
-  try { if (req.file) link = await driveStore.uploadPublic('음원', req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); }
+  try { if (req.file) link = await driveStore.uploadPublic('음원', req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); return res.status(503).type('text').send('비공개 음원 저장소가 준비되지 않았습니다. 관리자에게 R2 설정을 요청해주세요.'); }
   if (!link) return backTo(req, res, team, scope);
   if (!title) title = await autoRecTitle(req.file, String(b['링크'] || '').trim());
   await sheetsDb.appendRow('녹음', {
