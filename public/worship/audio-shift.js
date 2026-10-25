@@ -305,12 +305,16 @@
       if (st.blob && st.blob !== src) { try { root.URL.revokeObjectURL(st.blob); } catch (e) { /* 무시 */ } st.blob = ''; }
       if (isBlob) st.blob = src;
       st.src = src; st.title = title || ''; say('');
-      if (!isBlob && /^\/(audio|drive)\//.test(src) && !/[?&]pass=/.test(src)) src += (src.indexOf('?') < 0 ? '?' : '&') + 'pass=1';      // V892 — 같은 주소로 받기: R2 로 넘기면 브라우저가 Web Audio 소리를 막아 재생은 되는데 소리가 안 남
+      /* V893 — 앱의 녹음 주소(/audio · /drive)는 먼저 R2 에서 바로 받기(crossOrigin — R2 버킷에 CORS 를 열어 두면 앱 서버 대역폭 0).
+         R2 가 CORS 를 허락하지 않아 못 받으면 한 번만 ?pass=1 (앱 서버가 같은 주소로 전달)로 다시 — Web Audio 는 다른 주소의 소리를 CORS 없이 쓰면 무음이 됨 */
+      st.ours = !isBlob && /^\/(audio|drive)\//.test(src); st.direct = st.ours && !/[?&]pass=/.test(src); st.raw = src;
+      if (st.ours && st.direct) audio.crossOrigin = 'anonymous'; else audio.removeAttribute('crossorigin');
       audio.pause(); audio.src = src; audio.defaultPlaybackRate = st.tempo; audio.playbackRate = st.tempo; pp();
       try { audio.load(); } catch (e) { /* 무시 */ }
       paintTime(); paint();
     }
     function play() {
+      st.want = true;
       if (!st.src) { say('먼저 들을 녹음을 고르거나 내 오디오 파일을 골라 주세요.', true); return Promise.resolve(false); }
       if (g.ctx && g.ctx.state === 'suspended') { try { g.ctx.resume(); } catch (e) { /* 무시 */ } }
       var pr; try { pr = audio.play(); } catch (e2) { pr = Promise.reject(e2); }
@@ -318,7 +322,7 @@
         say(err && err.name === 'NotAllowedError' ? '브라우저가 자동 재생을 막았습니다. ▶ 를 한 번 더 눌러 주세요.' : '재생하지 못했습니다: ' + ((err && err.message) || err), true); paint(); return false;
       });
     }
-    function pause() { try { audio.pause(); } catch (e) { /* 무시 */ } paint(); }
+    function pause() { st.want = false; try { audio.pause(); } catch (e) { /* 무시 */ } paint(); }
     function toggle() { return audio.paused || audio.ended ? play() : (pause(), Promise.resolve(false)); }
 
     box.addEventListener('click', function (e) {
@@ -357,6 +361,13 @@
     audio.addEventListener('ended', function () { stopTimer(); paintTime(); paint(); });
     audio.addEventListener('error', function () {
       var c = audio.error && audio.error.code; if (!st.src) return;
+      if (st.ours && st.direct) {                                                   // V893 — 바로 받기가 막힘(R2 CORS 없음) → 앱 서버를 거쳐 한 번 더
+        st.direct = false; var t0 = audio.currentTime || 0, again = st.want;
+        audio.removeAttribute('crossorigin'); audio.src = st.raw + (st.raw.indexOf('?') < 0 ? '?' : '&') + 'pass=1';
+        try { audio.load(); if (t0) audio.currentTime = t0; } catch (e) { /* 무시 */ }
+        if (again) play();
+        return;
+      }
       say(c === 4 ? '이 파일은 이 기기에서 재생할 수 없는 형식입니다 (mp3 · m4a · wav 를 권장합니다).' : c === 2 ? '네트워크 문제로 불러오지 못했습니다.' : '오디오를 불러오지 못했습니다.', true); paint();
     });
     if (bind && bind.onStatus) {
