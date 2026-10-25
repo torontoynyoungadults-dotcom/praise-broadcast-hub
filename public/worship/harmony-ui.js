@@ -120,6 +120,7 @@
     var ctx = cv.getContext('2d');
     var au = { ctx: null, master: null, synth: null };
     var KM = keyMath(HC);
+    S.deepPref = 'auto'; try { S.deepPref = root.localStorage.getItem('yn.pv.harm.deep') || 'auto'; } catch (e) { /* 기본 자동 */ } S.deepNow = false;      // V900 — 분석 방식
     S.autoTried = {}; S.autoRun = false; S.autoPend = false; S.reflecting = false; S.autoOn = true;
     try { S.autoOn = root.localStorage.getItem('yn.pv.harm.auto') !== '0'; } catch (e) { /* 저장이 막힌 브라우저 */ }
 
@@ -620,6 +621,37 @@
       }
       return step();
     }
+    /** V900 — 정밀 분석: 같은 글자 덩어리를 여러 그림(회색 · 흑백 · 크게 · 굵게)과 여러 읽기 방식으로 읽어 투표로 고름.
+     *  같은 답이 여러 번 나올수록 · 확신이 높을수록 이김. 느리지만(덩어리마다 10번 넘게 읽음) 한두 번 잘못 읽은 것에 흔들리지 않음 */
+    var RARE_RE = /^[A-G][#b]?(o|dim|aug|\+|2)$|^[A-G][#b]?(o|dim)7?\//;      // 찬양 악보에 드문 모양 (F° · F2 …) — 투표에서 감점 (OCR 이 ♭ 을 o · 2 로 자주 읽음)
+    function readChordVote(w, cnvs, single, prior) {
+      var modes = single ? ['10', '8', '7', '13'] : ['7', '8', '13'], jobs = [], tally = {}, raw1 = '', i = 0;
+      if (prior && prior.text && !prior.bad) tally[prior.text] = { n: 2, sum: (prior.conf || 0) * 2, max: prior.conf || 0 };     // 빠른 읽기 결과도 두 표
+      cnvs.forEach(function (c) { if (c) modes.forEach(function (m) { jobs.push([c, m]); }); });
+      function pick() {
+        var best = null, bk = '';
+        Object.keys(tally).forEach(function (k) { var t = tally[k], sc = t.sum + t.n * 18 + (t.max >= 85 ? 20 : 0) - (RARE_RE.test(k) ? 40 * t.n : 0); if (!best || sc > best.sc || (sc === best.sc && k.length > bk.length)) { best = { sc: sc, t: t }; bk = k; } });
+        if (best) return { text: bk, conf: Math.round(best.t.sum / best.t.n), raw: bk, votes: best.t.n };
+        return raw1 ? { text: raw1, conf: 0, raw: raw1, bad: true } : null;
+      }
+      function step() {
+        if (i >= jobs.length) return Promise.resolve(pick());
+        var j = jobs[i++];
+        return setP(w, j[1], WL).then(function () { return w.recognize(j[0]); }).then(function (r) {
+          var raw = String((r.data && r.data.text) || '').replace(/\s+/g, ''), fx = HC.fixOcrChord(raw), conf = (r.data && r.data.confidence) || 0;
+          if (!raw1 && raw) raw1 = raw;
+          if (raw && HC.parseChord(fx)) { var t = tally[fx] || (tally[fx] = { n: 0, sum: 0, max: 0 }); t.n++; t.sum += conf; if (conf > t.max) t.max = conf; if (t.n >= 4 && t.sum / t.n >= 88) { i = jobs.length; } }      // 충분히 확실하면 일찍 끝냄
+          return step();
+        }, function () { return step(); });
+      }
+      return step();
+    }
+    function thicken(c) {                                                   // 가는 획을 1px 굵게 (흐린 스캔 · 얇은 글꼴)
+      try { var cx = c.getContext('2d'), im = cx.getImageData(0, 0, c.width, c.height), d = im.data, W2 = c.width, H2 = c.height, out = new Uint8ClampedArray(d), x, y;
+        for (y = 1; y < H2 - 1; y++) for (x = 1; x < W2 - 1; x++) { var k = (y * W2 + x) * 4, m = Math.min(d[k], d[k - 4], d[k + 4], d[k - W2 * 4], d[k + W2 * 4]); out[k] = out[k + 1] = out[k + 2] = m; }
+        im.data.set(out); cx.putImageData(im, 0, 0); } catch (e) { /* 그대로 */ }
+      return c;
+    }
     /** 덩어리 안에서 가장 넓은 빈 열을 찾아 둘로 가름 (없으면 null) */
     function splitTok(ink, bw, t) {
       var bestA = -1, bestW = 0, run = 0, x, y;
@@ -667,8 +699,8 @@
       oc.drawImage(src, Math.round(x0), Math.round(y0), tw, th, Math.round(pad * k), Math.round(pad * k), Math.round(tw * k), Math.round(th * k)); return out;
     }
     /** 회색 원본에서 잘라 대비를 늘린 그림 (흐린 사진 · 잡음에서 흑백보다 잘 읽힘) */
-    function grayCrop(src, x0, y0, x1, y1) {
-      var c = cropUp(src, x0, y0, x1, y1, 64), cx = c.getContext('2d'), im = cx.getImageData(0, 0, c.width, c.height), d = im.data, hist = new Array(256).fill(0), i, n = 0;
+    function grayCrop(src, x0, y0, x1, y1, hpx) {
+      var c = cropUp(src, x0, y0, x1, y1, hpx || 64), cx = c.getContext('2d'), im = cx.getImageData(0, 0, c.width, c.height), d = im.data, hist = new Array(256).fill(0), i, n = 0;
       for (i = 0; i < d.length; i += 4) { var l = Math.round(d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114); d[i] = l; hist[l]++; n++; }
       var lo = 0, hi = 255, acc = 0; for (i = 0; i < 256; i++) { acc += hist[i]; if (acc >= n * 0.02) { lo = i; break; } }
       acc = 0; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc >= n * 0.35) { hi = i; break; } }
@@ -775,7 +807,13 @@
               if (S.ocrDbg) S.ocrDbg.push(' line ' + li + ' toks=' + toks.map(function (t) { return t.x0 + ':' + (t.x1 - t.x0 + 1) + 'x' + (t.y1 - t.y0 + 1) + '@' + (top + t.y0); }).join(' '));
               function readTok(t, depth) {
                 var single = (t.x1 - t.x0 + 1) <= (t.y1 - t.y0 + 1) * 1.15;
-                return readChordImg(w, grayCrop(cv0, t.x0, top + t.y0, t.x1 + 1, top + t.y1 + 1), single).then(function (r) {
+                var first = readChordImg(w, grayCrop(cv0, t.x0, top + t.y0, t.x1 + 1, top + t.y1 + 1), single);
+                if (S.deepNow) first = first.then(function (r0) {                     // V900 — 정밀 분석: 빠른 읽기가 확실하지 않을 때만 여러 그림 · 방식으로 다시 읽어 투표
+                  if (r0 && !r0.bad && r0.conf >= 80 && !RARE_RE.test(r0.text)) return r0;
+                  return readChordVote(w, [tokenCanvas(inkL, W, t), grayCrop(cv0, t.x0, top + t.y0, t.x1 + 1, top + t.y1 + 1, 96), thicken(tokenCanvas(inkL, W, t))], single, r0);
+                });
+                return first.then(function (r) {
+                  if (S.deepNow) return r;
                   return r && !r.bad ? r : readChordImg(w, tokenCanvas(inkL, W, t), single).then(function (r2) { return r2 && !r2.bad ? r2 : (r2 || r); });     // 회색 그림 → 안 되면 흑백 그림
                 }).then(function (r) {
                   var badTxt = r && r.bad ? r.text : ''; if (r && r.bad) r = null;
@@ -797,10 +835,36 @@
                   found = mg.filter(function (c) { return HC.parseChord(HC.fixOcrChord(c.text)); }).map(function (c) { return { text: HC.fixOcrChord(c.text), conf: c.conf || 0, x0: c.x0 + (c.sh || 0), x1: c.x1, y0: c.y0, y1: c.y1 }; });
                 }
                 found = found.filter(function (c) { return !/-$/.test(c.text); });               // "E-" 같은 잡음
+                var sig0 = st.keySig && st.keySig.conf >= 0.4 ? st.keySig : (om.keySig && om.keySig.conf >= 0.4 ? om.keySig : null);
+                if (S.deepNow && found.length > 1) { found = fixBySig(found, sig0); return mergeSlashes(found).then(function (f2) { found = f2; return finish(); }); }
+                return finish();
+              });
+              function mergeSlashes(list) {                                                  // V900 — "F" + "E♭" 처럼 갈라 읽힌 슬래시 코드(F/E♭)를 한 덩어리로 다시 읽어 봄
+                list = list.slice().sort(function (a, b) { return a.x0 - b.x0; });
+                var i2 = 0, out2 = [];
+                function step2() {
+                  if (i2 >= list.length) return Promise.resolve(out2);
+                  var a = list[i2], b = list[i2 + 1];
+                  if (!b || /\//.test(a.text) || !/^[A-G][#b]?$/.test(b.text) || (b.x0 - a.x1) > (a.y1 - a.y0) * 0.9) { out2.push(a); i2++; return step2(); }
+                  var y0 = Math.min(a.y0, b.y0), y1 = Math.max(a.y1, b.y1);
+                  return readChordVote(w, [grayCrop(cv0, a.x0, top + y0, b.x1, top + y1), grayCrop(cv0, a.x0, top + y0, b.x1, top + y1, 96)], false, null).then(function (r) {
+                    var pc = r && !r.bad ? HC.parseChord(r.text) : null;
+                    if (pc && pc.bass != null && r.votes >= 2) {
+                      var ra = /^([A-G])/.exec(a.text), rb = /^([A-G])/.exec(b.text), mm2 = /^([A-G])[^/]*\/([A-G])/.exec(r.text);
+                      var txt = ra && rb && mm2 && mm2[1] === ra[1] && mm2[2] === rb[1] ? a.text + '/' + b.text : r.text;      // 두 조각에서 이미 바로잡은 ♭ · ♯ 를 살림
+                      out2.push({ text: txt, conf: Math.max(r.conf, Math.min(a.conf || 0, b.conf || 0)), x0: a.x0, x1: b.x1, y0: y0, y1: y1 }); i2 += 2;
+                    }
+                    else { out2.push(a); i2++; }
+                    return step2();
+                  });
+                }
+                return step2();
+              }
+              function finish() {
                 found = fixBySig(found, st.keySig && st.keySig.conf >= 0.4 ? st.keySig : (om.keySig && om.keySig.conf >= 0.4 ? om.keySig : null));
                 found = dominantRow(found);
                 return { found: found, n: toks.length, li: li, l: l };
-              });
+              }
             }
             var res = [], lq = Promise.resolve();
             keepLines.forEach(function (l, li) { lq = lq.then(function () { return readLine(l, li).then(function (r) { res.push(r); }); }); });
@@ -868,15 +932,18 @@
       return n ? 'rgb(' + Math.round(r / n) + ',' + Math.round(g / n) + ',' + Math.round(b / n) + ')' : '#fff';
     }
     function analyzeOne(pg, forceOcr) {
-      var D = sData();
-      return sSize(pg).then(function (sz) {
-        var sc = clamp(2000 / sz.w, 0.4, 6), cv0 = doc.createElement('canvas');
-        setStat(pg + '페이지 그림을 준비하는 중…');
+      var D = sData(), tl0 = null;
+      return (forceOcr ? Promise.resolve(null) : textLayerChords(pg).catch(function () { return null; })).then(function (tl) { tl0 = tl; return sSize(pg); }).then(function (sz) {
+        /* V900 — 분석 방식: 자동 = PDF 글자층에 코드가 있으면 빠르게, 그림 · 스캔 악보면 정밀하게 · 빠르게 · 정밀하게(언제나) */
+        var pref = S.deepPref || 'auto', deep = pref === 'deep' || (pref === 'auto' && !(tl0 && tl0.chords.length));
+        S.deepNow = deep;
+        var sc = clamp((deep ? 3200 : 2000) / sz.w, 0.4, 8), cv0 = doc.createElement('canvas');
+        setStat(pg + '페이지 그림을 준비하는 중…' + (deep ? ' (정밀 분석 — 시간이 더 걸려요)' : ''));
         return sRender(cv0, pg, sc).then(tick).then(function () {
           var W = cv0.width, Hh = cv0.height, img = cv0.getContext('2d').getImageData(0, 0, W, Hh);
           setStat(pg + '페이지 오선 · 멜로디를 찾는 중…');
           var om = OM.analyze(img.data, W, Hh, { adaptive: !sPdf() }), paper = samplePaper(img.data);
-          return tick().then(function () { return forceOcr ? null : textLayerChords(pg); }).then(function (tl) {
+          return tick().then(function () { return tl0; }).then(function (tl) {
             /* V849 — 글자층 코드는 오선 위 코드 자리에 있는 것만 (표지 · 송폼 줄의 "C" "B" 같은 글자는 코드가 아님).
                글자층에 코드가 없는 오선(악보가 그림으로 들어간 PDF — 콘티 묶음 등)은 그 오선만 OCR 로 */
             var mel = om.staves.filter(function (s2) { return s2.melody; });
@@ -1551,6 +1618,7 @@
       '<div class="pv-sec hm-allsec" style="display:none"><label class="pv-switch"><input type="checkbox" data-o="harmall"><span></span><b>만든 화음 보이기 <small>알토 · 테너</small></b></label></div>' +
       '<div class="pv-sec"><h4>① 악보 분석 — 코드 · 오선 · 멜로디</h4>' +
         '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="an-page">' + YI('search') + ' 이 페이지 분석</button><button type="button" class="pv-btn2" data-a="an-all">전체 페이지 분석</button></div>' +
+        '<div class="hm-keys" style="margin-top:10px;grid-template-columns:1fr"><label>분석 방식<select class="pv-sel" data-o="deep" aria-label="분석 방식"><option value="auto">자동 — PDF 글자는 빠르게 · 그림 악보는 정밀하게</option><option value="fast">빠르게</option><option value="deep">정밀하게 (느림 · 페이지마다 1 ~ 3분)</option></select></label></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="ocr"><span></span><b>PDF 글자 대신 OCR 로 읽기</b></label>' +
         '<div class="hm-stat" role="status" aria-live="polite"></div><div class="hm-share"></div>' +
         '</div>' +
@@ -1623,7 +1691,7 @@
       host.querySelector('[data-o=loop]').checked = !!S.loop;
       host.querySelector('[data-o=keymode]').value = d.keyMode; var vol = host.querySelector('[data-o=vol]'); vol.value = String(Math.round(d.vol * 100));
       var bpmIn = host.querySelector('[data-o=bpm]'); if (doc.activeElement !== bpmIn) bpmIn.value = d.bpm || (P.song() && +P.song().bpm) || 80;
-      host.querySelector('[data-o=ocr]').checked = !!S.forceOcr; host.querySelector('[data-o=tap]').checked = !!S.tapOn;
+      host.querySelector('[data-o=ocr]').checked = !!S.forceOcr; var dsel = host.querySelector('[data-o=deep]'); if (dsel && doc.activeElement !== dsel) dsel.value = S.deepPref || 'auto'; host.querySelector('[data-o=tap]').checked = !!S.tapOn;
       Array.prototype.forEach.call(host.querySelectorAll('.hm-seg[role=group]:not(.hm-sub) button'), function (b) { b.setAttribute('aria-pressed', S.mode === b.getAttribute('data-mode') ? 'true' : 'false'); });
       ['melody', 'chord'].forEach(function (k) {
         var g = host.querySelector('.hm-sub[data-sub=' + k + ']'); g.style.display = S.mode === k ? '' : 'none';
@@ -1686,6 +1754,7 @@
       else if (o === 'showorig') { S.data.show.orig = !!t.checked; commit(); }
       else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; if (t.checked && !S.harmOn) S.harmOn = true; commit(); }      // V890 — 알토 · 테너를 켜면 화음 보이기도 켬
       else if (o === 'ocr') { S.forceOcr = !!t.checked; }
+      else if (o === 'deep') { S.deepPref = t.value || 'auto'; try { root.localStorage.setItem('yn.pv.harm.deep', S.deepPref); } catch (x) { /* 저장이 막힌 브라우저 */ } toast(S.deepPref === 'deep' ? '정밀하게 — 다음 분석부터 느리지만 더 꼼꼼하게 읽습니다. 이미 분석한 페이지는 「이 페이지 분석」 을 다시 눌러 주세요.' : S.deepPref === 'fast' ? '빠르게 분석합니다.' : '자동 — PDF 글자는 빠르게, 그림 악보는 정밀하게 읽습니다.'); }
       else if (o === 'harmall') { S.harmOn = !!t.checked; S.sel = null; redraw(); toast(S.harmOn ? '만든 화음을 보입니다.' : '만든 화음을 숨겼습니다.'); }
       else if (o === 'tap') { S.tapOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.tap', S.tapOn ? '1' : '0'); } catch (x) { /* 저장이 막힌 브라우저 */ } }
       else if (o === 'loop') { S.loop = !!t.checked; }
