@@ -464,7 +464,23 @@ function contiToolbox({ team, scope, date, eventRow, w, kakao, stage }) {
 }
 
 /** 곡 카드 — 청년부 앱처럼: ① 순서 · 제목 · Key · BPM ② 원곡팀 · 유튜브 ③ 송폼 ④ 설명 */
-function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps, sheetTools }) {
+/** V892 — 곡마다 참고 음원 (녹음 '구분' = 참고, 제목 = 곡 제목) — 제목이 같거나 서로 포함하면 그 곡의 것 */
+function refNorm(t) { return String(t || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[\s_\-\.\(\)\[\]·,]/g, ''); }
+function refsOfSong(refs, title) {
+  const nt = refNorm(title); if (!nt) return [];
+  return (refs || []).filter((r) => { const nr = refNorm(r['제목']); return nr && (nr === nt || nr.indexOf(nt) >= 0 || (nr.length >= 2 && nt.indexOf(nr) >= 0)); });
+}
+function songRefHtml(s, refs, editable, back) {
+  const mine = refsOfSong(refs, s['제목']);
+  if (!mine.length && !editable) return '';
+  const up = editable ? `<form method="post" action="/conti/recordings" enctype="multipart/form-data" class="cn-refup">
+      <input type="hidden" name="team" value="${esc(s['팀ID'])}">${rowHidden(s)}<input type="hidden" name="구분" value="참고"><input type="hidden" name="제목" value="${esc(s['제목'] || '')}">${back ? `<input type="hidden" name="back" value="${esc(back)}">` : ''}
+      <label class="cn-mini" title="이 곡의 참고 음원(MP3)을 올리면 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들을 수 있어요">${ui.icon('headphones')} ${mine.length ? '참고 음원 하나 더' : '참고 음원 MP3 올리기'}
+        <input type="file" name="파일" accept="audio/*,.mp3,.m4a,.wav,.aac" hidden onchange="if(this.files.length){this.form.querySelector('label').classList.add('busy');this.form.submit();}"></label>
+    </form>` : '';
+  return `<div class="cn-sec cn-sec-ref"><span class="cn-lab">참고 음원 <small>라이브 악보에서 바꾼 키로 재생</small></span>${mine.length ? `<div class="ph-list">${mine.map((r) => recItem(r, editable, null)).join('')}</div>` : ''}${up}</div>`;
+}
+function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps, sheetTools, refs, back }) {
   const isFinal = kind === '결단';
   const isClosing = kind === '폐회송';
   const yt = s['유튜브'] ? ytLinkOf(s['유튜브']) : '';
@@ -511,6 +527,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
     ${s['송폼'] ? `<div class="cn-sec cn-sec-form"><span class="cn-lab">송폼</span>${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}</div>` : ''}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
     ${songSheetsHtml(s, sheets, editable, edit, { tools: sheetTools })}
+    ${songRefHtml(s, refs, editable, back)}
   </div>`;
 }
 /** 방송팀(PPT) 보기 전용 링크 칸 — 링크가 있으면 보여 주고 복사, 관리자는 만들기 · 새로 바꾸기 */
@@ -864,7 +881,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const hist = await historyFor(team, scope);
   const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
   const markSongs = songsForMarks(w);                                     // 녹음 플레이어 — 곡 시작 위치 찍기
-  const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
+  const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs), refs: w.recs.filter((r) => r['구분'] === '참고') };
   const kakao = kakaoFor({ date, scope, eventRow, pinfo, w, byPos, infoMap });
 
   const content = `
@@ -1212,7 +1229,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       const { byPos, roster, infoMap: wInfo } = await weekAssignments(team, scope);
       const pinfo = await practiceInfo(team, scope, t.date);
       const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
-      const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs) };
+      const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs), refs: w.recs.filter((r) => r['구분'] === '참고'), back: q(cur.date) };
       const hist = await historyFor(team, scope);
       // 이 연습에 오는 사람 — 편성된 사람 중 '연습 불참'(또는 둘 다 불참)이 아닌 사람
       const inT = (r) => (t.event ? r['행사ID'] === t.event : (!r['행사ID'] && r['날짜'] === t.date));

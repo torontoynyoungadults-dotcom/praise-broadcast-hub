@@ -2427,3 +2427,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 @media (max-width: 520px) { .msd-subbtns { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .st-toolrow { gap: 6px; flex-wrap: nowrap; } .st-toolrow .ph-mini { min-height: 38px; padding: 0 11px; font-size: 13px; border-radius: 12px; white-space: nowrap; } }
 .ph-nt-push + .ph-nt-push, .ph-nt-err + .ph-nt-push { margin-top: 8px; }
+
+/* V892 — 곡마다 참고 음원 (콘티 곡 카드) */
+.cn-sec-ref .ph-list { margin-bottom: 8px; }
+.cn-refup { margin: 0; }
+.cn-refup label.cn-mini { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.cn-refup label.cn-mini svg { width: 16px; height: 16px; }
+.cn-refup label.busy { opacity: .55; pointer-events: none; }
+.cn-refup label.busy::after { content: ' 올리는 중…'; }
