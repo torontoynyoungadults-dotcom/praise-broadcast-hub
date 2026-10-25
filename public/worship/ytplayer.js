@@ -69,6 +69,9 @@
     '.yt-zone i{font-style:normal;opacity:0;padding:7px 12px;border-radius:99px;background:rgba(0,0,0,.66);color:#fff;font-size:14px;font-weight:800;pointer-events:none}.yt-zone.flash{background:rgba(255,255,255,.14)}.yt-zone.flash i{animation:ytflash .7s ease-out}@keyframes ytflash{0%{opacity:1;transform:scale(1.08)}70%{opacity:1}100%{opacity:0;transform:scale(1)}}.yt-skiphint{flex:1 1 100%;margin:0}' +
     '.yt-warn{margin:0;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,176,102,.45);background:rgba(255,138,42,.10);font-size:12px;line-height:1.5;color:var(--g-ink,#f8f5f0)}.yt-warn b{color:#ffb066}' +
     '.yt-vol{align-items:center}.yt-vol .yt-b{flex:none;width:38px;padding:7px 0;text-align:center;font-size:15px}.yt-vol input[type=range]{flex:1 1 110px;margin:0 2px}.yt-vol output{flex:none;min-width:34px;text-align:right;font-weight:800;color:var(--g-a2,#ffb066);font-variant-numeric:tabular-nums}.yt-vol.muted input[type=range]{opacity:.4}';
+  CSS += '.yt-skv{flex:1.2 1 0;align-self:center;text-align:center;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}.yt-skv.on{color:#ffb066}' +
+    '.yt-sklink{display:flex;align-items:center;gap:8px;margin:2px 0 6px;font-size:13px;font-weight:700;cursor:pointer}.yt-sklink input{width:18px;height:18px;accent-color:#ff8a2a}.yt-sklink small{font-weight:500;opacity:.7}' +
+    '.yt-sknote:empty{display:none}.yt-sknote.warn{color:#ffb066}';
   function injectCss() {
     if (typeof document === 'undefined' || document.getElementById('yn-yt-css')) return;
     var s = document.createElement('style'); s.id = 'yn-yt-css'; s.textContent = CSS; (document.head || document.documentElement).appendChild(s);
@@ -96,6 +99,10 @@
         '<p class="yt-warn" role="note">ⓘ <b>유튜브 영상의 소리는 브라우저에서 키를 바꿀 수 없습니다</b> (유튜브 화면은 다른 사이트라 앱이 소리를 가공할 수 없습니다). 여기서 고른 키는 <b>악보의 코드 표시</b>에 반영됩니다. 소리도 같은 키로 바꿔 연습하려면 아래 버튼으로 팀 녹음 · 내 오디오 파일을 여세요.</p>' +
         '<div class="yt-row yt-kbtns">' + (kb.openShifter ? '<button type="button" class="yt-b on" data-k="shifter">' + YI('headphones') + ' 키 바꿔 연습 (녹음 · 내 오디오 파일)</button>' : '') + (kb.startNote ? '<button type="button" class="yt-b" data-k="startnote">' + YI('piano_small') + ' 목표 키 시작음</button>' : '') + '</div>'
         : '') +
+      /* V897 — 소리 키 (「YN 키 바꾸기」 확장 프로그램이 있을 때만 — 유튜브 창 안에서 소리를 바꿈) */
+      '<div class="yt-row yt-sk" role="group" aria-label="소리 키 (반음)" hidden><span class="yt-lb">소리 키</span><div class="yt-keys"><button type="button" class="yt-b" data-sk="-1" aria-label="소리 키 반음 내리기">−1</button><b class="yt-skv">0</b><button type="button" class="yt-b" data-sk="1" aria-label="소리 키 반음 올리기">+1</button></div></div>' +
+      '<label class="yt-sklink" hidden><input type="checkbox" data-o="sklink"> 악보 키와 함께 바꾸기 <small>(켜면 영상 소리 키 = 악보 키)</small></label>' +
+      '<p class="yt-note yt-sknote" aria-live="polite"></p>' +
       '<div class="yt-row yt-ab" role="group" aria-label="구간 반복"><span class="yt-lb">구간 반복</span>' +
         '<button type="button" class="yt-b" data-a="a">A 지정</button><button type="button" class="yt-b" data-a="b">B 지정</button><button type="button" class="yt-b ghost" data-a="clear">해제</button>' +
         '<span class="yt-abinfo" aria-live="polite">A–B 를 정하면 그 구간만 계속 반복합니다</span></div>' +
@@ -118,6 +125,44 @@
         });
       } catch (e) { form = null; }
     }
+    /* ---------- V897 — 소리 키: 「YN 키 바꾸기」 확장 프로그램(크롬 · 엣지 · 사파리 Mac / 아이패드)과 postMessage 로 이야기 ----------
+       유튜브 창은 다른 사이트라 앱이 소리를 바꿀 수 없지만, 확장 프로그램은 유튜브 창 안에서 바꿀 수 있습니다.
+       확장 프로그램이 답하면(ks-ack) 「소리 키」 줄을 보이고, 없으면 짧은 안내만. 기본은 악보 키와 따로 — 「악보 키와 함께」 를 켜면 함께 */
+    var sk = { ext: false, n: 0, link: false, state: '', tries: 0, timer: null, ifr: null, offs: [] }, sheetKey = opt.sheetKey || null;
+    var skRow = ctl.querySelector('.yt-sk'), skLink = ctl.querySelector('.yt-sklink'), skNote = ctl.querySelector('.yt-sknote'), skVal = ctl.querySelector('.yt-skv');
+    function skFrame() { if (sk.ifr && sk.ifr.isConnected) return sk.ifr; var f = null; try { f = st.player && st.player.getIframe ? st.player.getIframe() : null; } catch (e) { f = null; } return (sk.ifr = f || holder.querySelector('iframe')); }
+    function skSend(op) { var f = skFrame(); if (!f || !f.contentWindow) return; try { f.contentWindow.postMessage({ __yn: 'ks', op: op, semis: sk.n }, '*'); } catch (e) { /* 아직 준비 전 */ } }
+    function skPaint() {
+      if (skRow) skRow.hidden = !sk.ext; if (skLink) skLink.hidden = !sk.ext || !sheetKey;
+      if (skVal) { skVal.textContent = sk.n ? (sk.n > 0 ? '+' : '') + sk.n : '0'; skVal.classList.toggle('on', !!sk.n); }
+      [].forEach.call(ctl.querySelectorAll('[data-sk]'), function (b) { var d = +b.getAttribute('data-sk'); b.disabled = !sk.ext || (d < 0 ? sk.n <= -6 : sk.n >= 6); });
+      if (!skNote) return;
+      var t = '', warn = false;
+      if (!sk.ext) t = sk.tries >= 12 ? 'ⓘ 영상 소리의 키를 바꾸려면 Mac · 아이패드 · PC 에 「YN 키 바꾸기」 확장 프로그램을 설치하세요. (지금은 속도만 바뀝니다)' : '';
+      else if (sk.state === 'pending') { t = '영상 화면 위의 주황색 「키 바꾸기 켜기」 를 한 번 눌러 주세요 — 브라우저가 처음 한 번은 직접 눌러야 소리 처리를 켭니다.'; warn = true; }
+      else if (sk.state === 'novideo') t = '영상이 준비되면 키가 바뀝니다.';
+      else if (sk.state === 'noaudio') { t = '이 브라우저에서는 영상 소리를 바꿀 수 없습니다.'; warn = true; }
+      else if (sk.n) t = '영상 소리를 ' + (sk.n > 0 ? '+' : '') + sk.n + ' 반음으로 바꿔 재생 중 — 소리가 화면보다 0.1초쯤 늦게 들릴 수 있어요.';
+      skNote.textContent = t; skNote.classList.toggle('warn', warn);
+    }
+    function skSet(n, fromSheet) {
+      n = Math.max(-6, Math.min(6, Math.round(+n) || 0)); sk.n = n; skSend('set'); skPaint();
+      if (sk.link && sheetKey && !fromSheet && sheetKey.set) { try { sheetKey.set(n); } catch (e) { /* 무시 */ } }
+    }
+    function onSkMsg(e) {
+      var d = e && e.data, f = skFrame(); if (!d || typeof d !== 'object' || d.__yn !== 'ks-ack' || !f || e.source !== f.contentWindow) return;
+      var first = !sk.ext; sk.ext = true; sk.state = String(d.state || '');
+      if (first && sk.timer) { clearInterval(sk.timer); sk.timer = null; }
+      if (first && (+d.semis || 0) !== sk.n) skSend('set');
+      skPaint();
+    }
+    if (typeof window !== 'undefined') window.addEventListener('message', onSkMsg);
+    function skStart() { if (sk.timer || sk.ext) return; sk.tries = 0; sk.timer = setInterval(function () { if (st.dead || sk.ext) { clearInterval(sk.timer); sk.timer = null; return; } sk.tries++; skSend('ping'); if (sk.tries >= 12) { clearInterval(sk.timer); sk.timer = null; skPaint(); } }, 700); }
+    if (sheetKey && sheetKey.on) sk.offs.push(sheetKey.on(function () { if (sk.link && sheetKey.get) { var v = Math.round(+sheetKey.get()) || 0; if (v !== sk.n) skSet(v, true); } }));
+    ctl.addEventListener('change', function (e) {
+      var t = e.target; if (!t || t.getAttribute('data-o') !== 'sklink') return;
+      sk.link = !!t.checked; if (sk.link && sheetKey && sheetKey.get) skSet(sheetKey.get(), true);
+    });
     var msg = ctl.querySelector('.yt-msg'), abinfo = ctl.querySelector('.yt-abinfo'), knEl = ctl.querySelector('.yt-kn'), kstat = ctl.querySelector('.yt-kstat');
     var volRow = ctl.querySelector('.yt-vol'), volBtn = ctl.querySelector('[data-v="mute"]'), volRange = ctl.querySelector('.yt-volrange'), volOut = volRow && volRow.querySelector('output');
     function say(t, bad) { msg.textContent = t || ''; msg.className = 'yt-msg' + (bad ? ' bad' : ''); }
@@ -221,6 +266,7 @@
       if (b.getAttribute('data-v') === 'mute') toggleMute();
       else if (b.hasAttribute('data-skip')) { var sd = +b.getAttribute('data-skip'), r0 = skip(sd); if (r0 === false) say('영상이 준비된 뒤에 이동할 수 있습니다', true); else { say(sd < 0 ? '15초 뒤로' : '15초 앞으로'); flash(sd < 0 ? zl : zr, sd); } }
       else if (b.hasAttribute('data-rate')) setRate(b.getAttribute('data-rate'));
+      else if (b.hasAttribute('data-sk')) skSet(sk.n + (+b.getAttribute('data-sk')));
       else if (b.hasAttribute('data-key')) { if (kb) { try { kb.set(+b.getAttribute('data-key')); } catch (e) { /* 무시 */ } paintKey(); } }
       else if (b.getAttribute('data-k') === 'shifter') { if (kb && kb.openShifter) kb.openShifter(); }
       else if (b.getAttribute('data-k') === 'startnote') { var r = kb && kb.startNote ? kb.startNote(keyNow()) : null; if (r) say('목표 키 시작음 ' + (r.key || '') + ' 을 들려 드립니다.'); else say('시작음을 낼 수 없습니다 (곡의 Key 를 읽지 못했거나 소리를 켤 수 없습니다).', true); }
@@ -231,7 +277,7 @@
       st.fallback = true; holder.innerHTML = '';
       var f = document.createElement('iframe'); f.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?rel=0&playsinline=1&autoplay=1'; f.title = '유튜브 참고 영상';
       f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture'); f.setAttribute('allowfullscreen', ''); f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin'); holder.appendChild(f);
-      paintRates(); paintVol(); say(why || '속도 · 음량 조절 · 구간 반복 기능을 불러오지 못해 기본 플레이어로 재생합니다 (인터넷 연결을 확인하세요). 소리는 영상 안의 유튜브 자체 조절 막대를 쓰세요.', true);
+      skStart(); paintRates(); paintVol(); say(why || '속도 · 음량 조절 · 구간 반복 기능을 불러오지 못해 기본 플레이어로 재생합니다 (인터넷 연결을 확인하세요). 소리는 영상 안의 유튜브 자체 조절 막대를 쓰세요.', true);
     }
 
     paintRates(); paintAB(); paintVol(); say('플레이어를 불러오는 중…');
@@ -244,7 +290,7 @@
         playerVars: { rel: 0, playsinline: 1, autoplay: 1, modestbranding: 1, origin: typeof location !== 'undefined' ? location.origin : undefined },
         events: {
           onReady: function () {
-            if (st.dead) return; st.ready = true;
+            if (st.dead) return; st.ready = true; skStart();
             try { var av = st.player.getAvailablePlaybackRates && st.player.getAvailablePlaybackRates(); if (av && av.length) st.rates = RATES.filter(function (r) { return av.indexOf(r) >= 0; }); } catch (e) {}
             applyVolToPlayer();                 // 지난번에 맞춘 음량을 이 영상에도 그대로
             paintRates(); paintVol(); say('');
@@ -268,7 +314,7 @@
       state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback, key: kb ? keyNow() : null, vol: st.vol, muted: st.muted }; },
       setKeyStatus: setKeyStatus, repaintKey: paintKey,
       form: function () { return form; },
-      destroy: function () { st.dead = true; stopTimer(); if (form) { try { form.destroy(); } catch (e) {} form = null; } kOffs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); kOffs = []; try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
+      destroy: function () { st.dead = true; stopTimer(); try { if (sk.timer) clearInterval(sk.timer); window.removeEventListener('message', onSkMsg); sk.offs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); } catch (e0) { /* 무시 */ } if (form) { try { form.destroy(); } catch (e) {} form = null; } kOffs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); kOffs = []; try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
     };
   }
 

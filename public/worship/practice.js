@@ -1504,7 +1504,9 @@
       if (P.floatWin) P.floatWin('yt', ytBox, function () { return S.compact ? { x: 0.5, y: 0.98 } : { x: 0.98, y: 0.9 }; }); else el.appendChild(ytBox);
       ytBtn.classList.add('on'); ytBtn.setAttribute('aria-pressed', 'true');
       var body = ytBox.querySelector('.pv-ytbody');
-      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null, form: ytFormApi() });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
+      if (!S.ksHub) { S.ksHub = []; P.on('keyshift', function () { S.ksHub.slice().forEach(function (f) { try { f(); } catch (e) { /* 무시 */ } }); }); }      // V897 — 유튜브 창의 「악보 키와 함께」
+      var sheetKey = { get: function () { return P.keyShift(); }, set: function (n) { P.setKeyShift(n); }, on: function (f) { S.ksHub.push(f); return function () { var i = S.ksHub.indexOf(f); if (i >= 0) S.ksHub.splice(i, 1); }; } };
+      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null, form: ytFormApi(), sheetKey: sheetKey });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
       else body.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
     };
 
