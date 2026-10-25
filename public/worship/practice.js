@@ -652,7 +652,46 @@
     /** 두 페이지 보기 오른쪽(다음) 페이지 — 저장소에 있으면 붙이기만, 없으면 따로 그린 뒤 붙입니다.
      *  v9.5: 예전에는 화면 canvas 에 바로 그리면서 앞 작업을 멈추지 않아, 빨리 넘기면 "같은 canvas 에 두 번 그리기" 오류로 오른쪽이 비곤 했습니다 */
     var rightTask = null;
+    /* 오른쪽 페이지에도 필기(송폼 라벨 · 펜 · 글자 …)를 보기 전용으로 겹쳐 그림.
+       같은 파일이면 지금 불러온 필기에서, 다른 파일이면 그 파일 필기를 따로 받아 둠 (기기 저장 → 서버) */
+    S.rAnno = {}; S.rLast = null;
+    function rightItems(file, pg) {
+      var e = S.rAnno[file];
+      if (!e || Date.now() - e.at > 20000) loadRightAnno(file);
+      return e ? e.items.filter(function (i) { return i.pg === pg; }) : [];
+    }
+    function loadRightAnno(file) {
+      var e = S.rAnno[file] || (S.rAnno[file] = { at: 0, items: [], by: {} });
+      if (e.busy) return; e.busy = true; e.at = Date.now();
+      var put = function (sc, ly, list) { e.by[sc + '|' + ly] = (list || []).map(function (i) { return Object.assign({ ly: ly }, i); }); e.items = [].concat.apply([], Object.keys(e.by).map(function (k) { return e.by[k]; })); };
+      var sheet = sheets.filter(function (f) { return f.id === file; })[0], mineF = !!(sheet && sheet.mine), left = scopes().length;
+      scopes().forEach(function (sc) {
+        var c = acacheGet(file, sc); if (c) { if (!mineF) put(sc, 'team', c.team); put(sc, 'mine', c.mine); }
+        if (!opts.callServer) { if (--left <= 0) e.busy = false; return; }
+        var useRt = !mineF && rt && rt.online;                                          // 팀 필기는 실시간 서버(가장 최신)에서, 내 필기는 시트에서
+        if (useRt) rt.call('anno:load', { file: file, scope: sc }).then(function (r) { put(sc, 'team', (r && r.items) || []); repaintRight(); }, function () { /* 기기 저장분 그대로 */ });
+        opts.callServer('worshipAnnoLoad', [opts.token, file, sc, mineF || !!useRt], function (r) {
+          if (r) { put(sc, 'mine', r.mine || []); if (!mineF && !useRt && Array.isArray(r.team)) put(sc, 'team', r.team); }
+          if (--left <= 0) { e.busy = false; e.at = Date.now(); repaintRight(); }
+        }, function () { if (--left <= 0) e.busy = false; });
+      });
+      if (S.rLast) repaintRight();
+    }
+    function drawRightAnno(c, W, H, rp) {
+      try {
+        if (typeof an === 'undefined' || !an) return;
+        if (rp.s === S.sheetIdx) { an.drawPage(c, W, H, rp.p); return; }
+        var f = sheets[rp.s]; if (!f || !YA || !YA.drawItem) return;
+        var vis = (an.state && an.state().vis) || { team: true, mine: true };
+        var list = rightItems(f.id, rp.p).filter(function (i) { return vis[i.ly] !== false; });
+        list.filter(function (i) { return i.t === 'hl'; }).forEach(function (i) { YA.drawItem(c, i, W, H, { blend: true }); });
+        list.filter(function (i) { return i.t !== 'hl'; }).forEach(function (i) { YA.drawItem(c, i, W, H); });
+      } catch (e) { /* 필기를 못 그려도 악보는 그대로 */ }
+    }
+    var rpT = 0;
+    function repaintRight() { clearTimeout(rpT); rpT = setTimeout(function () { var L = S.rLast; if (L && !S.dead && spreadOn()) renderRight(L.id, L.pg, L.d, L.base, L.dpr); }, 250); }
     function renderRight(id, pg, d, base, dpr) {
+      S.rLast = { id: id, pg: pg, d: d, base: base, dpr: dpr };
       syncSpreadUi();
       if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
       var rp = spreadOn() ? rightPosOf(d, pg) : null;
@@ -668,6 +707,7 @@
           pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px';
           if (pdf2.width !== src.width || pdf2.height !== src.height) { pdf2.width = src.width; pdf2.height = src.height; }
           var c = pdf2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0);
+          drawRightAnno(c, pdf2.width, pdf2.height, rp);
         };
         var hit = pcGet(sig); if (hit) { paint(hit.cv); return; }
         (S.pre.get(sig) || prerender(d2, rn, base)).then(function () {
@@ -2159,6 +2199,7 @@
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { toolsEl.addEventListener(n, holdStop); });
     doc.addEventListener('pointerup', holdStop);
     P.on('annochange', function () { clearTimeout(S.toolT); S.toolT = setTimeout(renderTools, 60); });
+    P.on('annochange', function () { try { delete S.rAnno[fileId()]; } catch (e) {} var L = S.rLast, rp = L && L.d ? rightPosOf(L.d, L.pg) : null; if (rp && rp.s === S.sheetIdx) repaintRight(); });   // 왼쪽에서 고친 파일은 다음에 오른쪽에 올 때 새로 받음   // 같은 파일 오른쪽 페이지의 필기도 바로
     ['songedit', 'songs', 'page', 'sheet', 'cfg'].forEach(function (n) { P.on(n, function () { updateFormBadge(); if (S.tool === 'fbox' && typeof renderTools === 'function') renderTools(); }); });   // 송폼 라벨 줄도 그 곡 송폼으로
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
     S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
