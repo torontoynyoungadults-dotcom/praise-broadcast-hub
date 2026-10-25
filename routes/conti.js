@@ -755,7 +755,7 @@ function recExtra(r, src) {
     const name = p.split('/').pop(), kind = nas.kindOf(name);
     return ` · 드라이브${kind === 'video' ? ' · 영상' : ''}`;
   }
-  return src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>${/^\\/audio\\//.test(src) ? ` · <a class="ph-li-link" href="${esc(src)}?download=1">다운로드</a>` : ''}` : ' · 유튜브 등 링크는 새 창에서 열려요';
+  return src ? ` · <a class="ph-li-link" href="${esc(r['링크'])}" target="_blank" rel="noopener">새 창</a>${/^\/audio\//.test(src) ? ` · <a class="ph-li-link" href="${esc(src)}?download=1">다운로드</a>` : ''}` : ' · 유튜브 등 링크는 새 창에서 열려요';
 }
 /** 녹음의 곡 시작 위치 — '녹음'.구간 JSON [{t, id, k}] (시간순 · 최대 60개) */
 function cleanMarks(v) {
@@ -2105,6 +2105,7 @@ async function autoRecTitle(file, link) {
 router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
+  if (!team || !req.ctx.teams.includes(team)) return res.status(403).type('text').send('이 찬양팀의 음원을 올릴 권한이 없습니다.');
   const scope = scopeFrom(b);
   let title = String(b['제목'] || '').trim();
   let link = String(b['링크'] || '').trim();
