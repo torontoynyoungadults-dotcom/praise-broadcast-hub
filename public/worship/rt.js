@@ -68,7 +68,7 @@
       /** 서버 시각 (ms) — 큐 · 박자를 여러 기기에서 맞출 때 */
       serverNow: function () { return Date.now() + S.offset; },
       get isLeader() { return !!(S.me && S.leader && S.me.name === S.leader); },
-      /** 클릭 컨트롤 (메트로놈) — 페이지 컨트롤(isLeader)과 별개 */
+      /** 클릭 컨트롤 — 페이지 컨트롤(isLeader)과 별개 */
       get isClicker() { return !!(S.me && S.clicker && S.me.name === S.clicker); },
 
       connect: function () {
@@ -132,7 +132,7 @@
       release: function () { return api.call('leader:release', {}); },
       claimClick: function (force) { return api.call('click:claim', { force: !!force }); },
       releaseClick: function () { return api.call('click:release', {}); },
-      /** 메트로놈 상태 보내기 (클릭 컨트롤만) — { playing, bpm, num, den, marks, count, keep } */
+      /** 클릭 상태 보내기 (클릭 컨트롤만) — { playing, bpm, num, den, marks, count, keep } */
       sendMetro: function (st) { return api.call('metro', st || {}); },
       /** 예배 타이머 조작 보내기 (팀장 · 인도자만) — { action:'start'|'pause'|'segNext'|… } */
       /** V842 — 리드 상태(BPM · 박자 · 송폼 위치) 보내기 — 받는 쪽은 숫자 · 위치만 맞추고 소리는 내지 않음 */

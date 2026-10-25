@@ -1,5 +1,5 @@
 /**
- * 메트로놈 + 박자에 맞춘 음성 큐 (Web Audio)
+ * 클릭 + 박자에 맞춘 음성 큐 (Web Audio)
  * ------------------------------------------------------------
  * ▣ 박자가 흔들리지 않는 이유
  *    클릭은 "지금 소리 내기"가 아니라 오디오 시계(AudioContext.currentTime)에 미리 예약합니다.
@@ -326,7 +326,7 @@
      해결은 두 가지를 함께 씁니다 (기기 · iOS 버전마다 통하는 쪽이 달라서).
        ① navigator.audioSession.type = 'playback'  — Safari 16.4+ 가 지원하는 공식 방법 ("미디어 재생" 채널로 분류)
        ② 소리 없는 <audio> 를 반복 재생 — 예전 iOS 는 <audio> 가 재생 중이면 Web Audio 도 미디어 채널로 나갑니다
-     반드시 사용자가 화면을 누른 순간(시작 버튼 · 큐 버튼)에 시작해야 하고, 메트로놈을 멈추면 함께 멈춥니다 (배터리).
+     반드시 사용자가 화면을 누른 순간(시작 버튼 · 큐 버튼)에 시작해야 하고, 클릭을 멈추면 함께 멈춥니다 (배터리).
      Mac · 안드로이드 · 컴퓨터에는 무음 스위치가 없어 ①② 는 조용히 아무 일도 하지 않습니다.
      ============================================================ */
   var silentUrl = null;
@@ -345,7 +345,7 @@
   /* v12.x — "유튜브 · 음악 앱과 같이 듣기" (이 기기에 기억 · yn.metro.mix)
      켜면 소리 없는 재생으로 소리 채널을 붙잡지 않고, 다른 앱 소리와 섞이는 'ambient' 로 둡니다.
      → 유튜브 앱을 뒤에서 틀어 둔 채 라이브 악보로 돌아와도 유튜브 볼륨이 줄지 않습니다.
-     대신 iOS 무음(진동) 스위치가 켜져 있으면 메트로놈 · 콜아웃이 들리지 않으니, 스위치를 끄고 씁니다. */
+     대신 iOS 무음(진동) 스위치가 켜져 있으면 클릭 · 콜아웃이 들리지 않으니, 스위치를 끄고 씁니다. */
   var MIX_KEY = 'yn.metro.mix';
   function readMix() { try { return typeof localStorage !== 'undefined' && localStorage.getItem(MIX_KEY) === '1'; } catch (e) { return false; } }
   var Media = {
@@ -377,7 +377,7 @@
       } catch (e) { Media.on = false; }
       try {
         if (navigator.mediaSession) {                                       // 잠금 화면 · 제어 센터에 "재생 중"으로 보여 백그라운드에서도 소리가 이어지게 합니다
-          if (typeof MediaMetadata !== 'undefined' && !Media.meta) { Media.meta = true; navigator.mediaSession.metadata = new MediaMetadata({ title: '메트로놈', artist: '세션 / 연습' }); }
+          if (typeof MediaMetadata !== 'undefined' && !Media.meta) { Media.meta = true; navigator.mediaSession.metadata = new MediaMetadata({ title: '클릭', artist: '세션 / 연습' }); }
           navigator.mediaSession.playbackState = 'playing';
         }
       } catch (e) { /* 무시 */ }
@@ -397,9 +397,9 @@
       try { if (Media.el) Media.el.pause(); } catch (e) { /* 무시 */ }
       try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 무시 */ }
     },
-    /* 잠금 화면 · 다른 앱으로 가면 — 메트로놈이 실제로 돌고 있지 않으면 소리 없는 재생을 완전히 치워서
-       iOS 잠금 화면에 "메트로놈 · 세션 / 연습" 재생 카드가 뜨지 않고 평소 잠금 화면이 되게 합니다.
-       화면으로 돌아오면(hold 중이면) 같은 <audio> 로 다시 켭니다. 메트로놈이 돌고 있을 때는 박이 끊기지 않게 그대로 둡니다. */
+    /* 잠금 화면 · 다른 앱으로 가면 — 클릭이 실제로 돌고 있지 않으면 소리 없는 재생을 완전히 치워서
+       iOS 잠금 화면에 "클릭 · 세션 / 연습" 재생 카드가 뜨지 않고 평소 잠금 화면이 되게 합니다.
+       화면으로 돌아오면(hold 중이면) 같은 <audio> 로 다시 켭니다. 클릭이 돌고 있을 때는 박이 끊기지 않게 그대로 둡니다. */
     runs: [], parked: false,
     running: function () { for (var i = 0; i < Media.runs.length; i++) { try { if (Media.runs[i]()) return true; } catch (e) { /* 무시 */ } } return false; },
     park: function () {
@@ -534,20 +534,20 @@
       } catch (e) { eqLo = eqMid = eqHi = null; }
       return ctx;
     }
-    /** 전화 · 알림 · 화면 잠금으로 오디오가 멈춘("suspended" · iOS 는 "interrupted") 뒤 다시 살립니다 — 메트로놈이 돌고 있을 때만 */
+    /** 전화 · 알림 · 화면 잠금으로 오디오가 멈춘("suspended" · iOS 는 "interrupted") 뒤 다시 살립니다 — 클릭이 돌고 있을 때만 */
     function wake() {
       if (destroyed || !ctx || !sched.running) return;
       Media.start();
       if (ctx.state !== 'running' && ctx.resume) { try { var r = ctx.resume(); if (r && r.catch) r.catch(function () { /* 사용자가 다시 눌러야 하는 경우 */ }); } catch (e) { /* 무시 */ } }
     }
     function onCtxState() { if (ctx && ctx.state !== 'running' && sched.running) wake(); }
-    /* 잠금 화면 · 다른 앱: 메트로놈이 멈춰 있으면 소리 장치(AudioContext)도 잠재웁니다 — 깨어 있으면(prime) 소리가 없어도 iOS 가 "재생 중"으로 보고
+    /* 잠금 화면 · 다른 앱: 클릭이 멈춰 있으면 소리 장치(AudioContext)도 잠재웁니다 — 깨어 있으면(prime) 소리가 없어도 iOS 가 "재생 중"으로 보고
        잠금 화면에 재생 카드를 띄웁니다. 화면으로 돌아오면 다시 깨웁니다 (같은 장치라 누르지 않아도 됨). */
     var napped = false;
     function onVisible(ev) {
       if (typeof document === 'undefined') return;
       /* v12.x — 앱을 닫거나 다른 화면으로 떠날 때(pagehide)는 돌고 있어도 완전히 멈추고 소리 장치를 잠재웁니다.
-         (잠금 화면 · 다른 앱으로 잠깐 갈 때는 visibilitychange 만 오므로 메트로놈은 그대로 이어집니다) */
+         (잠금 화면 · 다른 앱으로 잠깐 갈 때는 visibilitychange 만 오므로 클릭은 그대로 이어집니다) */
       if (ev && ev.type === 'pagehide') {
         if (sched.running || starting) stop();
         if (ctx && ctx.state === 'running' && ctx.suspend) { napped = true; try { var sp0 = ctx.suspend(); if (sp0 && sp0.catch) sp0.catch(function () {}); } catch (e) { /* 무시 */ } }
@@ -622,7 +622,7 @@
       }
     }
     var EXTRA = { cowbell: 1, drum: 1, soft: 1, stick: 1, hihat: 1 };
-    /* v9.11 — "Tempo App": Tempo 메트로놈 앱(iOS)의 딸깍 소리를 화면 녹화에서 그대로 떠 온 녹음 (44.1kHz · 16비트 · 약 63ms).
+    /* v9.11 — "Tempo App": Tempo 클릭 앱(iOS)의 딸깍 소리를 화면 녹화에서 그대로 떠 온 녹음 (44.1kHz · 16비트 · 약 63ms).
        원래 앱처럼 모든 박이 같은 소리 · 같은 크기 (강세 박 없음). 파일을 따로 받지 않도록 여기 넣어 두었습니다 (오프라인에서도 그대로). */
     var TEMPO_PCM = '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8v/c/8j/t/+p/6L/oP+j/6v/t//G/9n/8f8KACQAOwBQAGMAdQCDAIsAjQCHAH0AcQBkAFYAQgArABQAAADt/+D/0//J/8L/vv/C/8r/1P/d/+j/9v8HABkAKgA3AEEASgBRAFcAWABXAFQAUABJAD4AMgAnABwADwABAPb/7f/n/+L/3v/c/93/4P/m/+3/8v/7/wQADQAXAB8AJwAuADQAOAA5ADkAOQA2ADMALQAoACIAGwATAAsAAwD8//X/8f/t/+z/6//o/+f/6f/u//T/+v/9/wMADAAWAB8AJQAoACoALQAvADAALgAoACIAHAAVAA0ABgAAAPr/9f/x/+7/7f/s/+7/8P/0//f/+/8AAAcADQASABcAGQAbABsAHQAcABsAGgAYABUAEQANAAoABwAFAAIA/v/7//n/+f/5//j/9//5//v///8BAAMABQAHAAkADAAPABEAEQAQABAAEAAPAA0ACwAJAAYABAACAAEAAQABAAAA///9////AAAAAAAAAAABAAIABAAEAAQABAAEAAQABAAEAAQABQAFAAUABgAJAAkACQAHAAcABgAFAAUABgAGAAQAAQD///7//f/5//f/9//5//r/+//8/wAABQALABAAFAAWABgAGgAcABwAGgAXABQAEAAMAAYAAQD///z/+f/1//P/8//0//T/9f/3//v/AAADAAcACQANABEAFAAWABYAFwAYABgAFwAUABEADwANAAkABQADAAEAAAD+//z/+//7//v//P/+////AAABAAEAAQACAAQABAAGAAYABwAGAAYABwAHAAYABgAGAAYABgAFAAQABAAFAAUABQAEAAMAAwACAAEAAAD//////v/+//7//v/+//3//f/9//3//v/+////AAAAAAEAAgADAAMABAAEAAUABgAGAAUABAAEAAMAAgABAAAAAAD+//3//P/7//v/+//7//v//P/9//7///8AAAEAAgACAAMAAwAEAAUABAADAAIAAgABAAAAAAD///7//v/9//3//P/9//3//v/+//////8AAAAAAAABAAEAAQACAAIAAgACAAIAAgACAAEAAAAAAAAA//////7//v/+//7//v/+//////8AAAAAAAAAAAAAAQABAAIAAgACAAIAAgABAAEAAAAAAAAAAAAAAP///////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAQABAAEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', tempoBuf = null;
     function tempoBuffer() {
@@ -930,7 +930,7 @@
      */
     var starting = false;                                   // V842 — 소리 장치를 깨우는 중(시작을 눌렀지만 첫 박 전)
     /* v12.x — 시작 번호: 소리 장치가 늦게 깨어나는 동안(아이폰은 몇 초 걸리기도 함) 멈춤을 누르면, 뒤늦게 깨어난 시작이
-       메트로놈을 다시 켜던 문제("꺼도 계속 나와")를 막습니다. 멈춤 · 새 시작마다 번호가 바뀌고, 옛 번호의 시작은 버립니다. */
+       클릭을 다시 켜던 문제("꺼도 계속 나와")를 막습니다. 멈춤 · 새 시작마다 번호가 바뀌고, 옛 번호의 시작은 버립니다. */
     var runGen = 0;
     /* v12.x — 소리 없는 재생(미디어 채널)을 지금 막 켰으면 아이폰이 소리 경로를 바꾸는 0.3초쯤 동안 박이 사라집니다
        ("켜면 나왔다가 몇 음 묵음"). 그럴 때만 첫 박을 그만큼 늦게 예약합니다. 이미 켜져 있으면 바로. */
@@ -1057,7 +1057,7 @@
         notify('cue', { status: 'spoken', text: text, downbeat: true });
         return { ok: true, text: text, downbeat: true, landAt: t1, reset: !!cfg.cdReset };
       }
-      if (sched.running && ctx && !mode) {                        // V843 — 카운트다운이 아니면 박과 상관없이 누르는 즉시 (메트로놈은 그대로 BPM 대로 흐름)
+      if (sched.running && ctx && !mode) {                        // V843 — 카운트다운이 아니면 박과 상관없이 누르는 즉시 (클릭은 그대로 BPM 대로 흐름)
         var clipN = cfg.sound !== 'mute' && AC ? clipFor(c) : null;
         if (clipN) playClip(clipN, ctx.currentTime + 0.01);
         else if (speechOk && cfg.sound !== 'mute') speak(text, cl, false, true);

@@ -1,12 +1,12 @@
 /**
- * 세션 / 연습 — 찬양 악보를 크게 열어 필기 · 송폼 · 메트로놈 · 음정을 한 화면에서 쓰는 전체 화면 뷰어 (가사 도구는 허브 화면으로 옮김)
+ * 세션 / 연습 — 찬양 악보를 크게 열어 필기 · 송폼 · 클릭 · 음정을 한 화면에서 쓰는 전체 화면 뷰어 (가사 도구는 허브 화면으로 옮김)
  * ------------------------------------------------------------
  *  YNPractice.open({ token, room, sheets:[{id,name}], songs:[{title,key,bpm,form}], start:악보ID, canEdit, callServer })
  *
  *  · 레이아웃: 📱 태블릿(큰 버튼 · 펜 우선 · 화면 가장자리 탭으로 넘김 · 도구 막대 떠 있음)  /  💻 컴퓨터(위 도구줄 · 오른쪽 패널 · 단축키)
  *  · 페이지 컨트롤(구 리더) - 팔로워: 페이지 컨트롤이 넘기는 악보 · 페이지 · 확대를 모두가 따라감. "따라가기" 스위치로 사람마다 끌 수 있음 (끄면 내 화면은 그대로)
  *  · 필기: anno.js (펜 · 형광펜 · 글자/코드 · 기호). 팀 공유는 rt.js(Socket.io)로 실시간, 나만 보기는 서버(구글 시트)에 저장
- *  · 패널(송폼 · 메트로놈 · 음정 · 함께)은 practice-panels.js 에 있습니다
+ *  · 패널(송폼 · 클릭 · 음정 · 함께)은 practice-panels.js 에 있습니다
  * 실시간 연결이 없어도(오프라인 · 서버 문제) 혼자 보기 · 나만 보기 필기는 그대로 동작합니다.
  */
 (function (root) {
@@ -36,11 +36,11 @@
     var coarse = false; try { coarse = root.matchMedia('(pointer: coarse)').matches; } catch (e) {}
     return (coarse && root.innerWidth < 1400) || root.innerWidth < 900 ? 'tablet' : 'computer';
   }
-  /** 송폼 칸(V1, C2 …)에서 메트로놈 큐 이름으로 */
+  /** 송폼 칸(V1, C2 …)에서 클릭 큐 이름으로 */
   var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', V4: 'v4', 'C(Voice)': 'cvoice', C: 'c', C2: 'c2', C3: 'c3', PC: 'pc', PC2: 'pc2', B: 'b', B1: 'b', B2: 'b2', Intro: 'intro',   // V842 — C2 → Chorus 2 · Inst → Instrumental
     Itld: 'itld', Inst: 'inst', Out: 'end', End: 'end', Coda: 'end', Vamp: 'vamp', Turn: 'vamp', Solo: 'solo', Break: 'break', Prayer: 'prayer', KeyUp: 'keyup', Tag: 'tag',
     RepC: 'repc', HalfC: 'halfc', LastL: 'lastl', Once: 'once', OneBar: 'onebar', LastC: 'lastc', VOnly: 'vonly', Drums: 'drums', Build: 'build', Down: 'die', Ferm: 'ferm', Slow: 'slow', Hold: 'hold', BigEnd: 'bigend' };   // V838 — 송폼에 넣은 콜아웃 칸 (formb.js)
-  /* 마디 수를 콜아웃에 붙이는 칸 — 간주 · 연주 ("Interlude 2 measures"). 메트로놈이 큐 id 뒤 "~m2" 를 읽어 이어서 부름 */
+  /* 마디 수를 콜아웃에 붙이는 칸 — 간주 · 연주 ("Interlude 2 measures"). 클릭이 큐 id 뒤 "~m2" 를 읽어 이어서 부름 */
   var MEAS_CUES = { itld: 1, inst: 1 };
   function withBars(id, bars) { bars = Math.round(Number(bars)); return id && MEAS_CUES[id] && bars >= 1 && bars <= 16 ? id + '~m' + bars : id; }
   function cueIdFor(k, bars) { return withBars(CUE_MAP[k] || null, bars); }
@@ -191,17 +191,17 @@
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '라이브 악보');
     el.innerHTML =
       /* v9.16 — 위 막대 다이어트 (청년부 앱과 같은 구성): 악보 · 이 페이지의 곡을 한 칸(알약)으로 · 페이지 넘기기 작게 · 자주 안 쓰는 단추(밝기 · 떠 있는 창 · 화면 배치 · 여백 · 두 페이지 · PDF)는 「⋯」 안으로 ·
-         메트로놈 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 악보 · 페이지 · (요청) · 메트로놈 · ⋯ 만 */
+         클릭 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 악보 · 페이지 · (요청) · 클릭 · ⋯ 만 */
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
         '<div class="pv-title pv-songpill"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select>' +
           '<label class="pv-sheetwrap" title="이 페이지가 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 페이지면 다음 곡이 나올 때까지 같은 곡으로 봅니다."><span class="pv-sheetic" aria-hidden="true">' + I('note') + '</span><select class="pv-sel pv-songsel" style="display:none" aria-label="이 페이지의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)"></select></label><span class="pv-songinfo"></span></div>' +
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 페이지 (←)" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지 (→)" aria-label="다음 페이지">' + I('next') + '</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" aria-label="여백 자동 맞춤" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + '<span class="pv-tx"> 여백</span></button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" aria-label="두 페이지 나란히 보기" title="두 페이지 나란히 보기 (컴퓨터 화면)">' + I('spread') + '<span class="pv-tx"> 두 페이지</span></button></div>' +
-        '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
+        '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤 · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
         '<button type="button" class="pv-b pv-wsbtn" data-a="ws-off" hidden aria-label="예배 모드 켜짐 — 두 번 눌러 끄기" title="예배 모드 — 두 번 누르면 꺼집니다">' + I('lock') + '<span class="pv-tx"> 예배 모드</span></button>' +
-        '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="메트로놈 켜기" title="메트로놈 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
-        '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−1</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+1</button></div>' +
+        '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="클릭 켜기" title="클릭 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
+        '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−1</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-kssave" data-a="ks-save" hidden title="이 키를 팀 모두의 악보에 저장" aria-label="바꾼 키를 팀에 저장">저장</button></div>' +
         '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button>' +
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
@@ -231,7 +231,7 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
@@ -239,7 +239,7 @@
         '<section class="pv-ds"><h5>보기</h5><div class="pv-dslot" data-slot="view"></div></section>' +
         '<section class="pv-ds"><h5>필기 도구</h5><div class="pv-dslot" data-slot="tools"></div></section>' +
         '<section class="pv-ds"><h5>저장</h5><div class="pv-dslot"><button type="button" class="pv-btn2" data-a="pdf">' + I('download') + ' 필기 포함 PDF 저장 (악보 전체 한 파일)</button></div></section>' +
-        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">' + I('metronome') + ' 메트로놈 · 시작음 · 함께 (패널 열기)</button></div></section>' +
+        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">' + I('metronome') + ' 클릭 · 시작음 · 함께 (패널 열기)</button></div></section>' +
       '</aside>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
     el.classList.toggle('pv-nosub', !songs.length);
@@ -629,7 +629,7 @@
     /** 두 페이지 보기에서 "다음": 지금 보이는 오른쪽 페이지의 그다음으로 (파일 경계를 넘어서도). 처리했으면 true */
     function spreadNext(user) {
       var R = S.doc ? rightPosOf(S.doc, S.page) : null; if (!R) return false;
-      /* 오른쪽 페이지가 다른 곡이면 한 장만 넘김 — 오른쪽 악보가 왼쪽으로 와서 메트로놈 · 송폼 · Key 가 그 곡을 따라가고, 오른쪽엔 그다음 페이지 */
+      /* 오른쪽 페이지가 다른 곡이면 한 장만 넘김 — 오른쪽 악보가 왼쪽으로 와서 클릭 · 송폼 · Key 가 그 곡을 따라가고, 오른쪽엔 그다음 페이지 */
       try {
         var sL = resolveSong(sheets[S.sheetIdx], S.page), sR = resolveSong(sheets[R.s], R.p);
         if (sL != null && sR != null && sL >= 0 && sR >= 0 && sR !== sL) { goPos(R, user); return true; }
@@ -1088,13 +1088,13 @@
        ① 페이지 위쪽 글자에서 곡 제목을 찾아 자동 연결 (제목이 없는 페이지는 앞 페이지의 곡이 이어짐)  ② 사진 악보 · 글자가 없는 PDF 는 파일 이름으로 짐작
        ③ 틀리면 위 드롭다운으로 그 페이지의 곡을 직접 고름 (기기에 기억) — 고친 페이지부터 다음 제목이 나올 때까지 이어집니다. */
     /* ------------------------------------------------------------ 설정 팀 공유 (Step 2.9)
-       페이지↔곡 연결 · 곡별 메트로놈 · 곡 정보(BPM · 송폼 · 유튜브)를 서버(시트)에 저장하고 같은 방 사람들에게 실시간으로 나눕니다.
+       페이지↔곡 연결 · 곡별 클릭 · 곡 정보(BPM · 송폼 · 유튜브)를 서버(시트)에 저장하고 같은 방 사람들에게 실시간으로 나눕니다.
        · "나만 보기" 를 켜거나 팀장 · 인도자가 아니면 → 내 설정(mine)으로만 저장, 전달하지 않음
        · 팀 설정(team)은 팀장 · 인도자만 바꿀 수 있고, 저장되는 즉시 웹소켓으로 팀 화면에 반영됩니다
        · 내 설정이 팀 설정보다 우선합니다 (내가 "나만 보기" 로 바꿔 둔 것은 팀 값이 바뀌어도 그대로) */
-    /* 따라가기는 두 스위치가 독립 — S.follow(페이지) · S.followM(메트로놈). "동기화 끄기(수동)" = 둘 다 끈 상태의 별칭.
+    /* 따라가기는 두 스위치가 독립 — S.follow(페이지) · S.followM(클릭). "동기화 끄기(수동)" = 둘 다 끈 상태의 별칭.
        예전에 저장된 수동(manual=1)은 두 스위치를 모두 끈 것으로 옮겨 줍니다. */
-    /* v6 — 메트로놈 따라가기는 없앴습니다 (메트로놈은 기기마다 따로). 따라가기 = 페이지만. "동기화 끄기(수동)" = 페이지 따라가기 끔 */
+    /* v6 — 클릭 따라가기는 없앴습니다 (클릭은 기기마다 따로). 따라가기 = 페이지만. "동기화 끄기(수동)" = 페이지 따라가기 끔 */
     if (ls('fpage') === null && ls('manual') === '1') { S.follow = false; ls('fpage', '0'); }
     Object.defineProperty(S, 'manual', { get: function () { return !S.follow; }, enumerable: true });
     S.cid = 'c' + Math.random().toString(36).slice(2, 10);
@@ -1294,7 +1294,7 @@
         opts.callServer('worshipSongPatch', [opts.token, S.room, s.kind, s.seq, patch, S.cid], function (r) {
           var k = ck('song', s.title); if (S.cfg.mine[k] !== undefined) { delete S.cfg.mine[k]; cfgSend('mine', 'song', s.title, null); }
           Object.assign(s, r && r.song ? { bpm: r.song.bpm, form: r.song.form, link: r.song.link } : patch); applySongCfg();
-          if (patch.bpm) { var mc0 = cfgGet('metro', s.title); if (mc0 && mc0.bpm) cfgSet('metro', s.title, Object.assign({}, mc0, { bpm: +patch.bpm })); }         // 곡 BPM 을 새로 정하면 예전 메트로놈 BPM 도 맞춤
+          if (patch.bpm) { var mc0 = cfgGet('metro', s.title); if (mc0 && mc0.bpm) cfgSet('metro', s.title, Object.assign({}, mc0, { bpm: +patch.bpm })); }         // 곡 BPM 을 새로 정하면 예전 클릭 BPM 도 맞춤
           if (idx === S.songIdx) setSong(idx, true); renderSongSel(); P.emit('songedit', s, false);
           toast('팀 모두에게 저장했습니다.', false, 1800); if (done) done(true);
         }, fail);
@@ -1560,6 +1560,9 @@
       el.querySelectorAll('.pv-kslbl').forEach(function (b) { b.textContent = t; b.classList.toggle('on', n !== 0); });
       el.querySelectorAll('[data-a="ks-down"]').forEach(function (b) { b.disabled = n <= -6; });
       el.querySelectorAll('[data-a="ks-up"]').forEach(function (b) { b.disabled = n >= 6; });
+      var sg0 = songs[S.songIdx], tk = teamKs(sg0), dirty = !!sg0 && canTeam() && !!S.room && n !== tk;      // V890 — 팀 키와 다르면 「저장」
+      el.querySelectorAll('[data-a="ks-save"]').forEach(function (b) { b.hidden = !dirty; b.textContent = n === 0 && tk ? '원래 키로 저장' : '저장'; });
+      el.querySelectorAll('.pv-kslbl').forEach(function (b) { b.title = tk ? '팀 저장 키 ' + ksKeyOf(sg0, tk) + ' — 두 번 누르면 원래 키로' : '지금 키 — 두 번 누르면 원래 키로'; });
     }
     function ksStep(d) {
       var n0 = P.keyShift(), n = n0;
@@ -1574,6 +1577,43 @@
       if (!(S.ksArm && now - S.ksArm < 2500)) { S.ksArm = now; toast('한 번 더 누르면 원래 키로 돌아갑니다', false, 2400); return; }
       S.ksArm = 0; ksStep(-P.keyShift());
     }
+    /* V890 — 팀 키 저장: 팀장 · 인도자가 −1 / +1 로 바꾼 키를 「저장」하면 이 예배(방)의 그 곡 키로 저장되고 ('연습설정' 팀 층 · 종류 'ks'),
+       팀 모두의 라이브 악보가 그 키로 코드를 바꿔 그립니다 (열려 있는 화면은 실시간). 각자 −1 / +1 로 더 바꾸면 그 기기에서만 바뀌고,
+       팀 키가 다시 바뀌면 새 팀 키를 따릅니다 (kst.<곡> = 마지막으로 따른 팀 키). */
+    function ksSongKey(sg) { return sg ? normName(sg.title).slice(0, 80) : ''; }
+    function teamKsRaw(sg) { var nm = ksSongKey(sg); return nm && S.cfg ? S.cfg.team[ck('ks', nm)] : null; }
+    function teamKs(sg) { var v = teamKsRaw(sg), n = v && Math.round(+v.n); return isFinite(n) ? clamp(n, -6, 6) : 0; }
+    function ksKeyOf(sg, n) { var b = sg && sg.key ? String(sg.key).trim() : '', t = ksKey(b, n); return t || ((n > 0 ? '+' : '−') + Math.abs(n)); }
+    function applyTeamKs(by) {
+      var changed = null;
+      songs.forEach(function (sg, i) {
+        var nm = ksSongKey(sg); if (!nm) return;
+        var want = teamKsRaw(sg) ? String(teamKs(sg)) : '', mark = ls('kst.' + nm) || '';
+        if (want === mark) return;
+        if (!want && !mark) return;
+        ls('kst.' + nm, want);
+        var n = want ? +want : 0;
+        if (i === S.songIdx) { try { P.setKeyShift(n); } catch (e) { /* 그리기 실패는 다음 곡 열 때 */ } changed = { sg: sg, n: n }; }
+        else ls('ks.' + nm, String(n));
+      });
+      paintKs();
+      if (changed && by) toast(YNHon.say(by) + ' ' + (changed.n ? '이 곡 키를 ' + ksKeyOf(changed.sg, changed.n) + ' 로 저장했습니다 — 코드를 바꿔 그립니다' : '이 곡을 원래 키로 되돌렸습니다'), false, 2600);
+    }
+    function ksSave() {
+      var sg = songs[S.songIdx]; if (!sg) return;
+      if (!canTeam()) { toast('팀 키 저장은 팀장 · 인도자만 할 수 있어요 — 내 기기에서는 지금 키로 계속 보입니다'); return; }
+      var nm = ksSongKey(sg), n = P.keyShift(), k = ck('ks', nm);
+      cfgSend('team', 'ks', nm, n ? { n: n } : null, function (ok) {
+        if (!ok || S.dead) return;
+        if (n) S.cfg.team[k] = { n: n }; else delete S.cfg.team[k];
+        ls('kst.' + nm, n ? String(n) : '');
+        paintKs();
+        toast(n ? '팀 키를 ' + ksKeyOf(sg, n) + ' 로 저장했습니다 — 팀 모두의 악보 코드가 바뀝니다' : '팀 키를 원래 키로 저장했습니다', false, 2600);
+        try { var hz = P.ensureTab('harmony'); if (hz && hz.shareNow) hz.shareNow(); } catch (e) { /* 분석 공유는 덤 */ }
+      });
+    }
+    P.on('cfg', function (m) { if (m && (m.kind === 'all' || m.kind === 'ks')) applyTeamKs(m.remote ? m.by : ''); });
+    P.on('songs', function () { applyTeamKs(''); });
     P.on('song', paintKs); P.on('keyshift', function () { setTimeout(paintKs, 0); });
     setTimeout(paintKs, 0);
     S.room = opts.room || '';
@@ -1805,7 +1845,7 @@
         else { var same = nav.page === S.page; if (!same) goPage(nav.page, false); Promise.resolve(after()).then(function () { scrollTo(); done(); }, done); }
       } catch (e) { done(); }
     }
-    /* ---- 따라가기 (페이지 · 메트로놈 독립) — 이 기기에 저장 + 서버(내 설정)에 저장 + 접속자 목록에 표시 ---- */
+    /* ---- 따라가기 (페이지 · 클릭 독립) — 이 기기에 저장 + 서버(내 설정)에 저장 + 접속자 목록에 표시 ---- */
     function pushPrefs() {
       S.prefTouched = true; clearTimeout(S.prefT);
       S.prefT = setTimeout(function () {
@@ -1833,12 +1873,12 @@
       if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '🔒 혼자 보기 — 남이 넘기는 페이지 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.')); }
     }
     function setFollowM(b, quiet) {
-      return;                                                             // v6 — 메트로놈 따라가기 없앰 (예전 호출은 아무 일도 하지 않음)
+      return;                                                             // v6 — 클릭 따라가기 없앰 (예전 호출은 아무 일도 하지 않음)
       b = !!b; if (S.followM === b && !quiet) return;
       var wasManual = S.manual;
       S.followM = b; ls('fmetro', b ? '1' : '0');
       renderChips(); P.emit('followm', b); if (wasManual !== S.manual) P.emit('manual', S.manual);
-      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isClicker ? '내 메트로놈 조작을 팀에 보냅니다.' : '클릭 컨트롤의 메트로놈을 따라갑니다.') : (rt && rt.isClicker ? '메트로놈 동기화를 껐습니다. 내 조작은 팀에 보내지 않습니다.' : '메트로놈 따라가기를 껐습니다. 내 메트로놈은 내가 직접 조절합니다.')); }
+      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isClicker ? '내 클릭 조작을 팀에 보냅니다.' : '클릭 컨트롤의 클릭을 따라갑니다.') : (rt && rt.isClicker ? '클릭 동기화를 껐습니다. 내 조작은 팀에 보내지 않습니다.' : '클릭 따라가기를 껐습니다. 내 클릭은 내가 직접 조절합니다.')); }
     }
     /** 예전 "동기화 끄기 (수동)" = 두 스위치를 함께 끄기/켜기 */
     function setManual(b) {
@@ -1861,7 +1901,7 @@
     function release() { return rt ? rt.release().then(function () { toast('페이지 컨트롤을 내려놓았습니다.'); renderChips(); }, function (e) { toast(e.message, true); }) : Promise.resolve(); }
     function claimClick(force) {
       if (!rt) return Promise.reject(new Error('실시간 연결이 없습니다.'));
-      return rt.claimClick(force).then(function () { toast('클릭 컨트롤이 되었습니다. 지금부터 누르는 시작 · 멈춤 · BPM 을 팀 모두의 메트로놈이 따라옵니다.'); renderChips(); P.emit('clicker'); }, function (e) {
+      return rt.claimClick(force).then(function () { toast('클릭 컨트롤이 되었습니다. 지금부터 누르는 시작 · 멈춤 · BPM 을 팀 모두의 클릭이 따라옵니다.'); renderChips(); P.emit('clicker'); }, function (e) {
         toast(e.code === 'taken' ? e.message + ' 넘겨받으려면 "넘겨받기"를 누르세요.' : e.message, true); throw e;
       });
     }
@@ -1943,7 +1983,7 @@
         lead.title = peers + '명 접속 중 — 눌러서 페이지 컨트롤 · 클릭 컨트롤 · 동기화 설정 열기';
         var cn = rt.clicker;
         clk.style.display = 'none'; clk.innerHTML = rt.isClicker ? I('metronome') + '내가 클릭 컨트롤' : cn ? I('metronome') + h(cn) : '클릭 컨트롤 없음'; clk.className = 'pv-chip pv-click' + (rt.isClicker ? ' me' : cn ? ' has' : '');
-        clk.title = '메트로놈(클릭)을 조절하는 사람 — 눌러서 설정 열기';
+        clk.title = '클릭을 조절하는 사람 — 눌러서 설정 열기';
       } else { lead.style.display = 'none'; clk.style.display = 'none'; }
       if (st === 'online' && S.manual && !(rt.leader && !rt.isLeader)) {      // v6 — 수동 = 페이지 따라가기 끔. 컨트롤이 있으면 아래에서 "컨트롤 N페이지" 안내
         fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.innerHTML = chipTx(I('lock') + ' 혼자 보기', I('lock') + ' 혼자'); fol.setAttribute('aria-pressed', 'false');
@@ -1957,10 +1997,10 @@
         fol.style.display = ''; fol.className = 'pv-chip pv-follow on together'; fol.innerHTML = chipTx('함께 보기', '함께'); fol.setAttribute('aria-pressed', 'true');
         fol.title = '지금은 팀과 함께 보는 중 — 눌러서 「혼자 보기」(남의 정보 안 받기)';
       } else fol.style.display = 'none';
-      if (folm) {                                                         // v6 — 메트로놈 따라가기 칩은 없앰
+      if (folm) {                                                         // v6 — 클릭 따라가기 칩은 없앰
         if (false) {
-          folm.style.display = ''; folm.className = 'pv-chip pv-followm ' + (S.followM ? 'on' : 'off'); folm.innerHTML = YI('metronome') + (S.followM ? ' 메트로놈 따라감' : ' 메트로놈 따라가기 꺼짐');
-          folm.title = '클릭 컨트롤의 메트로놈 따라가기 켜기/끄기'; folm.setAttribute('aria-pressed', S.followM ? 'true' : 'false');
+          folm.style.display = ''; folm.className = 'pv-chip pv-followm ' + (S.followM ? 'on' : 'off'); folm.innerHTML = YI('metronome') + (S.followM ? ' 클릭 따라감' : ' 클릭 따라가기 꺼짐');
+          folm.title = '클릭 컨트롤의 클릭 따라가기 켜기/끄기'; folm.setAttribute('aria-pressed', S.followM ? 'true' : 'false');
         } else folm.style.display = 'none';
       }
       P.emit('conn', st); if (!rtPop.hidden) rtPaint();
@@ -2383,7 +2423,7 @@
       else if (a === 'prep') { setMore(false); setDrawer(false); prepareAll(); }
       else if (a === 'ws-on') { setMore(false); setDrawer(false); setWorship(true); }
       else if (a === 'ws-off') wsUnlockTap();
-      else if (a === 'ks-up') ksStep(1); else if (a === 'ks-down') ksStep(-1); else if (a === 'ks-reset') ksReset();
+      else if (a === 'ks-save') ksSave(); else if (a === 'ks-up') ksStep(1); else if (a === 'ks-down') ksStep(-1); else if (a === 'ks-reset') ksReset();
       else if (a === 'pedal') { setMore(false); setDrawer(false); pedalLearn(); }
       else if (a === 'close') { if (S.worship && !wsSecondTap('close')) return; api.close(); } else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
@@ -2648,7 +2688,7 @@
       }
       var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc' };
       var m = map[k]; if (!m) return;
-      if (m === 'bu' || m === 'bd' || m === 'sp') {                                    // 메트로놈: ↑↓ BPM · Space 시작/멈춤 — 메트로놈을 쓸 수 없으면 원래 동작(스크롤 등) 그대로
+      if (m === 'bu' || m === 'bd' || m === 'sp') {                                    // 클릭: ↑↓ BPM · Space 시작/멈춤 — 클릭을 쓸 수 없으면 원래 동작(스크롤 등) 그대로
         if (!P.metroKey) return;
         var r = m === 'sp' ? (e.repeat ? { ok: true } : P.metroKey('toggle')) : P.metroKey('bpm', (m === 'bu' ? 1 : -1) * (e.shiftKey ? 5 : 1));
         if (!r) return; e.preventDefault(); if (m === 'sp') spaceEaten = true; return;
@@ -2701,14 +2741,14 @@
     function onBeforeUnload() { flushMine(); try { rt && rt.close(); } catch (e) {} }
     root.addEventListener('pagehide', onBeforeUnload);
 
-    /* ============================================================ v6 — 떠 있는 창 (도구 · 메트로놈 · 송폼 · 타이머)
+    /* ============================================================ v6 — 떠 있는 창 (도구 · 클릭 · 송폼 · 타이머)
        · 손잡이(⋮⋮)를 끌어 악보 위 어디든 옮기고, 자리는 이 기기에 기억합니다 (창 크기가 바뀌어도 같은 비율 자리).
        · 위 막대의 ⏱ · 🎼 · 🥁 로 보이기/숨기기. 도구는 ▴ 로 작은 알약으로 접고, 악보의 빈 곳을 톡 치면 접힙니다.
-       · 좁은 화면(폰 · 서랍 메뉴)에서는 예전 배치 그대로 (도구는 서랍 · 메트로놈은 빠른 버튼). */
+       · 좁은 화면(폰 · 서랍 메뉴)에서는 예전 배치 그대로 (도구는 서랍 · 클릭은 빠른 버튼). */
     var mainEl = $('.pv-main'), FL = {};
     var GRIP = '<span class="pv-grip" data-drag aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
     /* 모든 떠 있는 창의 ✕ — 눌러서 닫고, 다시 켜는 단추는 「⋯」 메뉴의 "떠 있는 창" 칸에 있습니다 (자리 · 크기는 그대로 기억) */
-    var FLNAME = { form: '송폼 · 곡 정보', metro: '메트로놈', tools: '필기 도구', timer: '예배 타이머' };
+    var FLNAME = { form: '송폼 · 곡 정보', metro: '클릭', tools: '필기 도구', timer: '예배 타이머' };
     function fxHtml(k) { return '<button type="button" class="pv-fx" data-fx="' + k + '" aria-label="' + (FLNAME[k] || '') + ' 창 닫기" title="' + (FLNAME[k] || '') + ' 창 닫기 (「⋯」 메뉴에서 다시 켤 수 있어요)">' + I('close') + '</button>'; }
     function flPos(k) { try { var v = JSON.parse(ls('pos.' + k) || 'null'); if (v && isFinite(v.x) && isFinite(v.y)) return v; } catch (e) {} return null; }
     /** 떠 있는 창이 다닐 수 있는 곳 = 악보 칸 (오른쪽 패널 위로는 가지 않음) */
@@ -2809,14 +2849,14 @@
       toolsBtn.addEventListener('pointerup', end); toolsBtn.addEventListener('pointercancel', end);
     })();
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
-    var SHOWS = [['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '메트로놈']];        // v9.7 — 예배 타이머 단추 뺌
+    var SHOWS = [['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '클릭']];        // v9.7 — 예배 타이머 단추 뺌
     var SHOW_DEF = { timer: false, form: false, metro: false };
-    /* V880 — 라이브 악보는 열 때마다 "악보만" 보이게 시작합니다 (송폼 · 메트로놈 · 타이머 창은 꺼진 채).
+    /* V880 — 라이브 악보는 열 때마다 "악보만" 보이게 시작합니다 (송폼 · 클릭 · 타이머 창은 꺼진 채).
        쓰는 동안 「⋯」 › 떠 있는 창에서 켜면 그 화면을 닫을 때까지만 유지 (필기 도구 V838 과 같은 방식). */
-    if (!root.__YN_KEEP_FLOATS) ['form', 'metro', 'timer'].forEach(function (k) { ls('show.' + k, '0'); });   // __YN_KEEP_FLOATS 는 떠 있는 창을 시험하는 시험 전용            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 메트로놈 창은 꺼짐, 메트로놈은 송폼 창 안의 동그라미(축소형)만
+    if (!root.__YN_KEEP_FLOATS) ['form', 'metro', 'timer'].forEach(function (k) { ls('show.' + k, '0'); });   // __YN_KEEP_FLOATS 는 떠 있는 창을 시험하는 시험 전용            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 클릭 창은 꺼짐, 클릭은 송폼 창 안의 동그라미(축소형)만
     /** 떠 있는 창이 지금 보이는지 (필기 도구 = 막대가 펴져 있는지 · 타이머 = 저장된 값) */
     function winOn(k) { if (k === 'tools') return !el.classList.contains('pv-toolshide'); if (k === 'timer') return ls('show.timer') !== '0'; return showOn(k); }
-    /** ✕ — 창 하나를 닫음 (악보 · 필기 · 메트로놈 동작에는 영향 없음, 보이기만 끔) */
+    /** ✕ — 창 하나를 닫음 (악보 · 필기 · 클릭 동작에는 영향 없음, 보이기만 끔) */
     function closeFloat(k) {
       if (S.dead) return;
       if (k === 'tools') setTools(false, true); else { ls('show.' + k, '0'); paintShows(); }
@@ -2851,7 +2891,7 @@
       sp.classList.add('say'); setTimeout(function () { sp.classList.remove('say'); }, 1100);
       if (!cue) { try { an && an.flashTags && an.flashTags([toks[ti] && toks[ti].k], 1800); } catch (x) {} toast('"' + sp.getAttribute('data-k') + '" 은(는) 음성 콜아웃이 없어 악보에서만 깜빡입니다.', false, 1400); return; }
       var r = P.cueKey ? P.cueKey(cue) : null;
-      if (!r) { toast('메트로놈 도구를 불러오는 중입니다. 잠시 뒤 다시 눌러 주세요.', true); return; }
+      if (!r) { toast('클릭 도구를 불러오는 중입니다. 잠시 뒤 다시 눌러 주세요.', true); return; }
     });
     function paintForm() {
       if (S.dead) return;
@@ -2865,13 +2905,13 @@
         formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div>' + fxHtml('form') + '<span class="pv-rsz" aria-hidden="true" title="끌어서 크기 조절 (두 번 누르면 처음 크기)"></span>'; formEl.setAttribute('data-h', html);
         if (S.formCur && S.formCur.s === i) { var cn = formEl.querySelector('.pv-fb-t[data-i="' + S.formCur.i + '"]'); if (cn) cn.classList.add('cur'); }
         paintLeadPos();
-        if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 메트로놈 동그라미
+        if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 클릭 동그라미
         if (fsApi) { var fh = formEl.querySelector('.pv-form-h'); if (fh) fh.parentNode.insertBefore(fsApi.el, fh.nextSibling); else if (fsApi.el.parentNode) fsApi.el.parentNode.removeChild(fsApi.el); fsApi.sync(); }
         requestAnimationFrame(function () { flPlace('form'); });
       }
       paintBpm();
     }
-    /* 메트로놈 창 — 라이브 컨트롤(▶ · BPM · 콜아웃)을 도구 도크에서 떼어 따로 띄웁니다 */
+    /* 클릭 창 — 라이브 컨트롤(▶ · BPM · 콜아웃)을 도구 도크에서 떼어 따로 띄웁니다 */
     /* v6.1 — 송폼 창 크기 조절: 오른쪽 아래 모서리를 끌면 옆으로 = 폭(두 줄 → 한 줄), 위아래로 = 글자 크기. 이 기기에 기억 */
     var mcApi = null, fsApi = null;
     function formSize() { try { var v = JSON.parse(ls('size.form') || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } }
@@ -2926,8 +2966,8 @@
       toolsEl.addEventListener('pointerup', end); toolsEl.addEventListener('pointercancel', end);
       toolsEl.addEventListener('dblclick', function (e) { if (e.target.closest && e.target.closest('.pv-rszw')) { ls('size.tools', ''); applyToolsSize(); flResize(); } });
     })();
-    var metroEl = doc.createElement('div'); metroEl.className = 'pv-metro'; metroEl.setAttribute('role', 'group'); metroEl.setAttribute('aria-label', '메트로놈');
-    /* V838 — 메트로놈 창을 콜아웃까지 펼쳤을 때 크기 조절: 오른쪽 아래 손잡이를 끌면 너비(과 버튼 크기) · 콜아웃 칸 높이가 바뀝니다.
+    var metroEl = doc.createElement('div'); metroEl.className = 'pv-metro'; metroEl.setAttribute('role', 'group'); metroEl.setAttribute('aria-label', '클릭');
+    /* V838 — 클릭 창을 콜아웃까지 펼쳤을 때 크기 조절: 오른쪽 아래 손잡이를 끌면 너비(과 버튼 크기) · 콜아웃 칸 높이가 바뀝니다.
        이 기기에 기억하고, 두 번 누르면 처음 크기로. 접힌 상태(▶ · BPM · − +)의 크기는 그대로입니다. */
     function metroSize() { try { var v = JSON.parse(ls('size.metro') || 'null'); return v && +v.w > 0 ? v : null; } catch (e) { return null; } }
     function applyMetroSize() {
@@ -2979,7 +3019,7 @@
       P.floatWin = function (k, node, def) { return makeFloat(k, node, def); };            // v6.1 — 패널이 만드는 떠 있는 창 (시작음 피아노)
       P.floatPlace = function (k) { requestAnimationFrame(function () { flPlace(k); }); };
       try { if (P.metroCircle) mcApi = P.metroCircle(); } catch (e) { mcApi = null; }
-      try { if (P.metroHeader) P.metroHeader($('.pv-metbtn')); } catch (e) { /* 위 막대 메트로놈 단추가 없어도 송폼 창 · 패널의 메트로놈은 그대로 */ }
+      try { if (P.metroHeader) P.metroHeader($('.pv-metbtn')); } catch (e) { /* 위 막대 클릭 단추가 없어도 송폼 창 · 패널의 클릭은 그대로 */ }
       try { if (P.beatStrip) fsApi = P.beatStrip('form'); } catch (e) { fsApi = null; }      // V848 — 송폼 창: 저장 · 박 흐름 · 1234 · 1박 · ×2 · 숫자로 · 3·2·1
       applyFormSize(); paintShows(); paintForm();
       P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm); P.on('songedit', paintForm); P.on('songs', paintForm);   // V838 — 송폼을 고치면 떠 있는 송폼 창도 바로 바뀜
@@ -3027,7 +3067,7 @@
       if (d.tool === 'none' && S.tool === 'none' && !S.worship) { try { var hz = P.ensureTab ? P.ensureTab('harmony') : null; if (hz && hz.chordTap && hz.chordTap(e.clientX, e.clientY, d.type !== 'mouse')) return; } catch (x) { /* 화음 도구가 없어도 화면은 계속 */ } }
       /* V848 — 이동 도구로 필기를 톡 → 누가 썼는지 잠깐 (이름표) */
       if (d.tool === 'none' && S.tool === 'none' && an && an.peekAt && an.peekAt(e.clientX, e.clientY, d.type === 'touch')) return;
-      /* v6.9 — 악보의 아무 곳이나 톡 치면 열려 있던 메뉴(🛠 서랍 · ⋯ 더보기 · 태블릿의 옆 패널: 필기 · 송폼 · 메트로놈 …)가 다시 숨겨집니다 */
+      /* v6.9 — 악보의 아무 곳이나 톡 치면 열려 있던 메뉴(🛠 서랍 · ⋯ 더보기 · 태블릿의 옆 패널: 필기 · 송폼 · 클릭 …)가 다시 숨겨집니다 */
       var closed = false;
       if (S.compact && el.classList.contains('pv-drawopen')) { setDrawer(false); closed = true; }
       if (el.classList.contains('pv-moreopen')) { setMore(false); closed = true; }
@@ -3068,7 +3108,7 @@
     function today() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
     function hhmm(t) { var d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 
-    /* ---------- 예배 모드: 페이지 넘김 · 따라가기 · 메트로놈 · 콜아웃만. 필기 · 편집 · 코드 눌러 소리 · 길게 눌러 코드 넣기 · 자동 분석은 잠금 ---------- */
+    /* ---------- 예배 모드: 페이지 넘김 · 따라가기 · 클릭 · 콜아웃만. 필기 · 편집 · 코드 눌러 소리 · 길게 눌러 코드 넣기 · 자동 분석은 잠금 ---------- */
     var wsBtn = $('.pv-wsbtn');
     S.worship = false;
     function setWorship(on, quiet) {

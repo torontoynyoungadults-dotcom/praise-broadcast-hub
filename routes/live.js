@@ -9,7 +9,7 @@
  *   GET  /audio/:id                    팀 녹음 (키 바꿔 듣기) — 드라이브 녹음만
  *   POST /api/worshipTimerGet · worshipTimerCmd                예배 타이머 (웹소켓이 막혔을 때의 대체 통로, lib/realtime.js 와 같은 상태)
  *   POST /api/worshipAnnoLoad · worshipAnnoSaveMine            필기 읽기 · 나만 보기 필기 저장
- *   POST /api/worshipCfgLoad · worshipCfgSave                  페이지↔곡 연결 · 곡별 메트로놈 · 나만 보는 곡 정보 · 따라가기
+ *   POST /api/worshipCfgLoad · worshipCfgSave                  페이지↔곡 연결 · 곡별 클릭 · 나만 보는 곡 정보 · 따라가기
  *   POST /api/worshipSongsOf · worshipSongPatch                곡 목록 다시 받기 · BPM/송폼/유튜브 링크 고치기 ('찬양콘티' 그 줄)
  *   모든 /api/* 는 church-app 처럼 { args:[token, …] } → { ok, result } | { ok:false, error } 입니다.
  */

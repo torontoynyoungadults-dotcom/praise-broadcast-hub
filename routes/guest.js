@@ -56,7 +56,7 @@ async function send(req, res, active, hero, body, title) {
 router.get('/b/:token', gate, (req, res) => res.redirect(req.guest.base + '/conti'));
 
 /* ---------------------------------------------------------------- 라이브 악보 (읽기 전용)
-   로그인 없이 그 예배의 라이브 악보 화면을 봅니다 — 악보 · 송폼 · 팀 필기 · 메트로놈 · 인도자가 넘기는 쪽을 따라가기만 하고,
+   로그인 없이 그 예배의 라이브 악보 화면을 봅니다 — 악보 · 송폼 · 팀 필기 · 클릭 · 인도자가 넘기는 쪽을 따라가기만 하고,
    필기 · 설정 · 곡 정보 · 타이머 · 클릭 컨트롤은 서버가 막습니다 (lib/liveAuth.js mintView · lib/realtime.js). */
 router.get('/b/:token/live', gate, async (req, res) => {
   const { team, base, token } = req.guest;
@@ -139,7 +139,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
     ${dayBanner}
     ${evBox ? `<div class="ph-card">${evBox}</div>` : ''}
     ${practice}
-    <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>악보 · 송폼 · 메트로놈을 실시간으로 봅니다 (보기 전용)</small></span></a>
+    <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>악보 · 송폼 · 클릭을 실시간으로 봅니다 (보기 전용)</small></span></a>
     <a class="gs-livebtn gs-stagebtn" href="${base}/stage?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('media')}<span><b>방송팀 화면</b><small>지금 곡 · 송폼 · 찬양팀 요청을 크게 봅니다</small></span></a>
     <div class="cn-toolrow">${pkgBtn}</div>
     ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope, team)}

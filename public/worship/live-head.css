@@ -2,8 +2,8 @@
    v9.16 — 라이브 악보 위 막대 다이어트 · 폰 전용(최소) 모드 · 올가미
    · hub.css · live-glass.css 다음에 불러옵니다 (두 앱 — 청년부 앱 · 찬양방송팀 허브 — 이 파일은 똑같습니다)
    · 위 막대는 늘 한 줄: 단추 · 글자가 겹치거나 줄바꿈되지 않게 (넘치면 practice.js 가 단계적으로 「⋯」 안으로 접음)
-   · 곡 · 악보 = 알약 하나 · 페이지 넘기기 작게 · 메트로놈 켜기/끄기 · 유튜브(빨간 아이콘) · 나머지는 「⋯」
-   · 폰(.pv-compact): 닫기 · 곡 알약 · 페이지 · 메트로놈 · ⋯(서랍) 만
+   · 곡 · 악보 = 알약 하나 · 페이지 넘기기 작게 · 클릭 켜기/끄기 · 유튜브(빨간 아이콘) · 나머지는 「⋯」
+   · 폰(.pv-compact): 닫기 · 곡 알약 · 페이지 · 클릭 · ⋯(서랍) 만
    ============================================================ */
 
 /* ---------- 위 막대: 한 줄 · 넘침 없음 ---------- */
@@ -68,7 +68,7 @@ html body .pv .pv-chip.pv-conn.denied .pv-dot { background: #F87171; opacity: 1;
 }
 html body .pv .pv-top .pv-chip { height: 32px; padding-top: 0; padding-bottom: 0; }
 
-/* ---------- 메트로놈 켜기/끄기 · 유튜브 ---------- */
+/* ---------- 클릭 켜기/끄기 · 유튜브 ---------- */
 html body .pv .pv-top .pv-metbtn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; height: 38px; padding: 0 9px; font-variant-numeric: tabular-nums; }
 html body .pv .pv-top .pv-metbtn .yi { width: 20px; height: 20px; flex: none; }
 html body .pv .pv-metbtn .pv-metbpm { font-size: 12.5px; font-weight: 800; letter-spacing: -.02em; color: var(--lg-sub, #A9ABB6); }
@@ -197,7 +197,7 @@ html body .pv .pv-acts .pv-fltlabel {
   font-size: 11.5px; font-weight: 800; letter-spacing: .02em; color: var(--lg-dim, #8A8D9A);
 }
 html body .pv.pv-compact .pv-acts .pv-flt[data-k="tools"] { display: none !important; }      /* 폰은 필기 도구가 떠 있는 창이 아니라 서랍 */
-html body .pv .pv-metro .pv-fx { order: 99; }                                                /* 메트로놈 창은 내용이 나중에 들어와도 ✕ 는 맨 오른쪽 위 */
+html body .pv .pv-metro .pv-fx { order: 99; }                                                /* 클릭 창은 내용이 나중에 들어와도 ✕ 는 맨 오른쪽 위 */
 html body .pv.pv-compact .pv-metro .pv-fx { position: absolute; top: -13px; right: 10px; margin: 0; width: 26px; height: 26px; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); background: var(--lg-glass, #1d1e26); }   /* 폰: 창 폭이 화면을 꽉 채워서 ✕ 는 윗변에 걸치게 */
 html body .pv .pv-help:empty { display: none; }
 html body .pv .pv-yt.pv-yt-sel { outline: 2px solid var(--lg-a-text, #E3D0AB); outline-offset: -2px; }       /* 선택된 유튜브 창 — ← → 가 영상 이동 */
@@ -214,3 +214,8 @@ html[data-theme="light"] body .pv .pv-kslbl.on { color: #0E7C86 !important; bord
 html body .pv .pv-drawer .pv-keyctl { display: flex; gap: 6px; padding: 4px 0 8px; }
 html body .pv .pv-drawer .pv-keyctl .pv-b { flex: 1 1 0; height: 46px; font-size: 16px; }
 html body .pv .pv-drawer .pv-keyctl .pv-kslbl { flex: 1.6 1 0; }
+
+/* V890 — 바꾼 키를 팀에 「저장」 (팀장 · 인도자, 팀 키와 다를 때만) */
+html body .pv .pv-keyctl .pv-kssave { min-width: 52px; color: #1a0f05 !important; background: linear-gradient(135deg, #ff9d47, #ff7a1c) !important; border-color: transparent !important; font-size: 13px; }
+html[data-theme="light"] body .pv .pv-keyctl .pv-kssave { color: #fff !important; background: #0E7C86 !important; }
+html body .pv .pv-kssave[hidden] { display: none !important; }

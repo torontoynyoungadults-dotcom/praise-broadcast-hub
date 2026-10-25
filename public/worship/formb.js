@@ -42,7 +42,7 @@
     { k: 'Prayer', ko: '기도', cue: 'Prayer', cueKo: '기도', g: 'rep', call: 'prayer' },
     { k: 'KeyUp', ko: '키 업', cue: 'Key Up', cueKo: '키 업', g: 'rep', call: 'keyup' },       // Step 2.12
     /* V838 — 콜아웃 칸: 송폼 중간중간에 넣어 두면 Enter 로 순서대로 불립니다. 저장되는 글자는 짧게(RepC …), 화면에는 부르는 말(Repeat Chorus)이 보입니다.
-       call = 메트로놈 큐 id (public/worship/metro.js 의 CUES) */
+       call = 클릭 큐 id (public/worship/metro.js 의 CUES) */
     { k: 'RepC', ko: '코러스 반복', cue: 'Repeat Chorus', cueKo: '코러스 반복', g: 'rep', call: 'repc' },
     { k: 'HalfC', ko: '코러스 반', cue: 'Half Chorus', cueKo: '코러스 반', g: 'rep', call: 'halfc' },
     { k: 'LastL', ko: '마지막 줄 한 번 더', cue: 'Last line again', cueKo: '마지막 줄 한 번 더', g: 'rep', call: 'lastl' },

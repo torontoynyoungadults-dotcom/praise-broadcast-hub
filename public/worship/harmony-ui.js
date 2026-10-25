@@ -1007,7 +1007,7 @@
 
     /* ---------- V849 코드를 누르면 피아노로 (모든 텐션 코드 · 슬래시 베이스) ---------- */
     S.tapOn = true; try { S.tapOn = root.localStorage.getItem('yn.pv.harm.tap') !== '0'; } catch (e) { /* 기본 켬 */ }
-    S.harmOn = true; try { S.harmOn = root.localStorage.getItem('yn.pv.harm.show') !== '0'; } catch (e) { /* 기본 켬 */ }
+    S.harmOn = false;                                                                          // V890 — 라이브 악보를 열면 화음(알토 · 테너)은 늘 꺼짐. 화음 탭에서 직접 켤 때까지 (이번 화면에서만 기억)
     function chordAtClient(cx, cy, touch) {
       var pg = pgKey(), pd = S.data && S.data.pages[pg]; if (!pd || !pd.chords || !pd.chords.length) return null;
       var r = cv.getBoundingClientRect(); if (!r.width || !r.height) return null;
@@ -1067,7 +1067,7 @@
     }
     function showPop(cd, name, v, arp, total) {
       if (!popEl) { popEl = doc.createElement('div'); popEl.className = 'hm-pop'; popEl.setAttribute('aria-live', 'polite'); ['pointerdown', 'pointerup', 'click', 'touchstart', 'touchend', 'dblclick'].forEach(function (n) { popEl.addEventListener(n, popPointer); }); }
-      var host0 = P.el || box; if (popEl.parentNode !== host0) host0.appendChild(popEl);          // 화면 맨 위 층에 (떠 있는 도구 창 · 메트로놈 창에 가리지 않게)
+      var host0 = P.el || box; if (popEl.parentNode !== host0) host0.appendChild(popEl);          // 화면 맨 위 층에 (떠 있는 도구 창 · 클릭 창에 가리지 않게)
       var BR = box.getBoundingClientRect(), W = box.clientWidth, Hh = box.clientHeight, nm = S.flats ? ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
       var semis = S.data.show.orig ? 0 : (S.semis || 0), sp = CV ? CV.spell(name, v.degs, v.bass % 12, S.flats) : {}, pr = CV ? CV.pretty : function (x) { return x; };
       var degOf = {}; v.degs.forEach(function (g) { if (degOf[g.pc] == null) degOf[g.pc] = g.d; });
@@ -1453,7 +1453,7 @@
     function setMode(m) {
       if (S.editor) closeEditor(true);
       if (m !== 'view' && P.worship && P.worship()) { toast('예배 모드에서는 고칠 수 없어요 — 위의 자물쇠를 두 번 눌러 끄세요'); m = 'view'; }     // V871
-      S.mode = m; S.sel = null; S.drag = null; cv.style.pointerEvents = m === 'view' ? 'none' : 'auto'; cv.style.cursor = m === 'view' ? '' : m === 'chord' ? 'text' : 'grab';
+      S.mode = m; S.sel = null; S.drag = null; if (m === 'harmony' && !S.harmOn) S.harmOn = true; cv.style.pointerEvents = m === 'view' ? 'none' : 'auto'; cv.style.cursor = m === 'view' ? '' : m === 'chord' ? 'text' : 'grab';
       redraw(); syncPanel();
     }
     P.on('tool', function (t) { if (!S.dead && S.mode !== 'view' && t && t !== 'none') setMode('view'); });                    // 필기 도구를 고르면 화음 수정은 끝냄
@@ -1529,7 +1529,7 @@
       if (sk && S.okey && sk.tonic !== tk.tonic) { songBtn.style.display = ''; songBtn.textContent = '곡 정보의 Key (' + (P.song().key) + ') 로 맞추기'; } else songBtn.style.display = 'none';
       var capoSel = host.querySelector('[data-o=capo]'); if (capoSel && doc.activeElement !== capoSel) capoSel.value = S.capoPref || 'off';
       host.querySelector('[data-o=showorig]').checked = !!d.show.orig; host.querySelector('[data-o=auto]').checked = !!S.autoOn;
-      ['alto', 'tenor', 'link'].forEach(function (k) { host.querySelector('[data-o=' + k + ']').checked = !!d.show[k]; });
+      ['alto', 'tenor', 'link'].forEach(function (k) { host.querySelector('[data-o=' + k + ']').checked = !!d.show[k] && S.harmOn !== false; });
       var hasHarm = Object.keys(S.model || {}).some(function (k) { var mm = S.model[k]; return !!(mm && mm.notes && mm.notes.length); });
       var allSec = host.querySelector('.hm-allsec'); if (allSec) { allSec.style.display = hasHarm ? '' : 'none'; allSec.querySelector('[data-o=harmall]').checked = S.harmOn !== false; }
       ['m', 'a', 't'].forEach(function (k) { host.querySelector('[data-v=' + k + ']').checked = !!d.voices[k]; });
@@ -1597,9 +1597,9 @@
       else if (o === 'auto') { S.autoOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.auto', S.autoOn ? '1' : '0'); } catch (e) { /* 저장이 막힌 브라우저 */ } if (S.autoOn) maybeAuto(); }
       else if (o === 'capo') { S.capoPref = t.value || 'off'; try { root.localStorage.setItem('yn.pv.harm.capo', S.capoPref); } catch (e) { /* 저장이 막힌 브라우저 */ } commit(); maybeAuto(); var cpn = capoAt(pgKey()); toast(S.capoPref === 'off' ? '카포 보기를 껐습니다 — 실제 코드로 보여 줍니다.' : (S.data.pages[pgKey()] ? (cpn ? '카포 ' + cpn + ' 모양으로 보여 줍니다.' : '카포 없이 치는 게 가장 쉬워요 — 실제 코드 그대로입니다.') : '이 페이지 코드를 읽은 뒤 카포 모양으로 보여 줍니다.')); }
       else if (o === 'showorig') { S.data.show.orig = !!t.checked; commit(); }
-      else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; commit(); }
+      else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; if (t.checked && !S.harmOn) S.harmOn = true; commit(); }      // V890 — 알토 · 테너를 켜면 화음 보이기도 켬
       else if (o === 'ocr') { S.forceOcr = !!t.checked; }
-      else if (o === 'harmall') { S.harmOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.show', S.harmOn ? '1' : '0'); } catch (x) { /* 저장이 막힌 브라우저 */ } S.sel = null; redraw(); toast(S.harmOn ? '만든 화음을 보입니다.' : '만든 화음을 숨겼습니다.'); }
+      else if (o === 'harmall') { S.harmOn = !!t.checked; S.sel = null; redraw(); toast(S.harmOn ? '만든 화음을 보입니다.' : '만든 화음을 숨겼습니다.'); }
       else if (o === 'tap') { S.tapOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.tap', S.tapOn ? '1' : '0'); } catch (x) { /* 저장이 막힌 브라우저 */ } }
       else if (o === 'loop') { S.loop = !!t.checked; }
       else if (o === 'keymode') { S.data.keyMode = t.value; saveSoon(); }
@@ -1646,7 +1646,7 @@
     }
     loadFile(); if (pShift()) { noteState(); maybeAuto(); }
     /* 시험 · 점검용 손잡이 */
-    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, prepareFile: prepareFile, capoOn: capoOn, addAiChords: addAiChords, setChordTexts: setChordTexts, undo: undo, hasPage: function (f, pg) { var d = f === S.fid ? S.data : loadData(f); return !!(d && d.pages && d.pages[String(pg)]); }, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
+    var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, shareNow: function () { if (P.canEdit && canShare() && S.data && Object.keys(S.data.pages || {}).length) pushShared(); }, destroy: destroy, chordTap: chordTap, addChordAt: addChordAt, focusEditor: focusEditor, prepareFile: prepareFile, capoOn: capoOn, addAiChords: addAiChords, setChordTexts: setChordTexts, undo: undo, hasPage: function (f, pg) { var d = f === S.fid ? S.data : loadData(f); return !!(d && d.pages && d.pages[String(pg)]); }, _chordAt: chordAtClient, _playChord: playChordObj, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
     root.YNHarmonyUI._last = api;
     return api;
   }

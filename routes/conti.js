@@ -447,7 +447,7 @@ function contiToolbox({ team, scope, date, eventRow, w, kakao, stage }) {
   const q = scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date);
   const liveHref = `/conti/practice?team=${encodeURIComponent(team)}&${q}`;
   const nSheets = new Set(w.sheets.filter((s) => s['파일링크']).map((s) => s['파일링크'])).size;
-  const liveBtn = `<a class="ph-btn pri ph-livebtn" href="${liveHref}" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 메트로놈 · 함께 보기</small></a>`;
+  const liveBtn = `<a class="ph-btn pri ph-livebtn" href="${liveHref}" title="라이브 악보 — 필기 · 클릭 · 함께 보기 화면을 엽니다">${ui.icon('note')} 라이브 악보<small>${nSheets ? `악보 ${nSheets}개 · ` : ''}필기 · 클릭 · 함께 보기</small></a>`;
   const stageBtn = stage ? `<a class="ph-btn ph-stagebtn" href="${liveHref.replace('/conti/practice?', '/conti/stage?')}" title="방송팀 화면 — 지금 곡 · 송폼 · 콜아웃 위치 · 찬양팀 요청을 크게 봅니다">${ui.icon('media')} 방송팀 화면<small>지금 곡 · 송폼 · 요청 메시지 크게</small></a>` : '';
   const has = w.conti.length || w.final.length || w.closing.length;
   const pkgHref = `/conti/package.pdf?team=${encodeURIComponent(team)}&${q}`;

@@ -172,7 +172,7 @@ button.pv-chip { cursor: pointer; }
 .pv-tablet .pv-panelbtn { display: inline-block; } .pv-computer .pv-panelbtn { display: inline-block; }
 @media (max-width: 720px) { .pv-computer .pv-layoutseg button { padding: 0 8px; font-size: 12px; } .pv-title { min-width: 120px; } }
 
-/* ---------------- 패널: 메트로놈 · 큐 ---------------- */
+/* ---------------- 패널: 클릭 · 큐 ---------------- */
 .pv-bpmrow { display: flex; align-items: center; gap: 7px; }
 .pv-bpm { flex: 1; min-width: 0; height: 60px; text-align: center; font-size: 34px; font-weight: 800; border-radius: 14px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .pv-bpm::-webkit-inner-spin-button { -webkit-appearance: none; }
@@ -623,8 +623,8 @@ body.ht-lock { overflow: hidden; }
 .pv-fl2 input:focus { outline: none; border-color: var(--g-a, #d6b97f); box-shadow: 0 0 0 2px rgba(214, 185, 127, .28); }
 .pv-songedit h4 small { font-weight: 600; color: var(--g-sub); margin-left: 6px; }
 
-/* ================= Step 2.10 — 메트로놈 시작 버튼은 항상 손 닿는 곳에 ================= */
-/* (a) 패널 "메트로놈" 탭: 시작 · 멈춤 버튼이 맨 위에 붙어 스크롤해도 따라옵니다 */
+/* ================= Step 2.10 — 클릭 시작 버튼은 항상 손 닿는 곳에 ================= */
+/* (a) 패널 "클릭" 탭: 시작 · 멈춤 버튼이 맨 위에 붙어 스크롤해도 따라옵니다 */
 .pv-mstick { position: sticky; top: -12px; z-index: 3; margin: -12px -14px 12px; padding: 10px 14px 9px; background: rgba(14, 25, 23, .92); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); border-bottom: 1px solid var(--g-line); }
 .pv-mstick .pv-big { height: 56px; font-size: 20px; }
 /* (b) 악보 화면 위에 떠 있는 작은 유리 버튼 (▶/■ + BPM) — 패널을 열지 않고 누릅니다 */
@@ -647,7 +647,7 @@ body.ht-lock { overflow: hidden; }
 .pv-compact .pv-mq { top: 6px; left: max(8px, env(safe-area-inset-left)); }
 @media (prefers-reduced-motion: reduce) { .pv-mq-dot { animation: none !important; } }
 
-/* ===== Step 2.11 — 따라가기 두 스위치 (페이지 · 메트로놈) ===== */
+/* ===== Step 2.11 — 따라가기 두 스위치 (페이지 · 클릭) ===== */
 .pv-followm.on { background: rgba(134, 224, 176, .16); border-color: rgba(134, 224, 176, .5); color: var(--g-ok); }
 .pv-followm.off { background: rgba(242, 122, 112, .16); border-color: rgba(242, 122, 112, .5); color: #f8b0a2; }
 .pv-follows .pv-switch { margin-top: 6px; }
@@ -655,7 +655,7 @@ body.ht-lock { overflow: hidden; }
 .pv-fstate { border-top: 1px solid rgba(255, 255, 255, .12); padding-top: 8px; }
 .pv-peers .pv-pf { color: #e3d0ab; }
 
-/* ===== Step 2.11 — 송폼 탭: 메트로놈을 함께 (맨 위에 고정) + 콜아웃 큐 ===== */
+/* ===== Step 2.11 — 송폼 탭: 클릭을 함께 (맨 위에 고정) + 콜아웃 큐 ===== */
 .pv-mini { position: sticky; top: -12px; z-index: 3; margin: -12px -14px 12px; padding: 9px 14px 8px; display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center;
   background: rgba(14, 25, 23, .92); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); border-bottom: 1px solid var(--g-line); }
 .pv-mini-go { width: 56px; height: 56px; border-radius: 16px; border: 1px solid rgba(215, 189, 136, .6); background: linear-gradient(180deg, rgba(215, 189, 136, .35), rgba(205, 172, 106, .22)); color: #fff; font-size: 22px; font-weight: 900; cursor: pointer; }
@@ -795,7 +795,7 @@ body.ht-lock { overflow: hidden; }
 .pvauto input { margin: 0; }
 .enchip { margin-left: 8px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
 
-/* ===== Step 2.15 — 도크 맨 앞 라이브 컨트롤(메트로놈 · 음성 콜아웃) · 악보 위 송폼 배지 ===== */
+/* ===== Step 2.15 — 도크 맨 앞 라이브 컨트롤(클릭 · 음성 콜아웃) · 악보 위 송폼 배지 ===== */
 .pv-live { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding-right: 10px; margin-right: 2px; border-right: 1px solid var(--g-line); }
 .pv-live button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 1px solid var(--g-line2); border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--g-ink);
   font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: background .15s, transform .1s, opacity .15s; }
@@ -814,7 +814,7 @@ body.ht-lock { overflow: hidden; }
 .pv-lv-tts.off { opacity: .7; color: var(--g-dim); }
 .pv-lv-tts:disabled { opacity: .35; cursor: not-allowed; }
 .pv-live.locked .pv-lv-go { opacity: .6; }
-/* v8.35 — 메트로놈 떠 있는 창의 "펼치기" — 자주 쓰는 반복 · 다이내믹 콜아웃을 패널을 열지 않고도 */
+/* v8.35 — 클릭 떠 있는 창의 "펼치기" — 자주 쓰는 반복 · 다이내믹 콜아웃을 패널을 열지 않고도 */
 .pv-lv-exp { width: 30px; padding: 0; font-size: 12px; }
 .pv-lv-exp[aria-pressed="true"] { background: rgba(var(--g-a-rgb), .22); border-color: rgba(var(--g-a-rgb), .65); }
 .pv-lv-cues { display: none; }
@@ -980,7 +980,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 
 /* ============================================================
    v6 — 라이브 악보 새 디자인 (차분한 어두운 면 · 얇은 선 · 주황은 "켜짐"에만)
-   · 위 막대는 한 줄(56px) · 도구 · 메트로놈 · 송폼 · 타이머는 악보 위에 떠 있는 창 (손잡이로 옮김 · practice.js makeFloat)
+   · 위 막대는 한 줄(56px) · 도구 · 클릭 · 송폼 · 타이머는 악보 위에 떠 있는 창 (손잡이로 옮김 · practice.js makeFloat)
    · 좁은 화면(.pv-compact · 폰)은 예전처럼 서랍 메뉴 + 빠른 버튼
    ============================================================ */
 .pv {
@@ -1068,7 +1068,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv:not(.pv-compact).pv-toolshide .pv-toolsbtn { display: flex !important; }
 .pv .pv-toolsbtn .ic { color: var(--v6-a); }
 
-/* 메트로놈 창 */
+/* 클릭 창 */
 .pv .pv-metro { display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 2px; border-radius: 999px; background: var(--v6-sf); border: 1px solid var(--v6-line2); box-shadow: var(--v6-sh); }
 .pv .pv-metro .pv-live { border-right: none; padding-right: 0; margin-right: 0; gap: 4px; }
 .pv .pv-metro .pv-live button { height: 40px; border-color: transparent; background: var(--v6-sf2); }
@@ -1078,7 +1078,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv .pv-metro .pv-lv-bpm b { font-size: 18px; }
 .pv .pv-metro .pv-lv-tts[aria-pressed="true"] { background: var(--v6-a-soft); color: #EADBBE; }
 .pv.pv-hide-metro .pv-metro { display: none !important; }
-.pv-mq { display: none !important; }                                  /* v8.35 — 폰(컴팩트)도 이제 도구는 숨기고 떠 있는 메트로놈 창(+/- · 콜아웃 펼치기 포함)을 그대로 씀 — 빠른 버튼은 더 쓰지 않음 */
+.pv-mq { display: none !important; }                                  /* v8.35 — 폰(컴팩트)도 이제 도구는 숨기고 떠 있는 클릭 창(+/- · 콜아웃 펼치기 포함)을 그대로 씀 — 빠른 버튼은 더 쓰지 않음 */
 .pv.pv-compact .pv-live.expanded { max-width: min(92vw, 360px); }
 .pv:not(.pv-compact) .pv-tools > .pv-live { display: none; }
 
@@ -1162,11 +1162,11 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv.pv-narrow .pv-morepop .pv-b, .pv.pv-narrow .pv-morepop .pv-seg button { height: 44px; flex: 1 1 auto; }
 .pv.pv-narrow .pv-morepop .pv-layoutseg .pv-tx { display: inline; }
 
-/* ===== v6.1 — 송폼 창: 메트로놈 동그라미 · 크기 조절 모서리 ===== */
+/* ===== v6.1 — 송폼 창: 클릭 동그라미 · 크기 조절 모서리 ===== */
 .pv .pv-form { position: absolute; --pvfs: 1; align-items: center; }
 .pv .pv-form-b { zoom: var(--pvfs, 1); flex: 1 1 auto; }
 .pv .pv-form .pv-mc, .pv .pv-form .pv-rsz, .pv .pv-form .pv-mcs { pointer-events: auto; }
-/* BPM −/+ — 송폼 창의 메트로놈 동그라미 양옆 · 메트로놈 창의 BPM 양옆 */
+/* BPM −/+ — 송폼 창의 클릭 동그라미 양옆 · 클릭 창의 BPM 양옆 */
 .pv-mcw { flex: none; display: flex; align-items: center; gap: 3px; margin: 0 8px 0 2px; }
 .pv-mcw .pv-mc { margin: 0; }
 .pv-mcs, .pv-lv-step {
@@ -1181,7 +1181,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv-live .pv-lv-step { width: 36px; padding: 0; }
 .pv .pv-metro .pv-lv-step { height: 40px; width: 40px; background: var(--v6-sf2); border-color: transparent; }
 .pv .pv-metro .pv-lv-step:hover { background: var(--v6-sf3); }
-/* 도구 도크(캡슐) 안에서는 자리가 좁아 −/+ 를 숨기고, 떠 있는 메트로놈 창에서만 보입니다 */
+/* 도구 도크(캡슐) 안에서는 자리가 좁아 −/+ 를 숨기고, 떠 있는 클릭 창에서만 보입니다 */
 .pv-tools > .pv-live .pv-lv-step { display: none; }
 .pv-mc {
   flex: none; position: relative; width: 46px; height: 46px; margin: 0 8px 0 2px; padding: 0; border-radius: 50%; cursor: pointer;
@@ -1202,7 +1202,7 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv .pv-form.pv-resizing { outline: 2px dashed rgba(211, 181, 123, .7); outline-offset: 2px; }
 .pv .pv-form { padding-right: 20px; }
 
-/* 송폼 탭 맨 위 미니 메트로놈 — 아이패드에서 너무 크던 것을 동그라미 한 줄로 */
+/* 송폼 탭 맨 위 미니 클릭 — 아이패드에서 너무 크던 것을 동그라미 한 줄로 */
 .pv-mini { grid-template-columns: auto auto 1fr; gap: 6px 10px; padding: 8px 14px 7px; }
 .pv-mini-go { width: 50px; height: 50px; border-radius: 50%; font-size: 18px; }
 .pv-mini-bpm .pv-btn2 { width: 38px; min-width: 38px; height: 40px; font-size: 17px; border-radius: 12px; }
@@ -1571,7 +1571,7 @@ html[data-theme="light"] .plr-ab { color: #122722; background: #fff; border-colo
 html[data-theme="light"] .plr-vol input { accent-color: #8A5F22; } html[data-theme="light"] .plr-err { color: #AB2D21; }
 
 /* ============================================================
-   v6.9 — 밝은 화면 보완: 유튜브 참고 영상 창 · 송폼/메트로놈 탭의 고정 막대 (예전엔 밝은 화면에서도 검게 남아 있었음)
+   v6.9 — 밝은 화면 보완: 유튜브 참고 영상 창 · 송폼/클릭 탭의 고정 막대 (예전엔 밝은 화면에서도 검게 남아 있었음)
    ============================================================ */
 html[data-theme="light"] .pv-mini, html[data-theme="light"] .pv-mstick { background: rgba(255, 255, 255, .94); border-bottom-color: rgba(18, 39, 34, .12); box-shadow: 0 1px 2px rgba(18, 39, 34, .06); }
 html[data-theme="light"] .pv-mini-go { color: #21453D; background: linear-gradient(180deg, rgba(42, 98, 83, .55), rgba(38, 89, 76, .36)); border-color: rgba(138, 95, 34, .55); }
@@ -1961,7 +1961,7 @@ html[data-theme="light"] .ss-cb, html[data-theme="light"] .ss-cb .hd::after { bo
 .pv-help.bad { color: #ffb9b9; font-weight: 700; }
 .pv-btn2.flash { background: var(--g-a); color: #160b03; border-color: transparent; }
 
-/* ===== V836 — 송폼 탭 미니 메트로놈 입력칸이 찌그러지던 것 · 메트로놈 탭의 박 동그라미가 너무 크던 것 ===== */
+/* ===== V836 — 송폼 탭 미니 클릭 입력칸이 찌그러지던 것 · 클릭 탭의 박 동그라미가 너무 크던 것 ===== */
 .pv-mini { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .pv-mini-go { flex: none; }
 .pv-mini-bpm { flex: none; min-width: max-content; }
@@ -1979,7 +1979,7 @@ html[data-theme="light"] .ss-cb, html[data-theme="light"] .ss-cb .hd::after { bo
 .pv-tablet .pv-bpm, .pv-computer .pv-bpm { height: 52px; font-size: 30px; }
 .pv-compact .pv-bpmwrap .pv-beat { width: 44px; height: 44px; }
 
-/* ===== V836 — 메트로놈 떠 있는 창: 콜아웃 펼치기 · 폰(좁은 화면)에서도 이 창만 떠 있음 · 접힌 도구 알약 끌기 ===== */
+/* ===== V836 — 클릭 떠 있는 창: 콜아웃 펼치기 · 폰(좁은 화면)에서도 이 창만 떠 있음 · 접힌 도구 알약 끌기 ===== */
 .pv-toolsbtn { touch-action: none; }
 .pv-toolsbtn.pv-dragging { opacity: .9; box-shadow: 0 20px 48px rgba(0, 0, 0, .65); transition: none !important; cursor: grabbing; }
 .pv-lv-exp { width: 32px; padding: 0 !important; font-size: 13px; flex: none; }
@@ -1995,7 +1995,7 @@ html[data-theme="light"] .ss-cb, html[data-theme="light"] .ss-cb .hd::after { bo
 .pv-lv-vols label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--g-sub, #bbb); }
 .pv-lv-vols input[type=range] { flex: 1; min-width: 0; accent-color: var(--g-a, #d6b97f); }
 .pv .pv-metro.pv-mexp { border-radius: 20px; align-items: flex-start; }
-/* 폰(좁은 화면): 도구 · 빠른 버튼은 서랍 안으로 숨고, 메트로놈 창(▶ · BPM −/+ · 콜아웃 펼치기)만 화면에 떠 있습니다 */
+/* 폰(좁은 화면): 도구 · 빠른 버튼은 서랍 안으로 숨고, 클릭 창(▶ · BPM −/+ · 콜아웃 펼치기)만 화면에 떠 있습니다 */
 .pv-fs .pv-live { display: inline-flex; }
 .pv-compact .pv-live { display: inline-flex; }
 .pv.pv-compact:not(.pv-hide-metro) .pv-metro { display: flex !important; }
@@ -2012,7 +2012,7 @@ html[data-theme="light"] .ss-cb, html[data-theme="light"] .ss-cb .hd::after { bo
 .pv .pv-fb-t.cur { background: var(--g-a, #d6b97f) !important; color: #1A0D02 !important; box-shadow: 0 0 0 2px rgba(var(--g-a-rgb), .45); }
 
 /* ============================================================
-   V838 — 송폼의 콜아웃 칸 (반복 · 다이내믹) · 메트로놈 float 크기 조절
+   V838 — 송폼의 콜아웃 칸 (반복 · 다이내믹) · 클릭 float 크기 조절
    ============================================================ */
 .pv-fb-t.call { font-style: italic; color: var(--g-a2, #e2cb9c); }
 .pv-fb-t.call::before { content: '♪'; font-style: normal; font-size: .8em; margin-right: 2px; opacity: .85; }
@@ -2074,7 +2074,7 @@ html[data-theme="light"] .pv-szpop { background: rgba(255,255,255,.97); border-c
 html[data-theme="light"] .pv-szprev { color: #111; }
 
 /* ============================================================
-   V848 — 박 흐름 막대 (송폼 창 · 메트로놈 창): ● ● ● ● · 1234 · 1박 · ×2 · 숫자로 · 3·2·1 · BPM 저장
+   V848 — 박 흐름 막대 (송폼 창 · 클릭 창): ● ● ● ● · 1234 · 1박 · ×2 · 숫자로 · 3·2·1 · BPM 저장
    ============================================================ */
 .pv-live .pv-bs { display: none; }
 .pv .pv-metro { border-radius: 20px; }
@@ -2230,7 +2230,7 @@ html[data-theme="light"] .pv.pv-fs .pv-fshandle span { background: rgba(15, 23, 
 /* v9.12 — 「도구 열기」 알약: 글씨에 테두리 · 바탕이 한 겹 더 있어 테두리가 두 개로 보이던 것 → 바깥 알약 테두리 하나만 */
 .pv .pv-toolsbtn .nm { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
 
-/* ---------- v12 — 패널: 시작 버튼 · 송폼 탭의 작은 메트로놈을 위에 고정하지 않고 같이 스크롤 (블러도 빼서 스크롤이 가볍게) ---------- */
+/* ---------- v12 — 패널: 시작 버튼 · 송폼 탭의 작은 클릭을 위에 고정하지 않고 같이 스크롤 (블러도 빼서 스크롤이 가볍게) ---------- */
 html body .pv .pv-mstick, html body .pv .pv-mini { position: relative !important; top: auto !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
 /* EQ — 접힌 채로, 머리줄을 누르면 세부 설정 */
 html body .pv .pv-eq:not(.open) > :not(.pv-eqhead) { display: none !important; }
@@ -2241,7 +2241,7 @@ html body .pv .pv-eq:not(.open) { padding-bottom: 4px; padding-top: 4px; }
 html body .pv .hm-share:empty { display: none; }
 html body .pv .hm-allsec .pv-switch b small { font-weight: 700; opacity: .65; margin-left: 4px; }
 
-/* ---------- v12 — 메트로놈 탭: 시작 · BPM −/+ · TAP · 박 동그라미를 한 줄로 ---------- */
+/* ---------- v12 — 클릭 탭: 시작 · BPM −/+ · TAP · 박 동그라미를 한 줄로 ---------- */
 html body .pv .pv-mline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 html body .pv .pv-mline .pv-bpmrow { flex: none; display: flex; align-items: center; gap: 4px; }
 html body .pv .pv-mline .pv-mgo { flex: none; width: 44px !important; min-width: 44px; height: 44px !important; padding: 0; border-radius: 50% !important; font-size: 17px !important; line-height: 1; }
