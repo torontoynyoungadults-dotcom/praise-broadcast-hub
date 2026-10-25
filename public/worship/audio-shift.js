@@ -276,12 +276,12 @@
       var n = st.key, canKey = !!g.sh;
       q('.as-kv').textContent = n ? fmtShift(n) : '0'; q('.as-kv').classList.toggle('on', n !== 0);
       q('[data-ks="-1"]').disabled = !canKey || n <= KEY_MIN; q('[data-ks="1"]').disabled = !canKey || n >= KEY_MAX;
-      knEl.textContent = keyLabel(opt.songKey, n);
+      knEl.textContent = '';                                                       // V895 — 곡 정보의 Key 는 음원 · 악보와 다를 수 있어 보여 주지 않음 (반음 수만)
       tvEl.textContent = fmtTempo(st.tempo); tempoR.value = String(Math.round(st.tempo * 100)); fill(tempoR); fill(volR); fill(seek);
       q('[data-t="-1"]').disabled = st.tempo <= TEMPO_MIN + 1e-9; q('[data-t="1"]').disabled = st.tempo >= TEMPO_MAX - 1e-9;
       var hasSrc = !!st.src; playB.disabled = !st.ready || !hasSrc; seek.disabled = !hasSrc || !(audio.duration > 0);
       var playing = !audio.paused && !audio.ended; playB.textContent = playing ? '❚❚' : '▶'; playB.setAttribute('aria-label', playing ? '일시정지' : '재생');
-      q('[data-a=startnote]').classList.toggle('as-hide', !(opt.songKey && parseKeyName(opt.songKey)));
+      q('[data-a=startnote]').classList.add('as-hide');                             // V895 — 시작음도 곡 정보의 Key 기준이라 숨김
       engEl.textContent = !st.ready ? '소리 변환기를 준비하는 중…' : g.sh ? (g.sh.mode === 'worklet' ? '변환 방식: 고품질 (AudioWorklet)' : '변환 방식: 호환 모드 (일반 노드) — 소리가 조금 떨릴 수 있습니다' + (g.sh.fallbackReason ? ' · 이유: ' + g.sh.fallbackReason : '')) : (st.why || '');
       if (!hasSrc && st.ready && !msgEl.textContent) say(srcs.length ? '위에서 녹음을 고르거나 내 오디오 파일을 골라 주세요.' : '녹음이 없으면 내 오디오 파일을 골라 들을 수 있습니다.');
     }

@@ -374,7 +374,7 @@
     var o = { src: b.getAttribute('data-src'), title: b.getAttribute('data-title') || '', songKey: b.getAttribute('data-key') || '' };
     try { document.querySelectorAll('audio,video').forEach(function (m) { if (!m.paused) m.pause(); }); } catch (e) { /* 다른 재생은 멈춤 */ }
     if (window.YNAudioShift && window.YNAudioShift.openSolo) { window.YNAudioShift.openSolo(o); return; }
-    if (!load) load = new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = '/worship/audio-shift.js?v=894'; sc.onload = res; sc.onerror = function () { load = null; rej(); }; document.head.appendChild(sc); });
+    if (!load) load = new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = '/worship/audio-shift.js?v=895'; sc.onload = res; sc.onerror = function () { load = null; rej(); }; document.head.appendChild(sc); });
     load.then(function () { window.YNAudioShift.openSolo(o); }, function () { alert('재생기를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); });
   }
   document.addEventListener('click', function (e) { var b = e.target && e.target.closest ? e.target.closest('[data-as-open]') : null; if (b) { e.preventDefault(); open(b); } });

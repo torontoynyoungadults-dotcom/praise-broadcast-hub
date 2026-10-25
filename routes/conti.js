@@ -477,7 +477,7 @@ function songRefHtml(s, refs, editable, back) {
       <label class="cn-mini" title="이 곡의 참고 음원(MP3)을 올리면 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들을 수 있어요">${ui.icon('headphones')} ${mine.length ? '참고 음원 하나 더' : '참고 음원 MP3 올리기'}
         <input type="file" name="파일" accept="audio/*,.mp3,.m4a,.wav,.aac" hidden onchange="if(this.files.length){this.form.querySelector('label').classList.add('busy');this.form.submit();}"></label>
     </form>`;
-  const ks = (r) => { const src = recSrc(r); return src ? `<button type="button" class="cn-mini cn-refks" data-as-open data-src="${esc(src)}" data-title="${esc(s['제목'] || '')}" data-key="${esc(s['Key'] || '')}">${ui.icon('headphones')} 키 바꿔 듣기${s['Key'] ? ` <small>(원래 ${esc(s['Key'])})</small>` : ''}</button>` : ''; };
+  const ks = (r) => { const src = recSrc(r); return src ? `<button type="button" class="cn-mini cn-refks" data-as-open data-src="${esc(src)}" data-title="${esc(s['제목'] || '')}" data-key="${esc(s['Key'] || '')}">${ui.icon('headphones')} 키 바꿔 듣기</button>` : ''; };
   return `<div class="cn-sec cn-sec-ref"><span class="cn-lab">참고 음원 <small>여기서도 · 라이브 악보에서도 키를 바꿔 들을 수 있어요</small></span>${mine.length ? `<div class="ph-list">${mine.map((r) => recItem(r, editable, null) + ks(r)).join('')}</div>` : ''}${up}</div>`;
 }
 function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps, sheetTools, refs, back }) {
