@@ -935,7 +935,7 @@
       var D = sData(), tl0 = null;
       return (forceOcr ? Promise.resolve(null) : textLayerChords(pg).catch(function () { return null; })).then(function (tl) { tl0 = tl; return sSize(pg); }).then(function (sz) {
         /* V900 — 분석 방식: 자동 = PDF 글자층에 코드가 있으면 빠르게, 그림 · 스캔 악보면 정밀하게 · 빠르게 · 정밀하게(언제나) */
-        var pref = S.deepPref || 'auto', deep = pref === 'deep' || (pref === 'auto' && !(tl0 && tl0.chords.length));
+        var pref = S.deepPref || 'auto', deep = pref === 'deep' || pref === 'ai' || (pref === 'auto' && !(tl0 && tl0.chords.length));
         S.deepNow = deep;
         var sc = clamp((deep ? 3200 : 2000) / sz.w, 0.4, 8), cv0 = doc.createElement('canvas');
         setStat(pg + '페이지 그림을 준비하는 중…' + (deep ? ' (정밀 분석 — 시간이 더 걸려요)' : ''));
@@ -1036,13 +1036,15 @@
       if (S.busy) return;
       S.busy = true; S.autoRun = !!auto; S.undo = []; syncPanel();
       var results = [], seq = Promise.resolve();
-      pages.forEach(function (pg) { seq = seq.then(function () { return analyzeOne(pg, forceOcr).then(function (r) { results.push(r); commit(); }); }); });
+      pages.forEach(function (pg) { seq = seq.then(function () { return analyzeOne(pg, forceOcr).then(function (r) { results.push(r); commit(); return aiOn() ? aiPass(pg, r) : null; }); }); });
       seq.then(function () {
         S.busy = false; saveNow(); computeModel(); redraw();
         var cur = results.filter(function (r) { return String(r.pg) === pgKey(); })[0] || results[0];
         var msg = pages.length > 1 ? results.length + '페이지 분석 완료. ' : '';
         if (cur) msg += cur.pg + '페이지: 코드 ' + cur.chords + '개(' + (cur.src === 'text' ? 'PDF 글자층' : cur.src === 'text+ocr' ? 'PDF 글자층 + OCR' : 'OCR') + ') · 오선 ' + cur.staves + '줄 · 멜로디 음 ' + cur.notes + '개';
         if (cur && S.okey) msg += ' · 원래 조 ' + HC.keyName(S.okey) + ({ text: ' (악보의 Key 글자)', sig: ' (조표 ' + (cur.sig && cur.sig.n ? Math.abs(cur.sig.n) + (cur.sig.n > 0 ? '♯' : '♭') : '') + ' + 코드)', chords: ' (코드 흐름)', song: ' (곡 정보)' }[S.keySrc] || '');
+        if (cur && cur.ai) msg += ' · Claude 확인: 빠진 코드 ' + cur.ai.added + '개 넣음 · ' + cur.ai.changed + '개 고침';
+        else if (cur && cur.aiErr) msg += ' · Claude 확인 실패: ' + cur.aiErr;
         var warn = '';
         if (cur && !cur.staves) warn = ' — 오선을 찾지 못했습니다. 코드 변환만 되고 화음은 만들 수 없습니다.';
         else if (cur && !cur.notes) warn = ' — 멜로디 음표를 찾지 못했습니다. "멜로디 수정"에서 음표를 직접 찍을 수 있습니다.';
@@ -1058,6 +1060,25 @@
         if (S.autoRun) toast('악보 코드 자동 분석: ' + m, true);
         S.autoRun = false; if (S.autoPend) { S.autoPend = false; maybeAuto(); }
       });
+    }
+    /* V901 — AI 로 코드 읽기 (분석 방식 「AI」 · Claude 가 연결된 계정에서만 — P.claude 는 claude-ui.js 가 그 계정일 때만 만듦, 서버도 계정을 확인)
+       정밀 분석 뒤에 페이지 그림을 Claude 에게 보여 코드를 모두 다시 읽게 하고: 빠진 코드는 넣고, 다르게 읽은 코드는 Claude 쪽으로 바꿉니다 (되돌리기 가능) */
+    function aiOn() { return S.deepPref === 'ai' && typeof P.claude === 'function'; }
+    function aiPass(pg, r) {
+      var pd = S.data && S.data.pages[String(pg)]; if (!pd) return null;
+      setStat(pg + '페이지 — Claude 가 코드를 다시 확인하는 중… (10 ~ 30초)');
+      var known = (pd.chords || []).filter(function (c) { return c.parsed !== null; }).map(function (c) { return { t: c.text, x: c.x + c.w / 2, y: c.y + c.h / 2 }; });
+      return sSize(pg).then(function (sz) {
+        var sc = Math.min(3, 1568 / Math.max(sz.w, sz.h)), c2 = doc.createElement('canvas');
+        return sRender(c2, pg, sc).then(function () { var u = c2.toDataURL('image/jpeg', 0.86); c2.width = c2.height = 0; return u; });
+      }).then(function (img) { return P.claude('chords', { image: img, known: known }); }).then(function (res) {
+        var list = (res && res.chords) || [];
+        return addAiChords(list, pg).then(function (a) {
+          var n = a.diff.length ? setChordTexts(a.diff, pg) : 0;
+          if (r) { r.ai = { read: list.length, added: a.added, changed: n }; r.chords = (pd.chords || []).length; }
+          commit();
+        });
+      }).catch(function (e) { if (r) r.aiErr = (e && e.message) || String(e); });
     }
     /** V890 — 예전 판(줄을 한꺼번에 읽던 OCR)으로 분석한 페이지: 손으로 넣은 코드 · 고친 화음이 없으면 다시 분석해도 됨 */
     function staleOcr(pd) {
@@ -1568,8 +1589,8 @@
     /* ---------- V873 — Claude 가 읽은 코드 넣기 (claude-ui.js): 자동 인식과 겹치면 같은지 · 다른지만 알려 주고, 새 코드만 넣음.
        인쇄된 글자 자리를 찾으면(snapInk) 원래 글자를 덮어 다른 코드처럼, 못 찾으면 손으로 넣은 코드처럼. 점선 = AI 가 넣은 코드 ---------- */
     function chordKey(t) { var p = HC.parseChord(HC.fixOcrChord(String(t || ''))); return p ? HC.formatChord(p, 0, false) : ''; }
-    function addAiChords(list) {
-      var pg = pgKey(), pd = S.data && S.data.pages[pg]; if (!pd) return Promise.resolve({ added: 0, same: 0, diff: [] });
+    function addAiChords(list, pgOpt) {
+      var pg = pgOpt != null ? String(pgOpt) : pgKey(), pd = S.data && S.data.pages[pg]; if (!pd) return Promise.resolve({ added: 0, same: 0, diff: [] });
       var added = [], same = 0, diff = [], fs = median((pd.chords || []).map(function (c) { return c.fs || c.h; })) || 0.014, seq = Promise.resolve();
       (list || []).forEach(function (a) {
         var fixed = HC.fixOcrChord(String(a.t || '')), parsed = HC.parseChord(fixed); if (!parsed) return;
@@ -1592,8 +1613,8 @@
         return { added: added.length, same: same, diff: diff };
       });
     }
-    function setChordTexts(diff) {
-      var pd = S.data && S.data.pages[pgKey()]; if (!pd || !diff || !diff.length) return 0; var prev = [], n = 0;
+    function setChordTexts(diff, pgOpt) {
+      var pd = S.data && S.data.pages[pgOpt != null ? String(pgOpt) : pgKey()]; if (!pd || !diff || !diff.length) return 0; var prev = [], n = 0;
       diff.forEach(function (d) { var c = pd.chords.filter(function (x) { return x.id === d.id; })[0]; if (!c || !HC.parseChord(d.to)) return; prev.push({ c: c, t: c.text, p: c.pre, q: c.post }); c.text = d.to; c.pre = ''; c.post = ''; n++; });
       if (n) { pushUndo(function () { prev.forEach(function (x) { x.c.text = x.t; x.c.pre = x.p; x.c.post = x.q; }); }); commit(); }
       return n;
@@ -1618,7 +1639,7 @@
       '<div class="pv-sec hm-allsec" style="display:none"><label class="pv-switch"><input type="checkbox" data-o="harmall"><span></span><b>만든 화음 보이기 <small>알토 · 테너</small></b></label></div>' +
       '<div class="pv-sec"><h4>① 악보 분석 — 코드 · 오선 · 멜로디</h4>' +
         '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="an-page">' + YI('search') + ' 이 페이지 분석</button><button type="button" class="pv-btn2" data-a="an-all">전체 페이지 분석</button></div>' +
-        '<div class="hm-keys" style="margin-top:10px;grid-template-columns:1fr"><label>분석 방식<select class="pv-sel" data-o="deep" aria-label="분석 방식"><option value="auto">자동 — PDF 글자는 빠르게 · 그림 악보는 정밀하게</option><option value="fast">빠르게</option><option value="deep">정밀하게 (느림 · 페이지마다 1 ~ 3분)</option></select></label></div>' +
+        '<div class="hm-keys" style="margin-top:10px;grid-template-columns:1fr"><label>분석 방식<select class="pv-sel" data-o="deep" aria-label="분석 방식"><option value="auto">자동 — PDF 글자는 빠르게 · 그림 악보는 정밀하게</option><option value="fast">빠르게</option><option value="deep">정밀하게 (느림 · 페이지마다 1 ~ 3분)</option><option value="ai" hidden>AI — 정밀하게 + Claude 가 코드 확인 (내 계정만)</option></select></label></div>' +
         '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="ocr"><span></span><b>PDF 글자 대신 OCR 로 읽기</b></label>' +
         '<div class="hm-stat" role="status" aria-live="polite"></div><div class="hm-share"></div>' +
         '</div>' +
@@ -1691,7 +1712,7 @@
       host.querySelector('[data-o=loop]').checked = !!S.loop;
       host.querySelector('[data-o=keymode]').value = d.keyMode; var vol = host.querySelector('[data-o=vol]'); vol.value = String(Math.round(d.vol * 100));
       var bpmIn = host.querySelector('[data-o=bpm]'); if (doc.activeElement !== bpmIn) bpmIn.value = d.bpm || (P.song() && +P.song().bpm) || 80;
-      host.querySelector('[data-o=ocr]').checked = !!S.forceOcr; var dsel = host.querySelector('[data-o=deep]'); if (dsel && doc.activeElement !== dsel) dsel.value = S.deepPref || 'auto'; host.querySelector('[data-o=tap]').checked = !!S.tapOn;
+      host.querySelector('[data-o=ocr]').checked = !!S.forceOcr; var dsel = host.querySelector('[data-o=deep]'); if (dsel) { var aio = dsel.querySelector('option[value=ai]'), canAi = typeof P.claude === 'function'; if (aio) { aio.hidden = !canAi; aio.disabled = !canAi; } if (doc.activeElement !== dsel) dsel.value = S.deepPref === 'ai' && !canAi ? 'deep' : (S.deepPref || 'auto'); } host.querySelector('[data-o=tap]').checked = !!S.tapOn;
       Array.prototype.forEach.call(host.querySelectorAll('.hm-seg[role=group]:not(.hm-sub) button'), function (b) { b.setAttribute('aria-pressed', S.mode === b.getAttribute('data-mode') ? 'true' : 'false'); });
       ['melody', 'chord'].forEach(function (k) {
         var g = host.querySelector('.hm-sub[data-sub=' + k + ']'); g.style.display = S.mode === k ? '' : 'none';
@@ -1754,7 +1775,7 @@
       else if (o === 'showorig') { S.data.show.orig = !!t.checked; commit(); }
       else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; if (t.checked && !S.harmOn) S.harmOn = true; commit(); }      // V890 — 알토 · 테너를 켜면 화음 보이기도 켬
       else if (o === 'ocr') { S.forceOcr = !!t.checked; }
-      else if (o === 'deep') { S.deepPref = t.value || 'auto'; try { root.localStorage.setItem('yn.pv.harm.deep', S.deepPref); } catch (x) { /* 저장이 막힌 브라우저 */ } toast(S.deepPref === 'deep' ? '정밀하게 — 다음 분석부터 느리지만 더 꼼꼼하게 읽습니다. 이미 분석한 페이지는 「이 페이지 분석」 을 다시 눌러 주세요.' : S.deepPref === 'fast' ? '빠르게 분석합니다.' : '자동 — PDF 글자는 빠르게, 그림 악보는 정밀하게 읽습니다.'); }
+      else if (o === 'deep') { S.deepPref = t.value || 'auto'; try { root.localStorage.setItem('yn.pv.harm.deep', S.deepPref); } catch (x) { /* 저장이 막힌 브라우저 */ } toast(S.deepPref === 'ai' ? 'AI — 정밀 분석 뒤에 Claude 가 코드를 다시 확인해 빠진 것은 넣고 틀린 것은 고칩니다 (내 계정에서만).' : S.deepPref === 'deep' ? '정밀하게 — 다음 분석부터 느리지만 더 꼼꼼하게 읽습니다. 이미 분석한 페이지는 「이 페이지 분석」 을 다시 눌러 주세요.' : S.deepPref === 'fast' ? '빠르게 분석합니다.' : '자동 — PDF 글자는 빠르게, 그림 악보는 정밀하게 읽습니다.'); }
       else if (o === 'harmall') { S.harmOn = !!t.checked; S.sel = null; redraw(); toast(S.harmOn ? '만든 화음을 보입니다.' : '만든 화음을 숨겼습니다.'); }
       else if (o === 'tap') { S.tapOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.tap', S.tapOn ? '1' : '0'); } catch (x) { /* 저장이 막힌 브라우저 */ } }
       else if (o === 'loop') { S.loop = !!t.checked; }
