@@ -231,7 +231,7 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-fsmcbtn" aria-pressed="true" title="클릭 창 숨기기">' + I('metronome') + ' 클릭</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-fsmcbtn" aria-pressed="true" title="클릭 창 숨기기">' + I('metronome') + ' 클릭</button><button type="button" class="pv-b pv-fsx pv-fsytb" style="display:none" title="YouTube 참고 영상" aria-label="YouTube 참고 영상">' + YT_ICON + ' YouTube</button><button type="button" class="pv-b pv-fsx pv-fsrefb" style="display:none" title="참고 음원 (지금 키로)" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + ' 참고 음원</button><button type="button" class="pv-b pv-fsx pv-fsformb" aria-pressed="false" title="송폼 창 보이기">' + I('form') + ' 송폼</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
@@ -3168,6 +3168,28 @@
     function wsUnlockTap() { if (wsSecondTap('off')) setWorship(false); }
     P.worship = function () { return !!S.worship; };
     P.setWorship = function (on) { setWorship(on); };
+
+    /* ---------- 전체 화면 메뉴: YouTube · 참고 음원 · 송폼 창 — 위 막대의 같은 단추를 그대로 눌러 줍니다 (곡에 영상 · 음원이 없으면 메뉴에서도 숨김) ---------- */
+    (function () {
+      var fy = el.querySelector('.pv-fsytb'), fr = el.querySelector('.pv-fsrefb'), ff = el.querySelector('.pv-fsformb');
+      function formBtn() { return fltGrp.querySelector('.pv-flt[data-k="form"]'); }
+      function paint() {
+        if (fy && ytBtn) fy.style.display = ytBtn.style.display === 'none' ? 'none' : '';
+        if (fr && refBtn) fr.style.display = refBtn.style.display === 'none' ? 'none' : '';
+        if (ff) { var on = false; try { on = winOn('form'); } catch (e) { /* 처음 */ } ff.setAttribute('aria-pressed', on ? 'true' : 'false'); ff.classList.toggle('on', on); ff.title = on ? '송폼 창 숨기기' : '송폼 창 보이기'; }
+      }
+      function wire(b, target) {
+        if (!b) return;
+        b.addEventListener('click', function (e) {
+          e.stopPropagation(); var t = target(); if (t) t.click();
+          setTimeout(paint, 30); try { fsBar(true); } catch (x) { /* 메뉴 */ }
+        });
+      }
+      wire(fy, function () { return ytBtn; }); wire(fr, function () { return refBtn; }); wire(ff, formBtn);
+      if (root.MutationObserver) { var mo = new root.MutationObserver(paint); [ytBtn, refBtn].forEach(function (x) { if (x) mo.observe(x, { attributes: true, attributeFilter: ['style'] }); }); P.on('close', function () { mo.disconnect(); }); }
+      ['fs', 'song', 'songs'].forEach(function (n) { P.on(n, function () { setTimeout(paint, 0); }); });
+      paint();
+    }());
 
     /* ---------- 전체 화면: 작은 클릭 창 (BPM −/+ 포함) — 끌어서 옮기기 · × 로 끄기 (위 메뉴 「클릭」으로 다시 켜기) ----------
        조작은 기존 클릭 동그라미(P.metroCircle → P.metroKey)를 그대로 써서 클릭 컨트롤 잠금 · 팀 동기화가 같습니다.
