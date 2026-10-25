@@ -600,7 +600,11 @@
     /* 허브 v5 — 아이패드를 가로로 눕힌 태블릿 화면(라이브 모드)에서도 두 페이지를 나란히 (넓은 가로 화면에서만) */
     function landscapeWide() { var w = root.innerWidth || 0, hh = root.innerHeight || 0; return w > hh && w >= 1000; }
     function spreadAllowed() { return S.layout === 'computer' || (S.layout === 'tablet' && landscapeWide()); }
-    function spreadOn() { return !!S.spread && spreadAllowed() && stage.clientWidth >= 860; }
+    /* 무대 폭은 ResizeObserver 로 기억 — spreadOn() 이 넘김마다 수십 번 불려도 레이아웃을 다시 계산하게(강제 리플로) 하지 않음 */
+    var stageW = 0;
+    try { if (root.ResizeObserver) new root.ResizeObserver(function (en) { var r = en[0] && en[0].contentRect; if (r) stageW = Math.round(r.width); }).observe(stage); } catch (e) { /* 아래에서 직접 잼 */ }
+    function stageWidth() { return stageW || stage.clientWidth; }
+    function spreadOn() { return !!S.spread && spreadAllowed() && stageWidth() >= 860; }
     function syncSpreadUi() {
       var on = spreadOn(), can = spreadAllowed();
       el.classList.toggle('pv-spread', on); spreadBtn.style.display = can ? '' : 'none';
@@ -707,7 +711,7 @@
           pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px';
           if (pdf2.width !== src.width || pdf2.height !== src.height) { pdf2.width = src.width; pdf2.height = src.height; }
           var c = pdf2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0);
-          drawRightAnno(c, pdf2.width, pdf2.height, rp);
+          drawRightAnno(c, pdf2.width, pdf2.height, rp); S.rPaintAt = root.performance ? root.performance.now() : Date.now();
         };
         var hit = pcGet(sig); if (hit) { paint(hit.cv); return; }
         (S.pre.get(sig) || prerender(d2, rn, base)).then(function () {
@@ -723,7 +727,7 @@
     box2.onclick = function () { var rp = S.doc ? rightPosOf(S.doc, S.page) : null; if (rp) goPos(rp, true); toast('필기하려면 이 페이지가 왼쪽에 옵니다. 다음 페이지는 오른쪽에 보입니다.'); };
     S.spread = ls('spread') === '1' || (ls('spread') === null && S.layout === 'tablet' && landscapeWide());   // 태블릿 가로 화면은 처음에 두 페이지 (직접 끄면 기억)
     function toggleSpread() {
-      if (!spreadAllowed() || stage.clientWidth < 860) { toast('두 페이지 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
+      if (!spreadAllowed() || stageWidth() < 860) { toast('두 페이지 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
       S.spread = !S.spread; ls('spread', S.spread ? '1' : '0'); S.zoom = 1; renderPage();
     }
     /* ------------------------------------------------------------ 그려 둔 페이지 그림 저장소
@@ -734,8 +738,11 @@
     S.pcache = new Map(); S.pcBytes = 0; S.pcCur = ''; S.drawnSig = null; S.drawnOk = false; S.pending = null;
     /* 폰 · 작은 태블릿은 화면 그림 자체가 메모리를 많이 쓰므로 저장소를 더 작게 (48MB), 컴퓨터는 96MB */
     var TOUCHY = !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches);
-    var PHONE = (root.innerWidth || 1200) < 900 || (root.matchMedia && root.matchMedia('(pointer: coarse)').matches && (root.innerWidth || 1200) < 1100);
-    var PC_MAX_BYTES = (PHONE ? 48 : 96) * 1024 * 1024, PC_ONE_MAX = (PHONE ? 22 : 40) * 1024 * 1024, PC_MAX_N = 10;
+    /* 폰(짧은 변 < 700px)만 작게. 아이패드는 세로(820px)로 들어도 태블릿 — 예전에는 세로 아이패드를 폰으로 봐서 48MB(쪽 3장)만 두는 바람에
+       미리 그린 다음 쪽이 앞 쪽에 밀려 지워지고, 넘길 때마다 처음부터 다시 그리곤 했음 */
+    var SHORT = Math.min(root.innerWidth || 1200, root.innerHeight || 900);
+    var PHONE = SHORT < 700;
+    var PC_MAX_BYTES = (PHONE ? 48 : 96) * 1024 * 1024, PC_ONE_MAX = (PHONE ? 22 : 40) * 1024 * 1024, PC_MAX_N = PHONE ? 8 : 12;
     function pcSig(d, pg, w, h, dpr) { return d.fid + '|' + pg + '|' + w + 'x' + h + '@' + dpr; }
     function pcGet(sig) { var e = S.pcache.get(sig); if (!e) return null; S.pcache.delete(sig); S.pcache.set(sig, e); return e; }      // 방금 쓴 것을 맨 뒤로 (가장 오래 안 쓴 것이 앞)
     function pcDrop(k) { var e = S.pcache.get(k); if (!e) return; S.pcache.delete(k); S.pcBytes -= e.bytes; try { e.cv.width = e.cv.height = 0; } catch (x) {} }
@@ -778,7 +785,11 @@
        · 두 페이지 나란히 보기에서도 다음 두 페이지를 미리 그려 둡니다 (예전에는 늘 새로 그림)
        · 이미 그리고 있는 페이지로 넘기면 같은 그림을 두 번 그리지 않고 끝나기를 기다렸다 붙입니다 (S.pre)
        · 넘긴 뒤에 끝난 미리 그리기도 버리지 않고 저장해 둡니다 (되돌아올 때 바로) */
-    S.pre = new Map();
+    S.pre = new Map(); S.preTask = new Map();
+    /** 넘긴 페이지를 그려야 하는데 미리 그리기가 다른 페이지를 그리는 중이면 멈춤 — 화면 · PDF 작업자를 지금 페이지에 먼저 (멈춘 것은 넘긴 뒤 다시 미리 그림) */
+    function preCancelExcept(keep) {                                                     // keep: 남길 그림의 앞부분 ("파일|쪽|")
+      S.preTask.forEach(function (t, sig) { if (keep.some(function (k) { return sig.indexOf(k) === 0; })) return; try { t.cancel(); } catch (e) { /* 이미 끝남 */ } });
+    }
     /** v9.7 — 지금 펜 · 지우개로 긋는 중인가 (그동안 무거운 일을 미룸) */
     function inking() { try { return !!(an && an.busy && an.busy()); } catch (e) { return false; } }
     /** d 의 n 페이지를 화면 크기에 맞춰 그려 저장소에 넣습니다 → Promise(sig). base 를 주면 그 배율로 (두 페이지 보기의 오른쪽 페이지) */
@@ -795,8 +806,9 @@
           var off = doc.createElement('canvas'); off.width = pw; off.height = ph;
           var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pw, ph);
           var t; try { t = info.draw(off, L.base * L.dpr); } catch (e) { return null; }
-          var pr = t.promise.then(function () { S.pre.delete(sig); if (!S.dead) { pcAdd(sig, off); return sig; } off.width = off.height = 0; return null; },
-            function () { S.pre.delete(sig); off.width = off.height = 0; return null; });
+          S.preTask.set(sig, t);
+          var pr = t.promise.then(function () { S.pre.delete(sig); S.preTask.delete(sig); if (!S.dead) { pcAdd(sig, off); return sig; } off.width = off.height = 0; return null; },
+            function () { S.pre.delete(sig); S.preTask.delete(sig); off.width = off.height = 0; return null; });
           S.pre.set(sig, pr);
           return pr;
         });
@@ -836,12 +848,14 @@
           var jobs = [];
           if (edge.next && S.sheetIdx < sheets.length - 1) jobs.push([S.sheetIdx + 1, 'first']);
           if (edge.prev && S.sheetIdx > 0) jobs.push([S.sheetIdx - 1, 'last']);
+          if (spreadOn()) { var R1 = rightPosOf(d, pg0); if (R1 && R1.s !== S.sheetIdx) jobs.unshift([R1.s, 'second']); }   // 오른쪽이 다른 곡 파일 → 다음 넘김은 한 장(그 파일 1·2쪽)
           if (spreadOn()) { var R0 = rightPosOf(d, pg0); if (R0 && R0.s !== S.sheetIdx) { var n2 = stepSheet(R0.s, 1); if (n2 >= 0 && !jobs.some(function (x) { return x[0] === n2; })) jobs.push([n2, 'first']); } }      // v11 — 오른쪽이 다음 파일이면 그다음 파일도 미리
           return jobs.reduce(function (p, j) {
             return p.then(function () {
               if (id !== S.rid || S.dead) return;
               return fetchDoc(sheets[j[0]]).then(function (d2) {
                 if (id !== S.rid || S.dead) return;
+                if (j[1] === 'second') return prerender(d2, 1).then(function () { if (d2.n < 2 || id !== S.rid) return; return pageInfo(d2, 1).then(function (li) { return prerender(d2, 2, layoutOf(li, null).base); }); });
                 var n = j[1] === 'first' ? 1 : d2.n;
                 return prerender(d2, n).then(function () {
                   if (!spreadOn() || j[1] !== 'first' || d2.n < 2 || id !== S.rid) return;
@@ -852,7 +866,7 @@
           }, Promise.resolve());
         }).catch(function () { /* 미리 그리기는 실패해도 화면에 영향 없음 */ });
       };
-      setTimeout(go, 16);                                                                   // 지금 페이지가 화면에 나온 다음 프레임에 바로 (예전: 한가할 때까지 최대 1.5초)
+      setTimeout(go, 90);                                                                   // 지금 페이지가 화면에 나온 뒤 잠깐(0.09초) — 연달아 누를 때 미리 그리기가 넘김을 막지 않게
     }
     /* ------------------------------------------------------------ v9.7 확대했을 때 "보이는 부분만 선명하게"
        페이지 전체 그림(pdfCv)은 메모리 한도 안의 해상도로 두고, 화면에 보이는 부분만 기기 화소 그대로 따로 그려 위에 덮습니다 (PDF 보기 앱 방식).
@@ -954,6 +968,8 @@
             loading.style.display = 'none'; toast('이 페이지를 그리지 못했습니다.', true);
           });
         };
+        var rpK = spreadOn() ? rightPosOf(d, pg) : null;
+        preCancelExcept([d.fid + '|' + pg + '|'].concat(rpK && sheets[rpK.s] ? [sheets[rpK.s].id + '|' + rpK.p + '|'] : []));
         renderRight(id, pg, d, base, dpr);
         var inflight = S.pre.get(key);                                               // v9.5 — 미리 그리는 중인 페이지면 같은 그림을 다시 그리지 않고 끝나기를 기다림
         var pr = inflight ? inflight.then(fresh, fresh) : fresh();
@@ -2399,8 +2415,10 @@
       var before = S.page + ':' + S.sheetIdx; dir > 0 ? nextPage(true) : prevPage(true);
       if (before === S.page + ':' + S.sheetIdx) return;                                           // 첫 페이지 · 마지막 페이지라 안 넘어감
       if (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      box.classList.remove('pv-slide-n', 'pv-slide-p'); void box.offsetWidth; box.classList.add(dir > 0 ? 'pv-slide-n' : 'pv-slide-p');
-      clearTimeout(slideT); slideT = setTimeout(function () { box.classList.remove('pv-slide-n', 'pv-slide-p'); }, 320);
+      var bx = spreadOn() ? [box, box2] : [box];                                                // 두 페이지 보기는 두 장이 함께 미끄러짐
+      bx.forEach(function (b) { b.classList.remove('pv-slide-n', 'pv-slide-p'); }); void box.offsetWidth;
+      bx.forEach(function (b) { b.classList.add(dir > 0 ? 'pv-slide-n' : 'pv-slide-p'); });
+      clearTimeout(slideT); slideT = setTimeout(function () { bx.forEach(function (b) { b.classList.remove('pv-slide-n', 'pv-slide-p'); }); }, 320);
     }
     /** 브라우저가 악보 칸을 스스로 밀지 않게 — 한 페이지가 화면에 다 들어오면(확대 전 · 가로로 넘치지 않음) 터치 스크롤을 아예 끕니다 (아이패드 고무줄 당김 방지) */
     function syncTouch() {
@@ -3180,7 +3198,7 @@
     if (ls('worship') === today()) setTimeout(function () { if (!S.dead) setWorship(true, true); }, 0);       // 같은 날 다시 열면 예배 모드 그대로
     var api = {
       el: el, P: P, prepareAll: function () { return prepareAll(); }, setWorship: function (b) { setWorship(b, true); }, goPage: function (n) { goPage(n, true); }, next: function () { nextPage(true); }, prev: function () { prevPage(true); },
-      perf: function () { return { turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
+      perf: function () { return { rPaintAt: S.rPaintAt || 0, turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
         if (S.dead) return; S.dead = true;
         /* 닫기 — 정리 단계마다 따로 감싸서, 한 단계가 실패해도(드물게 패널 · 실시간 · PDF 정리 오류) 나머지 정리와 화면 닫기 · 콘티로 돌아가기는 꼭 합니다.
