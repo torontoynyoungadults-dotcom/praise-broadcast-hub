@@ -1569,6 +1569,7 @@
     };
     P.ensureTab = function (id) { return ensureTab(id); };
     P.closeYt = function () { closeYt(); };
+    P.ytFormApi = function () { return ytFormApi(); };                                 // V896 — 참고 음원 재생기의 송폼 태그도 같은 저장소 (열쇠 au_<파일 ID>)
     P.openAudioShift = function (o) { return root.YNAudioShift && root.YNAudioShift.openDialog ? root.YNAudioShift.openDialog(P, o) : null; };
     P.on('song', function () { if (P.keyShift() !== 0) P.ensureTab('harmony'); });
     /* 키 −1 / +1 (위 막대 · 전체 화면 막대 · 폰은 메뉴 서랍) — 예배 중에도 바로: 곡마다 기억, 화음 모듈이 악보 코드를 새 키로 덧그립니다.
