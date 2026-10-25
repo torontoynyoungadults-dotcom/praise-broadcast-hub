@@ -522,13 +522,18 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
       let meta = null;
       try { meta = await r2.head(id, 'audio'); } catch (e) { console.error('[R2 녹음 확인 실패]', id, e && e.message); }
       if (meta) {
-        if (r2.direct() && !req.query.pass) {               // V892 — ?pass=1 (키 바꿔 듣기)은 같은 주소로 전달: R2 로 보내면 브라우저가 Web Audio 소리를 막음 · R2_DIRECT=1 — 권한 확인은 여기서, 파일은 브라우저가 R2 에서 바로 (Render 대역폭 0)
+        if (r2.direct() && !req.query.pass && String(req.query.download || '') !== '1') {               // V892 — ?pass=1 (키 바꿔 듣기)은 같은 주소로 전달: R2 로 보내면 브라우저가 Web Audio 소리를 막음 · R2_DIRECT=1 — 권한 확인은 여기서, 파일은 브라우저가 R2 에서 바로 (Render 대역폭 0)
           res.set('Cache-Control', 'private, no-store');
           return res.redirect(302, await r2.signedUrl(id, { type: meta.type, name: hit['제목'], kind: 'audio' }));
         }
         const s = await r2.getStream(id, 'audio', req.headers.range);       // 아니면 서버가 R2 에서 받아 그대로 (Range 지원)
         if (s && s.status === 416) return res.status(416).end();
         if (s) {
+          if (String(req.query.download || '') === '1') {
+            const name = String(hit['제목'] || '녹음').replace(/[\\/:*?\"<>|\r\n]+/g, ' ').trim().slice(0, 80) || '녹음';
+            const ext = /mpeg|mp3/i.test(s.type) ? '.mp3' : /wav/i.test(s.type) ? '.wav' : /mp4|m4a/i.test(s.type) ? '.m4a' : '';
+            res.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name + ext)}`);
+          } else res.set('Content-Disposition', 'inline');
           res.status(s.partial ? 206 : 200);
           res.set({ 'Content-Type': s.type, 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, max-age=3600' });
           if (s.length != null) res.set('Content-Length', String(s.length));
@@ -542,6 +547,7 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
     if (liveStore.appAudioIdOf(hit['링크'])) return res.status(404).send('not found');      // R2 에만 있는 녹음인데 못 찾음 (드라이브 폴백 없음)
     const r = await driveFetch(id, req.headers.range);
     if (!r.ok && r.status !== 206) return res.status(r.status).send('drive error');
+    if (String(req.query.download || '') === '1') res.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(String(hit['제목'] || '녹음').slice(0, 80) + '.mp3')}`);
     if (r2.enabled() && r2.handles('음원')) copyAudioToR2(id);         // 처음 열린 드라이브 녹음 — 뒤에서 R2 에 복사 → 다음부터는 R2 에서 (R2_DIRECT=1 이면 서버를 안 거침)
     pipeWeb(res, r, 'private, max-age=3600');
   } catch (e) {
