@@ -194,6 +194,7 @@
     '.as-tr{display:flex;align-items:center;gap:10px}.as-play{flex:none;width:46px;height:46px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff9d47,#ff7a1c);color:#1a0f05;font-size:18px;font-weight:900;cursor:pointer}.as-play:disabled{opacity:.4;cursor:default}' +
     '.as-seek{flex:1;min-width:0}.as-time{flex:none;font-size:12px;font-variant-numeric:tabular-nums;color:var(--g-sub,#d4cfc7);min-width:78px;text-align:right}' +
     '.as-keys{display:flex;gap:4px;flex:1 1 220px}.as-keys .as-b{flex:1 1 0;min-width:0;padding:7px 0;text-align:center}' +
+    '.as-link{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:13.5px;font-weight:700;cursor:pointer}.as-link input{width:19px;height:19px;accent-color:#ff8a2a}.as-link small{font-weight:500;opacity:.7}' +
     '.as-kv{flex:1.2 1 0;align-self:center;text-align:center;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}.as-kv.on{color:#FFB066}html[data-theme=light] .as-kv.on{color:#0E7C86}' +
     '.as-kn{flex:1 1 100%;font-size:13px;font-weight:800;color:#ffb066}' +
     '.as-tv{flex:none;min-width:52px;text-align:center;font-weight:900;font-variant-numeric:tabular-nums}.as-tempo{flex:1;min-width:90px}' +
@@ -220,7 +221,7 @@
   function mountPlayer(host, opt) {
     opt = opt || {}; injectCss();
     var AC = audioCtor(), bind = opt.key || null;
-    var st = { key: bind ? clampKey(bind.get()) : 0, tempo: 1, vol: 1, dead: false, ready: false, mode: 'none', src: '', title: '', blob: '', timer: 0, offs: [], why: '' };
+    var st = { key: 0, link: false, tempo: 1, vol: 1, dead: false, ready: false, mode: 'none', src: '', title: '', blob: '', timer: 0, offs: [], why: '' };
     var audio = doc.createElement('audio'); audio.preload = 'metadata'; audio.setAttribute('playsinline', ''); audio.controls = false;
     function pp() { try { audio.preservesPitch = true; audio.webkitPreservesPitch = true; audio.mozPreservesPitch = true; } catch (e) { /* 무시 */ } }
     pp();
@@ -234,6 +235,7 @@
       '<div class="as-row as-krow" role="group" aria-label="키 (반음)"><span class="as-lb">키</span><div class="as-keys">' +
         '<button type="button" class="as-b" data-ks="-1" aria-label="키 반음 내리기">−1</button><span class="as-kv" aria-live="polite">0</span><button type="button" class="as-b" data-ks="1" aria-label="키 반음 올리기">+1</button>' + '</div>' +
         '<span class="as-kn" aria-live="polite"></span></div>' +
+      (bind ? '<label class="as-link"><input type="checkbox" data-o="link"> 악보 키와 함께 바꾸기 <small>(켜면 음원 키 = 악보 키 · 한쪽을 바꾸면 다른 쪽도)</small></label>' : '') +
       '<div class="as-msg as-hs" role="status" aria-live="polite"></div>' +
       '<div class="as-row"><button type="button" class="as-b ghost" data-a="startnote">' + YI('piano_small') + ' 목표 키 시작음</button><button type="button" class="as-b ghost" data-a="reset">키 · 템포 원래대로</button></div>' +
       '<div class="as-row" role="group" aria-label="템포"><span class="as-lb">템포</span><button type="button" class="as-b" data-t="-1" aria-label="느리게">−</button><span class="as-tv" aria-live="polite">1.00x</span><button type="button" class="as-b" data-t="1" aria-label="빠르게">＋</button>' +
@@ -295,7 +297,7 @@
     /* ---- 조작 ---- */
     function applyKey(n, fromBind) {
       n = clampKey(n); st.key = n; if (g.sh) g.sh.setSemitones(n);
-      if (bind && !fromBind && bind.set) { try { bind.set(n); } catch (e) { /* 무시 */ } }
+      if (bind && st.link && !fromBind && bind.set) { try { bind.set(n); } catch (e) { /* 무시 */ } }      // V894 — 「악보 키와 함께」 를 켰을 때만 악보도
       paint();
     }
     function applyTempo(r) {
@@ -340,6 +342,7 @@
     });
     box.addEventListener('change', function (e) {
       var t = e.target, o = t.getAttribute && t.getAttribute('data-o');
+      if (o === 'link') { st.link = !!t.checked; if (st.link && bind) { applyKey(bind.get(), true); say('음원 키를 악보 키(' + fmtShift(st.key) + ')에 맞췄습니다 — 이제 함께 바뀝니다.'); } else say('음원 키만 따로 바꿉니다 (악보는 그대로).'); return; }
       if (o === 'src') { var i = t.value === '' ? -1 : +t.value; if (i >= 0 && srcs[i]) load(srcs[i].src, srcs[i].title, false); }
       else if (o === 'file') {
         var f = t.files && t.files[0]; t.value = ''; if (!f) return;
@@ -374,7 +377,7 @@
       var hs0 = bind.status && bind.status(); if (hs0 && hs0.text) { hsEl.textContent = '악보: ' + hs0.text; hsEl.className = 'as-msg as-hs' + (hs0.bad ? ' bad' : ''); }
       st.offs.push(bind.onStatus(function (t, bad) { hsEl.textContent = t ? '악보: ' + t : ''; hsEl.className = 'as-msg as-hs' + (bad ? ' bad' : ''); }));
     }
-    if (bind && bind.on) st.offs.push(bind.on(function () { var n = clampKey(bind.get()); if (n !== st.key) applyKey(n, true); else paint(); }));
+    if (bind && bind.on) st.offs.push(bind.on(function () { if (!st.link) return; var n = clampKey(bind.get()); if (n !== st.key) applyKey(n, true); else paint(); }));
 
     var api = {
       play: play, pause: pause, toggle: toggle,
