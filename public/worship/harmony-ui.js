@@ -241,7 +241,9 @@
       Object.keys(d.pages).forEach(function (pg) {
         var pd = d.pages[pg]; if (!pd || !pd.staves) return;
         var PK = S.pageKeys[pg], pkey = PK.okey, nsig = sigCountOf(pkey);
-        var asp = pd.w / pd.h, chords = (pd.chords || []).filter(function (c) { c.parsed = HC.parseChord(c.text); return !!c.parsed; });
+        (pd.chords || []).forEach(function (c) { c.parsed = HC.parseChord(c.text); });
+        if (HC.pruneChordRows) { var okc = HC.pruneChordRows((pd.chords || []).filter(function (c) { return c.parsed; }), pd.staves); (pd.chords || []).forEach(function (c) { if (c.parsed && okc.indexOf(c) < 0) c.parsed = null; }); }   // V890 — 가사 줄에서 잘못 읽힌 코드는 그리지 않음 (예전에 저장된 분석에도 적용)
+        var asp = pd.w / pd.h, chords = (pd.chords || []).filter(function (c) { return !!c.parsed; });
         var geo = chords.map(function (c) { return { x0: c.x, x1: c.x + c.w, y0: c.y, y1: c.y + c.h }; });
         var notes = (pd.notes || []).filter(function (n) {
           var st = pd.staves[n.staff]; if (!st || !usedStaff(pg, n.staff)) return false;
@@ -437,7 +439,7 @@
       Object.keys(S.data.pages).forEach(function (pg) {
         var K = S.pageKeys[pg]; if (!K || !K.tkey) return; var g = K.tkey.tonic + (K.tkey.minor ? 'm' : '');
         var G = groups[g] = groups[g] || { pgs: [], ch: [], semis: K.semis }; G.pgs.push(pg);
-        (S.data.pages[pg].chords || []).forEach(function (c) { var p = c.parsed || HC.parseChord(c.text); if (p) G.ch.push(p); });
+        (S.data.pages[pg].chords || []).forEach(function (c) { var p = c.parsed !== undefined ? c.parsed : HC.parseChord(c.text); if (p) G.ch.push(p); });
       });
       Object.keys(groups).forEach(function (g) { var G = groups[g], cp = S.capoPref === 'auto' ? bestCapo(G.ch, G.semis) : clamp(Math.round(+S.capoPref) || 0, 0, 9); G.pgs.forEach(function (pg) { S.capoPg[pg] = cp; }); });
     }
@@ -630,8 +632,11 @@
       if (found.length < 2) return found;
       var capH = median(found.map(function (c) { return c.y1 - c.y0; })) || 1, rows = [];
       found.forEach(function (c) { var cy = (c.y0 + c.y1) / 2, r = rows.filter(function (q) { return Math.abs(q.cy - cy) <= 0.8 * capH; })[0]; if (r) { r.items.push(c); } else rows.push({ cy: cy, items: [c] }); });
-      rows.sort(function (a, b) { return b.items.length - a.items.length || b.cy - a.cy; });
-      return rows[0].items.length >= 2 || rows.length === 1 ? rows.filter(function (r) { return r === rows[0] || r.items.length >= 2; }).reduce(function (a, r) { return a.concat(r.items); }, []) : found;
+      if (rows.length === 1) return found;
+      /* V890 — 오선마다 코드 줄은 하나: 충분히 많이 모인 줄(가장 많은 줄의 절반 이상) 가운데 오선에 가장 가까운(아래쪽) 줄만 — 윗단 가사가 코드로 읽혀도 섞이지 않게 */
+      var best = Math.max.apply(null, rows.map(function (r) { return r.items.length; })), need = Math.max(1, Math.ceil(best * 0.5)), pick = null;
+      rows.forEach(function (r) { if (r.items.length >= need && (!pick || r.cy > pick.cy)) pick = r; });
+      return pick.items;
     }
     function binCanvas(src) {
       var W = src.width, Hh = src.height, cx = src.getContext('2d'), im = cx.getImageData(0, 0, W, Hh), d = im.data, thr = otsuThr(d), i;
@@ -815,6 +820,7 @@
             var staves = om.staves.map(function (s) { return { top: s.top / Hh, bottom: s.bottom / Hh, sp: s.sp / Hh, x0: s.x0 / W, x1: s.x1 / W, sys: s.sys, melody: !!s.melody, hx: s.keySig && s.keySig.endX != null ? s.keySig.endX / W : null }; });
             var notes = om.notes.map(function (n) { return { id: uid(), staff: n.staff, x: n.x / W, step: n.step, open: !!n.open, beats: n.beats, rest: n.restAfter || 0, src: 'auto' }; });
             var old = D.pages[pg]; if (old) { old.notes.forEach(function (n) { delete D.ov.alto[n.id]; delete D.ov.tenor[n.id]; }); Object.keys(D.use).forEach(function (k) { if (k.indexOf(pg + ':') === 0) delete D.use[k]; }); }
+            if (HC.pruneChordRows) cr.chords = HC.pruneChordRows(cr.chords.filter(function (c) { return HC.parseChord(c.text); }), staves);     // V890 — 오선마다 코드 줄 하나만
             D.pages[pg] = { w: W, h: Hh, paper: paper, chords: cr.chords, staves: staves, notes: notes, src: cr.src, at: Date.now(), keyText: cr.keyText || '', sig: om.keySig ? { n: om.keySig.n, conf: om.keySig.conf } : null };
             return { pg: pg, chords: cr.chords.length, staves: staves.length, notes: notes.length, src: cr.src, keyText: cr.keyText || '', sig: om.keySig };
           });
@@ -1008,7 +1014,7 @@
       var px = cx - r.left, py = cy - r.top, best = null, bd = 1e9, tol = touch ? 12 : 6;
       if (px < 0 || py < 0 || px > r.width || py > r.height) return null;
       pd.chords.forEach(function (cd) {
-        if (!cd.parsed) cd.parsed = HC.parseChord(cd.text); if (!cd.parsed) return;
+        if (cd.parsed === undefined) cd.parsed = HC.parseChord(cd.text); if (!cd.parsed) return;
         var x0 = cd.x * r.width - tol, x1 = (cd.x + cd.w) * r.width + tol + 10, y0 = cd.y * r.height - tol, y1 = (cd.y + cd.h) * r.height + tol;
         if (px < x0 || px > x1 || py < y0 || py > y1) return;
         var d = Math.hypot(px - (x0 + x1) / 2, py - (y0 + y1) / 2); if (d < bd) { bd = d; best = cd; }

@@ -261,6 +261,45 @@
     });
     var seen = {}; return iv.filter(function (e) { var k = e.i; if (seen[k]) return false; seen[k] = 1; return true; }).sort(function (a, b) { return a.i - b.i; });
   }
+  /** V890 — 괄호 밖에 숫자가 말이 안 되게 이어진 뒤 글자(59 · 44 · 77 · 5 뒤에 또 숫자)는 거름 */
+  function plausibleSuffix(rest) {
+    var s = String(rest || '').replace(/\([^()]*\)/g, '').replace(/\/[b#]?(9|11|13)(?![0-9])/g, '');
+    s = s.replace(/add[b#]?(13|11|2|4|6|9)|sus(2sus4|24|42|2|4)|6\/9|69|[b#\-+](13|11|5|6|9)|(maj|Maj|MAJ|Ma|MA|M|ma)(13|11|7|9)|13|11/g, '_');
+    return !/\d\d/.test(s);
+  }
+  /**
+   * V890 — 오선마다 "코드 줄"은 하나: 오선 위 띠(앞 오선 아래 ~ 이 오선 위)에 글자 줄이 여러 개 잡히면
+   *  (윗단 가사 · 잡음이 코드로 읽힌 경우) 오선에 가장 가까운 "제대로 된" 코드 줄만 남깁니다.
+   *  chords: [{ x, y, w, h, src }] · staves: [{ top, bottom, sp, x0, x1, melody }] — 둘 다 0~1 비율 좌표. 남길 코드 목록을 돌려줌
+   */
+  function pruneChordRows(chords, staves) {
+    if (!chords || !chords.length || !staves || !staves.length) return chords || [];
+    var mel = staves.filter(function (s) { return s.melody; }); if (!mel.length) mel = staves;
+    var groups = {}, keep = [];
+    chords.forEach(function (c) {
+      if (c.src === 'user') { keep.push(c); return; }
+      var cy = c.y + c.h / 2, cx = c.x + c.w / 2, gi = -1;
+      for (var i = 0; i < mel.length; i++) {
+        var s = mel[i], prevB = -1e9;
+        staves.forEach(function (o) { if (o.bottom < s.top && o.bottom > prevB) prevB = o.bottom; });
+        if (cy <= s.top + 0.6 * s.sp && cy >= (prevB > -1e8 ? prevB : s.top - 9 * s.sp) && cx >= s.x0 - 3 * s.sp && cx <= s.x1 + 3 * s.sp) { gi = i; break; }
+      }
+      if (gi < 0) { keep.push(c); return; }
+      (groups[gi] = groups[gi] || []).push(c);
+    });
+    Object.keys(groups).forEach(function (g) {
+      var list = groups[g], hh = median(list.map(function (c) { return c.h; })) || 0.01, rows = [];
+      list.slice().sort(function (a, b) { return (a.y + a.h / 2) - (b.y + b.h / 2); }).forEach(function (c) {
+        var cy = c.y + c.h / 2, r = rows.length ? rows[rows.length - 1] : null;
+        if (r && Math.abs(cy - r.cy) <= 0.8 * hh) { r.items.push(c); r.cy = (r.cy * (r.items.length - 1) + cy) / r.items.length; } else rows.push({ cy: cy, items: [c] });
+      });
+      if (rows.length === 1) { keep = keep.concat(rows[0].items); return; }
+      var best = Math.max.apply(null, rows.map(function (r) { return r.items.length; })), need = Math.max(1, Math.ceil(best * 0.5)), pick = null;
+      rows.forEach(function (r) { if (r.items.length >= need && (!pick || r.cy > pick.cy)) pick = r; });
+      keep = keep.concat(pick.items);
+    });
+    var order = chords.slice(); return order.filter(function (c) { return keep.indexOf(c) >= 0; });
+  }
   /** 코드 글자 하나("Am7", "G/B", "F#m7b5", "C7(b9,#11)", "Bbmaj9#11/D") → { root, bass, suffix, triad, tones, pcs, iv, text } · 코드가 아니면 null */
   function parseChord(str) {
     var raw = String(str == null ? '' : str).trim(), s = normChordText(raw);
@@ -270,6 +309,7 @@
     if (bm) { rest = bm[1]; bassTxt = bm[2] + bm[3]; bassPc = mod(LETTER_PC[bm[2]] + accOf(bm[3]), 12); }
     var st = readSuffix(rest);
     if (!st) return null;
+    if (!plausibleSuffix(rest)) return null;                                                   // V890 — "E59" · "A44" 처럼 숫자가 엉터리로 붙은 글자(가사 OCR 잡음)는 코드가 아님
     var root = mod(LETTER_PC[m[1]] + accOf(m[2]), 12), iv = chordIvs(st);
     var seen = {}, tones = iv.map(function (e) { return mod(e.i, 12); }).filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }).sort(function (a, b) { return a - b; });
     var pcs = tones.map(function (t) { return mod(root + t, 12); });
@@ -621,7 +661,7 @@
     SHARP: SHARP, FLAT: FLAT, KEY_CHOICES: KEY_CHOICES, VOICE_RANGE: VOICE_RANGE,
     parseKey: parseKey, keyUsesFlats: keyUsesFlats, keySignature: keySignature, keySemitones: keySemitones, scalePcs: scalePcs, keyName: keyName, guessKey: guessKey, findKeyText: findKeyText, keysForSig: keysForSig, rankKeys: rankKeys, fuseKey: fuseKey,
     parseChord: parseChord, voiceChord: voiceChord, normChordText: normChordText, isChordSymbol: isChordSymbol, transposeChord: transposeChord, formatChord: formatChord, nameOfPc: nameOfPc,
-    classifyToken: classifyToken, fixOcrChord: fixOcrChord, splitItem: splitItem, chordsFromTokens: chordsFromTokens, mergeChordPieces: mergeChordPieces,
+    classifyToken: classifyToken, pruneChordRows: pruneChordRows, plausibleSuffix: plausibleSuffix, fixOcrChord: fixOcrChord, splitItem: splitItem, chordsFromTokens: chordsFromTokens, mergeChordPieces: mergeChordPieces,
     stepToMidi: stepToMidi, midiToStep: midiToStep, stepLetter: stepLetter, midiName: midiName, staffPitchName: staffPitchName,
     assignChords: assignChords, buildHarmony: buildHarmony, intervalName: intervalName, buildSchedule: buildSchedule
   };

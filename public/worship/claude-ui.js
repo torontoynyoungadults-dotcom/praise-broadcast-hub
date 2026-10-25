@@ -268,7 +268,7 @@
     function doAsk() {
       if (st.busy) return; var ta = $('textarea'), q = ta && ta.value.trim(); if (!q) return;
       var pg = P.page(), f = fileId(), ui = hz(), S = ui && ui._state, K = keyNow(), song = P.song && P.song();
-      var pd = S && S.data && S.data.pages[String(pg)], chords = pd ? pd.chords.filter(function (c) { return c.parsed || (HC && HC.parseChord(c.text)); }).map(function (c) { return c.text; }).join(' ') : '';
+      var pd = S && S.data && S.data.pages[String(pg)], chords = pd ? pd.chords.filter(function (c) { return c.parsed !== undefined ? !!c.parsed : (HC && HC.parseChord(c.text)); }).map(function (c) { return c.text; }).join(' ') : '';
       var keyInfo = K.okey && HC ? '악보 ' + HC.keyName(K.okey) + (K.semis ? ' → 지금 ' + HC.keyName(K.tkey) + ' (' + (K.semis > 0 ? '+' : '') + K.semis + ')' : '') : (K.semis ? '연습 키 ' + (K.semis > 0 ? '+' : '') + K.semis : '');
       var needImg = st.imgPg !== f + ':' + pg;
       st.hist.push({ role: 'user', text: q }); ta.value = ''; ta.style.height = ''; paintMsgs();
