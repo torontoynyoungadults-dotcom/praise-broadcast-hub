@@ -77,6 +77,7 @@
   }
 
   /* ============================================================ 음높이 변환기 (AudioWorklet ▸ 일반 노드) */
+  var QV = (function () { try { var sc = doc && doc.currentScript, m = sc && /\?.*$/.exec(sc.src || ''); return m ? m[0] : ''; } catch (e) { return ''; } }());     // V898 — 엔진 파일도 같은 판으로 (옛 엔진이 캐시에 남지 않게)
   var BASE = (function () { try { var s = doc && doc.currentScript, src = s && s.src; if (src) return src.replace(/[^\/]*$/, '').replace(/\?.*$/, ''); } catch (e) { /* 아래 기본값 */ } return '/worship/'; }());
   var wkCache = typeof WeakMap === 'function' ? new WeakMap() : null;
   function timeout(p, ms, msg) { return new Promise(function (res, rej) { var t = setTimeout(function () { rej(new Error(msg || 'timeout')); }, ms); p.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); }); }); }
@@ -84,7 +85,7 @@
   function loadWorklet(ctx, url) {
     if (!ctx || !ctx.audioWorklet || typeof root.AudioWorkletNode === 'undefined') return Promise.reject(new Error('AudioWorklet 을 지원하지 않습니다'));
     if (wkCache && wkCache.has(ctx)) return wkCache.get(ctx);
-    url = url || BASE + 'pitch-worklet.js';
+    url = url || BASE + 'pitch-worklet.js' + QV;
     var viaBlob = function () {
       return root.fetch(url, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('worklet fetch ' + r.status); return r.text(); }).then(function (txt) {
         var u = root.URL.createObjectURL(new root.Blob([txt], { type: 'text/javascript' }));
@@ -104,6 +105,9 @@
       mode: 'worklet', input: node, output: node,
       setSemitones: function (n) { semis = clampKey(n); try { node.port.postMessage({ type: 'ratio', value: semitoneToRatio(semis) }); } catch (e) { /* 무시 */ } },
       semitones: function () { return semis; },
+      canVocal: true,
+      setVocal: function (v) { try { node.port.postMessage({ type: 'vocal', value: Math.max(0, Math.min(1, +v || 0)) }); } catch (e) { /* 무시 */ } },      // V898 — 보컬 줄이기 0 ~ 1
+      stats: function (cb) { try { node.port.onmessage = function (e) { if (e.data && e.data.type === 'stats') cb(e.data); }; node.port.postMessage({ type: 'stats' }); } catch (e) { /* 무시 */ } },
       destroy: function () { dead = true; try { node.port.close(); } catch (e) { /* 무시 */ } try { node.disconnect(); } catch (e2) { /* 무시 */ } }
     };
   }
@@ -195,6 +199,7 @@
     '.as-seek{flex:1;min-width:0}.as-time{flex:none;font-size:12px;font-variant-numeric:tabular-nums;color:var(--g-sub,#d4cfc7);min-width:78px;text-align:right}' +
     '.as-keys{display:flex;gap:4px;flex:1 1 220px}.as-keys .as-b{flex:1 1 0;min-width:0;padding:7px 0;text-align:center}' +
     '.as-link{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:13.5px;font-weight:700;cursor:pointer}.as-link input{width:19px;height:19px;accent-color:#ff8a2a}.as-link small{font-weight:500;opacity:.7}' +
+    '.as-vrow input[type=range]{flex:1 1 140px}.as-vv{flex:none;min-width:42px;text-align:right;font-weight:800;font-variant-numeric:tabular-nums}.as-vnote{margin:-2px 0 8px;font-size:12px;line-height:1.45;opacity:.75}.as-vnote:empty{display:none}' +
     '.as-kv{flex:1.2 1 0;align-self:center;text-align:center;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}.as-kv.on{color:#FFB066}html[data-theme=light] .as-kv.on{color:#0E7C86}' +
     '.as-kn{flex:1 1 100%;font-size:13px;font-weight:800;color:#ffb066}' +
     '.as-tv{flex:none;min-width:52px;text-align:center;font-weight:900;font-variant-numeric:tabular-nums}.as-tempo{flex:1;min-width:90px}' +
@@ -221,7 +226,7 @@
   function mountPlayer(host, opt) {
     opt = opt || {}; injectCss();
     var AC = audioCtor(), bind = opt.key || null;
-    var st = { key: 0, link: false, tempo: 1, vol: 1, dead: false, ready: false, mode: 'none', src: '', title: '', blob: '', timer: 0, offs: [], why: '' };
+    var st = { key: 0, link: false, vocal: loadVocal(), tempo: 1, vol: 1, dead: false, ready: false, mode: 'none', src: '', title: '', blob: '', timer: 0, offs: [], why: '' };
     var audio = doc.createElement('audio'); audio.preload = 'metadata'; audio.setAttribute('playsinline', ''); audio.controls = false;
     function pp() { try { audio.preservesPitch = true; audio.webkitPreservesPitch = true; audio.mozPreservesPitch = true; } catch (e) { /* 무시 */ } }
     pp();
@@ -241,6 +246,8 @@
       '<div class="as-row" role="group" aria-label="템포"><span class="as-lb">템포</span><button type="button" class="as-b" data-t="-1" aria-label="느리게">−</button><span class="as-tv" aria-live="polite">1.00x</span><button type="button" class="as-b" data-t="1" aria-label="빠르게">＋</button>' +
         '<input type="range" class="as-tempo" data-o="tempo" min="75" max="125" step="5" value="100" aria-label="템포 (0.75배 ~ 1.25배)"></div>' +
       '<div class="as-row"><span class="as-lb">음량</span><input type="range" class="as-vol" data-o="vol" min="0" max="150" step="1" value="100" aria-label="출력 음량"></div>' +
+      '<div class="as-row as-vrow"><span class="as-lb">보컬</span><input type="range" class="as-vocal" data-o="vocal" min="0" max="100" step="5" value="0" aria-label="보컬 줄이기 (0 ~ 100%)"><output class="as-vv">0%</output></div>' +
+      '<p class="as-vnote" aria-live="polite"></p>' +
       '<div class="as-msg" role="status"></div><div class="as-eng"></div>' +
       '<p class="as-note">키는 음높이만, 템포는 속도만 바뀝니다 (서로 독립). 이 기기 안에서만 처리하며 파일을 어디에도 올리지 않습니다.</p>';
     host.appendChild(box);
@@ -267,9 +274,18 @@
       try { g.msrc = g.ctx.createMediaElementSource(audio); } catch (e2) { g.msrc = null; st.why = '이 브라우저에서는 소리를 처리할 수 없어 키를 바꿀 수 없습니다. 템포(속도)만 바뀝니다.'; st.ready = true; paint(); return Promise.resolve(); }
       return createShifter(g.ctx, { semitones: st.key, mode: opt.mode, workletUrl: opt.workletUrl, onError: function () { say('소리 변환 중 문제가 생겼습니다. 카드를 닫았다 다시 열어 주세요.', true); } }).then(function (sh) {
         if (st.dead) { sh.destroy(); return; }
-        g.sh = sh; st.mode = sh.mode; g.msrc.connect(sh.input); sh.output.connect(g.vol); st.ready = true; paint();
+        g.sh = sh; st.mode = sh.mode; g.msrc.connect(sh.input); sh.output.connect(g.vol); st.ready = true; if (sh.setVocal && st.vocal) sh.setVocal(st.vocal); paint(); checkMono();
       }, function (e) { st.why = '키 변환기를 만들지 못했습니다: ' + ((e && e.message) || e); try { g.msrc.connect(g.vol); } catch (x) { /* 무시 */ } st.ready = true; paint(); });
     }
+
+    /* ---- V898 보컬 줄이기 (가운데 목소리를 목소리 대역에서만 줄임 · 이 기기에 기억) ---- */
+    function paintVocal() {
+      var r = q('[data-o=vocal]'), out = q('.as-vv'), note = q('.as-vnote'), can = !!(g.sh && g.sh.canVocal);
+      if (!r) return; r.value = String(Math.round(st.vocal * 100)); r.disabled = !can; fill(r); out.textContent = Math.round(st.vocal * 100) + '%';
+      note.textContent = !st.ready ? '' : !can ? '이 기기에서는 보컬 줄이기를 쓸 수 없습니다 (호환 모드).' : st.mono && st.vocal ? '이 음원은 모노 녹음이라 보컬만 따로 줄일 수 없습니다.' : st.vocal ? '가운데에서 부르는 목소리를 줄입니다 — 음원에 따라 효과가 다르고, 완전히 지워지지는 않아요.' : '';
+    }
+    var monoT = 0;
+    function checkMono() { clearTimeout(monoT); if (!g.sh || !g.sh.stats || !st.vocal) { st.mono = false; paintVocal(); return; } monoT = setTimeout(function () { if (st.dead || !g.sh) return; g.sh.stats(function (d) { st.mono = !!d.mono; paintVocal(); }); }, 2500); }
 
     /* ---- 화면 ---- */
     function paint() {
@@ -277,6 +293,7 @@
       q('.as-kv').textContent = n ? fmtShift(n) : '0'; q('.as-kv').classList.toggle('on', n !== 0);
       q('[data-ks="-1"]').disabled = !canKey || n <= KEY_MIN; q('[data-ks="1"]').disabled = !canKey || n >= KEY_MAX;
       knEl.textContent = '';                                                       // V895 — 곡 정보의 Key 는 음원 · 악보와 다를 수 있어 보여 주지 않음 (반음 수만)
+      paintVocal();
       tvEl.textContent = fmtTempo(st.tempo); tempoR.value = String(Math.round(st.tempo * 100)); fill(tempoR); fill(volR); fill(seek);
       q('[data-t="-1"]').disabled = st.tempo <= TEMPO_MIN + 1e-9; q('[data-t="1"]').disabled = st.tempo >= TEMPO_MAX - 1e-9;
       var hasSrc = !!st.src; playB.disabled = !st.ready || !hasSrc; seek.disabled = !hasSrc || !(audio.duration > 0);
@@ -373,6 +390,7 @@
     box.addEventListener('input', function (e) {
       var t = e.target, o = t.getAttribute && t.getAttribute('data-o');
       if (o === 'tempo') applyTempo((+t.value) / 100);
+      else if (o === 'vocal') { st.vocal = (+t.value) / 100; saveVocal(st.vocal); if (g.sh && g.sh.setVocal) g.sh.setVocal(st.vocal); paintVocal(); checkMono(); }
       else if (o === 'vol') { st.vol = (+t.value) / 100; if (g.vol) g.vol.gain.value = st.vol; fill(t); }
       else if (o === 'seek') { var d = audio.duration; if (d > 0 && isFinite(d)) { try { audio.currentTime = (+t.value) / 1000 * d; } catch (x) { /* 무시 */ } paintTime(); fill(t); } }
     });
@@ -472,6 +490,9 @@
    * V892 — 라이브 악보 밖(콘티 화면 등)에서 쓰는 재생 카드: openSolo({ src, title, songKey })
    *  화면 아래 가운데에 떠 있는 카드 — 키(−6 ~ +6) · 템포 · 음량. 키는 이 카드 안에서만 (악보 키와 연결 없음)
    */
+  var VOCAL_KEY = 'yn.as.vocal';
+  function loadVocal() { try { var v = +root.localStorage.getItem(VOCAL_KEY); return isFinite(v) && v > 0 ? Math.min(1, v) : 0; } catch (e) { return 0; } }
+  function saveVocal(v) { try { root.localStorage.setItem(VOCAL_KEY, String(v)); } catch (e) { /* 무시 */ } }
   var solo = null;
   function closeSolo() { if (solo) { var d = solo; solo = null; try { d.api.destroy(); } catch (e) { /* 무시 */ } try { d.box.remove(); } catch (e2) { /* 무시 */ } } }
   function openSolo(o) {
