@@ -25,6 +25,7 @@
   function mod(a, n) { return ((a % n) + n) % n; }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   var doc = root.document;
+  var YI = function (n) { try { return root.YI ? root.YI(n) : root.YNIcon ? root.YNIcon.get(n) : ''; } catch (e) { return ''; } };     // V892 — 아이콘 (콘티 화면처럼 아이콘 도구가 없는 곳에서도)
 
   /* ============================================================ 순수 함수 */
   /** 키 이동(반음) — 정수로 반올림하고 −6 ~ +6 로 자름. 숫자가 아니면 0 */
@@ -304,6 +305,7 @@
       if (st.blob && st.blob !== src) { try { root.URL.revokeObjectURL(st.blob); } catch (e) { /* 무시 */ } st.blob = ''; }
       if (isBlob) st.blob = src;
       st.src = src; st.title = title || ''; say('');
+      if (!isBlob && /^\/(audio|drive)\//.test(src) && !/[?&]pass=/.test(src)) src += (src.indexOf('?') < 0 ? '?' : '&') + 'pass=1';      // V892 — 같은 주소로 받기: R2 로 넘기면 브라우저가 Web Audio 소리를 막아 재생은 되는데 소리가 안 남
       audio.pause(); audio.src = src; audio.defaultPlaybackRate = st.tempo; audio.playbackRate = st.tempo; pp();
       try { audio.load(); } catch (e) { /* 무시 */ }
       paintTime(); paint();
@@ -432,7 +434,33 @@
     return api;
   }
 
+  /**
+   * V892 — 라이브 악보 밖(콘티 화면 등)에서 쓰는 재생 카드: openSolo({ src, title, songKey })
+   *  화면 아래 가운데에 떠 있는 카드 — 키(−6 ~ +6) · 템포 · 음량. 키는 이 카드 안에서만 (악보 키와 연결 없음)
+   */
+  var solo = null;
+  function closeSolo() { if (solo) { var d = solo; solo = null; try { d.api.destroy(); } catch (e) { /* 무시 */ } try { d.box.remove(); } catch (e2) { /* 무시 */ } } }
+  function openSolo(o) {
+    o = o || {}; injectCss(); closeSolo(); closeDialog();
+    if (!doc.getElementById('yn-as-solo-css')) {
+      var cs = doc.createElement('style'); cs.id = 'yn-as-solo-css';
+      cs.textContent = '.pv-as.as-solo{position:fixed;left:50%;right:auto;bottom:16px;transform:translateX(-50%);z-index:2147483000;width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 32px);color:#f3efe8;font-family:inherit}' +
+        '.as-solo .pv-yth{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px 6px}.as-solo .pv-yth b{font-size:15px;display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+        '.as-solo .pv-yth b svg{width:18px;height:18px;flex:none}.as-solo .pv-yth button{flex:none;width:36px;height:36px;border-radius:10px;border:0;background:rgba(255,255,255,.1);color:inherit;font-size:18px;cursor:pointer}.as-solo .as-host{padding:0 14px 14px}';
+      (doc.head || doc.documentElement).appendChild(cs);
+    }
+    var box = el('div', 'pv-as as-solo'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '키 바꿔 듣기');
+    box.innerHTML = '<div class="pv-yth"><b>' + YI('headphones') + ' ' + esc('키 바꿔 듣기' + (o.title ? ' — ' + o.title : '')) + '</b><button type="button" aria-label="닫기">✕</button></div><div class="as-host"></div>';
+    var api = mountPlayer(box.querySelector('.as-host'), { songKey: o.songKey || '', sources: o.src ? [{ title: o.title || '참고 음원', src: o.src, kind: o.kind || '참고', match: true }] : [], key: null, workletUrl: o.workletUrl });
+    box.querySelector('.pv-yth button').onclick = closeSolo;
+    doc.body.appendChild(box);
+    solo = { api: api, box: box };
+    if (o.src) api.loadUrl(o.src, o.title || '');
+    return api;
+  }
+
   return {
+    openSolo: openSolo, closeSolo: closeSolo,
     KEY_MIN: KEY_MIN, KEY_MAX: KEY_MAX, TEMPO_MIN: TEMPO_MIN, TEMPO_MAX: TEMPO_MAX, TEMPO_STEP: TEMPO_STEP,
     clampKey: clampKey, clampTempo: clampTempo, semitoneToRatio: semitoneToRatio, ratioToSemitone: ratioToSemitone, ratioToCents: ratioToCents,
     fmtShift: fmtShift, fmtTempo: fmtTempo, fmtClock: fmtClock, parseKeyName: parseKeyName, transposeKeyName: transposeKeyName, keyLabel: keyLabel,

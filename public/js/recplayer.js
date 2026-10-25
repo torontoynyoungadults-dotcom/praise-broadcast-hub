@@ -366,3 +366,16 @@
   document.addEventListener('ph:content-updated', function () { boot(document); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { boot(document); }); else boot(document);
 })();
+
+/* V892 — 참고 음원 「키 바꿔 듣기」: 라이브 악보의 재생기(/worship/audio-shift.js)를 처음 누를 때만 불러와 화면 아래 카드로 (키 −6 ~ +6 · 템포 · 음량) */
+(function () {
+  var load = null;
+  function open(b) {
+    var o = { src: b.getAttribute('data-src'), title: b.getAttribute('data-title') || '', songKey: b.getAttribute('data-key') || '' };
+    try { document.querySelectorAll('audio,video').forEach(function (m) { if (!m.paused) m.pause(); }); } catch (e) { /* 다른 재생은 멈춤 */ }
+    if (window.YNAudioShift && window.YNAudioShift.openSolo) { window.YNAudioShift.openSolo(o); return; }
+    if (!load) load = new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = '/worship/audio-shift.js?v=892b'; sc.onload = res; sc.onerror = function () { load = null; rej(); }; document.head.appendChild(sc); });
+    load.then(function () { window.YNAudioShift.openSolo(o); }, function () { alert('재생기를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); });
+  }
+  document.addEventListener('click', function (e) { var b = e.target && e.target.closest ? e.target.closest('[data-as-open]') : null; if (b) { e.preventDefault(); open(b); } });
+}());

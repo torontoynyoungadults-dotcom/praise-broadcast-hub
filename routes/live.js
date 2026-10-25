@@ -522,7 +522,7 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
       let meta = null;
       try { meta = await r2.head(id, 'audio'); } catch (e) { console.error('[R2 녹음 확인 실패]', id, e && e.message); }
       if (meta) {
-        if (r2.direct()) {                                  // R2_DIRECT=1 — 권한 확인은 여기서, 파일은 브라우저가 R2 에서 바로 (Render 대역폭 0)
+        if (r2.direct() && !req.query.pass) {               // V892 — ?pass=1 (키 바꿔 듣기)은 같은 주소로 전달: R2 로 보내면 브라우저가 Web Audio 소리를 막음 · R2_DIRECT=1 — 권한 확인은 여기서, 파일은 브라우저가 R2 에서 바로 (Render 대역폭 0)
           res.set('Cache-Control', 'private, no-store');
           return res.redirect(302, await r2.signedUrl(id, { type: meta.type, name: hit['제목'], kind: 'audio' }));
         }
