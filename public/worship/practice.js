@@ -231,7 +231,7 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-fsmcbtn" aria-pressed="true" title="클릭 창 숨기기">' + I('metronome') + ' 클릭</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
@@ -3168,6 +3168,94 @@
     function wsUnlockTap() { if (wsSecondTap('off')) setWorship(false); }
     P.worship = function () { return !!S.worship; };
     P.setWorship = function (on) { setWorship(on); };
+
+    /* ---------- 전체 화면: 작은 클릭 창 (BPM −/+ 포함) — 끌어서 옮기기 · × 로 끄기 (위 메뉴 「클릭」으로 다시 켜기) ----------
+       조작은 기존 클릭 동그라미(P.metroCircle → P.metroKey)를 그대로 써서 클릭 컨트롤 잠금 · 팀 동기화가 같습니다.
+       전체 화면에 들어가면 자동으로 예배 모드가 켜집니다 (페이지 넘김 · 클릭만). */
+    (function () {
+      if (!doc.getElementById('yn-pv-fsmc')) {
+        var st = doc.createElement('style'); st.id = 'yn-pv-fsmc';
+        st.textContent =
+          '.pv-fsmc{position:absolute;z-index:28;left:0;top:0;display:flex;align-items:center;gap:2px;padding:5px 5px 5px 3px;border-radius:999px;background:rgba(14,16,20,.74);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 20px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;color:#fff}' +
+          '.pv-fsmc[hidden]{display:none!important}.pv-fsmc.drag{cursor:grabbing;box-shadow:0 10px 28px rgba(0,0,0,.5)}' +
+          '.pv-fsmc-grip{flex:none;width:8px;height:22px;margin:0 2px 0 5px;opacity:.55;background:radial-gradient(circle,currentColor 1.1px,transparent 1.5px) 0 0/4px 5.5px}' +
+          '.pv-fsmc .pv-mcw{margin:0}.pv-fsmc .pv-mc{width:40px;height:40px;margin:0}.pv-fsmc .pv-mc .pv-mc-n{font-size:14px}.pv-fsmc .pv-mcs{width:30px;height:30px;font-size:18px}' +
+          '.pv-fsmc-x{flex:none;width:22px;height:22px;margin-left:2px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:inherit;font:700 14px/1 -apple-system,Helvetica,Arial,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}' +
+          '.pv-fsmc-x:hover{background:rgba(255,255,255,.22)}.pv-fsmcbtn[aria-pressed="false"]{opacity:.55}' +
+          'html[data-theme=light] .pv-fsmc{background:rgba(255,255,255,.9);color:#111;border-color:rgba(15,23,42,.14);box-shadow:0 6px 18px rgba(15,23,42,.18)}' +
+          'html[data-theme=light] .pv-fsmc .pv-mcs{color:#111;background:rgba(15,23,42,.06);border-color:rgba(15,23,42,.16)}html[data-theme=light] .pv-fsmc .pv-mc{color:#111}html[data-theme=light] .pv-fsmc .pv-mc.on{color:#FBF8F1}' +
+          'html[data-theme=light] .pv-fsmc-x{background:rgba(15,23,42,.08)}';
+        doc.head.appendChild(st);
+      }
+      var box = null, mc = null, fsmcBtn = el.querySelector('.pv-fsmcbtn'), dg = null;
+      function isOff() { return ls('fsmc.off') === '1'; }
+      function paintBtn() {
+        if (!fsmcBtn) return; var on = !isOff();
+        fsmcBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); fsmcBtn.title = on ? '클릭 창 숨기기' : '클릭 창 보이기';
+      }
+      function lim() { var r = el.getBoundingClientRect(); return { w: Math.max(0, r.width - box.offsetWidth - 16), h: Math.max(0, r.height - box.offsetHeight - 16), r: r }; }
+      function place(x, y) {
+        var L = lim(); x = Math.min(L.w, Math.max(0, x)); y = Math.min(L.h, Math.max(0, y));
+        box.style.left = (8 + x) + 'px'; box.style.top = (8 + y) + 'px';
+      }
+      function savedPos() { try { var p = JSON.parse(ls('fsmc.pos') || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) return p; } catch (e) { /* 처음 */ } return { x: 1, y: 1 }; }   // 처음엔 오른쪽 아래
+      function placeSaved() { if (!box || box.hidden) return; var L = lim(), p = savedPos(); place(p.x * L.w, p.y * L.h); }
+      function savePos() {
+        var L = lim(), x = parseFloat(box.style.left) - 8, y = parseFloat(box.style.top) - 8;
+        ls('fsmc.pos', JSON.stringify({ x: L.w ? +(x / L.w).toFixed(4) : 1, y: L.h ? +(y / L.h).toFixed(4) : 1 }));
+      }
+      function build() {
+        if (box) return box;
+        if (!P.metroCircle) return null;
+        try { mc = P.metroCircle(); } catch (e) { mc = null; }
+        if (!mc || !mc.el) return null;
+        box = doc.createElement('div'); box.className = 'pv-fsmc'; box.hidden = true;
+        box.setAttribute('role', 'group'); box.setAttribute('aria-label', '클릭 — 빈 곳을 끌어서 옮기기');
+        box.innerHTML = '<span class="pv-fsmc-grip" aria-hidden="true"></span>';
+        box.appendChild(mc.el);
+        var x = doc.createElement('button'); x.type = 'button'; x.className = 'pv-fsmc-x'; x.textContent = '×';
+        x.setAttribute('aria-label', '클릭 창 끄기'); x.title = '클릭 창 끄기 (위 메뉴의 「클릭」으로 다시 켜기)';
+        x.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        x.addEventListener('click', function (e) { e.stopPropagation(); setOff(true); });
+        box.appendChild(x);
+        box.addEventListener('pointerdown', function (e) {
+          if (e.target.closest && e.target.closest('button,input')) return;            // 단추는 그대로 (시작/멈춤 · −/+ · ×)
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          e.preventDefault(); e.stopPropagation();
+          var b = box.getBoundingClientRect(); dg = { id: e.pointerId, dx: e.clientX - b.left, dy: e.clientY - b.top };
+          try { box.setPointerCapture(e.pointerId); } catch (x2) { /* 캡처 없이도 움직임 */ }
+          box.classList.add('drag');
+        });
+        box.addEventListener('pointermove', function (e) {
+          if (!dg || e.pointerId !== dg.id) return; e.preventDefault();
+          var r = el.getBoundingClientRect(); place(e.clientX - r.left - dg.dx - 8, e.clientY - r.top - dg.dy - 8);
+        });
+        function end(e) { if (!dg || (e && e.pointerId !== dg.id)) return; dg = null; box.classList.remove('drag'); savePos(); }
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (k) { box.addEventListener(k, end); });
+        box.addEventListener('click', function (e) { e.stopPropagation(); });
+        el.appendChild(box);
+        return box;
+      }
+      function sync() {
+        var show = !!S.fs && !isOff();
+        if (show) build();
+        if (box) { box.hidden = !show; if (show) { try { mc.sync(); } catch (e) { /* 화면만 */ } placeSaved(); } }
+        paintBtn();
+      }
+      function setOff(v) {
+        ls('fsmc.off', v ? '1' : '0'); sync();
+        toast(v ? '클릭 창을 껐어요 — 위 메뉴의 「클릭」으로 다시 켤 수 있어요' : '클릭 창을 켰어요 — 빈 곳을 끌어 옮길 수 있어요', false, 2200);
+      }
+      if (fsmcBtn) fsmcBtn.addEventListener('click', function (e) { e.stopPropagation(); setOff(!isOff()); try { fsBar(true); } catch (x) { /* 메뉴 */ } });
+      paintBtn();
+      P.on('fs', function (on) {
+        if (on && !S.worship) { setWorship(true, true); toast('전체 화면 — 예배 모드로 바꿨어요 (페이지 넘김 · 클릭만)', false, 2200); }   // 전체 화면 = 자동 예배 모드
+        sync();
+      });
+      function onResize() { if (box && !box.hidden) requestAnimationFrame(placeSaved); }
+      root.addEventListener('resize', onResize);
+      P.on('close', function () { root.removeEventListener('resize', onResize); if (box && box.parentNode) box.parentNode.removeChild(box); });
+    }());
 
     /* ---------- 예배 전 전체 준비 ---------- */
     function prepKey() { return 'prep.' + sheets.map(function (f) { return f.id; }).join(',').length + '.' + sheets.map(function (f) { return String(f.id).slice(-6); }).join(''); }
