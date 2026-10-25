@@ -742,6 +742,77 @@ function schedTab() {
     '</div>';
 }
 
+/* ---------------------------------------------------------------- 라이브러리 악보 올리기 — PDF 하나 또는 사진 여러 장(한꺼번에 골라서)
+ * 사진은 고른 순서대로 한 PDF 로 묶어 올림 (pdf-lib, 기기 안에서). PDF 와 사진을 섞어 골라도 차례대로 한 파일로 */
+function rpUpForm() {
+  return '<div class="rp-form"><div class="rp-g"><label class="w2">악보 파일 <span class="gsnote">PDF 또는 사진 여러 장 — 한꺼번에 고르세요</span>' +
+      '<input type="file" id="rpFile" accept="application/pdf,.pdf,image/*" multiple onchange="rpFilesNote()"></label>' +
+    '<p class="hint w2" id="rpFN" style="margin:0;"></p>' +
+    '<label>곡 제목<input type="text" id="rpUT" maxlength="80"></label><label>Key<input type="text" id="rpUK" maxlength="8"></label>' +
+    '<label>날짜<input type="date" id="rpUD" value="' + esc(DATE || D.nextWeek || '') + '"></label><label>인도자<input type="text" id="rpUL" maxlength="30"></label>' +
+    '<label>BPM<input type="number" id="rpUB" min="0" max="300"></label><label>쪽수<input type="number" id="rpUP" min="0" max="99"></label>' +
+    '<label class="w2">메모<input type="text" id="rpUN" maxlength="200"></label></div>' +
+    '<div class="sv-btns"><button class="btn" onclick="rpUpload(this)">올리기</button></div><p class="msg" id="rpUM"></p></div>';
+}
+function rpFilesNote() {
+  var fs = Array.prototype.slice.call((el('rpFile') || {}).files || []), n = el('rpFN'); if (!n) return;
+  n.textContent = fs.length > 1 ? fs.length + '개 파일 · 이 순서대로 한 악보로 묶어요: ' + fs.map(function (f) { return f.name; }).join(' → ') : '';
+  if (fs.length && !val('rpUT')) { var t = String(fs[0].name || '').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_-]+/g, ' ').trim(); if (t && !/^(IMG|DSC|PXL|image|photo|scan)\b/i.test(t)) el('rpUT').value = t.slice(0, 80); }
+}
+function rpLoadPdfLib() {
+  if (window.PDFLib) return Promise.resolve(window.PDFLib);
+  return new Promise(function (ok, no) { var s = document.createElement('script'); s.src = '/vendor/pdf-lib.min.js'; s.onload = function () { ok(window.PDFLib); }; s.onerror = function () { no(new Error('PDF 도구를 불러오지 못했습니다.')); }; document.head.appendChild(s); });
+}
+/** 사진 한 장 → JPEG 바이트 (긴 변 2400px 까지 줄임 · 아이폰 HEIC 도 브라우저가 열 수 있으면 됨) */
+function rpImgJpeg(file) {
+  return new Promise(function (ok, no) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      var k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function (b) { if (!b) return no(new Error('사진을 읽지 못했습니다: ' + file.name)); b.arrayBuffer().then(function (ab) { ok({ bytes: new Uint8Array(ab), w: c.width, h: c.height }); }); }, 'image/jpeg', 0.88);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); no(new Error('이 사진은 열 수 없어요: ' + file.name)); };
+    img.src = url;
+  });
+}
+function rpIsPdf(f) { return /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name); }
+/** 고른 파일들 → PDF 한 개(Blob). PDF 하나만 골랐으면 그대로 */
+function rpBuildPdf(files) {
+  if (files.length === 1 && rpIsPdf(files[0])) return Promise.resolve(files[0]);
+  return rpLoadPdfLib().then(function (L) {
+    return L.PDFDocument.create().then(function (out) {
+      var chain = Promise.resolve();
+      files.forEach(function (f) {
+        chain = chain.then(function () {
+          if (rpIsPdf(f)) return f.arrayBuffer().then(function (ab) { return L.PDFDocument.load(ab, { ignoreEncryption: true }); })
+            .then(function (src) { return out.copyPages(src, src.getPageIndices()); }).then(function (ps) { ps.forEach(function (p) { out.addPage(p); }); });
+          return rpImgJpeg(f).then(function (j) { return out.embedJpg(j.bytes).then(function (im) { var pg = out.addPage([j.w, j.h]); pg.drawImage(im, { x: 0, y: 0, width: j.w, height: j.h }); }); });
+        });
+      });
+      return chain.then(function () { return out.save(); }).then(function (u8) { return new Blob([u8], { type: 'application/pdf' }); });
+    });
+  });
+}
+function rpUpload(b) {
+  var files = Array.prototype.slice.call(el('rpFile').files || []), t = el('rpUT').value.trim();
+  if (!files.length) return say('rpUM', 'PDF 파일이나 사진을 골라주세요.', 'err');
+  if (!t) return say('rpUM', '곡 제목을 적어주세요.', 'err');
+  if (files.some(function (f) { return !rpIsPdf(f) && !/^image\//i.test(f.type) && !/\.(jpe?g|png|heic|heif|webp|gif)$/i.test(f.name); })) return say('rpUM', 'PDF 와 사진만 올릴 수 있어요.', 'err');
+  b.disabled = true; say('rpUM', files.length > 1 ? files.length + '개를 한 악보로 묶는 중…' : '올리는 중…');
+  rpBuildPdf(files).then(function (blob) {
+    if (blob.size > 12 * 1048576) throw new Error('악보가 너무 큽니다 (12MB 이하). 사진 수를 줄여 주세요.');
+    say('rpUM', '올리는 중…');
+    return new Promise(function (ok, no) { var rd = new FileReader(); rd.onerror = function () { no(new Error('파일을 읽지 못했습니다.')); }; rd.onload = function () { ok(String(rd.result).replace(/^data:[^;]*;/, 'data:application/pdf;')); }; rd.readAsDataURL(blob); });
+  }).then(function (dataUrl) {
+    callServer('worshipRepoSave', [TOKEN, { title: t, date: el('rpUD').value, leader: el('rpUL').value.trim(), key: el('rpUK').value.trim(), bpm: el('rpUB').value,
+      pages: el('rpUP').value, note: el('rpUN').value.trim(), source: files.length === 1 && rpIsPdf(files[0]) ? files[0].name : t + '.pdf' }, dataUrl], function () { RP.up = false; loadRepo(); },
+      function (e) { b.disabled = false; say('rpUM', (e && e.message) || '올리지 못했습니다.', 'err'); });
+  }).catch(function (e) { b.disabled = false; say('rpUM', (e && e.message) || '올리지 못했습니다.', 'err'); });
+}
+
 /* ---------------------------------------------------------------- 시작 */
 document.addEventListener('DOMContentLoaded', function () {
   if (!TOKEN) { var b = el('body'); if (b) b.innerHTML = '<div class="panel"><p class="empty">다시 들어와 주세요.</p></div>'; return; }
