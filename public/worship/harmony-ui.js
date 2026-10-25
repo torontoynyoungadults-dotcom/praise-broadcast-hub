@@ -309,7 +309,8 @@
         rowsSorted.forEach(function (cd, i) {
           var user = cd.src === 'user'; if (dS === 0 && !user) return;
           var x = cd.x * W, y = cd.y * Hh, w = cd.w * W, hh = cd.h * Hh, pad = Math.max(2, hh * 0.14);
-          if (!user || cd.cover) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2); }     // 손으로 넣은 코드도 인쇄된 글자 자리를 찾았으면 덮음
+          if (!user || cd.cover) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2);
+            if (cd.cv) { var cp = Math.max(1.5, hh * 0.08); c.fillRect(cd.cv.x0 * W - cp, cd.cv.y0 * Hh - cp, (cd.cv.x1 - cd.cv.x0) * W + cp * 2, (cd.cv.y1 - cd.cv.y0) * Hh + cp * 2); } }     // V891 — 넓힌 덮개로 원래 글자를 끝까지     // 손으로 넣은 코드도 인쇄된 글자 자리를 찾았으면 덮음
           vis.push({ cd: cd, row: rowOf[i], txt: cd.pre + (CAPO ? capoChord(cd.parsed, dS) : HC.formatChord(cd.parsed, dS, dF)) + cd.post, x: x, w: w });
         });
         /* V870 — 키를 바꿔 코드가 길어져도(예: G → Ab, C → C#m7) 옆 코드와 겹치지 않게:
@@ -826,6 +827,41 @@
         return seq.then(function () { if (out.length || only) return out; return pageLevel(); });          // 오선 위에서 하나도 못 찾으면 페이지 전체에서 한 번 더
       });
     }
+    /** V891 — 덮개 넓히기: 인쇄된 코드 글자는 OCR · PDF 글자층이 준 상자보다 넓은 일이 많습니다 (♯ · ♭ · 위첨자 7 · 슬래시 베이스 · 굵은 획).
+     *  상자가 좁으면 원래 글자 끝이 남아 새 코드와 섞여 보이므로("G/B♯", "Em7ɑ7"), 페이지 그림에서 상자에 붙어 이어진 잉크를 따라
+     *  좌우(오른쪽은 글자 높이의 2.6배까지) · 위아래(0.4배까지)로 넓힌 덮개 상자 cv 를 만들어 둡니다. 빈틈이 글자 높이의 30% 를 넘으면 다음 글자로 봄 */
+    function growCovers(chords, rgba, W, Hh) {
+      var lum = function (x, y) { var i = (y * W + x) * 4; return rgba[i] * 0.299 + rgba[i + 1] * 0.587 + rgba[i + 2] * 0.114; }, INK = 165;
+      (chords || []).forEach(function (c) {
+        if (c.src === 'user' && !c.cover) return;
+        var x0 = Math.max(0, Math.round(c.x * W)), x1 = Math.min(W - 1, Math.round((c.x + c.w) * W)), y0 = Math.max(0, Math.round(c.y * Hh)), y1 = Math.min(Hh - 1, Math.round((c.y + c.h) * Hh)), h = Math.max(4, y1 - y0);
+        var ya = Math.max(0, Math.round(y0 - 0.4 * h)), yb = Math.min(Hh - 1, Math.round(y1 + 0.3 * h)), gapMax = Math.max(2, Math.round(h * 0.3)), x, y, g, last;
+        var yc = Math.min(Hh - 1, yb + 1), yd = Math.min(Hh - 1, Math.round(yb + 0.35 * h));
+        var colInk = function (xx) { for (var yy = ya; yy <= yb; yy++) if (lum(xx, yy) < INK) return true; return false; };
+        var stemAt = function (xx) { return yd > yc && lum(xx, yc) < INK && lum(xx, yd) < INK; };          // 아래로 계속 이어지는 잉크 = 음표 줄기 · 머리 — 코드 글자가 아님
+        for (x = x1 + 1, g = 0, last = x1; x < Math.min(W, x1 + Math.round(h * 2.6)); x++) { if (stemAt(x)) break; if (colInk(x)) { last = x; g = 0; } else if (++g > gapMax) break; }
+        var nx1 = last;
+        for (x = x0 - 1, g = 0, last = x0; x > Math.max(-1, x0 - Math.round(h * 0.8)); x--) { if (stemAt(x)) break; if (colInk(x)) { last = x; g = 0; } else if (++g > gapMax) break; }
+        var nx0 = last, ny0 = y0, ny1 = y1;
+        for (y = ya; y <= yb; y++) { for (x = nx0; x <= nx1; x++) if (lum(x, y) < INK) { if (y < ny0) ny0 = y; if (y > ny1) ny1 = y; break; } }
+        c.cv = { x0: nx0 / W, y0: ny0 / Hh, x1: (nx1 + 1) / W, y1: (ny1 + 1) / Hh };
+      });
+    }
+    /** 이미 분석된 페이지(덮개가 없는 예전 분석)의 덮개만 새로 — 페이지 그림만 그려 보고 분석은 다시 하지 않음 */
+    var covBusy = {};
+    function ensureCovers(pg) {
+      var d = S.data, pd = d && d.pages[String(pg)], f = S.fid, k = f + ':' + pg; if (!pd || pd.cov || covBusy[k] || !sPdf()) return;
+      covBusy[k] = 1;
+      sSize(pg).then(function (sz) {
+        var cv0 = doc.createElement('canvas');
+        return sRender(cv0, pg, clamp(2000 / sz.w, 0.4, 6)).then(function () {
+          if (S.dead || S.fid !== f || S.data.pages[String(pg)] !== pd) return;
+          var img = cv0.getContext('2d').getImageData(0, 0, cv0.width, cv0.height);
+          growCovers(pd.chords, img.data, cv0.width, cv0.height); pd.cov = 1;
+          saveSoon(); redraw();
+        });
+      }).catch(function () { /* 덮개는 덤 — 다음에 다시 */ }).then(function () { delete covBusy[k]; });
+    }
     function samplePaper(rgba) {
       var r = 0, g = 0, b = 0, n = 0, i;
       for (i = 0; i < rgba.length; i += 4 * 13) { var lum = rgba[i] * 0.299 + rgba[i + 1] * 0.587 + rgba[i + 2] * 0.114; if (lum > 185) { r += rgba[i]; g += rgba[i + 1]; b += rgba[i + 2]; n++; } }
@@ -864,7 +900,8 @@
             var notes = om.notes.map(function (n) { return { id: uid(), staff: n.staff, x: n.x / W, step: n.step, open: !!n.open, beats: n.beats, rest: n.restAfter || 0, src: 'auto' }; });
             var old = D.pages[pg]; if (old) { old.notes.forEach(function (n) { delete D.ov.alto[n.id]; delete D.ov.tenor[n.id]; }); Object.keys(D.use).forEach(function (k) { if (k.indexOf(pg + ':') === 0) delete D.use[k]; }); }
             if (HC.pruneChordRows) cr.chords = HC.pruneChordRows(cr.chords.filter(function (c) { return HC.parseChord(c.text); }), staves);     // V890 — 오선마다 코드 줄 하나만
-            D.pages[pg] = { av: AV, w: W, h: Hh, paper: paper, chords: cr.chords, staves: staves, notes: notes, src: cr.src, at: Date.now(), keyText: cr.keyText || '', sig: om.keySig ? { n: om.keySig.n, conf: om.keySig.conf } : null };
+            try { growCovers(cr.chords, img.data, W, Hh); } catch (e) { /* 덮개는 덤 */ }
+            D.pages[pg] = { av: AV, cov: 1, w: W, h: Hh, paper: paper, chords: cr.chords, staves: staves, notes: notes, src: cr.src, at: Date.now(), keyText: cr.keyText || '', sig: om.keySig ? { n: om.keySig.n, conf: om.keySig.conf } : null };
             return { pg: pg, chords: cr.chords.length, staves: staves.length, notes: notes.length, src: cr.src, keyText: cr.keyText || '', sig: om.keySig };
           });
         });
@@ -965,7 +1002,8 @@
     function maybeAuto() {
       if (S.dead || !S.data || !S.autoOn || !(pShift() || capoOn())) return;
       var pg = P.page(), key = S.fid + ':' + pg, pd0 = S.data.pages[String(pg)];
-      if ((pd0 && !staleOcr(pd0)) || S.autoTried[key]) return;
+      if (pd0 && !staleOcr(pd0)) { if (!pd0.cov) ensureCovers(pg); return; }
+      if (S.autoTried[key]) return;
       if (P.worship && P.worship()) {                                                               // V871 — 예배 모드: 무거운 분석은 하지 않음 (「예배 전 전체 준비」에서 미리)
         if (!S.wsWarned) { S.wsWarned = {}; } if (!S.wsWarned[key]) { S.wsWarned[key] = 1; note('예배 모드 — 이 페이지는 미리 준비되지 않아 코드를 바꾸지 않았습니다.', true); }
         return;
