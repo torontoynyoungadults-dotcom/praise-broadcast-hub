@@ -518,8 +518,11 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
     const rows = await sheetsDb.readAll('녹음');
     const hit = rows.find((r) => req.ctx.teams.includes(r['팀ID']) && liveStore.audioIdOf(r['링크']) === id);
     if (!hit) return res.status(404).send('not found');
-    // 새 R2 음원은 방송팀 공개 보기 쿠키가 아니라, 실제 로그인한 해당 팀원만 재생·다운로드할 수 있습니다.
-    if (liveStore.appAudioIdOf(hit['링크']) && (!req.session || !req.ctx.teams.includes(hit['팀ID']))) return res.status(403).send('팀원 로그인이 필요합니다.');
+    // 공개 보기 쿠키로 팀을 추가한 경우를 제외하고, 실제 로그인 멤버십으로 R2 음원 접근을 확인합니다.
+    if (liveStore.appAudioIdOf(hit['링크'])) {
+      const memberCtx = req.session ? await teamContext.resolve(req).catch(() => null) : null;
+      if (!memberCtx || !memberCtx.teams.includes(hit['팀ID'])) return res.status(403).send('팀원 로그인이 필요합니다.');
+    }
     if (r2.enabled()) {                                     // R2 에 있으면 (새로 올린 녹음 · 옮겨 둔 예전 녹음)
       let meta = null;
       try { meta = await r2.head(id, 'audio'); } catch (e) { console.error('[R2 녹음 확인 실패]', id, e && e.message); }
