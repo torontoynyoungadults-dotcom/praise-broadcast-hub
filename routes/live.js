@@ -116,7 +116,9 @@ async function liveData(team, scope, extraId) {
     const xid = xr ? liveStore.sheetIdOf(team, xr['파일링크']) : '';
     if (xr && !list.some((x) => x.id === xid)) list.unshift({ id: xid, name: sheetName(xr, '') });
   }
-  const recs = recRows.filter((r) => r['팀ID'] === team && liveStore.inScope(r, scope))
+  // 참고 음원은 곡에 붙는 것 — 다른 날짜(연습 콘티 · 지난 주일)에 올린 것도 함께 보냄. 이 날짜 것이 먼저, 나머지는 최근 날짜부터 (라이브 악보는 같은 제목 중 앞의 것을 고름)
+  const recs = recRows.filter((r) => r['팀ID'] === team && (liveStore.inScope(r, scope) || String(r['구분'] || '') === '참고'))
+    .map((r) => ({ r, own: liveStore.inScope(r, scope) ? 1 : 0 })).sort((a, b) => b.own - a.own || String(b.r['날짜'] || '').localeCompare(String(a.r['날짜'] || ''))).map((x) => x.r)
     .map((r) => ({ play: nas.playUrl(r['링크']) || (liveStore.audioIdOf(r['링크']) ? '/audio/' + liveStore.audioIdOf(r['링크']) : ''), r })).filter((x) => x.play)      // 드라이브(NAS) 녹음도
     .map(({ play, r }) => ({ title: String(r['제목'] || '녹음'), play, kind: String(r['구분'] || ''), by: String(r['올린사람'] || '') }));
   return { room, songs, sheets: list, recs };
