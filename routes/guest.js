@@ -12,6 +12,7 @@ const pageShell = require('../lib/pageShell');
 const week = require('../lib/weekUtil');
 const ui = require('../lib/uiIcons');
 const guestLink = require('../lib/guestLink');
+const guestDayLink = require('../lib/guestDayLink');
 const honorific = require('../lib/honorific');
 const hubApi = require('../lib/hubApi');
 const prac = require('../lib/practice');
@@ -28,22 +29,37 @@ const DOW = ['주일', '월', '화', '수', '목', '금', '토'];
 const md = (d) => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}/${x.getDate()}`; };
 const mdDow = (d) => `${md(d)}(${DOW[new Date(d + 'T12:00:00').getDay()]})`;
 
-/** 열쇠 확인 — 맞지 않으면 안내 화면 */
+/** 열쇠 확인 — 맞지 않으면 안내 화면.
+ *  /b/<열쇠> = 방송팀 보기 전용 (찬양팀 전체) · /g/<열쇠> = 객원 공유 링크 (그 날 하나의 콘티 · 라이브 악보 · 녹음만) */
 async function gate(req, res, next) {
-  const team = await guestLink.teamOf(req.params.token).catch(() => null);
+  const isDay = /^\/g\//.test(req.path);
+  let team = null, day = null;
+  if (isDay) { day = await guestDayLink.resolve(req.params.token).catch(() => null); team = day && day.team; }
+  else team = await guestLink.teamOf(req.params.token).catch(() => null);
   if (!team) {
     res.status(404).set('Cache-Control', 'no-store').type('html').send(await pageShell.render(
       `${pageShell.hero({ eyebrow: 'YN찬양팀Hub', title: '링크를 열 수 없어요', sub: '주소가 바뀌었거나 올바르지 않아요.' })}
        <div class="ph-card"><p class="ph-sub">찬양팀 담당자에게 새 링크를 받아주세요.</p></div>`, { title: '링크를 열 수 없어요', head: '<meta name="robots" content="noindex">' }));
     return;
   }
-  req.guest = { team, token: req.params.token, base: `/b/${req.params.token}` };
+  req.guest = { team, token: req.params.token, base: (isDay ? '/g/' : '/b/') + req.params.token, day: day ? { token: req.params.token, room: day.room, scope: day.scope } : null };
   res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
   next();
 }
+/** 이 요청이 가리키는 날 — 객원 링크는 늘 그 날 하나 (주소의 date · event 는 무시), 방송팀 링크는 주소대로 */
+async function scopeOfReq(req, src) {
+  const sh = S(), g = req.guest;
+  if (g.day) {
+    const eventRow = g.day.scope.event ? await sh.specialServiceById(g.team, g.day.scope.event) : null;
+    return { eventRow, date: eventRow ? eventRow['날짜'] : g.day.scope.date };
+  }
+  const eventRow = await sh.specialServiceById(g.team, String((src && src.event) || '').trim());
+  return { eventRow, date: eventRow ? eventRow['날짜'] : week.normalizeDate(src && src.date) };
+}
 
 function nav(g, active) {
-  const tabs = [['conti', `${g.base}/conti`, '예배 콘티'], ['live', `${g.base}/live`, '라이브 악보'], ['schedule', `${g.base}/schedule`, '스케줄표'], ['guide', `${g.base}/guide`, '사용설명서']];
+  const tabs = g.day ? [['conti', `${g.base}/conti`, '예배 콘티'], ['live', `${g.base}/live`, '라이브 악보']]
+    : [['conti', `${g.base}/conti`, '예배 콘티'], ['live', `${g.base}/live`, '라이브 악보'], ['schedule', `${g.base}/schedule`, '스케줄표'], ['guide', `${g.base}/guide`, '사용설명서']];
   return `<nav class="ph-hubnav" id="ph-hubnav" aria-label="메뉴"><div class="ph-hubnav-in">${tabs.map(([k, href, label]) =>
     `<a class="ph-hubtab${active === k ? ' on' : ''}" href="${href}"${active === k ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</div></nav>`;
 }
@@ -53,17 +69,19 @@ async function send(req, res, active, hero, body, title) {
   res.type('html').send(await pageShell.render(content, { title, head: '<meta name="robots" content="noindex">' }));
 }
 
-router.get('/b/:token', gate, (req, res) => res.redirect(req.guest.base + '/conti'));
+router.get(['/b/:token', '/g/:token'], gate, (req, res) => res.redirect(req.guest.base + '/conti'));
 
 /* ---------------------------------------------------------------- 라이브 악보 (읽기 전용)
    로그인 없이 그 예배의 라이브 악보 화면을 봅니다 — 악보 · 송폼 · 팀 필기 · 클릭 · 인도자가 넘기는 쪽을 따라가기만 하고,
    필기 · 설정 · 곡 정보 · 타이머 · 클릭 컨트롤은 서버가 막습니다 (lib/liveAuth.js mintView · lib/realtime.js). */
-router.get('/b/:token/live', gate, async (req, res) => {
-  const { team, base, token } = req.guest;
-  const sh = S();
-  const eventRow = await sh.specialServiceById(team, String(req.query.event || '').trim());
-  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+router.get(['/b/:token/live', '/g/:token/live'], gate, async (req, res) => {
+  const { team, base, token, day } = req.guest;
+  const { eventRow, date } = await scopeOfReq(req, req.query);
   const back = `${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}`;
+  if (day) {                                                        // 객원 공유 링크 — 그 날의 악보 · 필기 · 클릭 · 화음 · 녹음을 팀원처럼
+    live.grantDay(res, token);
+    return live.renderLive(req, res, { team, ev: eventRow, date, back, ro: false, day: { token } });
+  }
   live.grantView(res, token);                                     // 악보 · 녹음 파일을 이 브라우저에 열어 줌 (링크를 바꾸면 바로 막힘)
   return live.renderLive(req, res, { team, ev: eventRow, date, back, ro: true });
 });
@@ -75,12 +93,14 @@ router.get('/b/:token/guide', gate, async (req, res) => {
 });
 
 /* 방송팀 화면 (읽기 전용) — 지금 곡 · 송폼 · 콘티 순서 · 찬양팀 요청 메시지를 크게 (routes/live.js renderStage) */
-router.get('/b/:token/stage', gate, async (req, res) => {
-  const { team, base, token } = req.guest;
-  const sh = S();
-  const eventRow = await sh.specialServiceById(team, String(req.query.event || '').trim());
-  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+router.get(['/b/:token/stage', '/g/:token/stage'], gate, async (req, res) => {
+  const { team, base, token, day } = req.guest;
+  const { eventRow, date } = await scopeOfReq(req, req.query);
   const back = `${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}`;
+  if (day) {
+    live.grantDay(res, token);
+    return live.renderStage(req, res, { team, ev: eventRow, date, back, ro: false, day: { token } });
+  }
   live.grantView(res, token);
   return live.renderStage(req, res, { team, ev: eventRow, date, back, ro: true, guide: `${base}/guide#stage` });
 });
@@ -98,20 +118,19 @@ function lineupReadonly(rows, scope, team) {
     `<span class="gs-pos"><span class="gs-pi">${positionIconSvg(k)}</span><i>${esc(k)}</i><b>${esc(by[k].join(', '))}</b></span>`).join('')}</div></div>`;
 }
 
-router.get('/b/:token/conti', gate, async (req, res) => {
-  const { team, base } = req.guest;
+router.get(['/b/:token/conti', '/g/:token/conti'], gate, async (req, res) => {
+  const { team, base, day } = req.guest;
   const sh = S();
-  const eventRow = await sh.specialServiceById(team, String(req.query.event || '').trim());
-  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+  const { eventRow, date } = await scopeOfReq(req, req.query);
   const scope = { event: eventRow ? eventRow['ID'] : '', date };
   const [w, assign, evs, pinfo] = await Promise.all([sh.loadWeek(team, scope), sheetsDb.readAll('찬양편성'), sh.specialServices(team), sh.practiceInfo(team, scope, date)]);
   // 달력 띠 — 로그인 화면(routes/conti.js)과 똑같은 모양 (±3주 + 주일 외 찬양 칸 + 날짜 직접 고르기)
   const stripEvents = evs.map((e) => ({ id: e['ID'], name: String(e['이름'] || '주일 외 찬양'), date: e['날짜'] }));
   const strip = pageShell.weekStrip({ basePath: `${base}/conti`, team, date, assignRows: assign.filter((r) => r['팀ID'] === team), events: stripEvents, pracRows: (await sheetsDb.readAll('연습일정')).filter((r) => r['팀ID'] === team), activeEvent: scope.event ? scope.event : '' });
-  const dayBanner = scope.event
+  const dayBanner = scope.event && !day
     ? `<div class="ph-card ph-eventsbanner"><p class="ph-sub">${esc(eventRow['이름'])} 콘티예요 — 주일예배와는 별도 기록입니다. <a href="${base}/conti?date=${encodeURIComponent(date)}">이 날짜의 주일예배 콘티 보기 →</a></p></div>`
     : '';
-  const upcoming = evs.filter((e) => e['날짜'] >= week.todayStr()).slice(0, 6);
+  const upcoming = day ? [] : evs.filter((e) => e['날짜'] >= week.todayStr()).slice(0, 6);
   const evBox = upcoming.length ? `<div class="gs-evs">${upcoming.map((e) => `<a class="gs-ev${scope.event === e['ID'] ? ' on' : ''}" href="${base}/conti?event=${encodeURIComponent(e['ID'])}">${esc(e['이름'])} <small>${esc(md(e['날짜']))}</small></a>`).join('')}</div>` : '';
   const p = pinfo.p;
   const practice = `<div class="ph-card ph-practicecard"><div class="ph-pr-row"><span class="ph-pr-ic">${ui.icon('metronome')}</span>
@@ -135,11 +154,11 @@ router.get('/b/:token/conti', gate, async (req, res) => {
     ? `<button type="button" class="cn-mini cn-pkgbtn" data-pkg-open data-base="${base}/conti" data-readonly="1" data-href="${esc(pkgHref)}" data-title="${esc(scope.event ? eventRow['이름'] : week.shortKo(date, true))} 인쇄용 PDF" title="표지 + 곡별 머리말 + 악보 · US Letter 흑백 인쇄용 PDF — 미리보고 다운로드">${ui.icon('download')} 인쇄용 PDF 패키지</button>`
     : '';
   const body = `
-    ${strip}
+    ${day ? '' : strip}
     ${dayBanner}
     ${evBox ? `<div class="ph-card">${evBox}</div>` : ''}
     ${practice}
-    <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>악보 · 송폼 · 클릭을 실시간으로 봅니다 (보기 전용)</small></span></a>
+    <a class="gs-livebtn" href="${base}/live?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span><b>라이브 악보 열기</b><small>${day ? '악보 · 필기 · 클릭 · 화음 · 녹음을 팀원처럼 쓸 수 있어요' : '악보 · 송폼 · 클릭을 실시간으로 봅니다 (보기 전용)'}</small></span></a>
     <a class="gs-livebtn gs-stagebtn" href="${base}/stage?${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('media')}<span><b>방송팀 화면</b><small>지금 곡 · 송폼 · 찬양팀 요청을 크게 봅니다</small></span></a>
     <div class="cn-toolrow">${pkgBtn}</div>
     ${lineupReadonly(assign.filter((r) => r['팀ID'] === team), scope, team)}
@@ -152,7 +171,7 @@ router.get('/b/:token/conti', gate, async (req, res) => {
     ${w.sheets.some((f) => !f['곡ID']) ? sh.packageSheetsCard(team, scope, w.sheets, false) : ''}
     ${comments}
     <script>(function(){try{var i=document.querySelector('[data-gs-name]');if(!i)return;i.value=localStorage.getItem('gs.name')||'';i.form.addEventListener('submit',function(){try{localStorage.setItem('gs.name',i.value.trim())}catch(e){}});}catch(e){}})();</script>`;
-  await send(req, res, 'conti', { eyebrow: `${team} · 방송팀`, title: scope.event ? eventRow['이름'] : '예배 콘티', sub: week.labelKo(date) }, body, `${team} 예배 콘티`);
+  await send(req, res, 'conti', { eyebrow: `${team} · ${day ? '객원' : '방송팀'}`, title: scope.event ? eventRow['이름'] : '예배 콘티', sub: week.labelKo(date) }, body, `${team} 예배 콘티`);
 });
 
 /* 댓글 — 이름 + 내용만. IP 별로 10분에 8개까지, 열쇠 전체로 한 시간에 80개까지 */
@@ -164,12 +183,11 @@ function limited(key, max, ms) {
   if (HITS.size > 5000) { HITS.forEach((v, k) => { if (!v.length || now - v[v.length - 1] > 3600e3) HITS.delete(k); }); }
   return false;
 }
-router.post('/b/:token/comments', gate, async (req, res) => {
-  const { team, base, token } = req.guest;
+router.post(['/b/:token/comments', '/g/:token/comments'], gate, async (req, res) => {
+  const { team, base, token, day } = req.guest;
   const b = req.body || {};
   const sh = S();
-  const eventRow = await sh.specialServiceById(team, String(b.event || '').trim());
-  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(b.date);
+  const { eventRow, date } = await scopeOfReq(req, b);
   const back = (c) => res.redirect(`${base}/conti?${eventRow ? 'event=' + encodeURIComponent(eventRow['ID']) : 'date=' + encodeURIComponent(date)}&c=${c}#comments`);
   if (String(b.website || '').trim()) return back('ok');                                   // 로봇이 채운 칸 — 조용히 무시
   const name = String(b.name || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 20);
@@ -179,7 +197,7 @@ router.post('/b/:token/comments', gate, async (req, res) => {
   try {
     await sheetsDb.appendRow('콘티댓글', {
       'ID': 'M' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), '팀ID': team, ...sh.scopeFields({ event: eventRow ? eventRow['ID'] : '', date }),
-      '이름': name + ' (방송팀)', '내용': content, '작성시각': new Date().toISOString(),
+      '이름': name + (day ? ' (객원)' : ' (방송팀)'), '내용': content, '작성시각': new Date().toISOString(),
     });
   } catch (e) { console.error('[방송팀 댓글 저장 실패]', e.message); return back('wait'); }
   back('ok');
@@ -194,26 +212,27 @@ function sendGuestPdf(res, r) {
     'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(r.name)}.pdf` });
   res.send(r.pdf);
 }
-router.get('/b/:token/conti/package/start', gate, (req, res) => {
+router.get(['/b/:token/conti/package/start', '/g/:token/conti/package/start'], gate, (req, res) => {
   res.set('Cache-Control', 'no-store');
   const { team } = req.guest;
   for (const [k, j] of guestPkgJobs) if (Date.now() - j.at > 600000) guestPkgJobs.delete(k);
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const job = { at: Date.now(), team, pct: 0, label: '준비 중', done: false, err: false, result: null };
   guestPkgJobs.set(id, job);
-  req.ctx = { current: team };
-  S().makePackage(req, (p, label) => { if (p > job.pct) job.pct = Math.min(0.99, p); if (label) job.label = label; })
+  const dq = req.guest.day ? (req.guest.day.scope.event ? { event: req.guest.day.scope.event } : { date: req.guest.day.scope.date }) : null;
+  const preq = { ctx: { current: team }, query: Object.assign({}, req.query, dq || {}), app: req.app, session: null };      // 객원 링크 — 주소의 날짜 대신 그 날로
+  S().makePackage(preq, (p, label) => { if (p > job.pct) job.pct = Math.min(0.99, p); if (label) job.label = label; })
     .then((r) => { job.result = r; job.pct = 1; job.done = true; job.label = '완료'; })
     .catch((e) => { console.error('[방송팀 PDF 패키지 실패]', e && e.stack || e); job.err = true; job.done = true; });
   res.json({ id });
 });
-router.get('/b/:token/conti/package/status', gate, (req, res) => {
+router.get(['/b/:token/conti/package/status', '/g/:token/conti/package/status'], gate, (req, res) => {
   res.set('Cache-Control', 'no-store');
   const j = guestPkgJobs.get(String(req.query.id || ''));
   if (!j || j.team !== req.guest.team) return res.status(404).json({ gone: true });
   res.json({ pct: Math.round(j.pct * 100), label: j.label, done: j.done, err: j.err });
 });
-router.get('/b/:token/conti/package.pdf', gate, async (req, res) => {
+router.get(['/b/:token/conti/package.pdf', '/g/:token/conti/package.pdf'], gate, async (req, res) => {
   try {
     const j = guestPkgJobs.get(String(req.query.job || ''));
     if (!j || j.team !== req.guest.team || !j.result) return res.status(404).type('text').send('만든 PDF를 찾지 못했어요. 다시 만들어 주세요.');

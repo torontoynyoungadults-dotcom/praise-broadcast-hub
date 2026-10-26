@@ -47,6 +47,7 @@ const soundSetup = require('../lib/soundSetup');
 /* 유튜브 송폼 태그 화면 파일(public/worship/ytform.js)의 버전 — 이어 듣기 상자가 처음 열릴 때 불러옴 */
 const YTFORM_V = (() => { try { return String(Math.floor(require('fs').statSync(require('path').join(__dirname, '..', 'public', 'worship', 'ytform.js')).mtimeMs)); } catch (e) { return String(Date.now()); } })();
 const guestLink = require('../lib/guestLink');
+const guestDayLink = require('../lib/guestDayLink');
 const timeSettings = require('../lib/timeSettings');
 const closingHymn = require('../lib/closingHymn');
 const practiceView = require('../lib/practiceView');
@@ -548,6 +549,28 @@ function guestPanel(req, team, scope, token, isAdmin, open) {
     ${isAdmin ? (token ? form('새 링크로 바꾸기', '새 링크로 바꾸면 예전 링크는 바로 쓸 수 없어요. 바꿀까요?') : form('링크 만들기', '', ' ph-pri')) : ''}
   </details>`;
 }
+/** 객원 공유 링크 칸 — 이 날 스케줄에 객원(팀원 명단에 없거나 객원 멤버)이 있으면 나타남. 로그인 없이 그날 콘티 · 라이브 악보 · 녹음을 팀원처럼 */
+function guestDayNames(byPos, roster, infoMap) {
+  const set = new Set();
+  Object.keys(byPos || {}).forEach((k) => (byPos[k] || []).forEach((x) => {
+    const n = String(x['이름'] || '').trim();
+    if (n && (roster.indexOf(n) === -1 || (infoMap[n] && infoMap[n].객원))) set.add(n);
+  }));
+  return Array.from(set);
+}
+function guestDayPanel(req, team, scope, token, names, isAdmin, open) {
+  const url = token ? `${req.protocol}://${req.get('host')}${prefixOf(req)}/g/${token}` : '';
+  const form = (label, confirmMsg) => `<form method="post" action="/conti/guest-day-link" class="cn-glform" onsubmit="return confirm('${confirmMsg}')">
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<button class="cn-mini" type="submit">${label}</button></form>`;
+  return `<details class="cn-guestlink cn-guestday"${open ? ' open' : ''}>
+    <summary>${ui.icon('link')} 객원 공유 링크 <small>· ${esc(names.join(', '))}</small></summary>
+    <p class="ph-sub">객원이 서는 날이에요. 이 링크를 보내면 <b>로그인 없이 이 날의 콘티 · 라이브 악보 · 녹음</b>을 팀원처럼 쓸 수 있어요. 다른 날이나 다른 메뉴는 열리지 않아요.</p>
+    ${token ? `<div class="cn-glrow"><input type="text" readonly value="${esc(url)}" aria-label="객원 공유 링크" onfocus="this.select()">
+        <button type="button" class="cn-mini" data-cn-copy="${esc(url)}">${ui.icon('clipboard')} 복사</button></div>
+      <p class="ph-msg cn-toolmsg" data-cn-copymsg role="status"></p>` : '<p class="ph-sub">링크를 만들지 못했어요. 잠시 뒤 다시 열어 주세요.</p>'}
+    ${isAdmin && token ? form('새 링크로 바꾸기', '새 링크로 바꾸면 예전 링크는 바로 쓸 수 없어요. 바꿀까요?') : ''}
+  </details>`;
+}
 const ytLinkOf = (link) => { link = String(link || '').trim(); return /^[A-Za-z0-9_-]{11}$/.test(link) ? 'https://youtu.be/' + link : link; };
 /** 링크는 http(s) 만 걸어 줍니다 (javascript: 같은 주소 방지) */
 const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
@@ -925,6 +948,11 @@ router.get('/conti', requireTeam, async (req, res) => {
     : { eyebrow: `${team} · 예배콘티`, title: '예배콘티', sub: week.labelKo(date) });
   const { byPos, roster, infoMap } = await weekAssignments(team, scope);
   const lineup = await lineupCard(team, scope, byPos, roster, infoMap, scope.event ? eventRow['이름'] : '', ctx.isAdmin);
+  let guestDay = '';
+  const gNames = guestDayNames(byPos, roster, infoMap);
+  if (gNames.length && !guestAccess.isGuest(ctx.member)) {                // 객원이 서는 날 — 그 날만 여는 공유 링크 (처음이면 만들어 둠)
+    try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.ensure(team, liveStore.roomOf(scope)), gNames, ctx.isAdmin, true); } catch (e) { console.error('[객원 링크]', e && e.message); }
+  }
   const pinfo = await practiceInfo(team, scope, date);
   const practice = practiceCard(team, pinfo);
   const hist = await historyFor(team, scope);
@@ -946,6 +974,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   })()}
 
   ${lineup}
+  ${guestDay}
 
 
   <div class="ph-card top-accent">
@@ -2251,6 +2280,16 @@ router.post('/conti/comments', requireTeam, async (req, res) => {
 });
 
 /* 로그인 없이 보는 화면은 "방송팀 보기 전용 링크"(routes/guest.js · /b/<열쇠>)로 옮겼습니다 — 예전 /public/conti 는 없앴습니다. */
+
+/** 객원 공유 링크 새로 바꾸기 (관리자) — 예전 주소는 바로 닫힘 */
+router.post('/conti/guest-day-link', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  if (req.ctx.isAdmin && req.ctx.teams.includes(team)) {
+    try { await guestDayLink.regenerate(team, liveStore.roomOf(scopeFrom(b))); } catch (e) { console.error('[객원 링크 저장 실패]', e.message); }
+  }
+  spa.redirect(req, res, contiUrl(team, scopeFrom(b)));
+});
 
 /** 방송팀 보기 링크 만들기 / 새로 바꾸기 (관리자) */
 router.post('/conti/guest-link', requireTeam, async (req, res) => {

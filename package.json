@@ -15,6 +15,7 @@
     "test:live-lasso": "node scripts/e2e-live-lasso-header.js",
     "test:live-v10": "node scripts/e2e-live-v10-tools.js",
     "test:live-keyshift": "node scripts/e2e-live-keyshift-close.js",
+    "test:guest-day": "node scripts/test-guest-day-link.js && node scripts/test-guest-day-panel.js",
     "test:notify": "node scripts/e2e-notify.js",
     "test:chords": "node scripts/test-chord-parse.js && node scripts/e2e-live-chordview.js"
   },

@@ -29,6 +29,7 @@ const liveAuth = require('../lib/liveAuth');
 const sheetHeaders = require('../lib/sheetHeaders');
 const session = require('../lib/session');
 const guestLink = require('../lib/guestLink');
+const guestDayLink = require('../lib/guestDayLink');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
 const r2 = require('../lib/r2');
@@ -61,19 +62,29 @@ async function requireTeam(req, res, next) {
 
 /** 악보 · 녹음 파일 — 로그인한 팀원, 또는 방송팀 보기 링크로 라이브 악보를 연 브라우저(ph_bview 쿠키 · 그 팀 것만) */
 const VIEW_COOKIE = 'ph_bview';
+const DAY_COOKIE = 'ph_gview';
 async function fileAccess(req, res, next) {
   let ctx = null;
   if (req.session) ctx = await teamContext.resolve(req).catch(() => null);
-  let viewTeam = null;
+  let viewTeam = null, day = null;
   try {
-    const d = session.verifyState(session.parseCookies(req)[VIEW_COOKIE], liveAuth.MAX_AGE_MS);
+    const ck = session.parseCookies(req);
+    const d = session.verifyState(ck[VIEW_COOKIE], liveAuth.MAX_AGE_MS);
     if (d && d.k === 'bview' && d.t) viewTeam = await guestLink.teamOf(d.t);       // 링크를 새로 바꾸면 바로 막힘
-  } catch (e) { viewTeam = null; }
-  if (!ctx && !viewTeam) return req.session ? res.redirect('/logout') : res.status(401).send('로그인이 필요합니다.');
-  req.ctx = ctx ? Object.assign({}, ctx, { teams: viewTeam && !ctx.teams.includes(viewTeam) ? ctx.teams.concat(viewTeam) : ctx.teams }) : { teams: [viewTeam] };
+    const g = session.verifyState(ck[DAY_COOKIE], liveAuth.MAX_AGE_MS);
+    if (g && g.k === 'gview' && g.t) day = await guestDayLink.resolve(g.t);        // 객원 공유 링크 — 그 날의 파일만
+  } catch (e) { viewTeam = null; day = null; }
+  if (!ctx && !viewTeam && !day) return req.session ? res.redirect('/logout') : res.status(401).send('로그인이 필요합니다.');
+  const extra = [viewTeam, day && day.team].filter(Boolean);
+  req.ctx = ctx ? Object.assign({}, ctx, { teams: ctx.teams.concat(extra.filter((t) => !ctx.teams.includes(t))) }) : { teams: extra };
+  req.dayLink = !ctx && !viewTeam && day ? day : null;                             // 로그인도 방송팀 링크도 없이 객원 링크만 — 그 날 파일로 한정
   next();
 }
+/** 객원 공유 링크만으로 열었다면, 이 파일(악보 · 녹음 줄)이 그 날 것인지 */
+const inDay = (req, row) => !req.dayLink || (row && row['팀ID'] === req.dayLink.team && liveStore.inScope(row, req.dayLink.scope));
 /** 방송팀 보기 링크로 연 브라우저에 파일 열람 쿠키를 심음 */
+/** 객원 공유 링크(/g/<열쇠>)로 연 브라우저에 그 날 파일 열람 쿠키를 심음 */
+function grantDay(res, token) { session.setCookie(res, DAY_COOKIE, session.signState({ k: 'gview', t: token }), liveAuth.MAX_AGE_MS); }
 function grantView(res, token) { session.setCookie(res, VIEW_COOKIE, session.signState({ k: 'bview', t: token }), liveAuth.MAX_AGE_MS); }
 
 function sheetName(s, songTitle) {
@@ -181,7 +192,7 @@ async function renderLive(req, res, o) {
   const start = String(req.query.sheet || '').trim();
   const [pastors, lineup] = await Promise.all([honorific.pastorSet(team), lineupOf(team, scope)]);      // v9.9 — 나란히 (예전: 하나씩 기다림)
   const boot = {
-    token: o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin), room: d.room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
+    token: o.day ? liveAuth.mintDay(team, d.room, o.day.token) : (o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin)), room: d.room, me: o.day ? '객원' : (o.ro ? '방송팀' : String(o.member['이름'] || '')), ro: !!o.ro, guest: !!o.day,
     pastors: Array.from(new Set(Array.from(pastors).concat(lineup.filter((x) => honorific.isLeadPos(x.pos)).map((x) => x.name)))),       // 그날 인도자 자리에 선 사람은 객원이어도 "OOO 목사"
     lineup, sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
     startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 페이지부터
@@ -310,7 +321,7 @@ async function renderStage(req, res, o) {
   const songs = st.songs, allSheets = st.all;
   const label = ev ? String(ev['이름'] || '주일 외 찬양') : week.labelKo(date);
   const boot = {
-    token: o.ro ? liveAuth.mintView(team, room) : liveAuth.mint(o.member, team, o.isAdmin), room, me: o.ro ? '방송팀' : String(o.member['이름'] || ''), ro: !!o.ro,
+    token: o.day ? liveAuth.mintDay(team, room, o.day.token) : (o.ro ? liveAuth.mintView(team, room) : liveAuth.mint(o.member, team, o.isAdmin)), room, me: o.day ? '객원' : (o.ro ? '방송팀' : String(o.member['이름'] || '')), ro: !!o.ro,
     team, label, date, songs, lineup, back, sheets: allSheets, guide: o.guide || '/guide#stage',
   };
   const v = `?v=${LIVE_V}`;
@@ -421,7 +432,7 @@ async function sheetBytesLoad(id, hit) {
 }
 async function sheetRowFor(req, id) {
   const rows = await sheetsDb.readAll('악보저장소');
-  return rows.find((s) => req.ctx.teams.includes(s['팀ID']) && s['파일링크'] && liveStore.sheetIdOf(s['팀ID'], s['파일링크']) === id) || null;
+  return rows.find((s) => req.ctx.teams.includes(s['팀ID']) && s['파일링크'] && liveStore.sheetIdOf(s['팀ID'], s['파일링크']) === id && inDay(req, s)) || null;
 }
 
 router.get('/sheet/:id', fileAccess, async (req, res) => {
@@ -518,12 +529,12 @@ router.get('/audio/:id', fileAccess, async (req, res) => {
   if (!liveStore.FILE_RE.test(id)) return res.status(404).send('not found');
   try {
     const rows = await sheetsDb.readAll('녹음');
-    const hit = rows.find((r) => req.ctx.teams.includes(r['팀ID']) && liveStore.audioIdOf(r['링크']) === id);
+    const hit = rows.find((r) => req.ctx.teams.includes(r['팀ID']) && liveStore.audioIdOf(r['링크']) === id && inDay(req, r));
     if (!hit) return res.status(404).send('not found');
     // 공개 보기 쿠키로 팀을 추가한 경우를 제외하고, 실제 로그인 멤버십으로 R2 음원 접근을 확인합니다.
     if (liveStore.appAudioIdOf(hit['링크'])) {
       const memberCtx = req.session ? await teamContext.resolve(req).catch(() => null) : null;
-      if (!memberCtx || !memberCtx.teams.includes(hit['팀ID'])) return res.status(403).send('팀원 로그인이 필요합니다.');
+      if ((!memberCtx || !memberCtx.teams.includes(hit['팀ID'])) && !req.dayLink) return res.status(403).send('팀원 로그인이 필요합니다.');
     }
     if (r2.enabled()) {                                     // R2 에 있으면 (새로 올린 녹음 · 옮겨 둔 예전 녹음)
       let meta = null;
@@ -862,4 +873,5 @@ module.exports.FNS = FNS;
 module.exports.renderLive = renderLive;
 module.exports.renderStage = renderStage;
 module.exports.grantView = grantView;
+module.exports.grantDay = grantDay;
 module.exports.liveData = liveData;
