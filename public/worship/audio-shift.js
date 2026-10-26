@@ -330,7 +330,7 @@
       if (formCtl) { formCtl.setVid(k, title || ''); return; }
       formBox = el('div', 'as-form'); var tr = q('.as-tr'); if (tr && tr.parentNode) tr.parentNode.insertBefore(formBox, tr.nextSibling); else box.appendChild(formBox);
       try {
-        formCtl = root.YNYtForm.mount(formBox, { vid: k, title: title || '', canEdit: opt.form.canEdit !== false, api: { load: opt.form.load, save: opt.form.save },
+        formCtl = root.YNYtForm.mount(formBox, { vid: k, title: title || '', songForm: opt.form.songForm || '', canEdit: opt.form.canEdit !== false, api: { load: opt.form.load, save: opt.form.save },
           player: {
             time: function () { return st.src ? audio.currentTime : null; },
             seek: function (t) { try { audio.currentTime = Math.max(0, +t || 0); paintTime(); } catch (e) { /* 아직 준비 전 */ } },
@@ -477,7 +477,7 @@
     box.innerHTML = '<div class="pv-yth"><b>' + YI('headphones') + ' ' + esc('키 바꿔 연습' + (s && s.title ? ' — ' + s.title : '')) + '</b><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="as-host"></div>';
     var recs = rankRecs((P.opts && P.opts.recs) || [], s && s.title);
     var sources = recs.map(function (r) { return { title: r.title, src: r.play, kind: r.kind, match: r.match }; });
-    var api = mountPlayer(box.querySelector('.as-host'), { songKey: s && s.key || '', sources: sources, key: keyBinding(P), mode: o.mode, workletUrl: o.workletUrl, form: o.form || (P.ytFormApi ? P.ytFormApi() : null) });
+    var api = mountPlayer(box.querySelector('.as-host'), { songKey: s && s.key || '', sources: sources, key: keyBinding(P), mode: o.mode, workletUrl: o.workletUrl, form: o.form || (P.ytFormApi ? P.ytFormApi(s && s.form) : null) });
     box.querySelector('.pv-yth button').onclick = closeDialog;
     (P.el || doc.body).appendChild(box);
     dlg = { api: api, box: box };

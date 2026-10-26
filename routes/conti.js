@@ -418,7 +418,7 @@ const YT_MARK = '<svg class="cn-ytmark" viewBox="0 0 24 24" aria-hidden="true"><
 function ytPlayAllHtml(w, team) {
   const all = [].concat((w.conti || []).map((s, i) => ({ s, k: '콘티', n: i + 1 })), (w.final || []).map((s) => ({ s, k: '설교 후', n: 0 })), (w.closing || []).map((s) => ({ s, k: '폐회송', n: 0 })));
   const items = [];
-  all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && !items.some((y) => y.id === id)) items.push({ id, t: String(x.s['제목'] || '').trim() || '제목 없음', k: x.k, n: x.n }); });
+  all.forEach((x) => { const id = youtube.idOf(x.s['유튜브']); if (id && !items.some((y) => y.id === id)) items.push({ id, t: String(x.s['제목'] || '').trim() || '제목 없음', k: x.k, n: x.n, f: String(x.s['송폼'] || '') }); });     // f — 송폼 태그 단추를 콘티 송폼에 적힌 것으로
   if (!items.length) return '';
   const missing = all.filter((x) => !youtube.idOf(x.s['유튜브'])).length;
   const open = 'https://www.youtube.com/watch_videos?video_ids=' + items.slice(0, 50).map((x) => x.id).join(',');

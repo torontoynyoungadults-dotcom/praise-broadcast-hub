@@ -562,7 +562,7 @@
           if (form || !window.YNYtForm) return;
           var pl = function () { return player && player.getCurrentTime ? player : null; };
           form = window.YNYtForm.mount(host, {
-            vid: items[cur].id, title: items[cur].t,
+            vid: items[cur].id, title: items[cur].t, songForm: items[cur].f || '',
             api: { load: function (v) { return ytfReq('GET', null, v); }, save: function (v, t, tags, at) { return ytfReq('POST', { vid: v, title: t, tags: tags, baseAt: at }); } },
             player: {
               time: function () { var p = pl(); try { return p ? +p.getCurrentTime() : null; } catch (e) { return null; } },
@@ -582,7 +582,7 @@
         if (i < 0 || i >= items.length) return;
         cur = i; paint();
         if (player && player.loadVideoById) { if (auto === false) player.cueVideoById(items[i].id); else player.loadVideoById(items[i].id); }
-        if (form) form.setVid(items[i].id, items[i].t);
+        if (form) form.setVid(items[i].id, items[i].t, items[i].f || '');
       }
       function next(from) { for (var i = (from == null ? cur : from) + 1; i < items.length; i++) if (!bad[i]) return play(i); }
       function prev() { for (var i = cur - 1; i >= 0; i--) if (!bad[i]) return play(i); }

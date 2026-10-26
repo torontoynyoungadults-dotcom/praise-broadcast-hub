@@ -29,6 +29,17 @@
     if (/^(Itld|Inter|Inst|간주|Solo)/i.test(k)) return 'it';
     return 'x';
   }
+  /** 콘티 송폼(예: "Intro - V1 - C - V2 - C x2 - B - C - Out") → 태그 단추 이름들 (처음 나온 순서 · 겹치면 하나).
+   *  송폼에 V 만 있으면 V, V4 까지 있으면 V4 — 송폼에 적힌 그대로. 송폼이 비어 있으면 [] (기본 단추를 씀) */
+  function labelsFromForm(form) {
+    var out = [], seen = {};
+    String(form || '').split(/[\s,\/·|>→›\-–—]+/).forEach(function (raw) {
+      var k = cleanLabel(String(raw).replace(/[x×*]\s*\d+$/i, '').replace(/\(\s*\d+\s*\)$/, ''));
+      if (!k || /^[x×*]?\d+$/i.test(k)) return;
+      var key = k.toLowerCase(); if (seen[key]) return; seen[key] = 1; out.push(k);
+    });
+    return out.slice(0, 24);
+  }
   function cleanLabel(k) { return String(k == null ? '' : k).replace(LABEL_RE, '').replace(/\s+/g, ' ').trim().slice(0, 12); }
   /** 태그 목록 다듬기 — [{ t: 초(0.1 단위), k: 이름 }] 시간순 · 같은 시각 같은 이름은 하나 · 최대 80개 */
   function clean(tags) {
@@ -82,7 +93,7 @@
 
   /**
    * mount(host, o) → { setVid(vid, title), refresh(), state(), destroy() }
-   *   o.vid · o.title
+   *   o.vid · o.title · o.songForm (콘티 송폼 — 태그 단추를 송폼에 적힌 것으로. 없으면 기본 단추)
    *   o.player : { time() → 초, seek(t), play(), duration() → 초 }    (영상이 준비되기 전에는 time() 이 null 이어도 됨)
    *   o.api    : { load(vid) → Promise<{ tags, by, at }>, save(vid, title, tags, baseAt) → Promise<{ tags, by, at }> }
    *   o.canEdit (기본 true) — false 면 보기 · 이동 · 반복만
@@ -90,7 +101,7 @@
   function mount(host, o) {
     o = o || {};
     injectCss();
-    var st = { vid: o.vid || '', title: o.title || '', tags: [], by: '', at: 0, edit: false, draft: null, sel: -1, loop: false, loopI: -1, cur: -1,
+    var st = { labels: labelsFromForm(o.songForm), vid: o.vid || '', title: o.title || '', tags: [], by: '', at: 0, edit: false, draft: null, sel: -1, loop: false, loopI: -1, cur: -1,
       loaded: false, busy: false, dead: false, msg: '', bad: false, timer: 0, lastPaintCur: -2, own: '' };
     var canEdit = o.canEdit !== false;
     var box = document.createElement('div'); box.className = 'ytf'; host.appendChild(box);
@@ -131,7 +142,7 @@
         h += '<p class="ytf-empty">' + (st.edit ? '영상을 들으면서 아래 V1 · C · B … 를 누르면 지금 위치에 태그가 붙어요.' : '아직 송폼 태그가 없어요.' + (canEdit ? ' 「✎ 태그 달기」를 누르고 들으면서 V · C · B 를 눌러 두면, 팀 모두가 언제든 그 부분부터 바로 들을 수 있어요.' : '')) + '</p>';
       }
       if (st.edit) {
-        h += '<div class="ytf-pal" role="group" aria-label="지금 위치에 태그 붙이기">' + LABELS.map(function (k) { return '<button type="button" class="ytf-b k-' + kindOf(k) + '" data-add="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') +
+        h += '<div class="ytf-pal" role="group" aria-label="지금 위치에 태그 붙이기">' + (st.labels.length ? st.labels : LABELS).map(function (k) { return '<button type="button" class="ytf-b k-' + kindOf(k) + '" data-add="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') +
           '<span class="ytf-own"><input type="text" maxlength="12" placeholder="직접 (예: C2, Vamp)" value="' + esc(st.own) + '" aria-label="태그 이름 직접 쓰기"><button type="button" class="ytf-b" data-a="own">＋</button></span></div>';
         var s = st.sel >= 0 ? st.draft[st.sel] : null;
         if (s) h += '<div class="ytf-tools"><span>' + esc(s.k) + ' ' + fmt(s.t) + '</span><button type="button" class="ytf-b" data-n="-0.5">◀ 0.5초</button><button type="button" class="ytf-b" data-n="0.5">0.5초 ▶</button><button type="button" class="ytf-b" data-a="here">지금 위치로</button><button type="button" class="ytf-b" data-a="del">삭제</button></div>';
@@ -223,12 +234,12 @@
 
     draw(); load();
     return {
-      setVid: function (vid, title) { if (vid === st.vid) return; st.vid = vid || ''; st.title = title || ''; st.tags = []; st.by = ''; st.at = 0; st.loaded = false; st.edit = false; st.draft = null; st.sel = -1; st.loop = false; st.loopI = -1; st.cur = -1; say(''); draw(); load(); },
+      setVid: function (vid, title, songForm) { if (songForm !== undefined) { st.labels = labelsFromForm(songForm); if (vid === st.vid && st.edit) draw(); } if (vid === st.vid) return; st.vid = vid || ''; st.title = title || ''; st.tags = []; st.by = ''; st.at = 0; st.loaded = false; st.edit = false; st.draft = null; st.sel = -1; st.loop = false; st.loopI = -1; st.cur = -1; say(''); draw(); load(); },
       refresh: load,
       state: function () { return { vid: st.vid, tags: st.tags.slice(), edit: st.edit, draft: st.draft ? st.draft.slice() : null, by: st.by, at: st.at, loop: st.loop, cur: st.cur, loaded: st.loaded }; },
       destroy: function () { st.dead = true; clearInterval(st.timer); try { box.remove(); } catch (e) { /* 무시 */ } }
     };
   }
 
-  return { LABELS: LABELS, MAX_TAGS: MAX_TAGS, clean: clean, cleanLabel: cleanLabel, sectionAt: sectionAt, fmt: fmt, kindOf: kindOf, mount: mount };
+  return { LABELS: LABELS, MAX_TAGS: MAX_TAGS, clean: clean, cleanLabel: cleanLabel, labelsFromForm: labelsFromForm, sectionAt: sectionAt, fmt: fmt, kindOf: kindOf, mount: mount };
 }));

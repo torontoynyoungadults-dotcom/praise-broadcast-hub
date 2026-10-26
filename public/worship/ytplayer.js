@@ -115,7 +115,7 @@
       var fh = el('div', 'yt-form'); host.appendChild(fh);
       try {
         form = window.YNYtForm.mount(fh, {
-          vid: id, title: opt.title || '', canEdit: opt.form.canEdit !== false, api: { load: opt.form.load, save: opt.form.save },
+          vid: id, title: opt.title || '', songForm: opt.form.songForm || '', canEdit: opt.form.canEdit !== false, api: { load: opt.form.load, save: opt.form.save },
           player: {
             time: function () { return st.ready && !st.fallback ? now() : null; },
             seek: function (t) { if (st.ready && !st.fallback) { try { st.player.seekTo(t, true); } catch (e) {} } },

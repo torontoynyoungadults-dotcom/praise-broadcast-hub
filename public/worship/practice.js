@@ -1452,11 +1452,11 @@
     el.addEventListener('pointerdown', function (e) { if (!ytBox) return; ytSelect(!!(e.target.closest && e.target.closest('.pv-yt') === ytBox)); }, true);
     function closeYt() { ytSelect(false); if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } ytBtn.classList.remove('on'); ytBtn.setAttribute('aria-pressed', 'false'); }
     /* v9.6 — 유튜브 송폼 태그 저장 (영상마다 팀에 하나 — 서버 worshipYtFormGet / worshipYtFormSave) */
-    function ytFormApi() {
+    function ytFormApi(songForm) {
       if (!opts.callServer || !opts.token) return null;
       var call = function (fn, args) { return new Promise(function (res, rej) { opts.callServer(fn, [opts.token].concat(args), res, function (e) { rej(e instanceof Error ? e : new Error((e && e.message) || String(e || '실패'))); }); }); };
       return {
-        canEdit: !opts.readOnly,
+        canEdit: !opts.readOnly, songForm: String(songForm || ''),                        // 송폼 태그 단추 = 이 곡 콘티 송폼에 적힌 것 (V 만 있으면 V · V4 까지 있으면 V4)
         load: function (vid) { return call('worshipYtFormGet', [vid]); },
         save: function (vid, title, tags, baseAt) { return call('worshipYtFormSave', [vid, title, tags, baseAt]); }
       };
@@ -1506,7 +1506,7 @@
       var body = ytBox.querySelector('.pv-ytbody');
       if (!S.ksHub) { S.ksHub = []; P.on('keyshift', function () { S.ksHub.slice().forEach(function (f) { try { f(); } catch (e) { /* 무시 */ } }); }); }      // V897 — 유튜브 창의 「악보 키와 함께」
       var sheetKey = { get: function () { return P.keyShift(); }, set: function (n) { P.setKeyShift(n); }, on: function (f) { S.ksHub.push(f); return function () { var i = S.ksHub.indexOf(f); if (i >= 0) S.ksHub.splice(i, 1); }; } };
-      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null, form: ytFormApi(), sheetKey: sheetKey });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
+      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: null, form: ytFormApi((songs[S.songIdx] || {}).form), sheetKey: sheetKey });        // V859 — "키 바꿔 연습" 은 뺌 (유튜브 소리는 키를 못 바꾸고, 모두 유튜브로 연습)        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
       else body.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
     };
 
@@ -1571,7 +1571,7 @@
     };
     P.ensureTab = function (id) { return ensureTab(id); };
     P.closeYt = function () { closeYt(); };
-    P.ytFormApi = function () { return ytFormApi(); };                                 // V896 — 참고 음원 재생기의 송폼 태그도 같은 저장소 (열쇠 au_<파일 ID>)
+    P.ytFormApi = function (songForm) { return ytFormApi(songForm); };                                 // V896 — 참고 음원 재생기의 송폼 태그도 같은 저장소 (열쇠 au_<파일 ID>)
     P.openAudioShift = function (o) { return root.YNAudioShift && root.YNAudioShift.openDialog ? root.YNAudioShift.openDialog(P, o) : null; };
     P.on('song', function () { if (P.keyShift() !== 0) P.ensureTab('harmony'); });
     /* 키 −1 / +1 (위 막대 · 전체 화면 막대 · 폰은 메뉴 서랍) — 예배 중에도 바로: 곡마다 기억, 화음 모듈이 악보 코드를 새 키로 덧그립니다.
