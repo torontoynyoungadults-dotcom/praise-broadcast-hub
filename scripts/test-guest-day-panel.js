@@ -58,6 +58,11 @@ require.cache[tcPath] = { id: tcPath, filename: tcPath, loaded: true, exports: O
   const r = await fetch(BASE + '/conti/guest-day-link', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-PH-Partial': '1' }, body: new URLSearchParams({ team: TEAM, date: sun }) });
   const neu = /value="([^"]*\/g\/([A-Za-z0-9_-]{16,64}))"/.exec(await page());
   ok(neu && neu[2] !== old, '새 링크로 바꾸면 주소가 달라짐', r.status);
+  TABS['찬양편성'] = [{ '팀ID': TEAM, '날짜': sun, '행사ID': '', '포지션': '인도자', '이름': '김리더' }];   // 객원 없는 날 — 관리자만 접힌 칸으로 직접 만들기
+  html = await page();
+  ok(/cn-guestday/.test(html) && /직접 만들기/.test(html) && !/cn-guestday" open/.test(html), '객원이 안 잡히는 날 — 관리자에게 접힌 「직접 만들기」 칸');
+  ADMIN = false;
+  ok(!/cn-guestday/.test(await page()), '관리자가 아니면 그 칸도 없음');
   server.close();
   console.log(`\n통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

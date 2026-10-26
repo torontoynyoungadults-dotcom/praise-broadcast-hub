@@ -560,15 +560,16 @@ function guestDayNames(byPos, roster, infoMap) {
 }
 function guestDayPanel(req, team, scope, token, names, isAdmin, open) {
   const url = token ? `${req.protocol}://${req.get('host')}${prefixOf(req)}/g/${token}` : '';
-  const form = (label, confirmMsg) => `<form method="post" action="/conti/guest-day-link" class="cn-glform" onsubmit="return confirm('${confirmMsg}')">
-      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<button class="cn-mini" type="submit">${label}</button></form>`;
-  return `<details class="cn-guestlink cn-guestday"${open ? ' open' : ''}>
-    <summary>${ui.icon('link')} 객원 공유 링크 <small>· ${esc(names.join(', '))}</small></summary>
-    <p class="ph-sub">객원이 서는 날이에요. 이 링크를 보내면 <b>로그인 없이 이 날의 콘티 · 라이브 악보 · 녹음</b>을 팀원처럼 쓸 수 있어요. 다른 날이나 다른 메뉴는 열리지 않아요.</p>
+  const form = (label, confirmMsg, cls) => `<form method="post" action="/conti/guest-day-link" class="cn-glform"${confirmMsg ? ` onsubmit="return confirm('${confirmMsg}')"` : ''}>
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<button class="cn-mini${cls || ''}" type="submit">${label}</button></form>`;
+  const none = !names.length;       // 객원으로 보이는 분이 없는 날 — 관리자가 필요할 때 직접 만들 수 있게 접어서 둠
+  return `<details class="cn-guestlink cn-guestday"${open && !none ? ' open' : ''}>
+    <summary>${ui.icon('link')} 객원 공유 링크 <small>· ${none ? '직접 만들기' : esc(names.join(', '))}</small></summary>
+    <p class="ph-sub">${none ? '이 날 편성에는 객원으로 등록된 분이 없어요. 팀원 명단에 있는 분을 객원처럼 부를 때도 쓸 수 있어요. ' : '객원이 서는 날이에요. '}이 링크를 보내면 <b>로그인 없이 이 날의 콘티 · 라이브 악보 · 녹음</b>을 팀원처럼 쓸 수 있어요. 다른 날이나 다른 메뉴는 열리지 않아요.</p>
     ${token ? `<div class="cn-glrow"><input type="text" readonly value="${esc(url)}" aria-label="객원 공유 링크" onfocus="this.select()">
         <button type="button" class="cn-mini" data-cn-copy="${esc(url)}">${ui.icon('clipboard')} 복사</button></div>
-      <p class="ph-msg cn-toolmsg" data-cn-copymsg role="status"></p>` : '<p class="ph-sub">링크를 만들지 못했어요. 잠시 뒤 다시 열어 주세요.</p>'}
-    ${isAdmin && token ? form('새 링크로 바꾸기', '새 링크로 바꾸면 예전 링크는 바로 쓸 수 없어요. 바꿀까요?') : ''}
+      <p class="ph-msg cn-toolmsg" data-cn-copymsg role="status"></p>` : (none && isAdmin ? '<p class="ph-sub">아직 만들지 않았어요.</p>' : '<p class="ph-sub">링크를 만들지 못했어요. 잠시 뒤 다시 열어 주세요.</p>')}
+    ${isAdmin ? (token ? form('새 링크로 바꾸기', '새 링크로 바꾸면 예전 링크는 바로 쓸 수 없어요. 바꿀까요?') : (none ? form('링크 만들기', '', ' ph-pri') : '')) : ''}
   </details>`;
 }
 const ytLinkOf = (link) => { link = String(link || '').trim(); return /^[A-Za-z0-9_-]{11}$/.test(link) ? 'https://youtu.be/' + link : link; };
@@ -952,6 +953,9 @@ router.get('/conti', requireTeam, async (req, res) => {
   const gNames = guestDayNames(byPos, roster, infoMap);
   if (gNames.length && !guestAccess.isGuest(ctx.member)) {                // 객원이 서는 날 — 그 날만 여는 공유 링크 (처음이면 만들어 둠)
     try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.ensure(team, liveStore.roomOf(scope)), gNames, ctx.isAdmin, true); } catch (e) { console.error('[객원 링크]', e && e.message); }
+  }
+  else if (ctx.isAdmin && !guestAccess.isGuest(ctx.member)) {              // 객원으로 안 잡히는 날에도 관리자는 직접 만들 수 있음 (이미 만들어 둔 게 있으면 그 주소)
+    try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.tokenFor(team, liveStore.roomOf(scope)), [], true, false); } catch (e) { console.error('[객원 링크]', e && e.message); }
   }
   const pinfo = await practiceInfo(team, scope, date);
   const practice = practiceCard(team, pinfo);
