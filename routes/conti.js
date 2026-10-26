@@ -954,9 +954,6 @@ router.get('/conti', requireTeam, async (req, res) => {
   if (gNames.length && !guestAccess.isGuest(ctx.member)) {                // 객원이 서는 날 — 그 날만 여는 공유 링크 (처음이면 만들어 둠)
     try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.ensure(team, liveStore.roomOf(scope)), gNames, ctx.isAdmin, true); } catch (e) { console.error('[객원 링크]', e && e.message); }
   }
-  else if (ctx.isAdmin && !guestAccess.isGuest(ctx.member)) {              // 객원으로 안 잡히는 날에도 관리자는 직접 만들 수 있음 (이미 만들어 둔 게 있으면 그 주소)
-    try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.tokenFor(team, liveStore.roomOf(scope)), [], true, false); } catch (e) { console.error('[객원 링크]', e && e.message); }
-  }
   const pinfo = await practiceInfo(team, scope, date);
   const practice = practiceCard(team, pinfo);
   const hist = await historyFor(team, scope);
