@@ -733,3 +733,31 @@
 
   document.addEventListener('ph:content-updated', mountAll);
 })();
+
+/* ---------- 메뉴의 "예배 콘티" 탭에 못 본 변경 개수 붙이기 ----------
+   서버(/conti/changes.json)가 다가오는 주일 콘티에서 내가 마지막으로 본 뒤 다른 사람이 바꾼 개수를 알려 줍니다 (세는 것만 — 확인 처리는 콘티를 열 때).
+   페이지가 처음 뜰 때와 탭을 바꿔 끼울 때(ph:content-updated)마다 다시 확인합니다. */
+(function () {
+  var busy = false;
+  function paint(tab, n) {
+    var old = tab.querySelector('.cn-navdot'); if (old) old.remove();
+    if (n > 0) {
+      var d = document.createElement('i'); d.className = 'cn-navdot'; d.textContent = n > 9 ? '9+' : String(n);
+      d.setAttribute('aria-label', '콘티에 못 본 변경 ' + n + '건'); tab.appendChild(d);
+    }
+  }
+  function check() {
+    if (busy) return;
+    var tab = document.querySelector('[data-ph-tab="conti"]'); if (!tab) return;
+    var h = tab.getAttribute('href') || ''; var i = h.indexOf('?');
+    var path = i < 0 ? h : h.slice(0, i), qs = i < 0 ? '' : h.slice(i);
+    busy = true;
+    fetch(path.replace(/\/$/, '') + '/changes.json' + qs, { credentials: 'same-origin', headers: { 'X-PH-Partial': '1' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { var t = document.querySelector('[data-ph-tab="conti"]'); if (t && d && d.ok) paint(t, Number(d.n) || 0); })
+      .catch(function () {})
+      .then(function () { busy = false; });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', check); else check();
+  document.addEventListener('ph:content-updated', function () { setTimeout(check, 250); });
+})();

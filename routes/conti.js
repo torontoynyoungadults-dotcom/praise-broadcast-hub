@@ -27,6 +27,7 @@ const { orderOf } = require('../lib/songKind');
 const { positionIconSvg } = require('../lib/positionIcons');
 const rosterPicker = require('../lib/rosterPicker');
 const schedLog = require('../lib/scheduleLog');
+const contiLog = require('../lib/contiLog');
 // public/worship/formb.js(church-app)를 그대로 옮긴 파일 — Node에서도 그대로 동작(UMD)하므로 서버 쪽 "보기 좋게" 표시에도 재사용
 const YNForm = require('../public/js/formb.js');
 
@@ -73,6 +74,8 @@ async function requireTeam(req, res, next) {
 
 /** 날짜 모드(보통 주일)인지, 행사 모드(주일 외 찬양 하나에 묶인 완전히 별도 콘티)인지.
  * 행사ID가 있으면 행사 모드 — 같은 날짜라도 주일예배와 콘티·편성·악보·녹음·댓글이 전혀 섞이지 않습니다. */
+/** 콘티 변경 기록에 남길 이름 (lib/contiLog.js) */
+const whoName = (req) => String((req.ctx && req.ctx.member && req.ctx.member['이름']) || '');
 function scopeFrom(b) {
   return { event: String((b && (b.event || b['행사ID'])) || '').trim(), date: week.normalizeDate(b && b.date) };
 }
@@ -480,7 +483,7 @@ function songRefHtml(s, refs, editable, back) {
   const ks = (r) => { const src = recSrc(r); return src ? `<button type="button" class="cn-mini cn-refks" data-as-open data-src="${esc(src)}" data-title="${esc(s['제목'] || '')}" data-key="${esc(s['Key'] || '')}">${ui.icon('headphones')} 키 바꿔 듣기</button>` : ''; };
   return `<div class="cn-sec cn-sec-ref"><span class="cn-lab">참고 음원 <small>여기서도 · 라이브 악보에서도 키를 바꿔 들을 수 있어요</small></span>${mine.length ? `<div class="ph-list">${mine.map((r) => recItem(r, editable, null) + ks(r)).join('')}</div>` : ''}${up}</div>`;
 }
-function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps, sheetTools, refs, back }) {
+function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, bigForm, jumps, sheetTools, refs, back, changed }) {
   const isFinal = kind === '결단';
   const isClosing = kind === '폐회송';
   const yt = s['유튜브'] ? ytLinkOf(s['유튜브']) : '';
@@ -520,7 +523,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
-      <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
+      <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}${(() => { const c = changed && changed[s['ID']]; return c ? `<em class="cn-newchip" title="${c.add ? '내가 마지막으로 본 뒤 새로 들어온 곡' : esc('바뀐 곳: ' + c.fields.join(', '))}">${c.add ? '새 곡' : '수정'}</em>` : ''; })()}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
       ${info ? `<div class="cn-info" aria-label="곡 정보">${info}</div>` : ''}
       ${editable && !isFinal && !isClosing ? `<button type="button" class="cn-grip" data-cn-grip aria-label="끌어서 순서 바꾸기 (위·아래 방향키로도 옮겨요)" title="끌어서 순서 바꾸기"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>` : ''}
     </div>
@@ -845,6 +848,51 @@ function practiceCard(team, info) {
 }
 
 /* ================= 로그인 화면 ================= */
+/* ---------- 새로 바뀐 것 알림 (lib/contiLog.js) — 내가 마지막으로 본 뒤 다른 사람이 콘티에서 바꾼 것 ---------- */
+const CHG_TZ = 'America/Toronto';
+function chgWhen(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const f = (o) => new Intl.DateTimeFormat('ko-KR', Object.assign({ timeZone: CHG_TZ }, o)).format(d);
+  return f({ month: 'numeric', day: 'numeric' }).replace(/\s/g, '') + ' ' + f({ hour: 'numeric', minute: '2-digit' });
+}
+function chgWhat(i) {
+  const song = `<b>${esc(i.song)}</b>`;
+  if (i.kind === '추가') return `${song} 곡이 <b class="cn-in">추가</b>됐어요${i.field && i.field !== '콘티' ? ` <span class="cn-chgk">${esc(i.field)}</span>` : ''}`;
+  if (i.kind === '삭제') return `<s class="cn-out">${esc(i.song)}</s> 곡이 <b class="cn-out">빠졌어요</b>${i.field && i.field !== '콘티' ? ` <span class="cn-chgk">${esc(i.field)}</span>` : ''}`;
+  if (i.kind === '수정') return `${song} · <span class="cn-chgk">${esc(i.field)}</span> ${i.before ? `<s class="cn-out">${esc(i.before)}</s>` : '<s class="cn-out">비어 있음</s>'} → ${i.after ? `<b class="cn-in">${esc(i.after)}</b>` : '<b class="cn-in">비움</b>'}`;
+  if (i.kind === '순서') return `곡 <b>순서</b>가 바뀌었어요 <span class="cn-chgnow">지금: ${esc(i.after)}</span>`;
+  if (i.kind === '악보추가') return `${song} · <span class="cn-chgk">악보</span> <b class="cn-in">${esc(i.after || '악보')}</b> 올라왔어요`;
+  if (i.kind === '악보삭제') return `${song} · <span class="cn-chgk">악보</span> <s class="cn-out">${esc(i.before || '악보')}</s> 지웠어요`;
+  return `${song} ${esc(i.kind)}`;
+}
+function changeCard(chg, team) {
+  const items = (chg && chg.items) || [];
+  if (!items.length) return '';
+  const shown = items.slice().reverse().slice(0, 10);            // 새 것부터
+  return `<div class="ph-card cn-chg" role="status" aria-live="polite">
+    <div class="cn-chg-h"><span class="cn-chg-badge">${items.length}</span><b>콘티에 바뀐 게 있어요</b><small>${chg.first ? '지난 7일' : '마지막으로 본 뒤'}</small></div>
+    <ul class="cn-chg-list">${shown.map((i) => `<li><span class="cn-chg-w">${chgWhat(i)}</span><span class="cn-chg-by">${esc(honorific.forTeam(team, i.by))} · ${esc(chgWhen(i.at))}</span></li>`).join('')}</ul>
+    ${items.length > shown.length ? `<p class="cn-chg-more">그 밖에 ${items.length - shown.length}건 더 있어요</p>` : ''}
+  </div>`;
+}
+/** 곡마다 "새 곡 / 수정" 표시를 달기 위해 — 곡ID → { add, fields } */
+function changedSongs(chg) {
+  const m = {};
+  ((chg && chg.items) || []).forEach((i) => {
+    if (!i.songId || (i.kind !== '추가' && i.kind !== '수정')) return;
+    const c = m[i.songId] || (m[i.songId] = { add: false, fields: [] });
+    if (i.kind === '추가') c.add = true; else if (!c.fields.includes(i.field)) c.fields.push(i.field);
+  });
+  return m;
+}
+
+/** 메뉴의 "예배 콘티" 탭에 붙일 숫자 — 다가오는 주일 콘티에서 아직 못 본 변경 개수 (확인 시각은 건드리지 않음) */
+router.get('/conti/changes.json', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json({ ok: true, n: await contiLog.count(req.ctx.current, whoName(req), week.normalizeDate(null)) }); }
+  catch (e) { res.json({ ok: true, n: 0 }); }
+});
+
 router.get('/conti', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
@@ -857,6 +905,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   await ensureClosingHymn(team, scope);
   const w = await loadWeek(team, scope);
+  const chg = await contiLog.changesSince(team, whoName(req), contiLog.keyOf(scope)).catch(() => ({ first: false, items: [] }));   // 내가 마지막으로 본 뒤 바뀐 것 (보면 확인 시각이 갱신됨)
 
   let dayBanner = '';
   const allAssignRows = (await sheetsDb.readAll('찬양편성')).filter((r) => r['팀ID'] === team);
@@ -881,7 +930,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const hist = await historyFor(team, scope);
   const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
   const markSongs = songsForMarks(w);                                     // 녹음 플레이어 — 곡 시작 위치 찍기
-  const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs), refs: w.recs.filter((r) => r['구분'] === '참고') };
+  const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs), refs: w.recs.filter((r) => r['구분'] === '참고'), changed: changedSongs(chg) };
   const kakao = kakaoFor({ date, scope, eventRow, pinfo, w, byPos, infoMap });
 
   const content = `
@@ -889,6 +938,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   ${hero}
   ${strip}
   ${dayBanner}
+  ${changeCard(chg, team)}
   ${practice}
   ${(() => {
     const switcher = teamContext.teamSwitcher(ctx, { keep: scope.event ? { event: scope.event } : { date } });
@@ -1601,6 +1651,7 @@ router.post('/conti/songs', requireTeam, upload.array('파일', 12), guestGate.a
     '순서': all.length + 1, '제목': title, '팀': b['팀'] || '', 'Key': b['Key'] || '', '유튜브': b['유튜브'] || '',
     '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': new Date().toISOString(),
   });
+  await contiLog.log(kind === '폐회송' ? null : contiLog.addEntry(team, whoName(req), scope, { 'ID': sid, '제목': title, '구분': kind }));
   // 곡을 만들 때 악보(PDF · 사진 · 링크)도 함께 — 만든 곡에 바로 묶임. 악보 제목은 파일 이름
   try {
     const wf = await webSheetFile(b.url, title);          // 웹에서 찾아 고른 악보 이미지 → PDF 한 개
@@ -1634,7 +1685,11 @@ router.post('/conti/songs/reorder', requireTeam, async (req, res) => {
         .forEach((r) => { if (!seen.has(String(r['ID']))) ordered.push(r); });
       const cells = [];
       ordered.forEach((r, i) => { if (Number(r['순서']) !== i + 1) cells.push({ row: r.__row, header: '순서', value: i + 1 }); });
-      if (cells.length) await sheetsDb.updateCells('찬양콘티', cells);
+      if (cells.length) {
+        const prevOrder = rows.slice().sort((a, c) => Number(a['순서'] || 0) - Number(c['순서'] || 0)).map((r) => r['제목']);
+        await sheetsDb.updateCells('찬양콘티', cells);
+        await contiLog.log(contiLog.orderEntry(team, whoName(req), scope, prevOrder, ordered.map((r) => r['제목'])));
+      }
       liveNotify(team, scope, 'saveWorshipSong');
       if (cells.length) await sheetHeaders.settle(sheetHeaders.queue(team, scope, liveNotify), 8000);   // 머리말의 곡 번호도 새 순서로
     } catch (e) { console.error('[콘티 순서 저장 실패]', e.message); }
@@ -1653,12 +1708,14 @@ router.post('/conti/songs/edit', requireTeam, async (req, res) => {
     try {
       // 그 줄의 원래 ID · 옛 솔로 기록은 그대로 둡니다 (ID 가 바뀌면 "이 곡 전용 악보"가 곡에서 떨어져 나감)
       const old = (await sheetsDb.readAll('찬양콘티', { fresh: true })).find((r) => r.__row === row && r['팀ID'] === team) || {};
-      await sheetsDb.updateRow('찬양콘티', row, {
+      const next = {
         'ID': b['ID'] || old['ID'] || '', '팀ID': team, ...scopeFields(scope), '구분': b['구분'] === '결단' ? '결단' : b['구분'] === '폐회송' ? '폐회송' : '콘티',
         '순서': b['순서'] || old['순서'] || 0, '제목': title, '팀': b['팀'] || '', 'Key': b['Key'] || '', '유튜브': b['유튜브'] || '',
         '송폼': b['송폼'] || '', 'BPM': b['BPM'] || '', '비고': b['비고'] || '', '만든시각': b['만든시각'] || old['만든시각'] || new Date().toISOString(),
         '솔로': old['솔로'] || '',
-      });
+      };
+      await sheetsDb.updateRow('찬양콘티', row, next);
+      if (next['구분'] !== '폐회송') await contiLog.log(contiLog.editEntries(team, whoName(req), scope, old, next));
     } catch (e) { console.error('[콘티 수정 실패]', e.message); }
   }
   liveNotify(team, scope, 'saveWorshipSong');
@@ -1678,11 +1735,13 @@ router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
     // 설교 후 찬양(결단) · 폐회송은 곡 하나만 — 이미 있으면 건너뛰고, 없으면 첫 줄 하나만 반영
     if (kind === '결단' || kind === '폐회송') lines = all.length >= 1 ? [] : lines.slice(0, 1);
     let seq = all.length;
+    const added = [];
     for (const ln of lines) {
       const parts = ln.replace(/^\d+[.)]\s*/, '').split(/\s+[-–|]\s+|\t/);
       const title = (parts[0] || '').trim();
       if (!title) continue;
       seq += 1;
+      added.push(contiLog.addEntry(team, whoName(req), scope, { 'ID': 'C' + Date.now().toString(36) + seq, '제목': title, '구분': kind }));
       await sheetsDb.appendRow('찬양콘티', {
         'ID': 'C' + Date.now().toString(36) + seq, '팀ID': team, ...scopeFields(scope), '구분': kind, '순서': seq,
         '제목': title, '팀': (parts[1] || '').trim(), 'Key': (parts[2] || '').trim(), '유튜브': '',
@@ -1690,6 +1749,7 @@ router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
       });
       if (kind !== '폐회송') tellSong(req, team, scope, title);
     }
+    if (kind !== '폐회송') await contiLog.log(added);
   }
   liveNotify(team, scope, 'saveWorshipSongs');
   backTo(req, res, team, scope);
@@ -1698,7 +1758,13 @@ router.post('/conti/songs/bulk', requireTeam, async (req, res) => {
 router.post('/conti/songs/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
-  if (row) { try { await sheetsDb.deleteRow('찬양콘티', row); } catch (e) { console.error('[콘티 삭제 실패]', e.message); } }
+  if (row) {
+    try {
+      const gone = (await sheetsDb.readAll('찬양콘티', { fresh: true })).find((r) => r.__row === row);
+      await sheetsDb.deleteRow('찬양콘티', row);
+      if (gone && gone['팀ID'] === String(b.team || '').trim() && gone['구분'] !== '폐회송') await contiLog.log(contiLog.removeEntry(gone['팀ID'], whoName(req), { event: String(gone['행사ID'] || ''), date: String(gone['날짜'] || '') }, gone));
+    } catch (e) { console.error('[콘티 삭제 실패]', e.message); }
+  }
   liveNotify(b.team, scopeFrom(b), 'removeWorshipSong');
   if (row && b.team) await sheetHeaders.settle(sheetHeaders.queue(String(b.team).trim(), scopeFrom(b), liveNotify), 8000);   // 뒤 곡들의 번호가 당겨짐
   backTo(req, res, b.team, scopeFrom(b));
@@ -1750,6 +1816,12 @@ router.post('/conti/sheets', requireTeam, upload.array('파일', 12), guestGate.
   const scope = scopeFrom(b);
   if (b.header === '1') { try { await headerizeFiles(req, team, scope, b['곡ID']); } catch (e) { console.error('[악보 헤더 추가 실패 — 원본 그대로 올림]', e.message); } }
   const n = await saveSheetsFrom(req, team, scope, b['곡ID']);
+  if (n) {
+    try {
+      const song = b['곡ID'] ? (await sheetsDb.readAll('찬양콘티')).find((r) => r['ID'] === String(b['곡ID']) && r['팀ID'] === team) : null;
+      await contiLog.log(contiLog.sheetEntry(team, whoName(req), scope, true, song, n === 1 ? '악보 1개' : '악보 ' + n + '개'));
+    } catch (e) { console.error('[악보 변경 기록 실패]', e.message); }
+  }
   if (n) liveNotify(team, scope, 'saveSheets');                       // 열린 라이브 악보 · 방송팀 화면이 새 악보를 받아 가게
   if (n) sheetHeaders.queue(team, scope, liveNotify);                // 머리말의 콘티 전체 쪽 번호(1 / 5)를 새 쪽 수로 — 뒤에서
   backTo(req, res, team, scope);
@@ -1982,6 +2054,7 @@ router.post('/conti/songs/import', requireTeam, async (req, res) => {
     if (kind === '결단') pick = here.length ? [] : ids.slice(0, 1);          // 설교 후 찬양은 한 곡만 — 이미 있으면 건너뜀
     const have = new Set(here.map((r) => songNorm(r['제목'])));
     let seq = here.reduce((m, r) => Math.max(m, Number(r['순서']) || 0), 0), n = 0;
+    const imported = [];
     for (const id of pick) {
       const src = all.find((r) => r['ID'] === id && r['팀ID'] === team);                // 같은 팀의 곡만
       if (!src || !String(src['제목'] || '').trim()) continue;
@@ -1990,6 +2063,7 @@ router.post('/conti/songs/import', requireTeam, async (req, res) => {
       have.add(norm); seq += 1; n += 1;
       tellSong(req, team, scope, String(src['제목']).trim());
       const nid = 'C' + Date.now().toString(36) + seq + Math.random().toString(36).slice(2, 4);
+      imported.push(contiLog.addEntry(team, whoName(req), scope, { 'ID': nid, '제목': String(src['제목']).trim(), '구분': kind }));
       await sheetsDb.appendRow('찬양콘티', {
         'ID': nid, '팀ID': team, ...scopeFields(scope), '구분': kind, '순서': seq, '제목': src['제목'], '팀': src['팀'] || '', 'Key': src['Key'] || '',
         '유튜브': src['유튜브'] || '', '송폼': src['송폼'] || '', 'BPM': src['BPM'] || '', '비고': withNote ? (src['비고'] || '') : '', '만든시각': new Date().toISOString(),
@@ -2006,6 +2080,7 @@ router.post('/conti/songs/import', requireTeam, async (req, res) => {
         }
       }
     }
+    if (n) await contiLog.log(imported);
     if (n) liveNotify(team, scope, 'saveWorshipSongs');
     if (n && withSheets) sheetHeaders.queue(team, scope, liveNotify);
   }
@@ -2086,7 +2161,18 @@ router.post('/conti/sheets/move', requireTeam, async (req, res) => {
 router.post('/conti/sheets/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
-  if (row) { try { await sheetsDb.deleteRow('악보저장소', row); liveNotify(String(b.team || '').trim(), scopeFrom(b), 'removeSheet'); } catch (e) { console.error('[악보 삭제 실패]', e.message); } }
+  if (row) {
+    try {
+      const team0 = String(b.team || '').trim();
+      const gone = (await sheetsDb.readAll('악보저장소', { fresh: true })).find((r) => r.__row === row && r['팀ID'] === team0);
+      await sheetsDb.deleteRow('악보저장소', row);
+      liveNotify(team0, scopeFrom(b), 'removeSheet');
+      if (gone) {
+        const song = gone['곡ID'] ? (await sheetsDb.readAll('찬양콘티')).find((r) => r['ID'] === gone['곡ID'] && r['팀ID'] === team0) : null;
+        await contiLog.log(contiLog.sheetEntry(team0, whoName(req), { event: String(gone['행사ID'] || ''), date: String(gone['날짜'] || '') }, false, song, String(gone['제목'] || '악보')));
+      }
+    } catch (e) { console.error('[악보 삭제 실패]', e.message); }
+  }
   if (row && b.team) await sheetHeaders.settle(sheetHeaders.queue(String(b.team).trim(), scopeFrom(b), liveNotify), 8000);   // 맨 앞 악보를 지웠으면 다음 악보가 정식 머리말을 가짐
   backTo(req, res, b.team, scopeFrom(b));
 });
