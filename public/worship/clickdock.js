@@ -300,8 +300,12 @@
     }
 
     /* ---------- 보이기 · 위치 ---------- */
+    /* 켜기 · 끄기 — 전체 화면 위 메뉴의 「클릭」 · ⋯ 메뉴의 「클릭 바 숨기기 / 보이기」 (전체 화면 클릭 창과 같은 기억 'yn.pv.fsmc.off') */
+    var OFF_KEY = 'yn.pv.fsmc.off';
+    function isOff() { try { return root.localStorage.getItem(OFF_KEY) === '1'; } catch (e) { return false; } }
+    function setOff(v) { try { root.localStorage.setItem(OFF_KEY, v ? '1' : '0'); } catch (e) { /* 이번 화면만 */ } place(); paintToggles(); }
     function visible() {
-      if (cfg.pos === 'top') return false;
+      if (cfg.pos === 'top' || isOff()) return false;
       if (cfg.show === 'always') return true;
       try { return !!(P.worship && P.worship()) || !!(P.fullscreen && P.fullscreen()); } catch (e) { return false; }
     }
@@ -356,7 +360,7 @@
       else if (dock.parentNode !== el) el.appendChild(dock);
       dock.hidden = !vis; if (!vis) closePop();
       el.classList.toggle('pv-cdock', vis); el.classList.toggle('pv-cdbar', vis && cfg.pos === 'bar');
-      sync(); placeFloat();
+      sync(); placeFloat(); if (typeof paintToggles === 'function') paintToggles();
     }
 
     /* ---------- 곡이 바뀌면 클릭 멈춤 (선택) ---------- */
@@ -455,13 +459,36 @@
     setBtn.addEventListener('click', function (e) { e.stopPropagation(); openSheet(); });
 
     /* 「⋯ 더 보기」 · 메뉴 서랍에도 설정 단추 (상단 바 모드에서도 열 수 있게) */
-    var acts = el.querySelector('.pv-acts'), actBtn = null;
+    var acts = el.querySelector('.pv-acts'), actBtn = null, offBtn = null;
     if (acts) {
       actBtn = doc.createElement('button'); actBtn.type = 'button'; actBtn.className = 'pv-b cd-actbtn';
       actBtn.title = '클릭 · BPM 컨트롤 (위치 · 크기 · 잠금 · 페달)'; actBtn.setAttribute('aria-label', '클릭 · BPM 컨트롤 설정');
       actBtn.innerHTML = I('metronome') + '<span class="pv-mt">클릭 · BPM 컨트롤 설정</span>';
       actBtn.addEventListener('click', function (e) { e.stopPropagation(); openSheet(); });
       var ws = acts.querySelector('.pv-pedalbtn'); acts.insertBefore(actBtn, ws ? ws.nextSibling : null);
+      offBtn = doc.createElement('button'); offBtn.type = 'button'; offBtn.className = 'pv-b cd-offbtn';
+      offBtn.innerHTML = I('metronome') + '<span class="pv-mt"></span>';
+      offBtn.addEventListener('click', function (e) { e.stopPropagation(); var off = !isOff(); setOff(off); P.toast(off ? '클릭 바를 숨겼어요 — ⋯ 메뉴나 전체 화면 위 「클릭」으로 다시 켜요' : '클릭 바를 켰어요', false, 2200); });
+      acts.insertBefore(offBtn, actBtn.nextSibling);
+    }
+    /* 전체 화면 위 메뉴: 「클릭」은 아래 바 · 떠 있는 버튼도 켜고 끔(같은 기억), 옆에 ⚙ 클릭 설정 — 위 막대 모드에서도 설정으로 돌아갈 수 있게 */
+    var fsmcBtn = el.querySelector('.pv-fsbar .pv-fsmcbtn'), fsSet = null;
+    if (fsmcBtn) {
+      fsmcBtn.addEventListener('click', function () { setTimeout(function () { place(); paintToggles(); }, 0); });
+      fsSet = doc.createElement('button'); fsSet.type = 'button'; fsSet.className = 'pv-b cd-fsset';
+      fsSet.title = '클릭 · BPM 컨트롤 설정'; fsSet.setAttribute('aria-label', '클릭 · BPM 컨트롤 설정');
+      fsSet.innerHTML = I('sliders') || '⚙';                       // 아이콘만 — 전체 화면 위 메뉴가 넘치지 않게 (이름은 title · aria-label)
+      fsSet.addEventListener('click', function (e) { e.stopPropagation(); openSheet(); });
+      fsmcBtn.parentNode.insertBefore(fsSet, fsmcBtn.nextSibling);
+    }
+    function paintToggles() {
+      var off = isOff(), dockMode = cfg.pos !== 'top';
+      if (offBtn) {
+        offBtn.style.display = dockMode ? '' : 'none';
+        offBtn.querySelector('.pv-mt').textContent = off ? '클릭 바 보이기' : '클릭 바 숨기기';
+        offBtn.title = off ? '아래 바 · 떠 있는 버튼 다시 보이기' : '아래 바 · 떠 있는 버튼 숨기기'; offBtn.setAttribute('aria-pressed', off ? 'false' : 'true');
+      }
+      if (fsmcBtn && dockMode) { fsmcBtn.setAttribute('aria-pressed', off ? 'false' : 'true'); fsmcBtn.title = off ? '클릭 바 보이기' : '클릭 바 숨기기'; }
     }
 
     /* ---------- 연결 ---------- */
@@ -478,6 +505,7 @@
       if (dock.parentNode) dock.parentNode.removeChild(dock);
       if (hdn && hdn.parentNode) hdn.parentNode.removeChild(hdn); if (hup && hup.parentNode) hup.parentNode.removeChild(hup);
       el.classList.remove('pv-cdock', 'pv-cdbar');
+      if (fsSet && fsSet.parentNode) fsSet.parentNode.removeChild(fsSet); if (offBtn && offBtn.parentNode) offBtn.parentNode.removeChild(offBtn);
     }
     P.on('close', destroy);
     P.clickDock = { open: openSheet, config: function () { return JSON.parse(JSON.stringify(cfg)); } };

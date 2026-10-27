@@ -182,6 +182,24 @@ global.fetch = async (url, opt) => {
   await page.keyboard.press('KeyK'); await sleep(350);
   ok(!(await info()).running, '클릭 페달(K) → 멈춤');
 
+  console.log('■ 전체 화면 위 메뉴 「클릭」 = 바 켜기/끄기 · ⚙ 클릭 설정');
+  await page.setViewportSize({ width: 820, height: 1180 }); await sleep(200);
+  await page.evaluate(() => YNPractice.current().P.setFullscreen(true)); await sleep(500);
+  await page.evaluate(() => { const b = document.querySelector('.pv-fshandle'); if (b) b.click(); }); await sleep(300);
+  ok(!(await info()).hidden, '전체 화면에서 바가 보임');
+  await page.evaluate(() => document.querySelector('.pv-fsbar .pv-fsmcbtn').click()); await sleep(250);
+  ok((await info()).hidden && await page.evaluate(() => getComputedStyle(document.querySelector('.pv-fsmc') || document.body).display === 'none' || !document.querySelector('.pv-fsmc') || document.querySelector('.pv-fsmc').hidden), '「클릭」 끄면 바가 사라짐 (작은 클릭 창도 안 뜸)');
+  await page.evaluate(() => document.querySelector('.pv-fsbar .pv-fsmcbtn').click()); await sleep(250);
+  ok(!(await info()).hidden, '「클릭」 켜면 다시 보임');
+  await page.evaluate(() => YNPractice.current().P.clickDock.open()); await page.click('.cd-seg[data-g="pos"] [data-v="top"]'); await page.click('.cd-sheet [data-x="1"]'); await sleep(200);
+  await page.evaluate(() => document.querySelector('.pv-fsbar .cd-fsset').click()); await sleep(250);
+  ok(await page.evaluate(() => !!document.querySelector('.cd-sheet')), '위 막대 모드에서도 전체 화면 「클릭 설정」으로 설정을 열 수 있음');
+  if (process.env.SHOTDIR) await page.screenshot({ path: process.env.SHOTDIR + '/6-fs.png' });
+  await page.click('.cd-seg[data-g="pos"] [data-v="bar"]'); await page.click('.cd-sheet [data-x="1"]'); await sleep(200);
+  ok(!(await info()).hidden, '아래 바로 돌아옴');
+  await page.evaluate(() => YNPractice.current().P.setFullscreen(false)); await sleep(400);
+  ok(await page.evaluate(() => { const b = document.querySelector('.pv-acts .cd-offbtn'); return !!b && /숨기기/.test(b.textContent); }), '⋯ 메뉴에도 「클릭 바 숨기기」');
+
   console.log('■ 클릭 탭 — 세 자리 BPM 이 잘리지 않음');
   await page.evaluate(() => { const P = YNPractice.current().P; P.showTab('metro'); }); await sleep(500);
   await page.evaluate(() => { const i = document.querySelector('.pv-pane[data-pane="metro"] .pv-bpm'); i.value = '150'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(300);
