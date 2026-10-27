@@ -134,9 +134,10 @@ global.fetch = async (url, opt) => {
   if (SD) await page.screenshot({ path: SD + '/3-float.png' });
   m = await info(); ok(/cd-float/.test(m.cls) && m.stageBottom >= m.ih - 2, '떠 있는 버튼 → 악보는 화면 끝까지', m);
   await page.click('.cd-seg[data-g="pos"] [data-v="top"]'); await sleep(300);
-  m = await info(); ok(m.hidden && await page.evaluate(() => document.querySelectorAll('.pv-top .cd-hst:not([hidden])').length === 2), '상단 바 → 바 숨김 · 위 막대 클릭 옆에 −/+', m);
+  m = await info(); ok(m.hidden && await page.evaluate(() => [...document.querySelectorAll('.pv-top .cd-hst')].filter((b) => getComputedStyle(b).display !== 'none').length === 2), '상단 바 → 바 숨김 · 위 막대 클릭 옆에 −/+', m);
   await page.click('.cd-seg[data-g="pos"] [data-v="bar"]'); await page.click('.cd-seg[data-g="show"] [data-v="always"]'); await page.click('.cd-seg[data-g="auto"] [data-v="1"]'); await sleep(200);
   await page.click('.cd-sheet [data-x="1"]'); await sleep(200);
+  ok(await page.evaluate(() => [...document.querySelectorAll('.pv-top .cd-hst')].every((b) => getComputedStyle(b).display === 'none')), '아래 바로 돌아오면 위 막대 −/+ 는 숨김');
   ok(await page.evaluate(() => { const c = JSON.parse(localStorage.getItem('yn.cdock')); return c.pos === 'bar' && c.show === 'always' && c.bpm === 'show' && c.big === false && c.auto === true; }), '설정이 이 기기에 저장됨');
 
   console.log('■ 곡이 바뀌면 멈춤 (선택)');
@@ -157,6 +158,13 @@ global.fetch = async (url, opt) => {
   ok((await info()).running, '클릭 페달(K) → 시작');
   await page.keyboard.press('KeyK'); await sleep(350);
   ok(!(await info()).running, '클릭 페달(K) → 멈춤');
+
+  console.log('■ 클릭 탭 — 세 자리 BPM 이 잘리지 않음');
+  await page.evaluate(() => { const P = YNPractice.current().P; P.showTab('metro'); }); await sleep(500);
+  await page.evaluate(() => { const i = document.querySelector('.pv-pane[data-pane="metro"] .pv-bpm'); i.value = '150'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(300);
+  if (process.env.SHOTDIR) await page.screenshot({ path: process.env.SHOTDIR + '/5-tab.png' });
+  ok(await page.evaluate(() => { const i = document.querySelector('.pv-pane[data-pane="metro"] .pv-bpm'); if (!i) return false; const c = document.createElement('canvas').getContext('2d'), cs = getComputedStyle(i); c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily; return c.measureText('300').width <= i.clientWidth - 4; }), '클릭 탭 BPM 칸에 300 까지 다 보임');
+  await page.evaluate(() => YNPractice.current().P.showTab('metro'));
 
   console.log('■ 폰 · 밝은 화면에서도');
   await page.setViewportSize({ width: 390, height: 844 }); await sleep(400);

@@ -2246,7 +2246,7 @@ html body .pv .pv-mline { display: flex; flex-wrap: wrap; align-items: center; g
 html body .pv .pv-mline .pv-bpmrow { flex: none; display: flex; align-items: center; gap: 4px; }
 html body .pv .pv-mline .pv-mgo { flex: none; width: 44px !important; min-width: 44px; height: 44px !important; padding: 0; border-radius: 50% !important; font-size: 17px !important; line-height: 1; }
 html body .pv .pv-mline .pv-btn2.sq { width: 34px; min-width: 34px; height: 40px; padding: 0; }
-html body .pv .pv-mline .pv-bpm { flex: none; width: 54px; height: 42px; font-size: 22px; padding: 0 2px; }
+html body .pv .pv-mline .pv-bpm { flex: none; width: 74px; height: 42px; font-size: 22px; padding: 0; letter-spacing: -.02em; }   /* V1300 — 세 자리 BPM(150 등)이 잘리지 않게 */
 html body .pv .pv-mline [data-a="tap"] { height: 40px; min-width: 0; padding: 0 7px; }
 html body .pv .pv-mline .pv-dots { flex: 1 1 100px; min-width: 0; width: auto; max-width: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin: 0; }
 html body .pv .pv-mline .pv-beat { flex: none; width: 24px; height: 24px; min-height: 0; max-width: none; margin: 0; border-width: 2px; }
