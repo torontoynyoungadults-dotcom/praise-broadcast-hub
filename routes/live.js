@@ -260,6 +260,7 @@ ${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token,
 <script defer src="/worship/practice-panels.js${v}"></script>
 <script defer src="/worship/livemsg.js${v}"></script>
 <script defer src="/worship/claude-ui.js${v}"></script>
+<script defer src="/worship/clickdock.js${v}"></script>
 <script defer src="/worship/practice.js${v}"></script>
 <script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>

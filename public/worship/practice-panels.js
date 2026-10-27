@@ -161,6 +161,11 @@
       return api;
     }
     P.metroCircle = function () { return circleMetro(); };
+    /* V1300 — 클릭 · BPM 컨트롤 바(clickdock.js)가 같은 경로를 쓰도록: 상태 읽기 · 박 신호 받기 · 누르고 있기 · 잠금 확인 */
+    P.metroState = function () { return M ? M.state() : null; };
+    P.metroLocked = function () { return ctl() === 'locked'; };
+    P.bpmHold = function (btn, dir, after) { return bpmStep(btn, dir, after); };
+    P.metroWidget = function (api) { minis.push(api); return function () { var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); }; };
     /* ---------- v9.16 — 위 막대의 클릭 켜기/끄기 단추 ----------
        누르면 시작 / 멈춤 (Space 와 같은 길 P.metroKey('toggle') — 클릭 컨트롤 잠금 · 팀 동기화 그대로). 켜져 있으면 주황 · 박마다 살짝 반짝 · 옆에 BPM. */
     P.metroHeader = function (btn) {
