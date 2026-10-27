@@ -80,6 +80,11 @@
       '.cd-float{--cd-go-w:112px;--cd-num-w:96px;position:absolute;z-index:26;bottom:calc(16px + env(safe-area-inset-bottom,0px));gap:6px;padding:6px;border-radius:calc(var(--cd-r) + 6px);background:var(--cd-bg);border:1px solid var(--cd-edge);box-shadow:var(--lg-shine,inset 0 1px 0 rgba(255,255,255,.08)),var(--lg-shadow,0 18px 50px -12px rgba(0,0,0,.6))}' +
       '.cd-big.cd-float{--cd-go-w:128px;--cd-num-w:104px}' +
       '.cd-float.r{right:16px}.cd-float.l{left:16px}' +
+      /* 떠 있는 버튼 손잡이 — 끌어서 옮기기 (자리는 이 기기에 기억) */
+      '.cd-grip{display:none}.cd-float .cd-grip{display:block;flex:none;align-self:stretch;width:18px;margin:0 -2px 0 2px;border-radius:10px;cursor:grab;touch-action:none;background:radial-gradient(circle,var(--cd-dim) 1.3px,transparent 1.7px) center/6px 6px;background-clip:content-box;padding:10px 4px;opacity:.9}' +
+      '.cd-float{touch-action:none}.cd-float button{touch-action:manipulation}' +
+      '.cd-float.drag{cursor:grabbing;box-shadow:var(--lg-shine,inset 0 1px 0 rgba(255,255,255,.08)),0 26px 60px -10px rgba(0,0,0,.7)}.cd-float.drag .cd-grip{cursor:grabbing}' +
+      '.cd-pop.down{bottom:auto;top:calc(100% + 10px)}' +
       /* 시작 / 멈춤 — 너비 고정(글자가 바뀌어도 옆이 밀리지 않음), 아이콘+글자 한 덩어리로 가운데 */
       '.cd-go{flex:none;width:var(--cd-go-w);height:var(--cd-h);padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:var(--cd-r);border:1px solid var(--cd-edge);background:var(--cd-ctl);font-size:16px;font-weight:800;letter-spacing:-.01em;transition:background .15s,border-color .15s,box-shadow .12s}' +
       '.cd-big .cd-go{font-size:17px}' +
@@ -92,8 +97,8 @@
       '.cd-st{flex:none;width:var(--cd-h);height:100%;padding:0;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center}' +
       '.cd-st:not(:disabled):active,.cd-num:not(:disabled):active{background:var(--cd-ctl-hov)}' +
       '.cd-cap .cd-dn{border-right:1px solid var(--cd-edge)}.cd-cap .cd-up{border-left:1px solid var(--cd-edge)}' +
-      '.cd-num{position:relative;flex:none;width:var(--cd-num-w);height:100%;padding:0 10px 6px;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}' +
-      '.cd-nv{display:flex;align-items:baseline;justify-content:center;gap:4px;font-variant-numeric:tabular-nums lining-nums}' +
+      '.cd-num{position:relative;flex:none;width:auto;min-width:var(--cd-num-w);white-space:nowrap;height:100%;padding:0 10px 6px;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}' +
+      '.cd-nv{white-space:nowrap;flex-wrap:nowrap;display:flex;align-items:baseline;justify-content:center;gap:4px;font-variant-numeric:tabular-nums lining-nums}' +
       '.cd-nv b{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1}.cd-big .cd-nv b{font-size:24px}' +
       '.cd-nv small{font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--cd-sub)}' +
       '.cd-num.chg .cd-nv b{color:var(--cd-a-text)}' +
@@ -151,6 +156,7 @@
     var dock = doc.createElement('div');
     dock.setAttribute('role', 'toolbar'); dock.setAttribute('aria-label', '클릭 · BPM');
     dock.innerHTML =
+      '<span class="cd-grip" title="끌어서 옮기기" aria-hidden="true"></span>' +
       '<button type="button" class="cd-go" aria-pressed="false"><span class="cd-gi">' + SVG_PLAY + '</span><span class="cd-gt">클릭</span></button>' +
       '<div class="cd-cap" role="group" aria-label="BPM">' +
         '<button type="button" class="cd-st cd-dn" aria-label="BPM 1 내리기" title="BPM −1 (누르고 있으면 계속)">' + SVG_MINUS + '</button>' +
@@ -245,13 +251,13 @@
       pbar.classList.remove('run'); void pbar.offsetWidth; pbar.classList.add('run');
     }
     function anchorPop() {
-      pop.style.left = pop.style.right = '';
-      var rightSide = dock.classList.contains('cd-float') && dock.classList.contains('r');
-      if (rightSide) pop.style.right = (dock.clientWidth - cap.offsetLeft - cap.offsetWidth) + 'px';
-      else pop.style.left = cap.offsetLeft + 'px';
-      var r = pop.getBoundingClientRect(), vw = root.innerWidth || 0;            // 화면 밖으로 나가지 않게
-      if (r.right > vw - 8) { pop.style.left = ''; pop.style.right = '8px'; }
-      if (r.left < 8) { pop.style.right = ''; pop.style.left = '8px'; }
+      pop.style.left = pop.style.right = ''; pop.classList.remove('down');
+      pop.style.left = cap.offsetLeft + 'px';
+      var r = pop.getBoundingClientRect(), vw = root.innerWidth || 0, er = el.getBoundingClientRect();
+      if (r.right > vw - 8) pop.style.left = Math.max(8 - dock.getBoundingClientRect().left, cap.offsetLeft - (r.right - (vw - 8))) + 'px';   // 화면 밖으로 나가지 않게
+      r = pop.getBoundingClientRect();
+      if (r.left < 8) pop.style.left = (cap.offsetLeft + (8 - r.left)) + 'px';
+      if (r.top < er.top + 8) pop.classList.add('down');                          // 위쪽에 둔 떠 있는 버튼 — 창을 아래로
     }
     function openPop() { if (locked()) { P.toast(clickerName() + ' 클릭 컨트롤입니다.', true, 1400); return; } pop.hidden = false; anchorPop(); num.setAttribute('aria-expanded', 'true'); sync(); kick(); }
     function closePop() { clearTimeout(popT); pop.hidden = true; num.setAttribute('aria-expanded', 'false'); pbar.classList.remove('run'); }
@@ -299,6 +305,46 @@
       if (cfg.show === 'always') return true;
       try { return !!(P.worship && P.worship()) || !!(P.fullscreen && P.fullscreen()); } catch (e) { return false; }
     }
+    /* ---------- 떠 있는 버튼: 끌어서 옮기기 — 자리는 화면 크기에 대한 비율로 이 기기에 기억 ---------- */
+    var POS_KEY = 'yn.cdock.pos', dg = null;
+    function savedPos() { try { var p = JSON.parse(root.localStorage.getItem(POS_KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) return p; } catch (e) { /* 처음 */ } return null; }
+    function bounds() {
+      var r = el.getBoundingClientRect(), top = el.querySelector('.pv-top'), tb = top && top.offsetHeight && getComputedStyle(top).display !== 'none' ? top.getBoundingClientRect().bottom - r.top : 0;
+      return { r: r, minY: Math.max(8, tb + 8), w: Math.max(0, r.width - dock.offsetWidth - 16), h: Math.max(0, r.height - dock.offsetHeight - 8) };
+    }
+    function setXY(x, y) {
+      var B = bounds(); x = Math.min(B.w, Math.max(0, x)); y = Math.min(B.h, Math.max(B.minY, y));
+      dock.style.left = (8 + x) + 'px'; dock.style.top = y + 'px'; dock.style.right = 'auto'; dock.style.bottom = 'auto';
+    }
+    function clearXY() { dock.style.left = dock.style.top = dock.style.right = dock.style.bottom = ''; }
+    function placeFloat() {
+      if (cfg.pos !== 'float' || dock.hidden) { clearXY(); return; }
+      var p = savedPos(); if (!p) { clearXY(); return; }
+      var B = bounds(); setXY(p.x * B.w, B.minY + p.y * Math.max(0, B.h - B.minY));
+    }
+    function savePos() {
+      var B = bounds(), x = parseFloat(dock.style.left) - 8, y = parseFloat(dock.style.top);
+      try { root.localStorage.setItem(POS_KEY, JSON.stringify({ x: B.w ? +(x / B.w).toFixed(4) : 1, y: B.h > B.minY ? +((y - B.minY) / (B.h - B.minY)).toFixed(4) : 1 })); } catch (e) { /* 저장이 막혀도 이번 화면에서는 그대로 */ }
+    }
+    dock.addEventListener('pointerdown', function (e) {
+      if (cfg.pos !== 'float' || (e.target.closest && e.target.closest('button,.cd-pop'))) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault(); closePop();
+      var b = dock.getBoundingClientRect(), r = el.getBoundingClientRect();
+      dg = { id: e.pointerId, dx: e.clientX - b.left, dy: e.clientY - b.top, r: r };
+      setXY(b.left - r.left - 8, b.top - r.top);
+      try { dock.setPointerCapture(e.pointerId); } catch (x) { /* 캡처 없이도 움직임 */ }
+      dock.classList.add('drag');
+    });
+    dock.addEventListener('pointermove', function (e) {
+      if (!dg || e.pointerId !== dg.id) return; e.preventDefault();
+      setXY(e.clientX - dg.r.left - dg.dx - 8, e.clientY - dg.r.top - dg.dy);
+    });
+    function endDrag(e) { if (!dg || (e && e.pointerId !== dg.id)) return; dg = null; dock.classList.remove('drag'); savePos(); }
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (k) { dock.addEventListener(k, endDrag); });
+    function onResize() { if (!dead && cfg.pos === 'float') requestAnimationFrame(placeFloat); }
+    root.addEventListener('resize', onResize);
+
     function place() {
       if (dead) return;
       var vis = visible(), hand = 'right'; try { hand = P.hand ? P.hand() : 'right'; } catch (e) { /* 기본 */ }
@@ -310,7 +356,7 @@
       else if (dock.parentNode !== el) el.appendChild(dock);
       dock.hidden = !vis; if (!vis) closePop();
       el.classList.toggle('pv-cdock', vis); el.classList.toggle('pv-cdbar', vis && cfg.pos === 'bar');
-      sync();
+      sync(); placeFloat();
     }
 
     /* ---------- 곡이 바뀌면 클릭 멈춤 (선택) ---------- */
@@ -361,6 +407,7 @@
       Array.prototype.forEach.call(back.querySelectorAll('.cd-seg[data-g]'), function (g) {
         Array.prototype.forEach.call(g.querySelectorAll('button[data-v]'), function (b) { var on = vals[g.dataset.g] === b.dataset.v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
       });
+      var fo = back.querySelector('.cd-floatopt'); if (fo) fo.style.display = cfg.pos === 'float' ? '' : 'none';
       var showRow = back.querySelector('[data-row="show"]'); if (showRow) showRow.style.opacity = cfg.pos === 'top' ? '.45' : '';
       var pk = back.querySelector('.cd-pk'); if (pk) { pk.textContent = learning ? '지금 페달(또는 키)을 한 번 누르세요… (Esc 취소)' : '지금: ' + keyName(cfg.pkey); pk.classList.toggle('cd-learn', learning); }
     }
@@ -372,7 +419,8 @@
         '<div class="cd-sheet" role="dialog" aria-modal="true" aria-label="클릭 · BPM 컨트롤 설정">' +
           '<div class="cd-sh-h"><b>클릭 · BPM 컨트롤</b><button type="button" class="cd-sh-x" data-x="1" aria-label="닫기">' + SVG_X + '</button></div>' +
           '<p class="cd-sh-sub">이 기기에만 저장돼요. 팀 클릭 동기화는 그대로예요.</p>' +
-          '<div class="cd-row"><h6>컨트롤 위치</h6>' + seg('pos', [['bar', '아래 바', '악보와 안 겹침'], ['float', '떠 있는 버튼', '악보 크기 그대로'], ['top', '위 막대', '클릭 단추만']]) + '</div>' +
+          '<div class="cd-row"><h6>컨트롤 위치</h6>' + seg('pos', [['bar', '아래 바', '악보와 안 겹침'], ['float', '떠 있는 버튼', '악보 크기 그대로'], ['top', '위 막대', '클릭 단추만']]) + '<div class="cd-floatopt"><p class="cd-help">떠 있는 버튼은 왼쪽 손잡이(점 무늬)를 끌어 원하는 곳에 둘 수 있어요. 자리는 이 기기에 기억돼요.</p><div class="cd-seg" style="margin-top:6px"><button type="button" data-k="repos">자리 처음으로 (오른쪽 아래)</button></div></div>' +
+          '</div>' +
           '<div class="cd-row" data-row="show"><h6>보이는 때</h6>' + seg('show', [['worship', '예배 모드일 때', '전체 화면 포함'], ['always', '항상']]) + '</div>' +
           '<div class="cd-row"><h6>클릭 버튼 크기</h6>' + seg('big', [['1', '크게', '예배 중 실수 방지'], ['0', '보통']]) + '</div>' +
           '<div class="cd-row"><h6>BPM 바꾸는 방법</h6>' + seg('bpm', [['lock', '숫자를 눌러서', '3초 뒤 저절로 닫힘'], ['show', '−/+ 늘 보이게', '숫자를 길게 누르면 원래대로']]) + '</div>' +
@@ -395,6 +443,7 @@
           if (g === 'big' || g === 'auto' || g === 'keys') cfg[g] = v === '1'; else cfg[g] = v;
           save(cfg); place(); paintSheet(); return;
         }
+        if (b.dataset.k === 'repos') { try { root.localStorage.removeItem(POS_KEY); } catch (x) { /* 없음 */ } placeFloat(); P.toast('떠 있는 버튼을 오른쪽 아래로 옮겼어요', false, 1400); return; }
         if (b.dataset.k === 'learn') { learning = true; paintSheet(); }
         else if (b.dataset.k === 'clear') { cfg.pkey = null; learning = false; save(cfg); paintSheet(); }
         else if (b.dataset.k === 'def') { var pk = cfg.pkey; cfg = load(); for (var k in DEF) cfg[k] = DEF[k]; cfg.pkey = pk; save(cfg); place(); paintSheet(); P.toast('기본값으로 되돌렸어요 (클릭 페달은 그대로)', false, 1600); }
@@ -425,7 +474,7 @@
       if (dead) return; dead = true;
       clearTimeout(popT); clearInterval(poll); stops.concat(hstops).forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } });
       if (unreg) try { unreg(); } catch (e) { /* 무시 */ }
-      root.removeEventListener('keydown', onKey, true); closeSheet();
+      root.removeEventListener('keydown', onKey, true); root.removeEventListener('resize', onResize); closeSheet();
       if (dock.parentNode) dock.parentNode.removeChild(dock);
       if (hdn && hdn.parentNode) hdn.parentNode.removeChild(hdn); if (hup && hup.parentNode) hup.parentNode.removeChild(hup);
       el.classList.remove('pv-cdock', 'pv-cdbar');
