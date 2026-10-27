@@ -261,6 +261,7 @@ ${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token,
 <script defer src="/worship/livemsg.js${v}"></script>
 <script defer src="/worship/claude-ui.js${v}"></script>
 <script defer src="/worship/clickdock.js${v}"></script>
+<script defer src="/worship/liveusage.js${v}"></script>
 <script defer src="/worship/practice.js${v}"></script>
 <script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>
@@ -821,6 +822,20 @@ router.post('/live/sheetfix/revert', async (req, res) => {
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 /** V873 — 라이브 악보 Claude AI: 정해진 계정만 (lib/claudeAi.js 가 토큰의 이메일 · 이름으로 확인) — 키는 서버 환경 변수에만 */
 const claudeAi = require('../lib/claudeAi');
+/* V1310 — 라이브 악보 사용 기록: 화면이 30초마다 보내는 "보는 중" 신호 · 앱 관리자만 보는 기록 (lib/liveUsageStore.js) */
+const liveUsage = require('../lib/liveUsageStore');
+router.post('/api/liveUsageBeat', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
+  try { res.json({ ok: true, result: await liveUsage.beat(args[0], args[1]) }); }
+  catch (e) { res.json({ ok: false, error: (e && e.message) || String(e) }); }
+});
+router.post('/api/liveUsageList', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
+  try { res.json({ ok: true, result: await liveUsage.list(args[0], args[1]) }); }
+  catch (e) { if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[liveUsageList]', e); res.json({ ok: false, error: (e && e.message) || String(e) }); }
+});
 router.post('/api/worshipClaude', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];

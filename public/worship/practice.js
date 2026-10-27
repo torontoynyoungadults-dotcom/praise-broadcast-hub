@@ -3054,6 +3054,7 @@
       try { if (P.metroCircle) mcApi = P.metroCircle(); } catch (e) { mcApi = null; }
       try { if (P.metroHeader) P.metroHeader($('.pv-metbtn')); } catch (e) { /* 위 막대 클릭 단추가 없어도 송폼 창 · 패널의 클릭은 그대로 */ }
       try { if (root.YNClickDock) root.YNClickDock.mount(P); } catch (e) { /* V1300 — 클릭 · BPM 컨트롤 바가 없어도 위 막대 · 패널의 클릭은 그대로 */ }
+      try { if (root.YNLiveUsage) root.YNLiveUsage.mount(P); } catch (e) { /* V1310 — 사용 기록은 덤: 실패해도 라이브 악보는 그대로 */ }
       try { if (P.beatStrip) fsApi = P.beatStrip('form'); } catch (e) { fsApi = null; }      // V848 — 송폼 창: 저장 · 박 흐름 · 1234 · 1박 · ×2 · 숫자로 · 3·2·1
       applyFormSize(); paintShows(); paintForm();
       P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm); P.on('songedit', paintForm); P.on('songs', paintForm);   // V838 — 송폼을 고치면 떠 있는 송폼 창도 바로 바뀜

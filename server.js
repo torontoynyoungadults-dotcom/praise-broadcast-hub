@@ -123,6 +123,7 @@ async function shutdown(sig) {
   console.log(`[${sig}] 남은 필기를 저장하고 끕니다…`);
   try { rt.flushAll(); } catch (e) { console.error('[종료 저장]', e && e.message); }
   try { await Promise.race([require('./lib/notify').flushPending(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* 끄는 중 */ }
+  try { await Promise.race([require('./lib/liveUsageStore').flush(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* 끄는 중 — 라이브 악보 사용 기록 */ }
   try { await liveStore.drain(8000); } catch (e) { /* 끄는 중 */ }
   process.exit(0);
 }
@@ -130,4 +131,4 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`찬양방송팀 허브 — http://localhost:${PORT}`); if (process.env.NODE_ENV !== 'test') { require('./lib/weeklyDefaults').start(); require('./lib/practiceReminder').start(); require('./lib/calSync').start(); } });
+server.listen(PORT, () => { console.log(`찬양방송팀 허브 — http://localhost:${PORT}`); if (process.env.NODE_ENV !== 'test') { require('./lib/weeklyDefaults').start(); require('./lib/practiceReminder').start(); require('./lib/calSync').start(); require('./lib/liveUsageStore').start(); } });
