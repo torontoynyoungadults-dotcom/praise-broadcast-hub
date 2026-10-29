@@ -3376,8 +3376,28 @@
           if (k === 'reset') { S.pedal = null; ls('pedal', ''); pedalDone('기본값으로 — → / PageDown = 다음, ← / PageUp = 이전'); }
           else if (k === 'x') pedalDone(''); }); }
       if (pedalEl.parentNode !== el) el.appendChild(pedalEl);
-      pedalEl.innerHTML = html + '<div class="row">' + btns + '</div>';
+      pedalEl.innerHTML = html + '<div class="pv-pedallog" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.35);color:#fff;font:12px/1.45 ui-monospace,Menlo,monospace;text-align:left;white-space:pre-wrap;word-break:break-all;max-height:9.5em;overflow:hidden">받은 신호: (페달을 밟아 보세요)</div><div class="row">' + btns + '</div>';
+      paintRaw();
     }
+    /* v9.11 — 페달 진단: 이 화면이 실제로 받는 신호(키 · 클릭 · 스크롤)를 맞추기 창에 그대로 보여 줌 (iPad 에서 페달이 안 먹을 때 원인 찾기) */
+    var rawLog = [];
+    function rawNote(e) {
+      if (S.dead) return;
+      var t = e.target, tn = t && t.tagName ? t.tagName.toLowerCase() + (t.className && typeof t.className === 'string' ? '.' + t.className.split(' ')[0] : '') : '?';
+      var a = doc.activeElement, an = a && a.tagName ? a.tagName.toLowerCase() + (a.className && typeof a.className === 'string' ? '.' + a.className.split(' ')[0] : '') : '-';
+      var line = e.type;
+      if (/^key/.test(e.type)) line += ' key=' + JSON.stringify(e.key) + ' code=' + (e.code || '∅') + ' kc=' + (e.keyCode || 0) + (e.isComposing ? ' IME' : '') + (e.defaultPrevented ? ' (막힘)' : '');
+      else if (e.type === 'wheel') line += ' dy=' + Math.round(e.deltaY || 0);
+      else if (e.button != null) line += ' btn=' + e.button + (e.pointerType ? ' ' + e.pointerType : '');
+      else if (e.inputType) line += ' ' + e.inputType;
+      line += ' → ' + tn + ' · 초점 ' + an;
+      rawLog.unshift(new Date().toTimeString().slice(3, 8) + ' ' + line); if (rawLog.length > 6) rawLog.length = 6;
+      paintRaw();
+    }
+    function paintRaw() { if (!pedalEl || !pedalEl.isConnected) return; var b = pedalEl.querySelector('.pv-pedallog'); if (b) b.textContent = rawLog.length ? '받은 신호 (최근 순):\n' + rawLog.join('\n') : '받은 신호: 아직 없음 — 페달을 밟아 보세요'; }
+    var RAW_EV = ['keydown', 'keyup', 'keypress', 'beforeinput', 'pointerdown', 'mousedown', 'contextmenu', 'wheel'];
+    RAW_EV.forEach(function (t) { root.addEventListener(t, rawNote, { capture: true, passive: true }); });
+    P.on('close', function () { RAW_EV.forEach(function (t) { root.removeEventListener(t, rawNote, { capture: true, passive: true }); }); });
     function pedalLearn() {
       S.pedalL = { step: 'n' };
       try { if (doc.activeElement && doc.activeElement.blur) doc.activeElement.blur(); } catch (e) {}
