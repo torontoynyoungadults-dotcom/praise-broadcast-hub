@@ -2631,6 +2631,7 @@
     function keyOf(e) { var k = (e && e.key) || ''; if (IOSKEY[k]) return IOSKEY[k]; if (!k || k === 'Unidentified') { var c = KEYCODE[(e && (e.keyCode || e.which)) || 0]; if (c) return c; } return k; }
     function isTyping(t) {
       if (!t || !t.tagName) return false;
+      if (t.classList && t.classList.contains('pv-keysink')) return false;                // v9.12 — 페달 신호를 받는 숨은 칸은 글 쓰는 칸이 아님
       var tag = t.tagName; if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
       return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
     }
@@ -2767,19 +2768,30 @@
     doc.addEventListener('keyup', onKeyUp);
     el.addEventListener('change', function (e) { var t = e.target; if (t && t.tagName === 'SELECT') { try { t.blur(); } catch (x) {} } });   // 목록을 고른 뒤에도 단축키가 바로 먹도록
     doc.addEventListener('keydown', onKey);
-    /* v9.10 — iPad: 버튼 · 악보를 누르고 나면 키 입력을 받을 곳(초점)이 없어져 블루투스 페달이 안 먹는 경우가 있어,
-       글 쓰는 칸이 아니면 화면 안의 보이지 않는 칸에 초점을 돌려 둡니다 (키보드는 뜨지 않음) */
-    var keySink = doc.createElement('div'); keySink.className = 'pv-keysink'; keySink.tabIndex = -1; keySink.setAttribute('aria-hidden', 'true');
-    keySink.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;outline:none;pointer-events:none;overflow:hidden';
+    /* v9.12 — iPad(Safari · 홈 화면 앱)은 블루투스 페달 · 키보드의 키를 "글 쓰는 칸에 초점이 있을 때만" 웹페이지에 넘겨 줍니다
+       (2026-10-29 실제 iPad 로 확인: 입력칸에 초점 → ArrowRight 들어옴, 그 밖(body · 일반 칸) → 아무 신호 없음).
+       그래서 화상 키보드가 뜨지 않는(inputmode=none) 보이지 않는 입력칸을 두고, 화면을 누를 때마다 그 칸에 초점을 돌려 둡니다.
+       iPad 는 손가락으로 누른 그 순간(이벤트 안)에서만 입력칸 초점을 허락하므로 pointerup 안에서 바로 focus 합니다.
+       진짜 입력칸(필기 글자 · BPM 숫자 · 검색 …)을 쓰는 중에는 건드리지 않습니다. */
+    var keySink = doc.createElement('input'); keySink.type = 'text'; keySink.className = 'pv-keysink'; keySink.tabIndex = -1;
+    ['inputmode:none', 'enterkeyhint:done', 'autocomplete:off', 'autocorrect:off', 'autocapitalize:off', 'spellcheck:false', 'aria-hidden:true', 'data-1p-ignore:true', 'data-lpignore:true'].forEach(function (kv) { var i = kv.indexOf(':'); keySink.setAttribute(kv.slice(0, i), kv.slice(i + 1)); });
+    keySink.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;outline:none;font-size:16px;color:transparent;background:transparent;caret-color:transparent;pointer-events:none;z-index:-1';
+    keySink.addEventListener('input', function () { if (keySink.value) keySink.value = ''; });           // Space · 글자 키가 칸에 쌓이지 않게
     el.appendChild(keySink);
+    var NAV0 = root.navigator || {}, IOS_KEYS = /iP(ad|hone|od)/.test(NAV0.userAgent || '') || (NAV0.platform === 'MacIntel' && (NAV0.maxTouchPoints || 0) > 1);   // 컴퓨터 · 안드로이드는 원래대로 (한글 입력기 단축키 영향 없게)
     function sinkFocus() {
-      if (S.dead || !keySink.isConnected) return; var a = doc.activeElement;
-      if (a && a !== doc.body && a !== keySink && (isTyping(a) || (a.tagName === 'IFRAME'))) return;
+      if (!IOS_KEYS || S.dead || !keySink.isConnected) return; var a = doc.activeElement;
+      if (a === keySink) return;
+      if (a && a !== doc.body && (isTyping(a) || a.tagName === 'SELECT' || a.tagName === 'IFRAME')) return;
       try { keySink.focus({ preventScroll: true }); } catch (x) { try { keySink.focus(); } catch (y) {} }
     }
-    function onSinkTap(e) { var t = e.target; if (isTyping(t) || (t && t.closest && t.closest('select,textarea,input,[contenteditable],iframe'))) return; setTimeout(sinkFocus, 0); }
+    function onSinkTap(e) {
+      var t = e.target; if (isTyping(t) || (t && t.closest && t.closest('select,textarea,input,[contenteditable],iframe,label'))) return;
+      sinkFocus();                                                                    // 누른 그 순간에 바로 (iPad 는 나중에 하면 거절)
+    }
     el.addEventListener('pointerup', onSinkTap, true);
-    setTimeout(sinkFocus, 0);
+    el.addEventListener('click', onSinkTap, true);
+    setTimeout(sinkFocus, 0);                                                         // 컴퓨터 · 안드로이드는 열자마자 됨 (iPad 는 첫 터치부터)
     var rz = 0, ro = null;
     /* 창 크기 · 화면 회전 · 칸 크기 변화는 마지막 변화 뒤 150ms 가 조용할 때 한 번만 처리 (끌어서 창을 늘리는 동안 매 프레임 다시 계산 · 다시 그리지 않음) */
     function onResize() { clearTimeout(rz); rz = setTimeout(function () { rz = 0; if (S.dead) return; checkCompact(); renderSoon(0); }, 150); }
@@ -3400,7 +3412,8 @@
     P.on('close', function () { RAW_EV.forEach(function (t) { root.removeEventListener(t, rawNote, { capture: true, passive: true }); }); });
     function pedalLearn() {
       S.pedalL = { step: 'n' };
-      try { if (doc.activeElement && doc.activeElement.blur) doc.activeElement.blur(); } catch (e) {}
+      try { if (doc.activeElement && doc.activeElement !== keySink && doc.activeElement.blur) doc.activeElement.blur(); } catch (e) {}
+      sinkFocus();
       pedalCard('<b>' + I('pedal') + ' 페달 맞추기</b><span class="sub">① <b>다음 페이지</b>로 쓸 페달을 한 번 밟아 주세요.</span><span class="sub">지금: 다음 ' + h(keyName(S.pedal && S.pedal.n) === '-' ? '→ / PageDown' : keyName(S.pedal.n)) + ' · 이전 ' + h(keyName(S.pedal && S.pedal.p) === '-' ? '← / PageUp' : keyName(S.pedal.p)) + '</span>',
         '<button type="button" data-k="reset">기본값으로</button><button type="button" data-k="x">취소</button>');
     }

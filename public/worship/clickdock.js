@@ -46,6 +46,7 @@
   var NOTYPE = { button: 1, checkbox: 1, radio: 1, range: 1, submit: 1, reset: 1, color: 1, file: 1 };
   function isTyping(t) {
     if (!t || !t.tagName) return false; var tag = t.tagName;
+    if (t.classList && t.classList.contains('pv-keysink')) return false;
     if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
     return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
   }
