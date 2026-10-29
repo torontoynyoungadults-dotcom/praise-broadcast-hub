@@ -2625,6 +2625,10 @@
     stage.addEventListener('wheel', function (e) { if (e.ctrlKey) { e.preventDefault(); wheelZoom(e.deltaY < 0 ? 1.08 : 1 / 1.08); } }, { passive: false });
     /* 글자를 치는 중인지 — 그때는 단축키를 모두 끕니다. (체크박스 · 슬라이더 · 버튼에 초점이 남아 있는 것은 "치는 중"이 아니므로 단축키가 계속 됩니다) */
     var NOTYPE = { checkbox: 1, radio: 1, range: 1, button: 1, submit: 1, reset: 1, color: 1, file: 1, image: 1 };
+    var IOSKEY = { UIKeyInputRightArrow: 'ArrowRight', UIKeyInputLeftArrow: 'ArrowLeft', UIKeyInputUpArrow: 'ArrowUp', UIKeyInputDownArrow: 'ArrowDown', UIKeyInputPageUp: 'PageUp', UIKeyInputPageDown: 'PageDown', UIKeyInputEscape: 'Escape', Right: 'ArrowRight', Left: 'ArrowLeft', Up: 'ArrowUp', Down: 'ArrowDown', Esc: 'Escape', Spacebar: ' ' },
+        KEYCODE = { 13: 'Enter', 27: 'Escape', 32: ' ', 33: 'PageUp', 34: 'PageDown', 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' };
+    /** v9.10 — iPad(Safari · 홈 화면 앱)은 블루투스 페달 키를 UIKeyInputRightArrow · Unidentified(keyCode 만) 처럼 보내기도 해서 표준 이름으로 맞춥니다 */
+    function keyOf(e) { var k = (e && e.key) || ''; if (IOSKEY[k]) return IOSKEY[k]; if (!k || k === 'Unidentified') { var c = KEYCODE[(e && (e.keyCode || e.which)) || 0]; if (c) return c; } return k; }
     function isTyping(t) {
       if (!t || !t.tagName) return false;
       var tag = t.tagName; if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
@@ -2689,7 +2693,7 @@
     var spaceEaten = false;
     function onKey(e) {
       if (S.dead || isTyping(e.target)) return;
-      var k = e.key, mod = e.ctrlKey || e.metaKey;
+      var k = keyOf(e), mod = e.ctrlKey || e.metaKey;
       if (S.pedalL) { pedalKey(e); return; }                                              // V871 — 페달 맞추는 중
       var pa = pedalAct(e);
       if (pa) { e.preventDefault(); e.stopPropagation(); if (e.repeat || Date.now() - (S.pedalT || 0) < 260) return; S.pedalT = Date.now(); if (pa === 'n') nextPage(true); else prevPage(true); return; }
@@ -2759,10 +2763,23 @@
     }
     doc.addEventListener('copy', onCopy); doc.addEventListener('paste', onPaste);
     box.addEventListener('pointerdown', function (e) { if (an && an.markPoint) an.markPoint(e.clientX, e.clientY); }, true);
-    function onKeyUp(e) { if ((e.key === ' ' || e.key === 'Spacebar') && spaceEaten) { spaceEaten = false; e.preventDefault(); } }   // 버튼에 초점이 있어도 Space 가 그 버튼을 또 누르지 않게
+    function onKeyUp(e) { if (keyOf(e) === ' ' && spaceEaten) { spaceEaten = false; e.preventDefault(); } }   // 버튼에 초점이 있어도 Space 가 그 버튼을 또 누르지 않게
     doc.addEventListener('keyup', onKeyUp);
     el.addEventListener('change', function (e) { var t = e.target; if (t && t.tagName === 'SELECT') { try { t.blur(); } catch (x) {} } });   // 목록을 고른 뒤에도 단축키가 바로 먹도록
     doc.addEventListener('keydown', onKey);
+    /* v9.10 — iPad: 버튼 · 악보를 누르고 나면 키 입력을 받을 곳(초점)이 없어져 블루투스 페달이 안 먹는 경우가 있어,
+       글 쓰는 칸이 아니면 화면 안의 보이지 않는 칸에 초점을 돌려 둡니다 (키보드는 뜨지 않음) */
+    var keySink = doc.createElement('div'); keySink.className = 'pv-keysink'; keySink.tabIndex = -1; keySink.setAttribute('aria-hidden', 'true');
+    keySink.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;outline:none;pointer-events:none;overflow:hidden';
+    el.appendChild(keySink);
+    function sinkFocus() {
+      if (S.dead || !keySink.isConnected) return; var a = doc.activeElement;
+      if (a && a !== doc.body && a !== keySink && (isTyping(a) || (a.tagName === 'IFRAME'))) return;
+      try { keySink.focus({ preventScroll: true }); } catch (x) { try { keySink.focus(); } catch (y) {} }
+    }
+    function onSinkTap(e) { var t = e.target; if (isTyping(t) || (t && t.closest && t.closest('select,textarea,input,[contenteditable],iframe'))) return; setTimeout(sinkFocus, 0); }
+    el.addEventListener('pointerup', onSinkTap, true);
+    setTimeout(sinkFocus, 0);
     var rz = 0, ro = null;
     /* 창 크기 · 화면 회전 · 칸 크기 변화는 마지막 변화 뒤 150ms 가 조용할 때 한 번만 처리 (끌어서 창을 늘리는 동안 매 프레임 다시 계산 · 다시 그리지 않음) */
     function onResize() { clearTimeout(rz); rz = setTimeout(function () { rz = 0; if (S.dead) return; checkCompact(); renderSoon(0); }, 150); }
@@ -3348,8 +3365,8 @@
 
     /* ---------- 블루투스 페달: 어떤 페달이든(→ ← · PageDown/Up · ↑ ↓ · Space · Enter …) 한 번 밟아서 맞춤. 맞춘 키는 페이지 넘김이 가장 먼저 ---------- */
     S.pedal = null; try { S.pedal = JSON.parse(ls('pedal') || 'null'); } catch (e) { S.pedal = null; }
-    function keyId(e) { return { c: e.code || '', k: e.key || '' }; }
-    function sameKey(a, e) { return !!a && ((a.c && a.c === e.code) || (!a.c && a.k && a.k === e.key)); }
+    function keyId(e) { return { c: e.code || '', k: keyOf(e) }; }
+    function sameKey(a, e) { return !!a && ((a.c && a.c === e.code) || (a.k && a.k === keyOf(e) && (!a.c || !e.code))); }      // v9.10 — iPad 는 code 가 비어 오기도 함 → 이름으로도 맞춤
     function pedalAct(e) { var p = S.pedal; if (!p || e.ctrlKey || e.metaKey || e.altKey) return ''; if (sameKey(p.n, e)) return 'n'; if (sameKey(p.p, e)) return 'p'; return ''; }
     function keyName(a) { if (!a) return '-'; var m = { ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', PageDown: 'PageDown', PageUp: 'PageUp', ' ': 'Space', Enter: 'Enter' }; return m[a.k] || a.k || a.c; }
     var pedalEl = null;
@@ -3369,7 +3386,7 @@
     }
     function pedalKey(e) {
       var L = S.pedalL; if (!L) return; e.preventDefault(); e.stopPropagation(); if (e.repeat) return;
-      if (e.key === 'Escape') { pedalDone(''); return; }
+      if (keyOf(e) === 'Escape') { pedalDone(''); return; }
       if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].indexOf(e.key) >= 0) return;
       if (L.step === 'n') { L.n = keyId(e); L.step = 'p'; pedalCard('<b>' + I('pedal') + ' 페달 맞추기</b><span class="sub">다음 페이지 = <b>' + h(keyName(L.n)) + '</b> ✓</span><span class="sub">② 이제 <b>이전 페이지</b>로 쓸 페달을 밟아 주세요.</span>', '<button type="button" data-k="x">취소</button>'); return; }
       var p = keyId(e); if (p.c === L.n.c && p.k === L.n.k) { pedalCard('<b>' + I('pedal') + ' 페달 맞추기</b><span class="sub">다음 페이지와 같은 페달이에요 — <b>다른 페달</b>을 밟아 주세요.</span>', '<button type="button" data-k="x">취소</button>'); return; }

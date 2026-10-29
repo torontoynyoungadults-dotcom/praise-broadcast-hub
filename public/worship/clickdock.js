@@ -49,7 +49,11 @@
     if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
     return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
   }
-  function sameKey(a, e) { return !!a && ((a.c && a.c === e.code) || (!a.c && a.k && a.k === e.key)); }
+  var IOSKEY = { UIKeyInputRightArrow: 'ArrowRight', UIKeyInputLeftArrow: 'ArrowLeft', UIKeyInputUpArrow: 'ArrowUp', UIKeyInputDownArrow: 'ArrowDown', UIKeyInputPageUp: 'PageUp', UIKeyInputPageDown: 'PageDown', UIKeyInputEscape: 'Escape', Right: 'ArrowRight', Left: 'ArrowLeft', Up: 'ArrowUp', Down: 'ArrowDown', Esc: 'Escape', Spacebar: ' ' },
+    KEYCODE = { 13: 'Enter', 27: 'Escape', 32: ' ', 33: 'PageUp', 34: 'PageDown', 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' };
+  /** v9.10 — iPad(Safari · 홈 화면 앱)은 블루투스 페달 키를 UIKeyInputRightArrow · Unidentified(keyCode 만) 처럼 보내기도 해서 표준 이름으로 맞춥니다 */
+  function keyOf(e) { var k = (e && e.key) || ''; if (IOSKEY[k]) return IOSKEY[k]; if (!k || k === 'Unidentified') { var c = KEYCODE[(e && (e.keyCode || e.which)) || 0]; if (c) return c; } return k; }
+  function sameKey(a, e) { return !!a && ((a.c && a.c === e.code) || (a.k && a.k === keyOf(e) && (!a.c || !e.code))); }
   function keyName(a) { if (!a) return '없음'; var m = { ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', ' ': 'Space', Enter: 'Enter' }; return m[a.k] || a.k || a.c; }
   function pagePedal() { try { return JSON.parse(root.localStorage.getItem('yn.pv.pedal') || 'null'); } catch (e) { return null; } }
 
@@ -381,10 +385,10 @@
       if (dead || !doc.body.contains(el)) return;
       if (learning) {
         e.preventDefault(); e.stopPropagation();
-        if (e.key === 'Escape') { learning = false; paintSheet(); return; }
-        var k = { k: e.key, c: e.code || '' }, pp = pagePedal();
+        if (keyOf(e) === 'Escape') { learning = false; paintSheet(); return; }
+        var k = { k: keyOf(e), c: e.code || '' }, pp = pagePedal();
         if (pp && (sameKey(pp.n, e) || sameKey(pp.p, e))) { P.toast('이 키는 페이지 넘김 페달에 쓰고 있어요 — 다른 페달을 눌러 주세요', true, 2400); return; }
-        if (!pp && /^(ArrowRight|ArrowLeft|PageDown|PageUp)$/.test(e.key)) { P.toast('이 키는 페이지 넘김에 쓰여요 — 다른 페달을 눌러 주세요', true, 2400); return; }
+        if (!pp && /^(ArrowRight|ArrowLeft|PageDown|PageUp)$/.test(keyOf(e))) { P.toast('이 키는 페이지 넘김에 쓰여요 — 다른 페달을 눌러 주세요', true, 2400); return; }
         cfg.pkey = k; save(cfg); learning = false; paintSheet(); P.toast('클릭 페달: ' + keyName(k) + ' — 누르면 클릭 시작 / 멈춤', false, 2200); return;
       }
       if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -393,7 +397,8 @@
         if (e.repeat || Date.now() - padT < 300) return; padT = Date.now();
         var r = P.metroKey('toggle'); if (r && r.locked) P.toast(clickerName() + ' 클릭 컨트롤입니다.', true, 1400); sync(); return;
       }
-      if (!cfg.keys && (e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      var nk = keyOf(e);
+      if (!cfg.keys && (nk === ' ' || nk === 'ArrowUp' || nk === 'ArrowDown')) {
         var pp2 = pagePedal(); if (pp2 && (sameKey(pp2.n, e) || sameKey(pp2.p, e))) return;      // 페이지 넘김 페달은 그대로
         e.preventDefault(); e.stopPropagation();
       }
