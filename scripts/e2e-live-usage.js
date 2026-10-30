@@ -114,7 +114,7 @@ global.fetch = async (url, opt) => {
   await page.waitForFunction(() => !!document.querySelector('.pv-acts .lu-actbtn'), null, { timeout: 5000 }).catch(() => {});
   ok(await page.evaluate(() => !!document.querySelector('.pv-acts .lu-actbtn')), '관리자에게만 ⋯ 메뉴 「라이브 악보 사용 기록」');
   let deny = ''; try { await LU.list(otherTok(), {}); } catch (e) { deny = e.message; }
-  ok(/관리자만/.test(deny), '다른 사람은 서버가 막음', deny);
+  ok(/권한이 없어요/.test(deny), '다른 사람은 서버가 막음', deny);
   await page.setViewportSize({ width: 820, height: 1180 }); await sleep(300);
   await page.evaluate(() => { document.querySelector('.pv-acts .lu-actbtn').click(); }); await sleep(900);
   ok(await page.evaluate(() => /김리더/.test(document.querySelector('.lu-bd').textContent) && /1명/.test(document.querySelector('.lu-sum').textContent)), '기록 화면: 날짜별 · 본 사람 · 시간');

@@ -6,7 +6,7 @@
  *  기록: 라이브 악보를 보는 동안 30초마다 "보는 중" 신호를 서버(/api/liveUsageBeat)에 보냅니다.
  *        · 화면이 보이는 시간만 셉니다 (다른 앱으로 가거나 화면이 꺼진 동안은 빠짐). 손을 대지 않아도 화면이 켜져 있으면 셈.
  *        · 처음 열 때 · 화면을 벗어날 때 · 닫을 때도 바로 보냅니다. 실패해도 화면에는 아무 영향이 없습니다.
- *  보기: 서버가 "앱 관리자" 라고 답한 사람(hanyj123@gmail.com)에게만 ⋯ 메뉴에 「라이브 악보 사용 기록」이 생깁니다.
+ *  보기: 서버가 "볼 수 있음" 이라고 답한 사람(앱 관리자 + 앱 기능 관리 › 앱 사용 현황에서 더한 분)에게만 ⋯ 메뉴에 「라이브 악보 사용 기록」이 생깁니다.
  *        (서버도 /api/liveUsageList 에서 다시 확인 — 주소를 알아도 다른 사람은 못 봄)
  */
 (function (root) {
@@ -67,7 +67,7 @@
       if (menuBtn || dead) return;
       var acts = P.el.querySelector('.pv-acts'); if (!acts) return;
       menuBtn = doc.createElement('button'); menuBtn.type = 'button'; menuBtn.className = 'pv-b lu-actbtn';
-      menuBtn.title = '라이브 악보 사용 기록 — 누가 언제 몇 분 봤는지 (앱 관리자만)'; menuBtn.setAttribute('aria-label', '라이브 악보 사용 기록');
+      menuBtn.title = '라이브 악보 사용 기록 — 누가 언제 몇 분 봤는지 (권한 있는 분만)'; menuBtn.setAttribute('aria-label', '라이브 악보 사용 기록');
       menuBtn.innerHTML = (I('timer') || I('calendar')) + '<span class="pv-mt">라이브 악보 사용 기록</span>';
       menuBtn.addEventListener('click', function (e) { e.stopPropagation(); openView(P, token, function () { take(); return post('liveUsageBeat', [token, { sid: id, room: room, label: label, ms: Math.min(acc, 90000), open: false, dev: dev }]).then(function () { acc = 0; }, function () {}); }); });
       acts.appendChild(menuBtn);
@@ -138,7 +138,7 @@
       '<div class="lu-seg" role="group" aria-label="기간">' + RANGES.map(function (r) { return '<button type="button" data-rg="' + r[0] + '">' + r[1] + '</button>'; }).join('') + '</div></div>' +
       '<div class="lu-sum"></div></header>' +
       '<div class="lu-bd"><p class="lu-msg">불러오는 중…</p></div>' +
-      '<footer class="lu-ft">화면이 켜져 있던 시간만 셉니다 (다른 앱 · 화면 꺼짐 제외) · 1년 보관 · 이 화면은 앱 관리자만 볼 수 있어요</footer></section>';
+      '<footer class="lu-ft">화면이 켜져 있던 시간만 셉니다 (다른 앱 · 화면 꺼짐 제외) · 1년 보관 · 이 화면은 권한 있는 분만 볼 수 있어요</footer></section>';
     ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'keydown'].forEach(function (k) { view.addEventListener(k, function (e) { if (k !== 'keydown' || e.key !== 'Escape') e.stopPropagation(); }, { passive: k !== 'keydown' }); });
     view.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeView(); } });
     view.addEventListener('click', function (e) {
