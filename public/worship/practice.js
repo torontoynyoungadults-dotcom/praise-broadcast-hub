@@ -217,6 +217,7 @@
           '<button class="pv-b pv-prepbtn" data-a="prep" title="예배 전에 오늘 콘티 전체를 미리 받아 두고, 키를 바꾼 곡 · 카포 곡의 코드를 미리 읽어 둡니다 (예배 중엔 무거운 작업 없음)" aria-label="예배 전 전체 준비">' + I('prep') + '<span class="pv-mt">예배 전 전체 준비</span></button>' +
           '<button class="pv-b pv-wsonbtn" data-a="ws-on" title="예배 모드 — 페이지 넘김만 (필기 · 편집 · 코드 소리 잠금)" aria-label="예배 모드 켜기">' + I('lock') + '<span class="pv-mt">예배 모드 켜기</span></button>' +
           '<button class="pv-b pv-pedalbtn" data-a="pedal" title="블루투스 페이지 넘김 페달 맞추기" aria-label="페달 맞추기">' + I('pedal') + '<span class="pv-mt">페달 맞추기</span></button>' +
+          (opts.readOnly ? '' : '<button class="pv-b pv-tominebtn" data-a="tomine-menu" title="팀으로 잘못 쓴 필기를 나만 보는 필기로 옮기기" aria-label="팀 필기를 나만 보기로">' + I('lock') + '<span class="pv-mt">팀 필기 → 나만 보기</span></button>') +
           '<button class="pv-b pv-themebtn" data-a="theme" title="밝은 화면 / 어두운 화면" aria-label="밝은 화면 / 어두운 화면">' + themeBtnHtml(doc.documentElement.getAttribute('data-theme') === 'light') + '</button>' +
           '<button class="pv-b pv-mpdf" data-a="pdf" title="필기 포함 PDF 저장 (악보 전체 한 파일)" aria-label="필기 포함 PDF 저장">' + I('download') + '<span class="pv-mt">필기 포함 PDF 저장</span></button>' +
         '</div>' +
@@ -2154,9 +2155,33 @@
       return '<button type="button" class="pv-tool sm pv-tomine" data-a="tomine" data-w="' + which + '" title="팀에 공유된 내 필기를 나만 보는 필기로 옮깁니다 (팀 화면 · 인쇄용 PDF 에서 빠짐)"><span class="ic">' + I('lock') + '</span><span class="nm">' + lbl + '</span></button>';
     }
     function onMineSheetSafe() { try { return typeof onMineSheet === 'function' && onMineSheet(); } catch (e) { return false; } }
-    function doToMine(which) {
+    /* ⋯ 메뉴 「팀 필기 → 나만 보기」 — 이 악보의 팀 필기를 쓴 사람별로 보여 주고 골라서 옮김 (내 이름이 달라 「내 필기」로 안 잡힐 때도) */
+    var tmEl = null;
+    function toMineCard() {
+      if (!an.teamAuthors) return;
+      if (onMineSheetSafe()) { toast('나만 보는 악보라 팀 필기가 없어요.', false, 2200); return; }
+      if (!tmEl) {
+        tmEl = doc.createElement('div'); tmEl.className = 'pv-pedal pv-tomine-card'; tmEl.setAttribute('role', 'dialog'); tmEl.setAttribute('aria-label', '팀 필기를 나만 보기로');
+        tmEl.addEventListener('click', function (e) {
+          var b = e.target.closest && e.target.closest('button'); if (!b) return;
+          if (b.getAttribute('data-k') === 'x') { tmEl.remove(); return; }
+          var who = b.getAttribute('data-by'); if (who == null) return;
+          doToMine('by', who); toMineCard();
+        });
+      }
+      if (tmEl.parentNode !== el) el.appendChild(tmEl);
+      var list = an.teamAuthors();
+      var rows = list.length ? list.map(function (x) {
+        return '<div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="flex:1;min-width:0">' + h(x.by || '이름 없음') + (x.me ? ' <small style="opacity:.7">(나)</small>' : '') + ' · ' + x.n + '개</span>' +
+          (x.can ? '<button type="button" data-by="' + h(x.by) + '">나만 보기로</button>' : '<small style="opacity:.7">팀장 · 인도자만</small>') + '</div>';
+      }).join('') : '<span class="sub">이 악보에는 팀 필기가 없어요.</span>';
+      tmEl.innerHTML = '<b>' + I('lock') + ' 팀 필기 → 나만 보기</b><span class="sub">이 악보(모든 쪽)의 팀 필기를 쓴 사람별로 보여요. 옮기면 팀 화면 · 인쇄용 PDF 에서 빠지고 나에게만 보여요. ↶ 로 되돌릴 수 있어요.</span>' + rows +
+        '<div class="row"><button type="button" data-k="x">닫기</button></div>';
+    }
+    function doToMine(which, author) {
       if (!an.moveToMine) return;
-      var r = an.moveToMine(which, function (old, copy) { S.scopeOf[copy.id] = S.scopeOf[old.id] || S.scopeKey; });
+      var r = an.moveToMine(which, function (old, copy) { S.scopeOf[copy.id] = S.scopeOf[old.id] || S.scopeKey; }, author);
+      if (tmEl && tmEl.isConnected && which !== 'by') toMineCard();
       if (r.moved) toast(r.moved + '개를 나만 보기로 옮겼어요 — 이제 나에게만 보여요.' + (r.skipped ? ' (다른 분 필기 ' + r.skipped + '개는 그대로)' : '') + ' ↶ 로 되돌릴 수 있어요.', false, 3200);
       else toast(r.skipped ? '다른 분이 쓴 필기는 옮길 수 없어요 — 내가 쓴 팀 필기만 옮겨져요.' : '옮길 내 팀 필기가 없어요.', true, 2400);
       renderTools();
@@ -2474,6 +2499,7 @@
       else if (a === 'ws-off') wsUnlockTap();
       else if (a === 'ks-save') ksSave(); else if (a === 'ks-up') ksStep(1); else if (a === 'ks-down') ksStep(-1); else if (a === 'ks-reset') ksReset();
       else if (a === 'pedal') { setMore(false); setDrawer(false); pedalLearn(); }
+      else if (a === 'tomine-menu') { setMore(false); setDrawer(false); toMineCard(); }
       else if (a === 'close') { if (S.worship && !wsSecondTap('close')) return; api.close(); } else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
       else if (a === 'spread') toggleSpread();
@@ -3460,7 +3486,7 @@
           step(function () { if (S.fs) setFs(false); });
           step(function () { closeYt(); });
           step(function () { P.emit('close'); });
-          step(function () { if (S.prep) S.prep.cancel = true; prepHide(); clearTimeout(S.prepHideT); if (pedalEl) pedalEl.remove(); });
+          step(function () { if (S.prep) S.prep.cancel = true; prepHide(); clearTimeout(S.prepHideT); if (pedalEl) pedalEl.remove(); if (tmEl) tmEl.remove(); });
           step(function () { an.closeEditor(); });
           P.tabs.forEach(function (t) { step(function () { t.api && t.api.destroy && t.api.destroy(); }); });
           step(function () { rt && rt.close(); }); step(function () { an.destroy(); });
