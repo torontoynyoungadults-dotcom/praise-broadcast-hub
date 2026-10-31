@@ -2146,6 +2146,21 @@
       var hint = { white: '흰 지우개: 악보의 지우고 싶은 부분을 하얗게 칠해 가립니다. (필기라서 지우개 · 되돌리기로 다시 보이게 할 수 있어요)', pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자 · 코드: 악보를 눌러 씁니다. 색 · 글꼴 · 바탕 · 테두리는 색 단추(●)에서. 쓴 글자를 다시 누르면 고칠 수 있습니다.', sym: '기호 · 음표: 팔레트에서 고르고 악보를 눌러 찍습니다. 팔레트 위쪽 막대를 끌어 옮기고, ▾ 로 접을 수 있어요.', lasso: '올가미: 악보 위에 고리를 그리면 그 안의 펜 · 형광펜 · 글자 · 기호 · 라벨이 한꺼번에 골라집니다. 끌어서 옮기고, 모서리 손잡이로 크기를 바꾸고, ✕ 로 지웁니다. (↶ 로 되돌리기)', select: '선택·이동: 글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택한 뒤, 끌어서 원하는 자리로 옮기세요. 아래에서 크기 · 글꼴을 바꾸거나 지울 수 있습니다.', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 라벨: 위 칸에서 V · C · P · B · Int 같은 이름표를 고른 뒤, 악보의 원하는 자리를 누르면 그 글자가 바로 붙습니다. (누른 채 끌면 자리를 맞출 수 있고, 잘못 붙였으면 선택·이동 도구로 옮기거나 지울 수 있습니다)' }[t];
       if (hint && !quiet) toast(hint, false, 2600);
     }
+    /* 2026-10-31 — 팀으로 잘못 쓴 내 필기 → 나만 보기 */
+    function toMineBtn(which) {
+      if (opts.readOnly || !an.teamOwnCount || onMineSheetSafe()) return '';
+      var c = an.teamOwnCount(which); if (!c.own) return '';
+      var lbl = which === 'all' ? '내 팀 필기 ' + c.own + '개 모두 나만 보기로' : '나만 보기로';
+      return '<button type="button" class="pv-tool sm pv-tomine" data-a="tomine" data-w="' + which + '" title="팀에 공유된 내 필기를 나만 보는 필기로 옮깁니다 (팀 화면 · 인쇄용 PDF 에서 빠짐)"><span class="ic">' + I('lock') + '</span><span class="nm">' + lbl + '</span></button>';
+    }
+    function onMineSheetSafe() { try { return typeof onMineSheet === 'function' && onMineSheet(); } catch (e) { return false; } }
+    function doToMine(which) {
+      if (!an.moveToMine) return;
+      var r = an.moveToMine(which, function (old, copy) { S.scopeOf[copy.id] = S.scopeOf[old.id] || S.scopeKey; });
+      if (r.moved) toast(r.moved + '개를 나만 보기로 옮겼어요 — 이제 나에게만 보여요.' + (r.skipped ? ' (다른 분 필기 ' + r.skipped + '개는 그대로)' : '') + ' ↶ 로 되돌릴 수 있어요.', false, 3200);
+      else toast(r.skipped ? '다른 분이 쓴 필기는 옮길 수 없어요 — 내가 쓴 팀 필기만 옮겨져요.' : '옮길 내 팀 필기가 없어요.', true, 2400);
+      renderTools();
+    }
     function renderTools() {
       var ae = doc.activeElement;
       if (ae && ae.tagName === 'INPUT' && (ae.type === 'range' || ae.type === 'number') && toolsEl.contains(ae)) { S.toolsDirty = true; return; }          // 숫자칸에 직접 치는 중에는 다시 그리지 않음
@@ -2160,11 +2175,11 @@
       /* v10 — 글꼴 · 크기 · 바탕 · 테두리는 색 · 굵기 창(색 단추)으로 옮겼습니다 — 작은 화면에서 도구 막대 밖으로 잘리던 문제 */
       void fontVal; void showFont; void rng; void fsz;
       var fontRow = !sel ? '' : '<div class="pv-tg pv-fontrow">' +
-        (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + '</div>';
-      if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 눌러 선택하세요. 선택한 뒤 끌면 옮겨지고, 쓴 사람이 보입니다.</div>';
+        (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' : '') + toMineBtn('sel') + '</div>';
+      if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 눌러 선택하세요. 선택한 뒤 끌면 옮겨지고, 쓴 사람이 보입니다.</div>' + (toMineBtn('all') ? '<div class="pv-tg">' + toMineBtn('all') + '</div>' : '');
       if (S.tool === 'lasso') {                                                       // v9.16 — 올가미: 고른 개수 · 함께 지우기
         var nL = an.lassoCount ? an.lassoCount() : 0;
-        fontRow = nL ? '<div class="pv-tg pv-lassorow"><span class="pv-lassocount">' + nL + '개 선택</span><button type="button" class="pv-tool sm pv-del" data-a="lassodel" title="고른 필기 모두 지우기 (Delete)"><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button><button type="button" class="pv-tool sm" data-a="lassooff" title="선택 해제 (Esc)"><span class="ic">' + I('close') + '</span><span class="nm">해제</span></button></div>'
+        fontRow = nL ? '<div class="pv-tg pv-lassorow"><span class="pv-lassocount">' + nL + '개 선택</span><button type="button" class="pv-tool sm pv-del" data-a="lassodel" title="고른 필기 모두 지우기 (Delete)"><span class="ic">' + I('trash') + '</span><span class="nm">지우기</span></button>' + toMineBtn('lasso') + '<button type="button" class="pv-tool sm" data-a="lassooff" title="선택 해제 (Esc)"><span class="ic">' + I('close') + '</span><span class="nm">해제</span></button></div>'
           : '<div class="pv-tg pv-selhint">악보 위에 고리를 그려 그 안의 필기를 한꺼번에 고르세요. 고른 뒤 끌면 옮겨지고, 모서리 손잡이로 크기, ✕ 로 지웁니다.</div>';
       }
       /* 복사 · 붙여넣기 — 선택한 것을 복사하고, 복사해 둔 것이 있으면 어느 페이지에서든 붙여넣기 (키보드: Ctrl/⌘+C · V · D) */
@@ -2236,6 +2251,7 @@
       else if (a === 'clearpg') { var n = an.clearPage(S.layer, false); if (n) toast(n + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.'); renderTools(); }
       else if (a === 'copysel') { doCopy(); }
       else if (a === 'paste') { doPaste(); }
+      else if (a === 'tomine') { doToMine(b.getAttribute('data-w') || 'sel'); }
       else if (a === 'lassodel') { var nd = an.lassoDelete ? an.lassoDelete() : 0; if (nd) toast(nd + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.', false, 1600); renderTools(); }
       else if (a === 'lassooff') { an.deselect(); renderTools(); }
       else if (a === 'delsel') { if (an.deleteSelected()) { toast('지웠습니다. ↶ 로 되돌릴 수 있어요.', false, 1600); } renderTools(); }

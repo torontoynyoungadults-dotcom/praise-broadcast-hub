@@ -730,6 +730,28 @@
 
     /* ---- 항목 추가 · 삭제 (되돌리기 기록 포함) ---- */
     function mine(it) { return it.by === S.me; }
+    /** 2026-10-31 — 팀 필기를 "나만 보기"로 옮기기 (팀으로 잘못 쓴 내 필기). which: 'sel'(선택한 것) · 'lasso'(올가미로 고른 것) · 'all'(이 악보의 내 팀 필기 모두)
+     *  내가 쓴 것만 옮깁니다 (다른 분 필기는 팀에서 지우게 되므로 건너뜀). 새 id 로 나만 보기 층에 넣고 팀 층에서 지움 → 한 번의 ↶ 로 되돌림.
+     *  prep(old, copy) — 옮기기 직전 (화면이 범위(곡 · 날짜) 정보를 새 id 로 옮겨 적음) */
+    function teamOwn(which) {
+      var list = [];
+      if (which === 'sel') { var it0 = selItem(); if (it0 && S.sel.layer === 'team') list.push(it0); }
+      else if (which === 'lasso') mselList().forEach(function (x) { if (x.layer === 'team') list.push(x.it); });
+      else if (which === 'all') S.layers.team.forEach(function (it) { list.push(it); });
+      return { own: list.filter(mine), others: list.filter(function (it) { return !mine(it); }).length };
+    }
+    function moveToMine(which, prep) {
+      var t0 = teamOwn(which), ops = [];
+      t0.own.forEach(function (it) {
+        var t = take('team', it.id); if (!t) return;
+        var c = Object.assign({}, t, { id: newId() });
+        try { if (prep) prep(t, c); } catch (e) { /* 범위 정보는 덤 */ }
+        put('mine', c);
+        ops.push({ op: 'del', layer: 'team', item: t }, { op: 'add', layer: 'mine', item: c });
+      });
+      if (ops.length) { record({ op: 'batch', ops: ops }); S.sel = null; S.msel = null; if (S.vis && S.vis.mine === false) S.vis.mine = true; invalidate(); changed(); }
+      return { moved: ops.length / 2, skipped: t0.others };
+    }
     function canModify(layer, it) { return layer === 'mine' || mine(it) || S.canEdit; }
     function put(layer, it, notify) { S.layers[layer].set(it.id, it); if (notify !== false) { try { o.onAdd && o.onAdd(layer, it); } catch (e) {} } invalidate(); changed(); }
     function take(layer, id, notify) { var it = S.layers[layer].get(id); if (!it) return null; S.layers[layer].delete(id); if (notify !== false) { try { o.onDel && o.onDel(layer, id); } catch (e) {} } invalidate(); changed(); return it; }
@@ -1480,6 +1502,8 @@
       lassoCount: function () { return mselCount(); },
       lassoGeom: function () { var g = S.msel ? mselGeom() : null; return g ? { x: g.x, y: g.y, w: g.w, h: g.h, tr: g.tr, br: g.br, n: g.list.length } : null; },
       lassoDelete: function () { return lassoDelete(); },
+      teamOwnCount: function (which) { var t = teamOwn(which); return { own: t.own.length, others: t.others }; },
+      moveToMine: function (which, prep) { return moveToMine(which, prep); },
       lassoSelect: function (poly) { if (!poly || poly.length < 6) return 0; var r = lassoPick(poly); S.msel = r.items.length ? { items: r.items } : null; invalidate(true); changed(); return r.items.length; },
       /** 복사 — 선택한 글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 기억 (다른 페이지 · 다른 악보에도 붙일 수 있게 모듈 전체에서 하나). 붙일 때 쓰는 글(있으면)을 돌려줌 */
       copySelected: function () {
