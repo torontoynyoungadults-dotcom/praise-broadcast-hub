@@ -712,10 +712,10 @@
       host.innerHTML =
         '<div class="pv-sec"><h4>누가 썼나요 <small>여러 명이 동시에 써도 실시간으로 모두에게 보입니다</small></h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="showby"> 악보 위에 쓴 사람 이름표 보이기</label>' +
-          '<p class="pv-help">아래 "최근 필기"를 누르면 그 필기가 악보에서 반짝입니다. 펜 · 이동 도구로 필기를 톡 치면 쓴 사람이 잠깐 보이고, "선택" 도구로 필기(펜 획 포함)를 누르면 쓴 사람과 시각이 주황 이름표로 보입니다. 남의 필기는 볼 수만 있고, 팀장 · 인도자만 고치거나 지울 수 있습니다.</p>' +
+          '<p class="pv-help">아래 "모든 필기"를 누르면 그 필기가 악보에서 반짝입니다. 펜 · 이동 도구로 필기를 톡 치면 쓴 사람이 잠깐 보이고, "선택" 도구로 필기(펜 획 포함)를 누르면 쓴 사람과 시각이 주황 이름표로 보입니다. 남의 필기는 볼 수만 있고, 팀장 · 인도자만 고치거나 지울 수 있습니다.</p>' +
           '<div class="pv-logwho" data-role="who"></div></div>' +
-        '<div class="pv-sec"><h4>최근 필기</h4><div class="pv-logrec" data-role="rec"></div></div>';
-      var whoEl = host.querySelector('[data-role="who"]'), recEl = host.querySelector('[data-role="rec"]'), chk = host.querySelector('[data-o="showby"]');
+        '<div class="pv-sec"><h4>모든 필기 <small data-role="reccount"></small></h4><p class="pv-help">이 악보(모든 쪽)의 필기 전부 · 최근 순. 팀 필기 옆 「그 사람만」을 누르면 쓴 사람에게만 보이게 됩니다 (팀 화면 · 인쇄용 PDF 에서 빠짐).</p><div class="pv-logrec" data-role="rec"></div></div>';
+      var whoEl = host.querySelector('[data-role="who"]'), recEl = host.querySelector('[data-role="rec"]'), chk = host.querySelector('[data-o="showby"]'), recCnt = host.querySelector('[data-role="reccount"]');
       var KIND = { pen: '펜', hl: '형광펜', text: '글자', sym: '기호', fbox: '송폼 라벨' };
       function an() { var a = P.anno && P.anno(); return a && a.authors ? a : null; }
       function paint() {
@@ -726,15 +726,20 @@
           return '<div class="pv-logrow' + (on ? ' on' : '') + '"><b>' + h(x.name || '알 수 없음') + '</b><small>' + x.n + '개 · ' + (x.pages.length > 4 ? x.pages.slice(0, 4).join(', ') + '…' : x.pages.join(', ')) + '페이지 · ' + h(a.ago(x.last)) + (x.mine ? ' · 나만 보기 ' + x.mine : '') + '</small>' +
             '<span><button type="button" class="pv-btn2" data-only="' + h(x.name) + '">' + (on ? '모두 보기' : '이 사람만') + '</button><button type="button" class="pv-btn2" data-pg="' + (x.pages[0] || 1) + '">페이지로</button></span></div>';
         }).join('') + (f ? '<p class="pv-help pv-logf">지금 <b>' + h(f) + '</b> 님 필기만 보이는 중입니다.</p>' : '') : '<p class="pv-help">아직 이 악보에 필기가 없습니다.</p>';
+        var who = a.whoami ? a.whoami() : { me: '', canEdit: false };
         var items = []; ['team', 'mine'].forEach(function (ly) { (a.items(ly) || []).forEach(function (it) { items.push({ ly: ly, it: it }); }); });
         items.sort(function (x, y) { return (+y.it.ts || 0) - (+x.it.ts || 0); });
-        recEl.innerHTML = items.length ? items.slice(0, 25).map(function (x) {
+        recEl.innerHTML = items.length ? items.map(function (x) {
           var it = x.it, what = KIND[it.t] || it.t; if (it.t === 'text' && it.s) what += ' "' + String(it.s).slice(0, 14) + '"'; if (it.t === 'fbox' && it.k) what += ' ' + it.k;
-          return '<button type="button" class="pv-logit" data-ly="' + x.ly + '" data-id="' + h(it.id) + '" data-pg="' + it.pg + '"><i style="background:' + h(it.c || '#ff8a2a') + '"></i><b>' + h(it.by || '알 수 없음') + '</b><span>' + h(what) + ' · ' + it.pg + '페이지</span><small>' + h(a.ago(it.ts)) + '</small></button>';
+          var row = '<button type="button" class="pv-logit" data-ly="' + x.ly + '" data-id="' + h(it.id) + '" data-pg="' + it.pg + '"><i style="background:' + h(it.c || '#ff8a2a') + '"></i><b>' + h(it.by || '알 수 없음') + '</b><span>' + h(what) + ' · ' + it.pg + '페이지</span><small>' + h(a.ago(it.ts)) + '</small></button>';
+          var canGive = x.ly === 'team' && P.toAuthorsOnly && (who.canEdit || (it.by || '') === who.me);
+          return '<div class="pv-logline">' + row + (x.ly === 'mine' ? '<span class="pv-logtag">나만</span>' : canGive ? '<button type="button" class="pv-btn2 pv-logonly" data-only1="' + h(it.id) + '" title="이 필기를 쓴 ' + h(it.by || '') + ' 님에게만 보이게">그 사람만</button>' : '') + '</div>';
         }).join('') : '<p class="pv-help">없음</p>';
+        if (recCnt) recCnt.textContent = items.length ? items.length + '개' : '';
       }
       host.addEventListener('click', function (e) {
         var a = an(); if (!a) return; var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+        if (b.hasAttribute('data-only1')) { P.toAuthorsOnly([b.getAttribute('data-only1')]); setTimeout(paint, 400); return; }
         if (b.hasAttribute('data-only')) { var n = b.getAttribute('data-only'); a.setAuthorFilter(a.authorFilter() === n ? null : n); paint(); return; }
         if (b.classList.contains('pv-logit')) {                                                   // V848 — 누르면 그 필기가 반짝 (도구는 그대로)
           var pg = +b.getAttribute('data-pg'), id = b.getAttribute('data-id'), turn = pg && pg !== P.page();

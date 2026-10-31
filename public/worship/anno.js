@@ -735,6 +735,10 @@
      *  prep(old, copy) — 옮기기 직전 (화면이 범위(곡 · 날짜) 정보를 새 id 로 옮겨 적음) */
     function teamOwn(which, author) {
       var list = [];
+      if (which === 'ids') {                                                         // 고른 항목들 (기록 목록에서) — 내 것만 여기서 옮김
+        (author || []).forEach(function (id) { var it = S.layers.team.get(id); if (it) list.push(it); });
+        return { own: list.filter(mine), others: list.filter(function (it) { return !mine(it); }).length };
+      }
       if (which === 'by') {                                                         // 쓴 사람 한 분의 팀 필기 모두 — 내 것은 누구나, 다른 분 것은 팀 필기를 고칠 수 있는 분(팀장 · 인도자 · 관리자)만
         S.layers.team.forEach(function (it) { if ((it.by || '') === (author || '')) list.push(it); });
         var ok = (author || '') === S.me || S.canEdit;
@@ -1517,6 +1521,9 @@
       teamOwnCount: function (which) { var t = teamOwn(which); return { own: t.own.length, others: t.others }; },
       moveToMine: function (which, prep, author) { return moveToMine(which, prep, author); },
       teamAuthors: function () { return teamAuthors(); },
+      whoami: function () { return { me: S.me, canEdit: !!S.canEdit }; },
+      /** 팀 층에서 빼기만 (다른 분 필기를 그분의 「나만 보기」로 서버가 옮긴 뒤) — 실시간으로 팀에서도 지워짐. 되돌리기 기록은 남기지 않음 */
+      dropTeam: function (ids) { var n = 0; (ids || []).forEach(function (id) { if (take('team', id)) n++; }); if (n && S.sel && S.sel.layer === 'team' && !S.layers.team.get(S.sel.id)) S.sel = null; return n; },
       lassoSelect: function (poly) { if (!poly || poly.length < 6) return 0; var r = lassoPick(poly); S.msel = r.items.length ? { items: r.items } : null; invalidate(true); changed(); return r.items.length; },
       /** 복사 — 선택한 글자 · 코드 · 기호 · 송폼 라벨 · 펜 획을 기억 (다른 페이지 · 다른 악보에도 붙일 수 있게 모듈 전체에서 하나). 붙일 때 쓰는 글(있으면)을 돌려줌 */
       copySelected: function () {

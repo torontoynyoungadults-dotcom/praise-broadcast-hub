@@ -2103,6 +2103,11 @@ html[data-theme="light"] .pv-szprev { color: #111; }
 .pv-form-bpm.pv-bpmchg, .pv-lv-bpm b.pv-bpmchg { animation: pvBpmChg 1.1s ease-out; border-radius: 6px; }
 @keyframes pvBpmChg { 0%, 40% { background: var(--v6-a, #d6b97f); color: #1a0d02; box-shadow: 0 0 0 4px rgba(214,185,127,.35); } 100% { background: transparent; box-shadow: none; } }
 .pv-logit.on { outline: 2px solid var(--v6-a, #d6b97f); outline-offset: -2px; }
+/* 2026-10-31 — 모든 필기 · 「그 사람만」 */
+.pv-logline { display: flex; align-items: center; gap: 6px; } .pv-logline .pv-logit { flex: 1; min-width: 0; }
+.pv-logline .pv-logonly { flex: none; min-height: 30px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+.pv-logtag { flex: none; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; background: rgba(255, 255, 255, .08); color: var(--g-sub, #bbb); }
+html[data-theme="light"] .pv-logtag { background: rgba(0, 0, 0, .06); color: #666; }
 html[data-theme="light"] .pv-bs-c:has(input:checked) { color: #7a3d00; }
 html[data-theme="light"] .pv-bs-dots i.d1.on { background: #1F4A3F; }
 .pv.pv-compact .pv-bs .pv-bs-b, .pv.pv-compact .pv-bs-c { height: 34px; }

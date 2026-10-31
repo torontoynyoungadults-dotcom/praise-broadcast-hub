@@ -1556,7 +1556,7 @@
       flashCue: function (id) { return flashCue(id); }, flashForm: flashForm,
       claim: function (force) { return claim(force); }, release: function () { return release(); },
       exportPng: function () { return exportPng(); }, exportPdf: function (print) { return exportPdf(print); },
-      callServer: opts.callServer, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
+      callServer: opts.callServer, toAuthorsOnly: function (ids) { toAuthorsOnly(ids); }, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
       status: function () { return { conn: rt ? rt.state : 'unavailable', minePending: S.minePend, savedAt: S.savedAt, unsent: Object.keys(S.unsent).length }; }
     };
     /* 연습 키 이동 (Feature 2) — 곡마다 −6 ~ +6 반음 (녹음 · 유튜브 소리는 audio-shift.js 가 ±3 까지만), 이 기기에만 기억(팀에 보내지 않음). 화음 탭(harmony-ui.js)이 'keyshift' 를 듣고 악보 코드를 따라 바꾸며,
@@ -2175,11 +2175,43 @@
         return '<div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="flex:1;min-width:0">' + h(x.by || '이름 없음') + (x.me ? ' <small style="opacity:.7">(나)</small>' : '') + ' · ' + x.n + '개</span>' +
           (x.can ? '<button type="button" data-by="' + h(x.by) + '">나만 보기로</button>' : '<small style="opacity:.7">팀장 · 인도자만</small>') + '</div>';
       }).join('') : '<span class="sub">이 악보에는 팀 필기가 없어요.</span>';
-      tmEl.innerHTML = '<b>' + I('lock') + ' 팀 필기 → 나만 보기</b><span class="sub">이 악보(모든 쪽)의 팀 필기를 쓴 사람별로 보여요. 옮기면 팀 화면 · 인쇄용 PDF 에서 빠지고 나에게만 보여요. ↶ 로 되돌릴 수 있어요.</span>' + rows +
+      tmEl.innerHTML = '<b>' + I('lock') + ' 팀 필기 → 나만 보기</b><span class="sub">이 악보(모든 쪽)의 팀 필기를 쓴 사람별로 보여요. 옮기면 팀 화면 · 인쇄용 PDF 에서 빠지고 그 필기를 쓴 사람에게만 보여요. (내 것은 ↶ 로 되돌릴 수 있어요)</span>' + rows +
         '<div class="row"><button type="button" data-k="x">닫기</button></div>';
+    }
+    /** 다른 분이 쓴 팀 필기 → 그분의 「나만 보기」 (팀 필기를 고칠 수 있는 분만 · 서버가 그분 층에 더한 뒤 팀에서 뺌) */
+    function giveToAuthors(items, done) {
+      if (!items.length) { if (done) done(0); return; }
+      var groups = {}, file = fileId();
+      items.forEach(function (it) { var k = (S.scopeOf[it.id] || S.scopeKey) + '\u0001' + (it.by || ''); (groups[k] = groups[k] || []).push(it); });
+      var keys = Object.keys(groups), left = keys.length, moved = 0, failed = '';
+      keys.forEach(function (k) {
+        var sc = k.split('\u0001')[0], who = k.split('\u0001')[1], list = groups[k];
+        opts.callServer('worshipAnnoGiveMine', [opts.token, file, sc, who, list], function () {
+          moved += an.dropTeam ? an.dropTeam(list.map(function (i) { return i.id; })) : 0;
+          if (--left === 0 && done) done(moved, failed);
+        }, function (e) { failed = (e && e.message) || '옮기지 못했습니다.'; if (--left === 0 && done) done(moved, failed); });
+      });
+    }
+    /** 기록 목록 · 메뉴 카드에서 — 고른 팀 필기를 각각 "쓴 사람만 보이게" (내 것은 내 나만 보기, 다른 분 것은 그분의 나만 보기) */
+    function toAuthorsOnly(ids) {
+      var w = an.whoami ? an.whoami() : { me: '' }, mineIds = [], others = [];
+      (ids || []).forEach(function (id) { var it = an.items('team').filter(function (x) { return x.id === id; })[0]; if (!it) return; if ((it.by || '') === w.me) mineIds.push(id); else others.push(it); });
+      var r = mineIds.length ? an.moveToMine('ids', function (old, copy) { S.scopeOf[copy.id] = S.scopeOf[old.id] || S.scopeKey; }, mineIds) : { moved: 0 };
+      if (others.length && !w.canEdit) { toast('다른 분 필기는 팀장 · 인도자만 그분만 보이게 할 수 있어요.', true, 2600); others = []; }
+      giveToAuthors(others, function (n, err) {
+        var tot = (r.moved || 0) + n;
+        if (err) toast('일부를 옮기지 못했어요: ' + err, true, 3200);
+        else if (tot) toast(tot + '개를 쓴 사람만 보이게 옮겼어요.' + (r.moved ? ' (내 것은 ↶ 로 되돌릴 수 있어요)' : ''), false, 3000);
+        renderTools(); if (tmEl && tmEl.isConnected) toMineCard(); P.emit('annochange');
+      });
+      if (!others.length) { renderTools(); if (tmEl && tmEl.isConnected) toMineCard(); P.emit('annochange'); }
     }
     function doToMine(which, author) {
       if (!an.moveToMine) return;
+      if (which === 'by' && an.whoami && author !== an.whoami().me) {             // 다른 분 이름 — 그분의 나만 보기로 (내 나만 보기에 넣지 않음)
+        toAuthorsOnly(an.items('team').filter(function (it) { return (it.by || '') === author; }).map(function (it) { return it.id; }));
+        return;
+      }
       var r = an.moveToMine(which, function (old, copy) { S.scopeOf[copy.id] = S.scopeOf[old.id] || S.scopeKey; }, author);
       if (tmEl && tmEl.isConnected && which !== 'by') toMineCard();
       if (r.moved) toast(r.moved + '개를 나만 보기로 옮겼어요 — 이제 나에게만 보여요.' + (r.skipped ? ' (다른 분 필기 ' + r.skipped + '개는 그대로)' : '') + ' ↶ 로 되돌릴 수 있어요.', false, 3200);

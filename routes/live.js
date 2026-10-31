@@ -624,6 +624,21 @@ const FNS = {
     liveStore.writeLayer(u.team, file, scope, u.name, items, u.name);
     return { ok: true, n: items.length };
   },
+  /** 2026-10-31 — 다른 분이 팀으로 쓴 필기를 그분의 「나만 보기」로 (팀장 · 인도자만). 더하기만 — 팀 층에서 빼는 것은 화면이 실시간으로 */
+  async worshipAnnoGiveMine(u, file, scope, author, items) {
+    if (!u.canEdit) throw new Error('다른 분 필기는 팀장 · 인도자만 그분만 보이게 할 수 있습니다.');
+    author = String(author || '').trim();
+    if (!author || author === '*' || author.charAt(0) === '#') throw new Error('필기를 쓴 사람을 알 수 없습니다.');
+    if (!Array.isArray(items)) throw new Error('필기 형식이 올바르지 않습니다.');
+    items = items.filter((it) => it && typeof it === 'object' && it.id && String(it.by || '').trim() === author);
+    if (!items.length) return { ok: true, n: 0 };
+    await liveStore.loadAnnos();
+    const cur = liveStore.readLayer(u.team, file, scope, author).slice(), have = new Set(cur.map((it) => it && it.id));
+    items.forEach((it) => { if (!have.has(it.id)) cur.push(it); });
+    if (JSON.stringify(cur).length > liveStore._internals.CHUNK * 4) throw new Error('그분의 나만 보기 필기가 너무 많아 옮기지 못했습니다.');
+    liveStore.writeLayer(u.team, file, scope, author, cur, u.name);
+    return { ok: true, n: items.length };
+  },
   /** 연습 화면을 열 때 — 팀 설정 · 내 설정 · 최신 곡 목록 */
   async worshipCfgLoad(u, room) {
     const [team, mine, songs] = await Promise.all([liveStore.cfgRead(u.team, room, '*'), liveStore.cfgRead(u.team, room, u.name), liveStore.songsOf(u.team, room)]);
