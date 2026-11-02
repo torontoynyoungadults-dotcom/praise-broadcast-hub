@@ -109,12 +109,16 @@
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: list[idx].title || '녹음', artist: list[idx].by || '' }); } catch (e) { /* 지원 안 하면 건너뜀 */ }
     }
     function show() { root.classList.add('on'); document.body.classList.add('rpf-on'); }
+    /** 영상 화면 표시 — 주소 확장자로 알 수 있으면 바로, 앱 녹음('/audio/<ID>')처럼 확장자가 없으면 파일을 읽은 뒤 화면(영상 트랙)이 있는지로 */
+    function paintVideo(v) {
+      root.classList.toggle('has-video', !!v); root.classList.toggle('vmin', !!v && !!st.vmin); vshow.hidden = !(v && st.vmin);
+    }
     function select(i, play, t) {
       if (!list.length) return;
       if (i < 0) i = 0; if (i >= list.length) i = list.length - 1;
       var it = list[i]; idx = i; A = B = null; pendT = t > 0 ? t : 0; paintAB(); say('');
       ttl.textContent = it.title || '녹음'; by.textContent = it.by || '';
-      root.classList.toggle('has-video', isVideo(it.src)); root.classList.toggle('vmin', isVideo(it.src) && !!st.vmin); vshow.hidden = !(isVideo(it.src) && st.vmin);
+      paintVideo(isVideo(it.src));
       au.src = it.src; applyRate(); au.load(); markList(); meta(); show(); paintMarks(); place();
       if (play) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생을 시작하지 못했어요. 재생 버튼을 한 번 더 눌러 주세요.', true); });
     }
@@ -213,7 +217,7 @@
       else if (e.key === 'ArrowRight' && t !== bar) { e.preventDefault(); seekBy(10); }
     });
     au.addEventListener('timeupdate', function () { if (A != null && B != null && B > A && au.currentTime >= B) au.currentTime = A; paintBar(); });
-    au.addEventListener('loadedmetadata', function () { applyRate(); paintBar(); });
+    au.addEventListener('loadedmetadata', function () { applyRate(); paintBar(); if (au.videoWidth > 0 && !root.classList.contains('has-video')) paintVideo(true); });
     au.addEventListener('durationchange', paintBar);
     au.addEventListener('play', function () { go.innerHTML = I.pause; root.classList.add('playing'); markList(); });
     au.addEventListener('pause', function () { go.innerHTML = I.play; root.classList.remove('playing'); markList(); });
