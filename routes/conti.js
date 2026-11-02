@@ -1021,6 +1021,7 @@ router.get('/conti', requireTeam, async (req, res) => {
         <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option><option value="참고">참고 음원 (곡 MP3)</option></select>
         <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
         <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
+        <input type="text" name="R2경로" placeholder="또는 R2에 올려 둔 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
         <button class="ph-btn pri" type="submit">올리기</button>
       </form>
     </details>
@@ -1347,6 +1348,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
               <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
               <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
               <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
+        <input type="text" name="R2경로" placeholder="또는 R2에 올려 둔 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
               <button class="ph-btn pri" type="submit">올리기</button>
             </form>
           </details></div>`;
@@ -2218,6 +2220,26 @@ async function autoRecTitle(file, link) {
   return '녹음';
 }
 
+/** R2 버킷에 직접 올려 둔 파일 경로 → 앱 녹음('/audio/<ID>')로 등록. R2 안에서 복사만 하므로 앱 서버 대역폭을 쓰지 않습니다.
+ *  Cyberduck 에서 보이는 경로를 그대로 붙여 넣어도 됩니다 (맨 앞의 버킷 이름 · 슬래시는 자동으로 뗌). 원본 파일은 그대로 남습니다. */
+const REC_EXT_TYPE = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
+async function linkFromR2Path(raw) {
+  const r2 = require('../lib/r2');
+  if (!r2.enabled()) throw new Error('R2 가 설정되지 않았습니다.');
+  let key = String(raw || '').trim().replace(/^r2:\/*/i, '').replace(/^\/+/, '');
+  const bucket = r2.bucketName();
+  if (bucket && key.startsWith(bucket + '/')) key = key.slice(bucket.length + 1);
+  if (!key || key.length > 400 || /(^|\/)\.\.(\/|$)/.test(key) || /[\u0000-\u001f]/.test(key)) throw new Error('R2 파일 경로가 올바르지 않아요.');
+  if (/^(sheets|audio)\//.test(key)) throw new Error('앱이 쓰는 폴더(sheets · audio)의 파일은 이 방법으로 등록할 수 없어요.');
+  const ext = (key.split('.').pop() || '').toLowerCase();
+  if (!REC_EXT_TYPE[ext]) throw new Error('음원 · 영상 파일(mp3, m4a, wav, mp4 등)만 등록할 수 있어요.');
+  const meta = await r2.headKey(key);
+  if (!meta) throw new Error('R2 에서 이 경로의 파일을 찾지 못했어요: ' + key);
+  const id = r2.newId();
+  await r2.copyKeyToAudio(key, id, /^(audio|video)\//.test(meta.type) ? '' : REC_EXT_TYPE[ext]);
+  return '/audio/' + id;
+}
+
 router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate.afterUpload, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
@@ -2225,6 +2247,11 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
   const scope = scopeFrom(b);
   let title = String(b['제목'] || '').trim();
   let link = String(b['링크'] || '').trim();
+  const r2Path = String(b['R2경로'] || '').trim();
+  if (!req.file && r2Path) {
+    try { link = await linkFromR2Path(r2Path); } catch (e) { console.error('[녹음 R2 경로 등록 실패]', e.message); return res.status(400).type('text').send(e.message); }
+    if (!title) title = (r2Path.split('/').pop() || '').replace(/\.[A-Za-z0-9]{2,5}$/, '').replace(/_+/g, ' ').trim().slice(0, 80);
+  }
   try { if (req.file) link = await driveStore.uploadPublic('음원', req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); return res.status(503).type('text').send('비공개 음원 저장소가 준비되지 않았습니다. 관리자에게 R2 설정을 요청해주세요.'); }
   if (!link) return backTo(req, res, team, scope);
   if (!title) title = await autoRecTitle(req.file, String(b['링크'] || '').trim());
