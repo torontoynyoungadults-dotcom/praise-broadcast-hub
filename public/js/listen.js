@@ -22,6 +22,18 @@
     var panel = root.querySelector('[data-ls-reppanel]'), songsBox = document.querySelector('[data-ls-songs]');
     var btn = function (n) { return root.querySelector('[data-ls="' + n + '"]'); };
     var rate = 1; try { rate = Number(localStorage.getItem('ph.ls.rate')) || 1; } catch (e) {}
+    /* 이 화면을 떠나도(뒤로 가기 · 다른 메뉴) 멈추지 않게 — 재생 중이면 떠 있는 플레이어(recplayer)로 넘겨서 그 자리부터 이어 들음 */
+    function item() { return { src: D.src, title: D.title || '녹음', by: '', id: D.id || '', team: D.team || '', edit: !!D.edit, marks: marks.slice(), songs: D.songs || [] }; }
+    function handoff(full) {
+      if (!au || au.paused || !document.body.contains(root)) return;
+      var t = au.currentTime || 0;
+      if (full) { try { sessionStorage.setItem('ph_rp_resume', JSON.stringify({ list: [item()], idx: 0, t: t, playing: true, at: Date.now() })); } catch (e) {} return; }
+      if (!window.PHRec) return;
+      au.pause();
+      try { window.PHRec.play([item()], 0, t); } catch (e) { /* 플레이어가 없으면 그냥 멈춤 */ }
+    }
+    document.addEventListener('ph:before-swap', function onSwap() { handoff(false); document.removeEventListener('ph:before-swap', onSwap); });
+    window.addEventListener('pagehide', function () { handoff(true); });
     var A = null, B = null, songLoop = false, marks = (D.marks || []).slice().sort(function (a, b) { return a.t - b.t; });
 
     // 파형 — 실제 소리 대신 녹음마다 같은 모양(가벼움). 막대 48개

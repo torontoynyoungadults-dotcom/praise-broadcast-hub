@@ -44,6 +44,7 @@
         if (d && d.redirect) { loadPartial(d.redirect, push, keepY); return; }      // 서버가 "다른 화면으로" 라고 알려 줌 (첫 화면 → 예배콘티 등)
         if (!tabbody) { location.href = urlStr; return; }
         var same = typeof keepY === 'number' && sameScreen(urlStr);
+        try { document.dispatchEvent(new CustomEvent('ph:before-swap', { detail: { url: urlStr } })); } catch (e) { /* 떠나기 전 알림 — 재생 넘기기 등 */ }
         tabbody.innerHTML = d.html;
         tabbody.classList.remove('ph-loading');
         if (d.title) document.title = d.title;
