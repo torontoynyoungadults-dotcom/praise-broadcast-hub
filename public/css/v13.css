@@ -1152,3 +1152,10 @@ body:has(.ph-me[open]) .v13-livebar, body:has(.ph-me[open]) .hm-cta2, body:has(.
 .ph-wrap .cn-song .cn-sec-ref .cn-lab { display: none !important; }
 .ph-wrap .cn-song .cn-sec-ref button, .ph-wrap .cn-song .cn-sec-ref label { font-size: 12px !important; color: #8E7A4E !important; min-height: 28px !important; }
 @media (min-width: 900px) { .ph-wrap .cn-song .cn-shead { grid-template-columns: 40px minmax(0, 1fr) auto !important; } }
+.ph-wrap .cn-song .cn-acts a.cn-ytlink { border: 0 !important; background: transparent !important; padding: 0 !important; min-width: 0 !important; width: auto !important; height: auto !important; box-shadow: none !important; }
+.ph-wrap .cn-song .cn-acts a.cn-ytlink span { display: inline !important; font-size: 13px !important; }
+.ph-wrap .cn-song .cn-acts a.cn-ytlink::after { content: none !important; }
+.ph-wrap .cn-song .ph-songsheets, .ph-wrap .cn-song .cn-sec-ref { border: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.ph-wrap .cn-song .cn-sec-ref { margin-top: -10px !important; }
+.ph-wrap .cn-song .cn-sec-ref button, .ph-wrap .cn-song .cn-sec-ref label { text-decoration: none !important; font-weight: 400 !important; }
+.ph-wrap .cn-song .cn-sec-ref button::before, .ph-wrap .cn-song .cn-sec-ref label::before { content: '+ '; }
