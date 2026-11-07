@@ -94,7 +94,7 @@
       marks.forEach(function (m) { if (!m.id || !(D.songs || []).some(function (s) { return s.id === m.id; })) rows.push({ id: m.id || m.k, k: m.k || '곡', sub: '', t: m.t, n: rows.length + 1 }); });
       songsBox.innerHTML = rows.map(function (r) {
         return '<div class="ls13-song" data-ls-row="' + esc(r.id) + '">' +
-          '<button type="button" class="go"' + (r.t != null ? ' data-go="' + r.t + '"' : ' disabled') + '><span class="n">' + r.n + '</span><span class="m"><b>' + esc(r.k) + '</b><small>' + esc(r.sub) + '</small></span><span class="t">' + (r.t != null ? fmt(r.t) : '위치 없음') + '</span></button>' +
+          '<button type="button" class="go"' + (r.t != null ? ' data-go="' + r.t + '"' : ' disabled') + '><span class="n">' + r.n + '</span><span class="m"><b>' + esc(r.k) + '</b><small>' + esc(r.sub) + '</small></span><span class="t' + (r.t != null ? '' : ' none') + '">' + (r.t != null ? fmt(r.t) : '위치 없음') + '</span></button>' +
           (D.edit ? '<button type="button" class="set" data-set="' + esc(r.id) + '" data-k="' + esc(r.k) + '">여기서 시작</button>' : '') + '</div>';
       }).join('') || '<p class="ls13-hint">이 주 콘티 곡이 없어요.</p>';
     }
