@@ -81,6 +81,7 @@
     };
   }
 
+  var AIC = {rec: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3.5" y="14" width="4" height="6"/><rect x="16.5" y="14" width="4" height="6"/></svg>', file: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 15.5h6M9 19h3"/></svg>', info: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17"/><path d="M12 11v6M12 7.5v.5"/></svg>', open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>'};
   if (typeof arCard === 'function') {
     window.arCard = arCard = function (d) {
       var dd = dt(d.date), k = esc(jsq(d.key));
@@ -92,10 +93,10 @@
         '<button type="button" class="a13-d" onclick="goWeek(\'' + k + '\')" aria-label="' + esc(d.date) + ' 콘티 열기"><b>' + dd.getDate() + '</b><small>' + (d.event ? WD[dd.getDay()] : '주일') + '</small></button>' +
         '<div class="a13-b">' + (songs ? '<div class="a13-songs">' + songs + '</div>' : '<p class="a13-none">' + (d.files.length ? '콘티 없이 악보만 있어요' : '콘티 없음') + '</p>') +
           (sub ? '<p class="a13-sub">' + sub + '</p>' : '') +
-          '<p class="a13-links">' + (recs.length ? '<button type="button" onclick="this.closest(\'.a13\').classList.toggle(\'recs\')">녹음 ' + recs.length + '</button>' : '') +
-            (d.files.length ? '<button type="button" onclick="this.closest(\'.a13\').classList.toggle(\'files\')">악보 ' + d.files.length + '</button>' : '') +
-            (typeof ldOpen === 'function' ? '<button type="button"' + ldBtnAttrs(d.key, '') + '>자세히</button>' : '') +
-            '<button type="button" onclick="goWeek(\'' + k + '\')">열기</button></p>' +
+          '<p class="a13-links">' + (recs.length ? '<button type="button" class="a13-ic" onclick="this.closest(\'.a13\').classList.toggle(\'recs\')" aria-label="녹음 ' + recs.length + '개">' + AIC.rec + '<span>녹음</span><b>' + recs.length + '</b></button>' : '') +
+            (d.files.length ? '<button type="button" class="a13-ic" onclick="this.closest(\'.a13\').classList.toggle(\'files\')" aria-label="악보 ' + d.files.length + '개">' + AIC.file + '<span>악보</span><b>' + d.files.length + '</b></button>' : '') +
+            (typeof ldOpen === 'function' ? '<button type="button" class="a13-ic"' + ldBtnAttrs(d.key, '') + '>' + AIC.info + '<span>자세히</span></button>' : '') +
+            '<button type="button" class="a13-ic go" onclick="goWeek(\'' + k + '\')"><span>콘티 열기</span>' + AIC.open + '</button></p>' +
           (d.files.length ? '<div class="a13-files afiles">' + d.files.map(fileChip).join('') + '</div>' : '') +
           (recs.length ? '<div class="a13-recs arrecs">' + recs.map(function (r) { return recCard(r, d.key, true); }).join('') + '</div>' : '') +
         '</div></article>';
@@ -158,6 +159,47 @@
         '<div class="panel l13-sb" id="ssBody">' + statView(statItems()) + '</div>' +
         '<button type="button" class="l13-more" onclick="hubDoc(\'hubStatsDoc\',[TOKEN,SS.range===\'all\'?\'\':SS.range,SS.kind,SS.lead,SS.q],\'ssDocMsg\')">PDF로 받기 (지금 고른 조건)</button><p class="msg docmsg" id="ssDocMsg"></p>' +
         '<p class="l13-note">띄어쓰기 · 대소문자 · 한 글자 오타는 같은 곡으로 묶었어요. 사람 · 인도자는 편성이 입력된 예배 기준이에요.</p></div>';
+    };
+  }
+
+  /* 자세히 시트 — 테마: 흑녹 머리(날짜) · 콘티 · 섬긴 사람(포지션 아이콘 · 사진) · 악보 · 녹음 · 두 단추 */
+  if (typeof ldShow === 'function') {
+    var IC13 = (window.__HUB__ && window.__HUB__.icons13) || {};
+    var pic = function (k) { return IC13[k] ? '<svg class="pi13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" aria-hidden="true">' + IC13[k] + '</svg>' : ''; };
+    var SHL = { 인도자: '인도', 남성싱어: '남싱', 여성싱어: '여싱', 어쿠기타: '어쿠' };
+    window.ldShow = ldShow = function (r, swapOnly) {
+      var key = r.key, want = ldNorm(LD.song), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.date || '')), dd = m ? new Date(+m[1], +m[2] - 1, +m[3], 12) : null;
+      var lead = (r.slots && (r.slots['인도자'] || r.slots.lead)) || [];
+      var me = want ? (r.songs || []).filter(function (x) { return ldNorm(x.title) === want; })[0] : null;
+      var h = '<div class="ld13">' +
+        '<header class="ld13-h"><div class="d"><small>' + (r.event ? esc(r.event.kind || '행사') : '주일') + '</small><b>' + (m ? m[2] + '.' + m[3] : esc(r.date)) + '</b><small>' + (m ? m[1] + ' · ' + '일월화수목금토'.charAt(dd.getDay()) + '요일' : '') + '</small></div>' +
+          '<div class="t"><b>' + (r.event ? esc(r.event.name) : '주일 3부 예배') + '</b><small>' + esc([lead.length ? '인도 ' + lead.map(ldLead).join(', ') : '', (r.songs || []).length ? (r.songs || []).length + '곡' : ''].filter(Boolean).join(' · ')) + '</small></div></header>';
+      var sec = function (t, n, body) { return '<section class="ld13-s"><h4><span>' + t + '</span>' + (n ? '<em>' + n + '</em>' : '') + '<i></i></h4>' + body + '</section>'; };
+      if ((r.songs || []).length) {
+        var no = 0;
+        h += sec('그날 콘티', '', '<ol class="ld13-songs">' + r.songs.map(function (x) {
+          var fin = x.kind === '결단', clo = x.kind === '폐회송', yt = ldYt(x.link); if (!fin && !clo) no++;
+          return '<li class="' + (me && x === me ? 'on' : '') + '"><span class="n">' + (fin ? '<i>후</i>' : clo ? '<i>폐</i>' : no) + '</span><span class="m"><b>' + esc(x.title) + '</b><small>' + esc([x.team, x.bpm ? x.bpm + ' BPM' : '', fin ? '설교 후 찬양' : clo ? '폐회송' : ''].filter(Boolean).join(' · ')) + '</small>' + (x.form ? '<small class="f">' + esc(x.form) + '</small>' : '') + '</span>' +
+            '<span class="k">' + esc(String(x.key || '').replace(/\s*-+>\s*/g, '→')) + '</span>' + (yt ? '<a class="yt" href="https://www.youtube.com/watch?v=' + esc(yt) + '" target="_blank" rel="noopener" aria-label="' + esc(x.title) + ' 유튜브"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></a>' : '') + '</li>';
+        }).join('') + '</ol>');
+      }
+      var groups = typeof stGroups === 'function' ? stGroups() : [['편성', D.positions || []]];
+      var rows = '';
+      groups.forEach(function (g) { g[1].forEach(function (p) {
+        var ns = ((r.slots || {})[p.key] || []); if (!ns.length) return;
+        rows += '<div class="r"><span class="l">' + pic(p.key) + esc(SHL[p.key] || p.label) + '</span><span class="v">' + ns.map(function (n) { return '<span class="p">' + (typeof face === 'function' ? face(n) : '') + '<span>' + esc(ldIsLead(p.key) ? ldLead(n) : ldName(n)) + '</span></span>'; }).join('') + '</span></div>';
+      }); });
+      h += sec('섬긴 사람', '', rows ? '<div class="ld13-people">' + rows + '</div>' : '<p class="ld13-none">편성 기록이 없어요.</p>');
+      if ((r.files || []).length) h += sec('악보', r.files.length, '<div class="ld13-files">' + r.files.map(function (f) { return ldFileLink(f, key, AIC.file + '<span>' + esc(f.name) + (f.range ? ' <small>' + esc(f.range) + '쪽</small>' : '') + '</span>', 'ld13-file'); }).join('') + '</div>');
+      if ((r.recs || []).length && typeof recCard === 'function') h += sec('녹음', r.recs.length, '<div class="ld13-recs arrecs">' + r.recs.map(function (x) { return recCard(x, key, true); }).join('') + '</div>');
+      if (r.verse) h += sec('그 주의 말씀', '', '<blockquote class="ld13-v">' + esc(r.verse) + (r.verseTitle ? '<cite>' + esc(r.verseTitle) + '</cite>' : '') + '</blockquote>');
+      var lq = /^ev-/.test(key) ? 'event=' + encodeURIComponent(key.slice(3)) : 'date=' + encodeURIComponent(key);
+      h += '<div class="ld13-acts"><button type="button" onclick="YC.close();goWeek(\'' + esc(jsq(key)) + '\')">콘티 열기</button>' + ((r.recs || []).length ? '<a href="/conti/listen?team=' + encodeURIComponent(HUB.team || '') + '&' + lq + '">' + AIC.rec + '녹음 듣기</a>' : '') + '</div></div>';
+      var sh = document.querySelector('.yc-ov.on .yc-sh .ld[aria-busy]') || document.querySelector('.yc-ov .yc-sh .ld[aria-busy]');
+      sh = sh && sh.closest('.yc-sh');
+      if (sh) { sh.innerHTML = '<button type="button" class="yc-x ld13-x" onclick="YC.close()" aria-label="닫기">&times;</button>' + h; sh.classList.add('ld13-sh'); }
+      else if (!swapOnly) { YC.sheet(h, {}); var s2 = document.querySelector('.yc-ov.on .yc-sh'); if (s2) s2.classList.add('ld13-sh'); }
+      try { if (window.YNPlayer && YNPlayer.mark) YNPlayer.mark(); } catch (e) {}
     };
   }
 })();

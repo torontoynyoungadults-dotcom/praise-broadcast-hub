@@ -1305,3 +1305,65 @@ html[data-theme="light"] .yn .l13-filters input[type="search"] { border: 0 !impo
 .yn .l13-sb .srow .sn small { font-family: 'Pretendard', sans-serif; font-size: 11px !important; color: #5C6660 !important; font-weight: 400; }
 .yn .l13-sb { background: #FBF9F4 !important; }
 html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters input#ssq { border: 0 !important; background: transparent !important; box-shadow: none !important; outline: 0; }
+
+/* ===== 날짜별 줄의 아이콘 단추 ===== */
+.yn .a13-links { display: flex !important; gap: 4px !important; flex-wrap: wrap; margin-top: 8px !important; }
+.yn .a13-links .a13-ic { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex !important; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px !important; border: 1px solid #D6CFBF !important; background: #FBF9F4 !important; color: #17201C !important; font-size: 12px !important; text-decoration: none !important; }
+.yn .a13-links .a13-ic svg { width: 15px; height: 15px; fill: none; stroke: #9C7F45; stroke-width: 1.5; stroke-linecap: square; }
+.yn .a13-links .a13-ic b { font-family: 'Bodoni Moda', serif; font-size: 14px; font-weight: 600; color: #6E5A2E; }
+.yn .a13-links .a13-ic.go { margin-left: auto; background: #0F1A16 !important; border-color: #0F1A16 !important; color: #E2CC97 !important; }
+.yn .a13-links .a13-ic.go svg { stroke: #C6A664; }
+.yn .a13.recs .a13-links .a13-ic:first-child, .yn .a13.files .a13-links .a13-ic[aria-label^="악보"] { background: #E6DCC2 !important; border-color: #C9BE9F !important; }
+
+/* ===== 자세히 시트 — 테마 ===== */
+.yc-sh.ld13-sh { background: #EFEBE3 !important; border-radius: 0 !important; padding: 0 !important; overflow-x: hidden; }
+.yc-sh.ld13-sh .yc-grab { display: none; }
+.yc-sh.ld13-sh .ld13-x { position: absolute; top: 12px; right: 12px; z-index: 2; width: 40px !important; height: 40px !important; border-radius: 0 !important; background: transparent !important; border: 1px solid rgba(198,166,100,0.45) !important; color: #E2CC97 !important; font-size: 20px; }
+.ld13 { font-family: 'Pretendard', system-ui, sans-serif; color: #17201C; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+.ld13-h { display: grid; grid-template-columns: 104px minmax(0, 1fr); background: #0F1A16; color: #ECE6D9; padding-right: 56px; }
+.ld13-h .d { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 8px; border-right: 1px solid #22302A; gap: 2px; }
+.ld13-h .d small { font-size: 11px; color: #C6A664; }
+.ld13-h .d small:last-child { color: #8E9A94; }
+.ld13-h .d b { font-family: 'Bodoni Moda', serif; font-size: 34px; font-weight: 400; line-height: 1.05; }
+.ld13-h .t { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 16px; }
+.ld13-h .t b { font-family: 'MaruBuri', serif; font-size: 19px; font-weight: 700; }
+.ld13-h .t small { font-size: 12px; color: #A9B4AE; }
+.ld13-s { padding: 18px 16px 0; }
+.ld13-s h4 { margin: 0 0 10px; display: flex; align-items: center; gap: 8px; font-family: 'MaruBuri', serif; font-size: 17px; font-weight: 700; }
+.ld13-s h4 em { font-style: normal; font-family: 'Bodoni Moda', serif; font-size: 16px; font-weight: 400; color: #9C7F45; }
+.ld13-s h4 i { flex: 1; height: 1px; background: #C6A664; }
+.ld13-songs { list-style: none; margin: 0; padding: 0; background: #FBF9F4; }
+.ld13-songs li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 12px 14px; border-top: 1px solid #ECE6DA; }
+.ld13-songs li:first-child { border-top: 0; }
+.ld13-songs li.on { background: #E6DCC2; }
+.ld13-songs .n { font-family: 'Bodoni Moda', serif; font-size: 22px; color: #9C7F45; line-height: 1; }
+.ld13-songs .n i { font-style: normal; font-family: 'Pretendard', sans-serif; font-size: 11px; padding: 2px 4px; border: 1px solid #C9BE9F; color: #6E5A2E; }
+.ld13-songs .m { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ld13-songs .m b { font-family: 'MaruBuri', serif; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.ld13-songs .m small { font-size: 11px; color: #5C6660; }
+.ld13-songs .m small.f { color: #8E7A4E; letter-spacing: 0.02em; }
+.ld13-songs .k { font-family: 'Bodoni Moda', serif; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.ld13-songs .yt { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid #D6CFBF; }
+.ld13-songs .yt svg { width: 12px; height: 12px; fill: #9C7F45; }
+.ld13-people { background: #FBF9F4; }
+.ld13-people .r { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 14px; border-top: 1px solid #ECE6DA; }
+.ld13-people .r:first-child { border-top: 0; background: #E6DCC2; }
+.ld13-people .l { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5C6660; }
+.ld13-people .l .pi13 { width: 16px; height: 16px; color: #9C7F45; flex: none; }
+.ld13-people .v { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.ld13-people .p { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; }
+.ld13-people .p .fc { width: 26px !important; height: 26px !important; border-radius: 0 !important; object-fit: cover; display: inline-flex; align-items: center; justify-content: center; background: #E6DCC2; border: 1px solid #DDD6C8; font-family: 'MaruBuri', serif; font-size: 11px; color: #6E5A2E; flex: none; }
+.ld13-people .r:first-child .p span:last-child { font-family: 'MaruBuri', serif; font-weight: 600; }
+.ld13-none { font-size: 13px; color: #5C6660; margin: 0; }
+.ld13-files { display: flex; flex-direction: column; gap: 2px; }
+.ld13-file { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; background: #FBF9F4; color: #17201C !important; text-decoration: none; font-size: 14px; }
+.ld13-file svg { width: 18px; height: 18px; fill: none; stroke: #9C7F45; stroke-width: 1.4; flex: none; }
+.ld13-file small { color: #5C6660; font-size: 11px; }
+.ld13-recs { background: #FBF9F4; padding: 4px 0; }
+.ld13-v { margin: 0; padding: 14px 16px; background: #FBF9F4; font-family: 'MaruBuri', serif; font-size: 15px; line-height: 1.7; border-left: 0; }
+.ld13-v cite { display: block; margin-top: 6px; font-style: normal; font-family: 'Pretendard', sans-serif; font-size: 12px; color: #6E5A2E; }
+.ld13-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; padding: 22px 16px 0; }
+.ld13-acts > * { all: unset; box-sizing: border-box; cursor: pointer; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+.ld13-acts > button { background: #0F1A16; color: #E2CC97; }
+.ld13-acts > a { border: 1px solid #D6CFBF; background: #FBF9F4; color: #17201C !important; text-decoration: none; }
+.ld13-acts svg { width: 16px; height: 16px; fill: none; stroke: #9C7F45; stroke-width: 1.5; }
