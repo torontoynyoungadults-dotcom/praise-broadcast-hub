@@ -1,0 +1,118 @@
+/* V13 "흑녹 · 금" 리디자인 레이어 — app.css 위에 덮어씀 (이 파일만 빼면 이전 모습으로 돌아감)
+   토큰: 흑녹 #0F1A16 · 금 #C6A664 · 스톤 #EFEBE3 · 종이 #FBF9F4 · 선택 #E6DCC2 · 미정 #8A4A12
+   서체: 숫자 = Bodoni Moda / 제목 · 곡명 = 마루부리 / 나머지 = Pretendard. 모서리는 모두 직각. */
+
+@font-face { font-family: 'MaruBuri'; font-weight: 600; font-display: swap; src: url('/fonts/MaruBuri-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'MaruBuri'; font-weight: 700; font-display: swap; src: url('/fonts/MaruBuri-Bold.woff2') format('woff2'); }
+
+:root[data-theme="light"] {
+  --bg: #EFEBE3;
+  --bg-2: #FBF9F4;
+  --ink: #17201C;
+  --sub: #5C6660;
+  --dim: #6E7671;
+  --glass: #FBF9F4;
+  --glass-2: #F5F1E8;
+  --line: #DDD6C8;
+  --line-hi: #C9BE9F;
+  --accent: #0F1A16;
+  --accent-2: #22332C;
+  --accent-ink: #6E5A2E;
+  --accent-rgb: 15, 26, 22;
+  --on-accent: #ECE6D9;
+  --brass: #C6A664;
+  --mint: #6E5A2E;
+  --mint-ink: #6E5A2E;
+  --good: #2E6A4F;
+  --bad: #8A4A12;
+  --card-shadow: none;
+}
+:root {
+  --radius: 0px;
+  --radius-sm: 0px;
+  --v13-ink: #0F1A16;
+  --v13-ink-2: #22332C;
+  --v13-gold: #C6A664;
+  --v13-gold-hi: #E2CC97;
+  --v13-sel: #E6DCC2;
+  --v13-attn: #8A4A12;
+  --v13-num: 'Bodoni Moda', 'Didot', Georgia, serif;
+  --v13-serif: 'MaruBuri', 'Nanum Myeongjo', serif;
+}
+
+/* 직각 — 사진 · 단추 · 카드 · 입력칸 모두 */
+.ph-wrap *, .ph-wrap *::before, .ph-wrap *::after { border-radius: 0 !important; }
+body { background: var(--bg); }
+
+/* ---- 머리(마스트헤드): 산 그림 대신 흑녹 바탕 + 두 줄 글자 로고 ---- */
+.ph-hero { background: var(--v13-ink) !important; color: #ECE6D9; min-height: 0 !important; padding: 0 !important; box-shadow: none !important; overflow: visible; }
+.ph-hero-art, .ph-hero::before, .ph-hero::after { display: none !important; }
+.ph-bar { display: flex; align-items: center; gap: 10px; padding: 14px 16px 4px; }
+.ph-brand { flex: 1; display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: #ECE6D9; min-width: 0; }
+.ph-brand i { font-family: var(--v13-num); font-size: 12px; color: var(--v13-gold); }
+.ph-brand b { font-size: 16px; font-weight: 500; letter-spacing: .02em; }
+.ph-hero-tools { position: static !important; display: flex; align-items: center; gap: 4px; background: none !important; padding: 0 !important; }
+.ph-themesw { display: none !important; }
+.ph-hero-btn { width: 44px !important; height: 44px !important; background: transparent !important; border: 0 !important; color: #ECE6D9 !important; }
+.ph-bell-dot { background: var(--v13-gold) !important; }
+.ph-bar-me { width: 38px; height: 38px; padding: 2px; border: 1px solid var(--v13-gold); display: flex; box-sizing: border-box; color: var(--v13-gold); align-items: center; justify-content: center; text-decoration: none; font-family: var(--v13-serif); font-weight: 700; }
+.ph-bar-me img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph-hero-text { position: static !important; padding: 18px 16px 22px !important; text-align: left; }
+.ph-hero-eyebrow { font-size: 12px !important; color: var(--v13-gold) !important; letter-spacing: 0 !important; text-transform: none !important; }
+.ph-hero-title { font-family: var(--v13-serif) !important; font-weight: 700 !important; font-size: 24px !important; color: #ECE6D9 !important; margin: 4px 0 0 !important; }
+.ph-hero-sub { color: #A9B4AE !important; font-size: 13px !important; }
+.ph-hero-who { display: none !important; }
+.ph-who-links-v13 { display: flex; gap: 14px; padding: 0 16px 14px; font-size: 12px; }
+.ph-who-links-v13 a { color: #A9B4AE; text-decoration: none; padding: 6px 0; }
+
+/* 이번 주 안내 한 줄 (연습 · 섬기는 주일) */
+.ph-who-prac { margin: 14px 0 0 !important; background: transparent !important; border: 1px solid rgba(198,166,100,.45) !important; box-shadow: none !important; }
+.ph-who-prac-link { color: #ECE6D9 !important; padding: 12px 14px !important; }
+.ph-who-prac-head { color: #ECE6D9 !important; font-weight: 500 !important; }
+.ph-who-prac-k { color: var(--v13-gold) !important; }
+.ph-who-prac-pos { background: var(--v13-gold) !important; color: var(--v13-ink) !important; border: 0 !important; }
+.ph-who-prac-dot { background: var(--v13-gold) !important; }
+
+/* ---- 메뉴: 금색 가는 선 사이 글자 탭 ---- */
+.ph-hubnav { background: var(--v13-ink) !important; padding: 0 16px 0 !important; position: relative; box-shadow: none !important; border: 0 !important; }
+.ph-hubnav-in { display: flex; justify-content: space-between; gap: 6px; border-top: 1px solid rgba(198,166,100,.4); border-bottom: 1px solid rgba(198,166,100,.4); background: none !important; padding: 0 !important; overflow-x: auto; }
+.ph-hubtab { background: none !important; border: 0 !important; color: #A9B4AE !important; font-size: 13px !important; padding: 11px 0 !important; white-space: nowrap; box-shadow: none !important; }
+.ph-hubtab.on { color: var(--v13-gold-hi) !important; font-weight: 500 !important; }
+.ph-hubtab.on::before, .ph-hubtab.on::after { display: none !important; }
+.ph-hubnav + * { margin-top: 0; }
+
+/* 날짜 띠 */
+.ph-wstrip { background: var(--v13-ink); padding: 14px 16px 18px; margin: 0 !important; }
+.ph-wstrip-scroll { gap: 2px !important; }
+.ph-wstrip-cell { background: transparent !important; border: 1px solid #22302A !important; color: #D9D2C3 !important; box-shadow: none !important; }
+.ph-wstrip-cell.on { background: var(--v13-gold) !important; border-color: var(--v13-gold) !important; color: var(--v13-ink) !important; }
+.ph-wstrip-day { font-family: var(--v13-num); font-weight: 400 !important; }
+.ph-wstrip-cell.on .ph-wstrip-day { font-weight: 600 !important; }
+.ph-wstrip-ratio, .ph-wstrip-evname { color: var(--v13-gold) !important; }
+.ph-wstrip-cell.on .ph-wstrip-ratio { color: var(--v13-ink) !important; }
+
+/* ---- 카드 · 제목 ---- */
+.ph-card { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 18px 16px !important; }
+.ph-h2 { font-family: var(--v13-serif); font-weight: 700 !important; font-size: 21px !important; letter-spacing: 0 !important; display: flex; align-items: center; gap: 12px; }
+.ph-h2::after { content: ''; flex: 1; height: 1px; background: var(--v13-gold); }
+.ph-h3 { font-family: var(--v13-serif); font-weight: 600 !important; }
+
+/* ---- 단추 ---- */
+.ph-btn { box-shadow: none !important; min-height: 44px; border: 1px solid #D6CFBF !important; background: var(--bg-2) !important; color: var(--ink) !important; }
+.ph-btn.pri { background: var(--v13-ink) !important; color: #ECE6D9 !important; border-color: var(--v13-ink) !important; }
+.ph-add > summary { border: 1px dashed #9C7F45 !important; background: transparent !important; }
+
+/* 입력칸 */
+.ph-wrap input[type=text], .ph-wrap input[type=search], .ph-wrap input[type=url], .ph-wrap input[type=date], .ph-wrap input[type=time], .ph-wrap select, .ph-wrap textarea { border-color: #D6CFBF !important; background: var(--bg-2) !important; }
+
+/* 목록 줄 */
+.ph-list-item { border-color: #ECE6DA !important; background: var(--bg-2); }
+
+/* 미정 표시 */
+.ph-dash, .is-empty { color: var(--v13-attn) !important; }
+
+/* 바닥글 */
+.ph-footer { border-top: 1px solid var(--line); }
+
+/* 다크 화면은 이전 샴페인 골드 그대로 두고, 머리만 같은 흑녹으로 */
+:root:not([data-theme="light"]) .ph-card { background: transparent !important; }

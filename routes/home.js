@@ -9,8 +9,8 @@ router.get('/', async (req, res) => {
   if (!req.session) {
     const err = req.query.err ? `<p class="ph-msg err">${pageShell.esc(req.query.err)}</p>` : '';
     const hero = pageShell.hero({
-      eyebrow: 'TORONTO · 찬양방송팀',
-      title: '찬양방송팀 허브',
+      eyebrow: '토론토영락교회',
+      title: 'YN 3부찬양팀 허브',
       sub: '구글 계정으로 로그인하면 소속 찬양팀의 콘티 · 공지 · 스케줄 · 라이브러리를 볼 수 있어요.',
     });
     const content = `
@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
       <a class="ph-btn pri" href="/auth/google">Google로 로그인</a>
       ${err}
     </div>`;
-    return res.type('html').send(await pageShell.render(content, { title: '찬양방송팀 허브' }));
+    return res.type('html').send(await pageShell.render(content, { title: 'YN 3부찬양팀 허브' }));
   }
 
   const ctx = await teamContext.resolve(req);
