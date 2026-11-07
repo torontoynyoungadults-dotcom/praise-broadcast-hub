@@ -181,3 +181,15 @@ body { background: var(--bg); }
 .pc-person { border-radius: 0 !important; }
 .pc-person.me { background: var(--v13-sel) !important; }
 .pc-sec h3 { font-family: var(--v13-serif); font-weight: 700; }
+
+/* ======== 4단계 — 홈 ======== */
+.hm-go { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; margin: 18px 0 0; }
+.hm-tile { min-height: 104px; background: var(--bg-2); padding: 14px; text-decoration: none; color: var(--ink); display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.hm-tile .yi { width: 22px; height: 22px; }
+.hm-tile b { display: block; font-family: var(--v13-serif); font-weight: 600; font-size: 16px; }
+.hm-tile small { display: block; margin-top: 3px; font-size: 12px; color: var(--sub); }
+.hm-tile:last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 64px; flex-direction: row; align-items: center; justify-content: flex-start; }
+.hm-cta { position: sticky; bottom: 18px; margin: 22px 0 0; min-height: 58px; background: var(--v13-ink); color: #ECE6D9; text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 14px 30px rgba(15,26,22,.35); }
+.hm-cta span { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.hm-cta small { font-size: 11px; color: var(--v13-gold); }
+.hm-cta .yi { color: var(--v13-gold); }
