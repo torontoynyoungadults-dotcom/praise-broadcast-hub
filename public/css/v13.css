@@ -155,3 +155,15 @@ body { background: var(--bg); }
 
 /* 콘티 위 도구 줄(PDF · 카톡 · 오프라인 · 유튜브) — 각진 칸 */
 .cn-toolrow .cn-mini, .cn-ybig { border-radius: 0 !important; background: var(--bg-2) !important; border: 1px solid var(--line) !important; color: var(--ink) !important; box-shadow: none !important; min-height: 44px; }
+
+/* 머리 · 메뉴 · 날짜 띠를 틈 없이 화면 끝까지 한 덩어리로 */
+.ph-wrap { padding-top: 0 !important; }
+.ph-hero, .ph-hubnav, .ph-wstrip { margin-left: -16px !important; margin-right: -16px !important; margin-top: 0 !important; margin-bottom: 0 !important; }
+.ph-hubnav { padding: 0 16px !important; }
+.ph-wstrip { padding: 14px 16px 18px !important; margin-bottom: 14px !important; }
+@media (min-width: 900px) { .ph-hero, .ph-hubnav, .ph-wstrip { margin-left: -28px !important; margin-right: -28px !important; } .ph-hubnav, .ph-wstrip, .ph-bar, .ph-hero-text { padding-left: 28px !important; padding-right: 28px !important; } }
+.ph-wstrip-cell .ph-wstrip-month { color: #8E9A94 !important; }
+.ph-wstrip-cell .ph-wstrip-day { color: #D9D2C3 !important; letter-spacing: 0 !important; }
+.ph-wstrip-cell.on .ph-wstrip-month, .ph-wstrip-cell.on .ph-wstrip-day, .ph-wstrip-cell.on .ph-wstrip-ratio { color: #0F1A16 !important; opacity: 1 !important; }
+.ph-wstrip-jump, .ph-wstrip-cal, .ph-wstrip-callabel { color: var(--v13-gold) !important; background: transparent !important; border-color: #22302A !important; }
+.ph-hero-title + .ph-hero-sub { margin-top: 4px !important; }
