@@ -193,3 +193,17 @@ body { background: var(--bg); }
 .hm-cta span { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
 .hm-cta small { font-size: 11px; color: var(--v13-gold); }
 .hm-cta .yi { color: var(--v13-gold); }
+
+/* ======== 5단계 — 스케줄표 ======== */
+.sh-item, .sh-target { background: var(--bg-2) !important; border: 0 !important; box-shadow: none !important; }
+.sh-now, .sh-item.me, .sh-item.on { background: var(--v13-sel) !important; }
+.sh-k, .sh-time { font-family: var(--v13-num); }
+.lu-head { background: var(--v13-ink) !important; color: #ECE6D9; border: 0 !important; }
+.lu-head b { font-family: var(--v13-num); font-weight: 400 !important; color: #ECE6D9 !important; letter-spacing: 0 !important; }
+.lu-evn { color: var(--v13-gold-hi) !important; }
+.lu-hint { color: #A9B4AE !important; }
+.lu-grid { background: var(--bg-2); }
+.ph-sctable th { background: var(--v13-ink) !important; color: #E2CC97 !important; font-weight: 500 !important; }
+.ph-sctable td { background: var(--bg-2); border-color: #ECE6DA !important; }
+.ph-sctable td.me, .ph-sctable .me { background: var(--v13-ink) !important; color: #E2CC97 !important; }
+.ph-chip, .ph-chipname { border-radius: 0 !important; }
