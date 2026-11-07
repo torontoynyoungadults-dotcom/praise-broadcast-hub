@@ -734,3 +734,8 @@ html body .pv.pv-compact:not(.pv-nosong):not(#_):not(#__):not(#___) .pv-top .pv-
 html body .pv.pv-compact:not(.pv-nosong):not(#_):not(#__):not(#___) .pv-top .pv-songpill .pv-sheetwrap:not(.pv-psw) .pv-sel { color: transparent !important; background-image: none !important; padding: 0 !important; }
 html body .pv.pv-compact:not(#_):not(#__):not(#___) .pv-top .pv-songpill > .ak-sswrap { flex: 1 1 auto; min-width: 0; }
 html body .pv.pv-compact:not(#_):not(#__) .pv-yt { z-index: 31 !important; }
+
+/* ---------- 2026-11 — 펜 종류 (볼펜 · 만년필) — 펜 도구일 때 도구 줄에 작은 두 칸 ---------- */
+html body .pv:not(#_) .pv-tools .ak-pkrow { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--ak-soft2); flex: none; }
+html body .pv:not(#_) .pv-tools .ak-pkrow .ak-pk { height: 30px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--ak-sub); font: inherit; font-size: 12.5px; font-weight: 700; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+html body .pv:not(#_) .pv-tools .ak-pkrow .ak-pk.on { background: var(--ak-card); color: var(--ak-ink); font-weight: 800; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }

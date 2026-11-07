@@ -2133,6 +2133,7 @@
     if (!YA) { toast('필기 도구를 불러오지 못했습니다. 새로고침해 주세요.', true); }
     an = YA ? YA.create({
       host: box, canvas: annoCv, clipEl: stage, me: opts.me || '', canEdit: !!opts.canEdit, hlBlend: true,      // v10 — 형광펜은 악보 글자 "밑에" (굿노트 방식)
+      penKind: ls('pk') === 'f' ? 'f' : 'b',                                                           // 2026-11 — 볼펜 · 만년필 (이 기기에 기억)
       sawPen: ls('sawpen') === '1', onPenSeen: function () { ls('sawpen', '1'); },                    // 이 기기에서 펜슬을 한 번 쓴 적이 있으면 처음부터 손가락 필기를 막음 (손바닥 방지) — 필기 탭의 "펜 입력"에서 바꿀 수 있음
       onToolSwap: function (to, from, via) { swapTool(to, via); },
       onEraseDone: function () {                                                        // V844 — 펜슬로 지우고 떼면 원래 펜으로
@@ -2734,6 +2735,12 @@
           return '<button type="button" class="ak-font' + (S.font === k ? ' on' : '') + '" data-akfont="' + k + '" aria-pressed="' + (S.font === k) + '" style="--akf:' + h((YA.FONTS || {})[k] || 'inherit') + '">' + h(nm) + '</button>';
         }).join('') + '</div>';
       var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = ARK_NAME[c] || (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
+      /* 2026-11 — 펜 종류 (굿노트처럼): 볼펜 = 굵기 거의 일정 · 또렷 / 만년필 = 누르는 힘 따라 굵기가 변하고 끝이 가늘게 */
+      var pkNow = an && an.penKind ? an.penKind() : 'b';
+      var pkRow = S.tool !== 'pen' || sel ? '' : '<div class="pv-tg ak-pkrow" role="group" aria-label="펜 종류">' +
+        [['b', '볼펜', '굵기가 거의 일정 — 코드 · 숫자 · 송폼처럼 또렷하게'], ['f', '만년필', '누르는 힘에 따라 굵기가 변하고 끝이 가늘게 빠짐 — 메모 · 화살표']].map(function (x) {
+          return '<button type="button" class="ak-pk' + (pkNow === x[0] ? ' on' : '') + '" data-pk="' + x[0] + '" aria-pressed="' + (pkNow === x[0]) + '" title="' + x[2] + '">' + x[1] + '</button>';
+        }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' : (function () {
         /* 지금 곡의 송폼에 있는 칸(V4 · PC2 · KeyUp …)을 앞에 모두, 그 뒤에 기본 라벨 중 없는 것 — 서버가 받는 모양(영문 · 숫자 · 한글 8자)만 */
         var mine = [], seen = {};
@@ -2750,7 +2757,7 @@
         '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
         '<div class="pv-tg">' + TOOLS.map(function (t) { var on = toolOn(t.t); return '<button class="pv-tool' + (on ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + on + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         styleBtnHtml() +
-        colRow + akFont +
+        colRow + akFont + pkRow +
         fontRow + clipRow +
         fbRow +
         (S.tool === 'select' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { var k = sizeKey(), sv = slotSizes(k); return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[k] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + (SZ_RANGE[k] ? ' — 한 번 더 누르면 굵기 조절' : '') + '"><i style="--s:' + slotDot(k, sv[i], i) + 'px"></i></button>'; }).join('') +
@@ -2767,6 +2774,7 @@
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
       if (b.dataset.akfont) { S.font = b.dataset.akfont; ls('font', S.font); an.setFont(S.font); renderTools(); if (an.focusEditor) an.focusEditor(); return; }
+      if (b.dataset.pk) { if (an && an.setPenKind) ls('pk', an.setPenKind(b.dataset.pk)); renderTools(); return; }
       if (b.dataset.fbtag) { S.fboxTag = b.dataset.fbtag; an.setFboxTag(S.fboxTag); ls('fbtag', S.fboxTag); renderTools(); return; }
       if (b.dataset.tool) { setTool(toolOn(b.dataset.tool) && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
       if (b.dataset.step != null) { if (e.detail === 0) stepFsz(+b.dataset.step); return; }               // 마우스 · 터치는 pointerdown (꾹 누르면 반복), 키보드(Enter · Space)만 여기서

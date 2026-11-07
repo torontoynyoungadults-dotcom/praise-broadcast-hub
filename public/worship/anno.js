@@ -176,6 +176,68 @@
     while (out.length / 2 > maxPts && guard++ < 20) { eps *= 1.6; out = simplify(p, eps); }
     return out;
   }
+  /** 2026-11 필압 펜 — 점을 줄일 때 필압(pr)도 같은 점만 남김. 반환 { p, pr } */
+  function limitPointsPr(p, pr, maxPts) {
+    var n = p.length / 2;
+    if (!pr || pr.length !== n) return { p: limitPoints(p, maxPts), pr: null };
+    var eps = 0.0003, out = simplify(p, eps), guard = 0;
+    while (out.length / 2 > maxPts && guard++ < 20) { eps *= 1.6; out = simplify(p, eps); }
+    if (out.length === p.length) return { p: out, pr: pr.slice() };
+    var opr = [], j = 0;                                                           // simplify 는 원래 점을 순서대로 골라 남기므로 같은 좌표를 앞에서부터 찾아 맞춤
+    for (var k = 0; k < out.length / 2; k++) {
+      var x = out[k * 2], y = out[k * 2 + 1];
+      while (j < n && !(r4(p[j * 2]) === x && r4(p[j * 2 + 1]) === y)) j++;
+      opr.push(j < n ? pr[j] : pr[n - 1]); j++;
+    }
+    return { p: out, pr: opr };
+  }
+  /* ------------------------------------------------------------ 2026-11 — 필압 펜 (굿노트 느낌)
+     · 획마다 pk: 'b' 볼펜(굵기 거의 일정 · 필압 살짝) / 'f' 만년필(필압 따라 굵기 크게 · 끝이 가늘게 빠짐), pr: 점마다 필압 0~100
+     · 그리기: 점 사이를 캣멀-롬 곡선으로 촘촘히 나눈 뒤, 점마다 반지름을 정해 양쪽 외곽선을 만들어 한 번에 채움(fill)
+     · pk 가 없는 예전 획은 예전 그대로 (일정한 굵기의 선) */
+  function penR(kind, pv, base) { return kind === 'f' ? base * (0.35 + 1.3 * pv) : base * (0.84 + 0.32 * pv); }
+  function varStroke(c, p, pr, kind, W, H, wpx, live) {
+    var n = p.length / 2; if (!n) return;
+    var base = wpx / 2, X = [], Y = [], V = [], i, k;
+    if (n === 1) { c.beginPath(); c.arc(p[0] * W, p[1] * H, Math.max(0.4, penR(kind, (pr[0] || 50) / 100, base)), 0, 7); c.fill(); return; }
+    for (i = 0; i < n - 1; i++) {                                                 // 캣멀-롬으로 촘촘히 (약 2.5px 간격)
+      var i0 = i > 0 ? i - 1 : 0, i3 = i + 2 < n ? i + 2 : n - 1;
+      var x0 = p[i0 * 2] * W, y0 = p[i0 * 2 + 1] * H, x1 = p[i * 2] * W, y1 = p[i * 2 + 1] * H, x2 = p[i * 2 + 2] * W, y2 = p[i * 2 + 3] * H, x3 = p[i3 * 2] * W, y3 = p[i3 * 2 + 1] * H;
+      var v1 = pr[i] / 100, v2 = pr[i + 1] / 100, steps = Math.max(1, Math.min(10, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 2.5)));
+      for (k = 0; k < steps; k++) {
+        var t = k / steps, t2 = t * t, t3 = t2 * t;
+        var qx = 0.5 * (2 * x1 + (-x0 + x2) * t + (2 * x0 - 5 * x1 + 4 * x2 - x3) * t2 + (-x0 + 3 * x1 - 3 * x2 + x3) * t3);
+        var qy = 0.5 * (2 * y1 + (-y0 + y2) * t + (2 * y0 - 5 * y1 + 4 * y2 - y3) * t2 + (-y0 + 3 * y1 - 3 * y2 + y3) * t3);
+        if (X.length && Math.abs(qx - X[X.length - 1]) + Math.abs(qy - Y[Y.length - 1]) < 0.3) continue;      // 겹친 점은 건너뜀 (방향이 흔들려 외곽선이 꺾이지 않게)
+        X.push(qx); Y.push(qy); V.push(v1 + (v2 - v1) * t);
+      }
+    }
+    var ex = p[n * 2 - 2] * W, ey = p[n * 2 - 1] * H;
+    if (!X.length || Math.abs(ex - X[X.length - 1]) + Math.abs(ey - Y[Y.length - 1]) >= 0.3) { X.push(ex); Y.push(ey); V.push(pr[n - 1] / 100); }
+    if (X.length === 1) { c.beginPath(); c.arc(X[0], Y[0], Math.max(0.4, penR(kind, V[0], base)), 0, 7); c.fill(); return; }
+    var m = X.length, L = [0];
+    for (i = 1; i < m; i++) L.push(L[i - 1] + Math.hypot(X[i] - X[i - 1], Y[i] - Y[i - 1]));
+    var tot = L[m - 1], tap = live ? (kind === 'f' ? base * 7 : base * 2.2) : kind === 'f' ? Math.min(tot * 0.22, base * 7) : Math.min(tot * 0.12, base * 2.2), tmin = kind === 'f' ? 0.32 : 0.7;   // 긋는 중(live)에는 끝을 가늘게 빼지 않음 — 펜을 뗄 때 한 번에
+    var R = [];
+    for (i = 0; i < m; i++) {
+      var r = penR(kind, V[i], base);
+      if (tap > 0) { var a = Math.min(1, L[i] / tap), b = live ? 1 : Math.min(1, (tot - L[i]) / tap); a = a * a * (3 - 2 * a); b = b * b * (3 - 2 * b); r *= tmin + (1 - tmin) * Math.min(a, b); }
+      R.push(Math.max(0.35, r));
+    }
+    var lx = [], ly = [], rx = [], ry = [], ang = [];
+    for (i = 0; i < m; i++) {
+      var a0 = Math.max(0, i - 1), a1 = Math.min(m - 1, i + 1), dx = X[a1] - X[a0], dy = Y[a1] - Y[a0], dl = Math.hypot(dx, dy);
+      if (dl < 1e-6) { dx = 1; dy = 0; dl = 1; if (i > 0) { ang.push(ang[i - 1]); lx.push(X[i] + (lx[i - 1] - X[i - 1])); ly.push(Y[i] + (ly[i - 1] - Y[i - 1])); rx.push(X[i] + (rx[i - 1] - X[i - 1])); ry.push(Y[i] + (ry[i - 1] - Y[i - 1])); continue; } }
+      var nx = -dy / dl, ny = dx / dl;
+      ang.push(Math.atan2(dy, dx)); lx.push(X[i] + nx * R[i]); ly.push(Y[i] + ny * R[i]); rx.push(X[i] - nx * R[i]); ry.push(Y[i] - ny * R[i]);
+    }
+    c.beginPath(); c.moveTo(lx[0], ly[0]);
+    for (i = 1; i < m; i++) c.lineTo(lx[i], ly[i]);
+    c.arc(X[m - 1], Y[m - 1], R[m - 1], ang[m - 1] + Math.PI / 2, ang[m - 1] - Math.PI / 2, true);              // 끝 둥글게
+    for (i = m - 1; i >= 0; i--) c.lineTo(rx[i], ry[i]);
+    c.arc(X[0], Y[0], R[0], ang[0] - Math.PI / 2, ang[0] + Math.PI / 2, true);                                  // 시작 둥글게
+    c.closePath(); c.fill();
+  }
 
   /* ------------------------------------------------------------ 기호 그리기 (중심 (0,0), s = 기호 크기(px)) */
   function ln(c, x1, y1, x2, y2) { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
@@ -334,6 +396,12 @@
      라이브 악보(흰 악보)는 설정하지 않으므로 그대로입니다. */
   var DISP = { map: null, halo: 'rgba(255,255,255,.9)' };
   function dispC(c) { if (!DISP.map) return c; try { return DISP.map(c) || c; } catch (e) { return c; } }
+  /** 긋는 중인 획을 그릴 항목으로 — 예측점(pred)에는 마지막 필압을 이어 붙임 */
+  function curItem(cc, pts) {
+    var it = { t: cc.kind, c: cc.color, w: cc.w, p: pts, line: cc.straight };
+    if (cc.pk && cc.pr && !cc.straight) { var pr = cc.pr.slice(0, pts.length / 2), last = pr.length ? pr[pr.length - 1] : 50; while (pr.length < pts.length / 2) pr.push(last); it.pk = cc.pk; it.pr = pr; it.live = 1; }
+    return it;
+  }
   function setDisplay(o) { DISP.map = (o && typeof o.map === 'function') ? o.map : null; DISP.halo = (o && o.halo) || 'rgba(255,255,255,.9)'; }
   /** 항목 하나를 ctx 에 그림. W,H = 그릴 페이지의 픽셀 크기. o.alpha = 전체 투명도 */
   function drawItem(c, it, W, H, o) {
@@ -342,7 +410,8 @@
     try {
       c.strokeStyle = c.fillStyle = dispC(it.c || '#ff5a1f'); c.lineCap = 'round'; c.lineJoin = 'round';
       if (o.alpha != null) c.globalAlpha = o.alpha;
-      if (it.t === 'pen') { c.lineWidth = Math.max(0.8, (it.w || 0.003) * W); strokePath(c, it.p || [], W, H); c.stroke(); }
+      if (it.t === 'pen' && (it.pk === 'b' || it.pk === 'f') && it.pr && it.p && it.pr.length === it.p.length / 2 && !it.line) varStroke(c, it.p, it.pr, it.pk, W, H, Math.max(0.8, (it.w || 0.003) * W), !!it.live);   // 2026-11 필압 펜
+      else if (it.t === 'pen') { c.lineWidth = Math.max(0.8, (it.w || 0.003) * W); strokePath(c, it.p || [], W, H); c.stroke(); }
       else if (it.t === 'hl') {
         /* v10 — 굿노트 방식: 곱하기(multiply)로 칠하면 검은 음표 · 글자는 그대로 검고 흰 종이만 물듭니다 (형광펜이 글자 "밑에" 있는 것처럼) */
         if (o.blend) c.globalCompositeOperation = 'multiply';
@@ -433,7 +502,7 @@
   function create(o) {
     var cv = o.canvas, host = o.host, ctx = cv.getContext('2d');
     var S = { layers: { team: new Map(), mine: new Map() }, vis: { team: true, mine: true }, page: 1, tool: 'none', color: PALETTE[0], hlColor: HL_COLORS[0],
-      pw: 0.003, hw: 0.02, ww: 0.02, tbg: '', tbd: '', sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
+      pw: 0.003, pk: (o.penKind === 'f' ? 'f' : 'b'), hw: 0.02, ww: 0.02, tbg: '', tbd: '', sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
       sawPen: !!o.sawPen, penT: 0, penTap: true, prevDraw: 'pen', tapDown: null, tapLast: null, seq: 0, sel: null, fboxSize: 0.028, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0,
       autoSel: o.autoSelect !== false, placed: false };   // v6 — 한 번 쓰고 난 뒤 빈 곳을 톡 치면 선택·이동 도구로 (autoSel)
     /* v9.7 — 젖은 잉크(wet ink): 펜 · 형광펜 · 흰 지우개를 긋는 동안에는 "지금 화면에 보이는 크기"의 작은 캔버스에만 그리고,
@@ -476,7 +545,7 @@
       var pts = cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : (cc.pred && cc.pred.length ? cc.p.concat(cc.pred) : cc.p), W = S.W, H = S.H, d = W8.d;
       /* 바뀐 부분(획 끝 몇 점 + 지난 프레임의 끝 부분)만 지우고, 그 칸 안에만 획을 다시 칠함 — 화면 크기 캔버스라도 매 프레임 일이 작게 */
       var full = W8.cur !== cc || cc.straight, n = cc.p.length;
-      var wpx = Math.max(cc.kind === 'hl' ? 4 : 0.8, (cc.w || 0.003) * W), pad = wpx / 2 + 3;
+      var wpx = Math.max(cc.kind === 'hl' ? 4 : 0.8, (cc.w || 0.003) * W), pad = (cc.pk === 'f' ? wpx * 0.8 : wpx / 2) + 3;
       var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, from = full ? 0 : Math.max(0, n - 8);
       for (var i = from; i < pts.length; i += 2) { var x = pts[i] * W, y = pts[i + 1] * H; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       var r = { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad }, prev = W8.tail;
@@ -489,7 +558,7 @@
       if (!full) wctx.clearRect(sx, sy, ex - sx, ey - sy);
       wctx.save(); wctx.beginPath(); wctx.rect(sx, sy, ex - sx, ey - sy); wctx.clip();
       wctx.setTransform(d, 0, 0, d, -W8.x * d, -W8.y * d);
-      drawItem(wctx, { t: cc.kind, c: cc.color, w: cc.w, p: pts, line: cc.straight }, W, H);
+      drawItem(wctx, curItem(cc, pts), W, H);
       wctx.restore();
     }
     function wetEnd() {
@@ -609,7 +678,7 @@
       if (ex <= sx || ey <= sy) return true;
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(sx, sy, ex - sx, ey - sy); ctx.drawImage(S.base, sx, sy, ex - sx, ey - sy, sx, sy, ex - sx, ey - sy);
       ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, ex - sx, ey - sy); ctx.clip(); ctx.setTransform(d, 0, 0, d, 0, 0);
-      drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: pts }, W, H);
+      drawItem(ctx, curItem(cc, pts), W, H);
       ctx.restore(); ctx.setTransform(d, 0, 0, d, 0, 0);
       return true;
     }
@@ -646,7 +715,7 @@
       if (W8.on && inkCur()) wetDraw();                                                 // 다른 까닭으로 전체를 다시 그려도 긋는 획은 젖은 잉크 쪽에
       else if (W8.on) wetEnd();                                                          // 떼어서 획이 필기 캔버스에 붙은 바로 그 프레임에 젖은 잉크를 지움 (깜빡임 없음)
       if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl') && !W8.on) {
-        var cc = S.cur; drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : (cc.pred && cc.pred.length ? cc.p.concat(cc.pred) : cc.p), line: cc.straight }, S.W, S.H);
+        var cc = S.cur; drawItem(ctx, curItem(cc, cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : (cc.pred && cc.pred.length ? cc.p.concat(cc.pred) : cc.p)), S.W, S.H);
       } else if (S.cur && (S.cur.kind === 'sym' || S.cur.kind === 'fbox')) {
         drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.75 });
       }
@@ -1156,7 +1225,7 @@
       if (c.kind === 'hl' && !c.straight && c.p.length >= 4) {                               // 형광펜 줄 → 곧게
         var n = c.p.length, d = Math.hypot((c.p[n - 2] - c.p[0]) * S.W, (c.p[n - 1] - c.p[1]) * S.H);
         if (d < 24) return;
-        c.p = [c.p[0], c.p[1], c.p[n - 2], c.p[n - 1]]; c.straight = true; c.snapped = true; c.pred = [];
+        c.p = [c.p[0], c.p[1], c.p[n - 2], c.p[n - 1]]; c.straight = true; c.snapped = true; c.pred = []; c.pr = null; c.pk = null;
         buzz(); sendLive(c, true); invalidate(true);
       }
     }
@@ -1209,6 +1278,7 @@
       } else if (S.tool === 'pen' || S.tool === 'hl' || S.tool === 'white') {
         var wt = S.tool === 'white';                                                                                   // v9.7 — 흰 지우개: 굵은 흰 펜 (악보 부분을 하얗게 덮음 · 필기로 저장되어 지우개로 되돌릴 수 있음)
         S.cur = { kind: wt ? 'pen' : S.tool, id: newId(), ptr: e.pointerId, p: [p.x, p.y], color: wt ? '#ffffff' : activeColor(), w: wt ? S.ww : S.tool === 'hl' ? S.hw : S.pw, sent: 0, fresh: true, straight: S.tool === 'hl' && S.straight, touch: touch, t0: Date.now(), pen: e.pointerType === 'pen', x0: e.clientX, y0: e.clientY, far: false, white: wt };
+        if (!wt && S.tool === 'pen') { S.cur.pk = S.pk; S.cur.pr = []; S.cur.pr.push(prOf(S.cur, e, 0)); }      // 2026-11 필압 펜 — 볼펜 · 만년필
         holdArm(S.cur, e.clientX, e.clientY);
         if (wetBegin()) wetDraw();
         invalidate(true);
@@ -1266,6 +1336,7 @@
           if (n >= 6000) break;
           if (!c.straight) q = stabilize(c, q);                                                                   // V836 — 손떨림 · 센서 잡음을 살짝 눌러 선이 부드럽게 (빨리 그을 땐 거의 그대로라 늦지 않음)
           if (Math.abs(q.x - c.p[n - 2]) + Math.abs(q.y - c.p[n - 1]) < 0.0004) continue;
+          if (c.pr) c.pr.push(prOf(c, list[i], Math.hypot((q.x - c.p[n - 2]) * S.W, (q.y - c.p[n - 1]) * S.H)));
           c.p.push(q.x, q.y);
         }
         c.pred = [];                                                                                              // 펜이 곧 갈 곳 (브라우저가 알려 줄 때만) — 화면에만 잇고 저장하지 않음 → 펜 끝 쪽 지연이 줄어듦
@@ -1278,6 +1349,16 @@
       }
       else if (c.kind === 'sym' && c.stretch) { var q2 = norm(e); c.item.w2 = r4(clamp(Math.abs(q2.x - c.x0), 0.02, 0.5)); invalidate(true); }
     }
+    /** 2026-11 필압 — 애플 펜슬은 누르는 힘(pressure), 손가락 · 마우스는 만년필일 때만 속도로 흉내(빠르면 가늘게). 0~100, 살짝 고르게 */
+    function prOf(c, ev, dpx) {
+      var raw;
+      if (ev && ev.pointerType === 'pen' && ev.pressure > 0) raw = Math.pow(clamp(ev.pressure, 0, 1), 0.65);
+      else if (ev && ev.pointerType === 'pen') raw = c.prv == null ? 0.45 : c.prv;                       // 처음 닿는 순간 0 이 오는 기기
+      else if (c.pk === 'f') raw = clamp(1.05 - (dpx || 0) / 16, 0.4, 1);
+      else raw = 0.5;
+      var v = c.prv == null ? raw : c.prv + (raw - c.prv) * 0.35;
+      c.prv = v; return Math.round(clamp(v, 0, 1) * 100);
+    }
     /** 입력 안정화 — 직전에 그린 점에서 새 점으로 "일부만" 이동 (거리가 짧을수록 더 많이 누름). 화면 픽셀 기준이라 확대 · 페이지 크기와 무관 */
     function stabilize(c, q) {
       var n = c.p.length; if (n < 2) return q;
@@ -1288,8 +1369,11 @@
     function sendLive(c, final) {
       if (S.layer !== 'team' || !o.onLive) return;
       var now = Date.now(); if (!final && now - c.sent < 70) return; c.sent = now;
-      var p = c.p, n = p.length / 2; if (n > 200) p = limitPoints(p, 200);
-      try { o.onLive({ id: c.id, t: c.kind, pg: S.page, c: c.color, w: r4(clamp(c.w, 0.0005, 0.06)), p: p, fresh: c.fresh ? 1 : 0 }); } catch (e) {} c.fresh = false;
+      var p = c.p, pr = c.pr && c.pr.length === p.length / 2 && !c.straight ? c.pr : null, n = p.length / 2;
+      if (n > 200) { var lp = limitPointsPr(p, pr, 200); p = lp.p; pr = lp.pr; }
+      var m = { id: c.id, t: c.kind, pg: S.page, c: c.color, w: r4(clamp(c.w, 0.0005, 0.06)), p: p, fresh: c.fresh ? 1 : 0 };
+      if (pr && c.pk) { m.pk = c.pk; m.pr = pr; }
+      try { o.onLive(m); } catch (e) {} c.fresh = false;
     }
     function onUp(e) {
       var c = S.cur; if (!c || e.pointerId !== c.ptr) return;
@@ -1327,10 +1411,12 @@
       } else if ((c.kind === 'pen' || c.kind === 'hl') && e.type === 'pointerup' && !c.far && Date.now() - c.t0 < 300 && peek(pickAny(c.p[0] * S.W, c.p[1] * S.H, c.touch, c.id))) {
         try { S.live.delete(c.id); } catch (x) { /* 없음 */ }                                                         // V848 — 펜으로 다른 필기를 톡 → 점을 찍지 않고 누가 썼는지 잠깐 보여 줌
       } else if (c.kind === 'pen' || c.kind === 'hl') {
-        var p = c.p; if (p.length < 4) p = [p[0], p[1], p[0] + 0.0005, p[1]];
+        var p = c.p, pr = c.pk && c.pr && c.pr.length === c.p.length / 2 && !c.straight ? c.pr.slice() : null;
+        if (p.length < 4) { p = [p[0], p[1], p[0] + 0.0005, p[1]]; if (pr) pr = [pr[0], pr[0]]; }
         if (c.straight && p.length > 4) p = p.slice(0, 2).concat(p.slice(-2));
-        p = limitPoints(p, 1400);
+        var lp = limitPointsPr(p, pr, 1400); p = lp.p; pr = lp.pr;
         var it = { id: c.id, t: c.kind, pg: S.page, c: c.color, w: r4(clamp(c.w, 0.0005, 0.06)), p: p };
+        if (pr && pr.length === p.length / 2) { it.pk = c.pk; it.pr = pr; }      // 2026-11 필압 펜
         if (c.straight) it.line = 1;
         addLocal(S.layer, it); S.placed = true;
       } else if (c.kind === 'fbox') {
@@ -1475,6 +1561,8 @@
       setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; S.msel = null; freeBase(); invalidate(); },      // 같은 페이지를 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
       setTool: function (t) { closeEditor(true); S.placed = false; if (t !== 'eraser') S.holdArmed = null; S.tool = ['none', 'pen', 'hl', 'white', 'select', 'lasso', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.tool !== 'lasso') S.msel = null; if (S.fresh) { S.sel = null; S.fresh = null; }      /* 방금 만들어서 자동 선택된 것은 도구를 바꾸면 선택을 풀어 예전처럼 */
       if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.tool !== 'sym' && S.tool !== 'fbox') { S.sel = null; S.fresh = null; } changed(); refreshTouch(); invalidate(); },
+      /** 2026-11 — 펜 종류: 'b' 볼펜 · 'f' 만년필 */
+      setPenKind: function (k) { S.pk = k === 'f' ? 'f' : 'b'; return S.pk; }, penKind: function () { return S.pk; },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;
         if (S.tool === 'hl') S.hlColor = c; else S.color = c;
@@ -1515,7 +1603,7 @@
       remoteAdd: function (ly, it) { S.layers[ly].set(it.id, it); S.live.delete(it.id); invalidate(); changed(); },
       remoteDel: function (ly, id) { S.layers[ly].delete(id); invalidate(); changed(); },
       remoteClear: function (ly, ids) { (ids || []).forEach(function (id) { S.layers[ly].delete(id); }); invalidate(); changed(); },
-      remoteLive: function (m) { if (!m || !m.id) return; var old = S.live.get(m.id); S.live.set(m.id, { id: m.id, t: m.t, pg: m.pg, c: m.c, w: m.w, p: m.p, by: m.by, at: Date.now() }); invalidate(true); },
+      remoteLive: function (m) { if (!m || !m.id) return; var old = S.live.get(m.id); S.live.set(m.id, { id: m.id, t: m.t, pg: m.pg, c: m.c, w: m.w, p: m.p, pk: m.pk, pr: m.pr, live: m.pk ? 1 : 0, by: m.by, at: Date.now() }); invalidate(true); },
       undo: undo, redo: redo,
       /** 그리던 획 · 옮기던 항목을 저장하지 않고 버림 (손가락 두 개로 확대를 시작할 때) */
       cancelCurrent: function () { if (!S.cur) return false; dropCur(); invalidate(); return true; },
