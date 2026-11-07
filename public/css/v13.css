@@ -705,3 +705,14 @@ body { background: var(--bg); }
 .g13-bar a { background: #FBF9F4; color: #17201C !important; }
 .g13-bar button { background: #0F1A16; color: #E2CC97; cursor: pointer; }
 .ph-wrap:has(.g13-bar) { padding-bottom: 110px !important; }
+/* 연습 콘티 탭(단추) + 같은 틀 */
+.pc-tabs button { all: unset; cursor: pointer; min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: #EFEBE3; color: #5C6660; }
+.pc-tabs button b { font-family: 'Bodoni Moda', serif; font-weight: 400; font-size: 20px; color: inherit; }
+.pc-tabs button small { font-size: 12px; }
+.pc-tabs button.on { background: #0F1A16; color: #ECE6D9; }
+.pc-tabs button.on b { font-weight: 600; }
+.pc-tabs button.on small { color: #E2CC97; }
+.pc-tabs { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important; }
+.pc-target > .ph-card { margin-bottom: 28px !important; }
+.pc-away { color: #8A4A12 !important; }
+.cn-cardhead .cn-mini { border: 0 !important; background: transparent !important; color: #6E5A2E !important; font-size: 13px !important; box-shadow: none !important; padding: 10px 0 10px 8px !important; }

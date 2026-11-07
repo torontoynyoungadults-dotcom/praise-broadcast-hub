@@ -990,18 +990,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   const dDays = Math.round((new Date(date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000);
   const dTxt = dDays === 0 ? '오늘' : dDays > 0 ? `D-${dDays}` : '지난 주일';
   const cq = (d) => `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(d)}`;
-  // V13 — 말씀 후(설교 후 찬양 · 폐회송) 한 섹션 — 줄: 라벨 | 제목 · 원곡팀 · 송폼 | 키 (♩ BPM)
-  const afterRows = (() => {
-    const keyTxt = (x) => esc(String(x['Key'] || '').replace(/\s*-+>\s*/g, '→'));
-    const formLine = (x) => String(x['송폼'] || '').split(/[\s,>›-]+/).filter(Boolean).join(' › ');
-    const lastC = w.conti[w.conti.length - 1];
-    const same = (x) => lastC && String(lastC['제목'] || '').trim() && String(lastC['제목'] || '').trim() === String(x['제목'] || '').trim();
-    const row = (label, x) => (x
-      ? `<div class="v13-arow"><span class="l">${label}</span><span class="m"><b>${esc(x['제목'] || '(제목 없음)')}</b><small>${same(x) ? '콘티 마지막 곡과 같아요' : esc([x['팀'], formLine(x)].filter(Boolean).join(' · '))}</small></span><span class="k"><b>${keyTxt(x)}</b>${x['BPM'] ? `<small>♩ ${esc(x['BPM'])}</small>` : ''}</span></div>`
-      : `<div class="v13-arow"><span class="l">${label}</span><span class="m"><small class="none">미정</small></span><span class="k"></span></div>`);
-    return row('설교 후 찬양', w.final[0]) + w.final.slice(1).map((x) => row('', x)).join('')
-      + row('폐회송', w.closing[0]) + w.closing.slice(1).map((x) => row('', x)).join('');
-  })();
+  const afterRows = afterRowsHtml(w);
   const bigDate = `<section class="v13-bigdate" aria-label="${esc(week.labelKo(date))}">
     <span class="v13-bd-k">주일 3부 예배 · ${dTxt}</span>
     <div class="v13-bd-row"><a class="v13-bd-nav" href="${cq(week.shiftWeek(date, -1))}" aria-label="이전 주일">${ui.icon('prev')}</a><span class="v13-bd-d">${date.slice(5, 7)}<i>.</i>${date.slice(8, 10)}</span><a class="v13-bd-nav" href="${cq(week.shiftWeek(date, 1))}" aria-label="다음 주일">${ui.icon('next')}</a></div>
@@ -1061,41 +1050,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
-  <div class="ph-card" id="cn-recs">
-    <div class="v13-sechead"><h2 class="ph-h2">녹음</h2></div>
-    ${(() => {
-      const pr = w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고'), wr = w.recs.filter((r) => r['구분'] === '예배'), rf = w.recs.filter((r) => r['구분'] === '참고');
-      const cell = (i, t, sub) => `<button type="button" class="v13-rc" data-v13-rc="${i}" aria-expanded="false"><b>${t}</b><small>${sub}</small></button>`;
-      return `<div class="v13-rcs">${cell(0, '연습', pr.length ? pr.length + '개' : '아직 없음')}${cell(1, '예배', wr.length ? wr.length + '개' : '예배 후')}${cell(2, '참고 음원', rf.length ? rf.length + '곡' : '아직 없음')}</div>`;
-    })()}
-    <div class="v13-rp" data-v13-rp="0" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
-    <div class="v13-rp" data-v13-rp="1" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
-    <div class="v13-rp" data-v13-rp="2" hidden><p class="ph-sub">곡 MP3 — 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</p><div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div></div>
-    <script>(function(){var b=document.querySelectorAll('[data-v13-rc]');b.forEach(function(x){x.addEventListener('click',function(){var i=x.getAttribute('data-v13-rc'),open=x.getAttribute('aria-expanded')!=='true';b.forEach(function(y){y.setAttribute('aria-expanded',String(open&&y===x));});document.querySelectorAll('[data-v13-rp]').forEach(function(p){p.hidden=!(open&&p.getAttribute('data-v13-rp')===i);});});});function h(){if(location.hash==='#cn-recs'){var f=document.querySelector('[data-v13-rc="0"]');if(f&&f.getAttribute('aria-expanded')!=='true')f.click();}}h();window.addEventListener('hashchange',h);})();</script>
-    ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && req.ctx && req.ctx.isAdmin && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
-    <details class="ph-add">
-      <summary>+ 녹음 올리기</summary>
-      <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
-        <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
-        <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
-        <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option><option value="참고">참고 음원 (곡 MP3)</option></select>
-        <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
-        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
-        <input type="text" name="R2경로" placeholder="또는 R2에 올려 둔 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
-        <button class="ph-btn pri" type="submit">올리기</button>
-      </form>
-    </details>
-  </div>
-
-  <div class="ph-card v13-share">
-    <div class="v13-sechead"><h2 class="ph-h2">나눔</h2></div>
-    <div class="ph-list">${w.comments.length ? w.comments.map(commentItem).join('') : '<p class="ph-sub">아직 댓글이 없어요.</p>'}</div>
-    <form method="post" action="/conti/comments" class="ph-inlineform">
-      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
-      <input type="text" name="내용" placeholder="팀에게 남길 말" required>
-      <button class="ph-btn" type="submit">등록</button>
-    </form>
-  </div>
+  ${recsAndShare(w, team, scope, markSongs, 'cn-recs', { admin: !!(req.ctx && req.ctx.isAdmin && !guestAccess.isGuest(req.ctx.member)) })}
   `;
   spa.send(req, res, content, { title: scope.event ? `${team} ${eventRow['이름']}` : `${team} 예배콘티` });
 });
@@ -1336,6 +1291,60 @@ function upcomingFirst(targets, today) {
   return up.concat(done);
 }
 
+/** V13 — 말씀 후 줄: 라벨 | 제목 · 원곡팀 · 송폼 | 키 (♩ BPM) */
+function afterRowsHtml(w) {
+    const keyTxt = (x) => esc(String(x['Key'] || '').replace(/\s*-+>\s*/g, '→'));
+    const formLine = (x) => String(x['송폼'] || '').split(/[\s,>›-]+/).filter(Boolean).join(' › ');
+    const lastC = w.conti[w.conti.length - 1];
+    const same = (x) => lastC && String(lastC['제목'] || '').trim() && String(lastC['제목'] || '').trim() === String(x['제목'] || '').trim();
+    const row = (label, x) => (x
+      ? `<div class="v13-arow"><span class="l">${label}</span><span class="m"><b>${esc(x['제목'] || '(제목 없음)')}</b><small>${same(x) ? '콘티 마지막 곡과 같아요' : esc([x['팀'], formLine(x)].filter(Boolean).join(' · '))}</small></span><span class="k"><b>${keyTxt(x)}</b>${x['BPM'] ? `<small>♩ ${esc(x['BPM'])}</small>` : ''}</span></div>`
+      : `<div class="v13-arow"><span class="l">${label}</span><span class="m"><small class="none">미정</small></span><span class="k"></span></div>`);
+    return row('설교 후 찬양', w.final[0]) + w.final.slice(1).map((x) => row('', x)).join('')
+      + row('폐회송', w.closing[0]) + w.closing.slice(1).map((x) => row('', x)).join('');
+}
+
+/** V13 — 녹음 3칸(연습 · 예배 · 참고 음원, 누르면 펼침) + 나눔(댓글). 예배 콘티 · 연습 콘티가 같이 씀 */
+function recsAndShare(w, team, scope, markSongs, recId, opt) {
+  opt = opt || {};
+  return `
+  <div class="ph-card v13-recs"${recId ? ` id="${recId}"` : ''}>
+    <div class="v13-sechead"><h2 class="ph-h2">녹음</h2></div>
+    ${(() => {
+      const pr = w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고'), wr = w.recs.filter((r) => r['구분'] === '예배'), rf = w.recs.filter((r) => r['구분'] === '참고');
+      const cell = (i, t, sub) => `<button type="button" class="v13-rc" data-v13-rc="${i}" aria-expanded="false" onclick="var w=this.closest('.v13-recs'),i=this.getAttribute('data-v13-rc'),o=this.getAttribute('aria-expanded')!=='true';w.querySelectorAll('[data-v13-rc]').forEach(function(y){y.setAttribute('aria-expanded',String(o&&y===this))},this);w.querySelectorAll('[data-v13-rp]').forEach(function(p){p.hidden=!(o&&p.getAttribute('data-v13-rp')===i)})"><b>${t}</b><small>${sub}</small></button>`;
+      return `<div class="v13-rcs">${cell(0, '연습', pr.length ? pr.length + '개' : '아직 없음')}${cell(1, '예배', wr.length ? wr.length + '개' : '예배 후')}${cell(2, '참고 음원', rf.length ? rf.length + '곡' : '아직 없음')}</div>`;
+    })()}
+    <div class="v13-rp" data-v13-rp="0" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="v13-rp" data-v13-rp="1" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="v13-rp" data-v13-rp="2" hidden><p class="ph-sub">곡 MP3 — 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</p><div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div></div>
+    ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && opt.admin ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
+    <details class="ph-add">
+      <summary>+ 녹음 올리기</summary>
+      <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
+        <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
+        <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
+        <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option><option value="참고">참고 음원 (곡 MP3)</option></select>
+        <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
+        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
+        <input type="text" name="R2경로" placeholder="또는 R2에 올려 둔 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
+        <button class="ph-btn pri" type="submit">올리기</button>
+      </form>
+    </details>
+  </div>
+
+  <div class="ph-card v13-share">
+    <div class="v13-sechead"><h2 class="ph-h2">나눔</h2></div>
+    <div class="ph-list">${w.comments.length ? w.comments.map(commentItem).join('') : '<p class="ph-sub">아직 댓글이 없어요.</p>'}</div>
+    <form method="post" action="/conti/comments" class="ph-inlineform">
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
+      <input type="text" name="내용" placeholder="팀에게 남길 말" required>
+      <button class="ph-btn" type="submit">등록</button>
+    </form>
+  </div>
+  `;
+}
+
 router.get('/practice-conti', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
@@ -1413,35 +1422,27 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
         + sec('폐회송', w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))));
       const tIdx = cards.length;
       tabInfo.push({ i: tIdx, name: practiceView.targetName(t), date: t.date, mine: (people.find((x) => x.name === me) || {}).pos || null, away: !!(people.find((x) => x.name === me && x.off)) });
-      cards.push(withBack(`<section class="ph-card pc-target" id="pc-t-${tIdx}" aria-label="${esc(practiceView.targetName(t))} 콘티">
-        <div class="pc-thead">
-          <div><h2 class="ph-h2">${esc(practiceView.targetName(t))} 콘티</h2><p class="pc-tdate">${esc(week.labelKo(t.date))}${cur.targets.length > 1 ? ` · ${cur.targets.indexOf(t) + 1} / ${cur.targets.length}` : ''}</p></div>
-          <div class="pc-tlinks"><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기 ${ui.icon('next')}</a></div>
+      const lineupT = await lineupCard(team, scope, byPos, roster, wInfo, t.event ? t.name : '', ctx.isAdmin);
+      cards.push(withBack(`<section class="pc-target" id="pc-t-${tIdx}" aria-label="${esc(practiceView.targetName(t))} 콘티"${tIdx === 0 ? '' : ' hidden'}>
+        <div class="ph-card cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
+        <div class="ph-card top-accent">
+          <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기</a></div>
+          <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}</div>
+          ${songForm('콘티', team, scope, roster, byPos, hist)}
         </div>
-        <div class="cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
-        ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
-        ${songsHtml}
-        ${(() => {
-          const prs = w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고'), marks = songsForMarks(w);
-          return `<div class="pc-sec pc-recs"><h3>연습 녹음</h3>
-          <div class="ph-list">${prs.length ? prs.map((r) => recItem(r, false, marks)).join('') : '<p class="ph-sub">아직 올린 연습 녹음이 없어요.</p>'}</div>
-          <details class="ph-add">
-            <summary>+ 연습 녹음 올리기</summary>
-            <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
-              <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="구분" value="연습">
-              <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
-              <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
-              <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
-        <input type="text" name="R2경로" placeholder="또는 R2에 올려 둔 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
-              <button class="ph-btn pri" type="submit">올리기</button>
-            </form>
-          </details></div>`;
-        })()}
+        <section class="ph-card v13-after"><div class="v13-sechead"><h2 class="ph-h2">말씀 후</h2></div>
+          ${afterRowsHtml(w)}
+          <details class="v13-more v13-after-edit"><summary>말씀 후 곡 올리기 · 고치기</summary>
+            <div class="ph-card"><h2 class="ph-h2">설교 후 찬양</h2><div class="cn-songs">${w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))).join('')}</div>${w.final.length ? '' : sameAsHtml(team, scope, w.conti) + songForm('결단', team, scope, roster, byPos, null)}</div>
+            <div class="ph-card"><h2 class="ph-h2">폐회송</h2><div class="cn-songs">${w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))).join('')}</div>${w.closing.length ? '' : songForm('폐회송', team, scope, roster, byPos, null)}</div>
+          </details>
+        </section>
+        ${lineupT.replace(/<\/div>\s*$/, `${away.length ? `<p class="lu-guests pc-away">연습 불참 · ${esc(away.map((x) => x.name).join(', '))}</p>` : ''}</div>`)}
+        ${recsAndShare(w, team, scope, songsForMarks(w), '', { admin: !!(ctx.isAdmin && !isGuest) })}
       </section>`, q(cur.date)));
     }
     // V13 — 같은 날 연습하는 주일이 둘 이상이면 위에 주일 탭 (한 번에 한 주일 콘티만)
-    const tabs = cards.length > 1 ? `<nav class="pc-tabs" aria-label="함께 연습하는 주일">${tabInfo.map((x) => `<a href="#pc-t-${x.i}" data-pc-tab="${x.i}"${x.i === 0 ? ' class="on" aria-current="true"' : ''}><b>${Number(x.date.slice(5, 7))}.${x.date.slice(8, 10)} ${esc(x.name.replace(/^\d+월 \d+일\s*/, ''))}</b><small>${x.mine ? '나 ' + esc(x.mine.join(' · ')) : '나 쉼'}</small></a>`).join('')}</nav>
-      <script>(function(){function go(){var h=location.hash.replace('#pc-t-','');var n=document.querySelectorAll('[data-pc-tab]');if(!n.length)return;if(h===''||!document.getElementById('pc-t-'+h))h='0';n.forEach(function(a){var on=a.getAttribute('data-pc-tab')===h;a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current');});document.querySelectorAll('.pc-target').forEach(function(sct){sct.hidden=sct.id!=='pc-t-'+h;});}go();window.addEventListener('hashchange',go);})();</script>` : '';
+    const tabs = cards.length > 1 ? `<nav class="pc-tabs" role="tablist" aria-label="함께 연습하는 주일">${tabInfo.map((x) => `<button type="button" role="tab" data-pc-tab="${x.i}" class="${x.i === 0 ? 'on' : ''}" aria-selected="${x.i === 0}" onclick="var n=this.closest('.pc-tabs'),i=this.getAttribute('data-pc-tab');n.querySelectorAll('[data-pc-tab]').forEach(function(a){var on=a.getAttribute('data-pc-tab')===i;a.classList.toggle('on',on);a.setAttribute('aria-selected',String(on));});document.querySelectorAll('.pc-target').forEach(function(x){x.hidden=x.id!=='pc-t-'+i;});try{history.replaceState(history.state,'','#pc-t-'+i);}catch(e){}"><b>${Number(x.date.slice(5, 7))}.${x.date.slice(8, 10)} ${esc(x.name.replace(/^\d+월 \d+일\s*/, '').replace(/^\d+\/\d+\s*/, ''))}</b><small>${x.away ? '나 불가' : x.mine ? '나 ' + esc(x.mine.join(' · ')) : '나 쉼'}</small></button>`).join('')}</nav>` : '';
     body = head + tabs + cards.join('').split('<!--v13-pline-->').join(pnote);
   }
 
