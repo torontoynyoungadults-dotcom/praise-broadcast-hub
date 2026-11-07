@@ -1006,18 +1006,15 @@ router.get('/conti', requireTeam, async (req, res) => {
   ${scope.event ? '' : bigDate}
   ${dayBanner}
   ${changeCard(chg, team)}
-  ${practice}
   ${(() => {
     const switcher = teamContext.teamSwitcher(ctx, { keep: scope.event ? { event: scope.event } : { date } });
     return `<div class="ph-card cn-toolcard">${switcher}${contiToolbox({ team, scope, date, eventRow, w, kakao, stage: true })}</div>`;
   })()}
-
-  ${lineup}
-  ${guestDay}
+  ${practice}
 
 
   <div class="ph-card top-accent">
-    <div class="cn-cardhead"><h2 class="ph-h2">콘티</h2>${w.conti.length > 1 ? `<button type="button" class="cn-mini" data-cn-reorder>${ui.icon('pencil')} 순서 바꾸기</button>` : ''}</div>
+    <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2>${w.conti.length > 1 ? `<button type="button" class="cn-mini" data-cn-reorder>${ui.icon('pencil')} 순서 바꾸기</button>` : ''}</div>
     ${w.conti.length > 1 ? `<form method="post" action="/conti/songs/reorder" class="cn-rbar" data-cn-rbar hidden>
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="ids" value="" data-cn-rids>
       <p class="cn-rhint">손잡이를 끌어서 순서를 바꾼 뒤 <b>순서 저장</b>을 눌러 주세요.</p>
@@ -1039,6 +1036,9 @@ router.get('/conti', requireTeam, async (req, res) => {
     <div class="cn-songs">${w.closing.length ? w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))).join('') : '<p class="ph-sub">아직 없어요. "관리"에서 폐회송을 정해주세요. 한 곡만 올릴 수 있어요.</p>'}</div>
     ${w.closing.length ? '' : songForm('폐회송', team, scope, roster, byPos, null)}
   </div>
+
+  ${lineup}
+  ${guestDay}
 
   ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
@@ -1350,15 +1350,17 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
   } else {
     const [assignAll, offAll, infoMap] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('불가일정'), avatar.teamInfoMap(team)]);
     const A = assignAll.filter((r) => r['팀ID'] === team), O = offAll.filter((r) => r['팀ID'] === team);
-    const head = `<div class="ph-card ph-practicecard pc-head">
-      <div class="ph-pr-row">
-        <span class="ph-pr-ic">${ui.icon('metronome')}</span>
-        <div class="ph-pr-main"><span class="ph-pr-label">연습</span><b>${esc(mdDow(cur.date))}</b>${cur.note ? `<span class="ph-pr-note">${esc(cur.note)}</span>` : ''}
-          <span class="ph-pr-with">${cur.targets.length > 1 ? `이 날 ${cur.targets.length}개 콘티를 함께 연습해요 · ` : ''}${cur.targets.map((t) => esc(practiceView.targetName(t))).join(' · ')}</span></div>
-        <a class="ph-pr-edit" href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 바꾸기 ${ui.icon('next')}</a>
-      </div>
-
-    </div>`;
+    // V13 — 큰 날짜(연습일) + ‹ › 이전/다음 연습 + 한 줄
+    const gi = gs.indexOf(cur), prevG = gs[gi - 1], nextG = gs[gi + 1];
+    const dd0 = Math.round((new Date(cur.date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000);
+    const dowK = '일월화수목금토'[new Date(cur.date + 'T12:00:00').getDay()];
+    const navA = (g, dir) => g ? `<a class="v13-bd-nav" href="${q(g.date)}" aria-label="${dir} 연습 ${Number(g.date.slice(5, 7))}월 ${Number(g.date.slice(8, 10))}일">${ui.icon(dir === '이전' ? 'prev' : 'next')}</a>` : '<span class="v13-bd-nav" style="visibility:hidden"></span>';
+    const head = `<section class="v13-bigdate" aria-label="이번 연습">
+      <span class="v13-bd-k">${dowK}요일 연습 · ${dd0 < 0 ? '마침' : dd0 === 0 ? '오늘' : 'D-' + dd0}</span>
+      <div class="v13-bd-row">${navA(prevG, '이전')}<span class="v13-bd-d">${cur.date.slice(5, 7)}<i>.</i>${cur.date.slice(8, 10)}</span>${navA(nextG, '다음')}</div>
+      <p class="v13-bd-line">${cur.targets.length > 1 ? `이 날 주일 콘티 ${cur.targets.length === 2 ? '두' : cur.targets.length} 개를 함께 연습해요` : esc(cur.targets.map((t) => practiceView.targetName(t)).join(' · ')) + ' 콘티를 연습해요'}</p>
+    </section>`;
+    const pnote = `<a class="v13-pline" href="/schedule?team=${encodeURIComponent(team)}"><span class="k">연습</span><span class="t">${esc(cur.note || '시간 · 장소 미정')}</span>${dd0 < 0 ? '<span class="s">마침</span>' : ''}</a>`;
     const cards = [];
     const tabInfo = [];
     for (const t of cur.targets) {
@@ -1395,6 +1397,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
           <div class="pc-tlinks"><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기 ${ui.icon('next')}</a></div>
         </div>
         <div class="cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
+        <!--v13-pline-->
         ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
         ${songsHtml}
         ${(() => {
@@ -1418,12 +1421,12 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
     // V13 — 같은 날 연습하는 주일이 둘 이상이면 위에 주일 탭 (한 번에 한 주일 콘티만)
     const tabs = cards.length > 1 ? `<nav class="pc-tabs" aria-label="함께 연습하는 주일">${tabInfo.map((x) => `<a href="#pc-t-${x.i}" data-pc-tab="${x.i}"${x.i === 0 ? ' class="on" aria-current="true"' : ''}><b>${Number(x.date.slice(5, 7))}.${x.date.slice(8, 10)} ${esc(x.name.replace(/^\d+월 \d+일\s*/, ''))}</b><small>${x.mine ? '나 ' + esc(x.mine.join(' · ')) : '나 쉼'}</small></a>`).join('')}</nav>
       <script>(function(){function go(){var h=location.hash.replace('#pc-t-','');var n=document.querySelectorAll('[data-pc-tab]');if(!n.length)return;if(h===''||!document.getElementById('pc-t-'+h))h='0';n.forEach(function(a){var on=a.getAttribute('data-pc-tab')===h;a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current');});document.querySelectorAll('.pc-target').forEach(function(sct){sct.hidden=sct.id!=='pc-t-'+h;});}go();window.addEventListener('hashchange',go);})();</script>` : '';
-    body = head + tabs + cards.join('');
+    body = head + tabs + cards.join('').split('<!--v13-pline-->').join(pnote);
   }
 
   const content = `
   ${pageShell.hubNav('practice', team)}
-  ${pageShell.hero({ eyebrow: `${team} · 연습 콘티`, title: '연습 콘티', sub: cur ? week.labelKo(cur.date) : '' })}
+  ${pageShell.hero({ barOnly: true })}
   ${strip}
   ${teamContext.teamSwitcher(ctx, {}) ? `<div class="ph-card">${teamContext.teamSwitcher(ctx, {})}</div>` : ''}
   ${body}`;

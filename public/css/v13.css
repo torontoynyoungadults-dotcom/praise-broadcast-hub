@@ -356,3 +356,18 @@ body { background: var(--bg); }
 .lu-card .ph-poscell[open] { grid-column: 1 / -1 !important; }
 .lu-card .ph-posbody { padding: 0 14px 14px !important; background: transparent !important; }
 .lu-card > .ph-sub { font-size: 12px !important; color: #5C6660 !important; }
+
+/* 연습 콘티 — 시안(Practice): 큰 날짜 바로 아래 탭, 카드 틀 없음 */
+.v13-bigdate + .pc-tabs { margin: -22px -16px 22px !important; position: sticky; top: 0; }
+@media (min-width: 900px) { .v13-bigdate + .pc-tabs { margin-left: -28px !important; margin-right: -28px !important; } }
+.pc-target { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+.pc-target .pc-thead { display: none !important; }
+.pc-target .cn-toolcard { background: transparent !important; border: 0 !important; padding: 0 !important; margin: 0 0 2px !important; box-shadow: none !important; }
+.pc-target .v13-pline { margin-top: 2px; }
+.pc-strip .ph-wstrip-ratio { font-size: 9px !important; }
+
+/* 시안처럼 카드 틀 없이 — 큰 날짜가 있는 화면(예배 · 연습 콘티) */
+.ph-wrap:has(.v13-bigdate) .ph-card { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; margin: 0 0 28px !important; }
+.ph-wrap:has(.v13-bigdate) .ph-card.top-accent::before { display: none !important; }
+.ph-wrap:has(.v13-bigdate) .cn-song { padding: 18px 0 !important; border-bottom: 1px solid #DDD6C8 !important; background: transparent !important; border-top: 0 !important; border-left: 0 !important; border-right: 0 !important; box-shadow: none !important; }
+.ph-wrap:has(.v13-bigdate) #cn-recs .ph-list, .ph-wrap:has(.v13-bigdate) .pc-recs .ph-list { background: #FBF9F4; }
