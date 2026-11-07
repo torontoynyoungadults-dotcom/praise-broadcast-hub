@@ -134,12 +134,12 @@
         cs.map(function (p) {
           var ns = r.slots[p.key] || [], me = ns.indexOf(D.who) !== -1;
           return '<td class="' + (me ? 'me' : '') + (ns.length ? '' : ' tbd') + (edit ? ' ed' : '') + '"' + (edit ? ' onclick="stCell(\'' + q(r.key) + '\',\'' + q(p.key) + '\')"' : '') + '>' +
-            (ns.length ? ns.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl && !me ? ' hl' : '') + '">' + esc(shortName(n, p.key)) + '</span>'; }).join('') : '미정') + '</td>';
+            (ns.length ? ns.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl && !me ? ' hl' : '') + '">' + esc(shortName(n, p.key)) + '</span>'; }).join('') : '') + '</td>';
         }).join('') +
         '<td class="offc">' + r.off.map(function (x) { return '<span>' + esc(shortName(x.name)) + '</span>'; }).join('') + '</td></tr>';
     }).join('');
     return top + '<div class="s13-tw"><table class="s13-t"><thead>' + h1 + h2 + '</thead><tbody>' + body + '</tbody></table></div>' +
-      '<p class="s13-lg"><span><i class="a"></i> 내 자리</span><span><i class="m"></i> 내가 서는 날</span><span class="t">미정 · 아직 정해지지 않은 자리</span></p>' +
+      '<p class="s13-lg"><span><i class="a"></i> 내 자리</span><span><i class="m"></i> 내가 서는 날</span><span class="t">빈칸 · 아직 정해지지 않은 자리</span></p>' +
       '<p class="s13-hint">아이패드 · 컴퓨터에서는 옆으로 밀지 않아도 모든 칸이 한 번에 보여요.' + (D.canEdit ? ' 칸을 눌러 바로 배정할 수 있어요.' : '') + '</p>';
   }
 
@@ -193,6 +193,49 @@
       (D.committee ? '<a href="/schedule/import?team=' + team + '">엑셀 올리기 · 관리</a>' : '<span></span>') + '</div><p class="msg docmsg" id="stDocMsg"></p>' +
       '';
   }
+
+
+  /* ---- 칸을 눌렀을 때 — 배정 시트 (V13) ---- */
+  var BC_ROLE = /^(음향|PPT|방송총괄)/;
+  function pk13Btn(m, p, picked, off) {
+    var on = picked.indexOf(m.name) !== -1, why = off[m.name];
+    var role = why ? why : (m.role ? m.role.split(' · ')[0] : '');
+    return '<button type="button" class="pk13-p' + (on ? ' on' : '') + (why ? ' off' : '') + '" aria-pressed="' + on + '" onclick="stToggle(\'' + q(m.name) + '\')">' +
+      face(m.name) + '<span class="pk13-n"><b>' + esc(on && p.key === LEAD_KEY ? leadTitle(m.name) : dispName(m.name)) + '</b>' + (role ? '<small>' + esc(role) + '</small>' : '') + '</span>' +
+      (on ? '<i class="pk13-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>' : '') + '</button>';
+  }
+  window.drawStPicker = drawStPicker = function () {
+    var box = el('stpk');
+    if (!box || !ST.cell) return;
+    var r = stRow(ST.cell.key);
+    var p = D.positions.filter(function (x) { return x.key === ST.cell.pos; })[0];
+    if (!r || !p) return;
+    var picked = r.slots[p.key] || [], off = offMap(r.off);
+    var fit = [], rest = [], no = [], guest = [], kn = known();
+    D.members.forEach(function (m) {
+      if (off[m.name]) no.push(m);
+      else if (m.fit.indexOf(p.key) !== -1) fit.push(m);
+      else if (!BC_ROLE.test(m.role || '') || picked.indexOf(m.name) !== -1) rest.push(m);
+    });
+    picked.forEach(function (n) { if (!kn[n]) guest.push({ name: n, role: '객원', fit: [] }); });
+    var grp = function (t, list, cls) { return list.length ? '<section class="pk13-g' + (cls ? ' ' + cls : '') + '"><h4>' + t + '<span>' + list.length + '</span></h4><div class="pk13-l">' + list.map(function (m) { return pk13Btn(m, p, picked, off); }).join('') + '</div></section>' : ''; };
+    var d = String(r.key || r.date || '').slice(0, 10), isD = /^\d{4}-\d{2}-\d{2}$/.test(d);
+    box.className = 'stpk pk13';
+    box.innerHTML =
+      '<header class="pk13-h">' +
+        '<div class="pk13-d">' + (isD ? '<b>' + dot(d) + '</b><span>' + DOW[dt(d).getDay()] + (DOW[dt(d).getDay()] === '일' ? ' · 주일' : '요일') + '</span>' : '<span>' + stTitle(r) + '</span>') + '</div>' +
+        '<h3>' + ic(p.key) + esc(p.label) + '</h3>' +
+        '<p>' + (picked.length ? '지금 ' + picked.map(function (n) { return esc(dispName(n)); }).join(' · ') : '아직 비어 있어요') + ' · ' + (p.multi ? '여러 명 고를 수 있어요' : '누르면 바로 들어가요') + '</p>' +
+      '</header>' +
+      grp('이 포지션 담당', fit) + grp('그 외 팀원', rest) + grp('객원', guest) + grp('안 되는 사람', no, 'no') +
+      '<section class="pk13-g pk13-gs"><h4>다른 팀에서 찾기</h4>' +
+        '<input type="search" id="stgsQ" class="pk13-in" placeholder="이름 · 전화번호 · 셀 · 영문이름" maxlength="30" autocomplete="off" oninput="gsInput(\'stgs\',\'stToggle\')">' +
+        '<div class="pk13-l gsres" id="stgsRes"></div></section>' +
+      '<section class="pk13-g pk13-gs"><h4>명단에 없는 분</h4><div class="pk13-add">' +
+        '<input type="text" id="stGuest" class="pk13-in" placeholder="이름" maxlength="20" onkeydown="if(event.key===\'Enter\')stToggle(this.value.trim())">' +
+        '<button type="button" onclick="stToggle(val(\'stGuest\'))">추가</button></div></section>' +
+      (p.multi || picked.length ? '<div class="pk13-done"><button type="button" onclick="YC.close()">완료</button></div>' : '');
+  };
 
   window.schedTab = schedTab = function () {
     if (!ST.rows) return orig();

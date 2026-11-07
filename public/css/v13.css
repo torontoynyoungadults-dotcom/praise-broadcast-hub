@@ -1664,3 +1664,42 @@ body .vs13-t td { padding: 9px 8px; border-bottom: 1px solid #ECE6DA; color: #17
 body .vs13-t td.w { white-space: nowrap; color: #6E5A2E; font-variant-numeric: tabular-nums; }
 body .vs13-t td.d { color: #5C6660; font-size: 12px; }
 body .vs13-t td.s { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- 스케쥴 · 칸 배정 시트 (V13) ---- */
+.yn .yc-sh:has(.pk13) { background: #FBF9F4 !important; border-radius: 0 !important; padding: 0 0 18px !important; max-width: 560px; box-shadow: 0 -12px 40px rgba(15,26,22,.25) !important; }
+.yn .yc-sh:has(.pk13) .yc-grab { background: #C6A664 !important; opacity: .7; position: relative; z-index: 2; }
+.yn .yc-sh:has(.pk13) .yc-x { background: transparent !important; color: #E2CC97 !important; border: 1px solid rgba(198,166,100,.45) !important; border-radius: 0 !important; z-index: 3; top: 14px !important; right: 14px !important; }
+.yn .pk13 { font-family: 'Pretendard', system-ui, sans-serif; color: #17201C; }
+.yn .pk13-h { background: #0F1A16; color: #ECE6D9; margin: -22px 0 0; padding: 30px 20px 18px; }
+.yn .pk13-d { display: flex; align-items: baseline; gap: 10px; }
+.yn .pk13-d b { font-family: 'Bodoni Moda', serif; font-weight: 400; font-size: 30px; color: #ECE6D9; line-height: 1; }
+.yn .pk13-d span { font-size: 12px; color: #C6A664; }
+.yn .pk13-h h3 { margin: 12px 0 0 !important; display: flex; align-items: center; gap: 8px; font-family: 'MaruBuri', serif !important; font-size: 22px !important; font-weight: 700 !important; color: #ECE6D9 !important; }
+.yn .pk13-h h3 .pi13 { width: 22px; height: 22px; color: #C6A664; }
+.yn .pk13-h p { margin: 6px 0 0; font-size: 12.5px; color: #A9B4AE; }
+.yn .pk13-g { padding: 16px 20px 0; }
+.yn .pk13-g h4 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #5C6660; letter-spacing: .04em; }
+.yn .pk13-g h4::after { content: ''; flex: 1; height: 1px; background: #DDD6C8; }
+.yn .pk13-g h4 span { font-family: 'Bodoni Moda', serif; font-size: 13px; color: #6E5A2E; }
+.yn .pk13-l { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px; }
+.yn .pk13-l .pk13-p, .yn .pk13-l .pick { all: unset; box-sizing: border-box; cursor: pointer; position: relative; min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #EFEBE3; color: #17201C; }
+.yn .pk13-l .pk13-p:hover, .yn .pk13-l .pick:hover { background: #E6DCC2; }
+.yn .pk13-l .pk13-p:focus-visible, .yn .pk13-l .pick:focus-visible { outline: 2px solid #C6A664; outline-offset: 1px; }
+.yn .pk13-l .fc { flex: none; width: 34px !important; height: 34px !important; border-radius: 0 !important; object-fit: cover; display: inline-flex !important; align-items: center; justify-content: center; background: #DDD6C8 !important; color: #5C6660 !important; font-size: 13px !important; font-weight: 500; margin: 0 !important; }
+.yn .pk13-n { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.yn .pk13-n b { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yn .pk13-n small { font-size: 11px; color: #6E5A2E; }
+.yn .pk13-l .pk13-p.on { background: #0F1A16; color: #ECE6D9; }
+.yn .pk13-l .pk13-p.on .pk13-n small { color: #C6A664; }
+.yn .pk13-ck { margin-left: auto; color: #C6A664; display: flex; }
+.yn .pk13-g.no .pk13-p { background: transparent; border: 1px dashed #DDD6C8; color: #8E9A94; }
+.yn .pk13-g.no .pk13-p .fc { opacity: .5; }
+.yn .pk13-g.no .pk13-n small { color: #8A4A12; }
+.yn .pk13-g.no h4 { color: #8A4A12; }
+html[data-theme] .yn .pk13-in { width: 100%; box-sizing: border-box; min-height: 44px !important; border: 0 !important; border-bottom: 1px solid #17201C !important; background: transparent !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 2px !important; font-size: 15px !important; color: #17201C !important; }
+.yn .pk13-gs .pk13-l { margin-top: 8px; }
+.yn .pk13-gs .gsempty { font-size: 12px; color: #5C6660; }
+.yn .pk13-add { display: flex; gap: 2px; align-items: stretch; }
+.yn .pk13-add button { all: unset; cursor: pointer; padding: 0 20px; min-height: 44px; display: flex; align-items: center; background: #0F1A16; color: #E2CC97; font-size: 14px; }
+.yn .pk13-done { padding: 18px 20px 0; }
+.yn .pk13-done button { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; background: #0F1A16; color: #ECE6D9; font-size: 15px; letter-spacing: .06em; }
