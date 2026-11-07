@@ -32,6 +32,7 @@ const contiLog = require('../lib/contiLog');
 const YNForm = require('../public/js/formb.js');
 
 const ui = require('../lib/uiIcons');
+const posIcons13 = require('../lib/posIcons13');
 const prac = require('../lib/practice');
 const kakaoLib = require('../lib/kakao');
 const youtube = require('../lib/youtube');
@@ -141,7 +142,7 @@ function lineupCell(scope, team, posKey, names, roster, infoMap, snd) {
       </form></div>`).join('');
   return `<details class="ph-poscell">
     <summary class="ph-possummary">
-      <span class="ph-pos-head"><span class="ph-posicon">${positionIconSvg(posKey)}</span><span class="ph-poslabel">${esc(({ 인도자: '인도', 어쿠기타: '어쿠' })[posKey] || posKey)}</span></span>
+      <span class="ph-pos-head"><span class="ph-posicon">${posIcons13.icon(posKey)}</span><span class="ph-poslabel">${esc(({ 인도자: '인도', 어쿠기타: '어쿠' })[posKey] || posKey)}</span></span>
       <span class="ph-posnames">${chips}</span>
     </summary>
     <div class="ph-posbody">
@@ -659,7 +660,8 @@ function sameAsHtml(team, scope, conti) {
 function songForm(kind, team, scope, roster, byPos, hist) {
   const label = kind === '결단' ? '설교 후 찬양' : kind === '폐회송' ? '폐회송' : '콘티';
   const uid = `new${kind === '결단' ? 'f' : kind === '폐회송' ? 'x' : 'c'}`;
-  return `
+  return `<div class="v13-addwrap"${kind === '콘티' ? ' data-v13-add hidden' : ''}>
+  ${kind === '콘티' ? '<p class="v13-addh">곡 올리기 — 하나 골라 주세요</p>' : ''}
   ${kind === '콘티' && hist ? importHtml(team, scope, kind, hist) : ''}
   <details class="ph-add">
     <summary>+ ${label} 하나하나 올리기</summary>
@@ -692,7 +694,7 @@ function songForm(kind, team, scope, roster, byPos, hist) {
 은혜 - - A" style="width:100%;padding:10px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:15px;font-family:inherit;"></textarea>
       <button class="ph-btn pri" type="submit">한 번에 추가</button>
     </form>
-  </details>`;
+  </details></div>`;
 }
 
 function sheetItem(s, editable) {
@@ -1016,7 +1018,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
 
   <div class="ph-card top-accent">
-    <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2>${w.conti.length > 1 ? `<button type="button" class="cn-mini" data-cn-reorder>${ui.icon('pencil')} 순서 바꾸기</button>` : ''}</div>
+    <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2><button type="button" class="v13-addbtn" aria-expanded="false" onclick="var w=this.closest('.ph-card').querySelector('[data-v13-add]');if(!w)return;w.hidden=!w.hidden;this.setAttribute('aria-expanded',String(!w.hidden));this.textContent=w.hidden?'+ 올리기':'닫기';if(!w.hidden)w.scrollIntoView({block:'nearest'})">+ 올리기</button>${w.conti.length > 1 ? `<button type="button" class="cn-mini" data-cn-reorder>${ui.icon('pencil')} 순서 바꾸기</button>` : ''}</div>
     ${w.conti.length > 1 ? `<form method="post" action="/conti/songs/reorder" class="cn-rbar" data-cn-rbar hidden>
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="ids" value="" data-cn-rids>
       <p class="cn-rhint">손잡이를 끌어서 순서를 바꾼 뒤 <b>순서 저장</b>을 눌러 주세요.</p>
@@ -1429,7 +1431,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       cards.push(withBack(`<section class="pc-target" id="pc-t-${tIdx}" aria-label="${esc(practiceView.targetName(t))} 콘티"${tIdx === 0 ? '' : ' hidden'}>
         <div class="ph-card cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
         <div class="ph-card top-accent">
-          <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기</a></div>
+          <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2><button type="button" class="v13-addbtn" aria-expanded="false" onclick="var w=this.closest('.ph-card').querySelector('[data-v13-add]');if(!w)return;w.hidden=!w.hidden;this.setAttribute('aria-expanded',String(!w.hidden));this.textContent=w.hidden?'+ 올리기':'닫기';if(!w.hidden)w.scrollIntoView({block:'nearest'})">+ 올리기</button></div>
           <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}</div>
           ${songForm('콘티', team, scope, roster, byPos, hist)}
         </div>

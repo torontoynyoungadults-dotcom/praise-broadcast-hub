@@ -928,3 +928,52 @@ body { background: var(--bg); }
 .ls13-up { display: flex; align-items: center; justify-content: center; min-height: 52px; border: 1px dashed #C9BE9F; color: #6E5A2E !important; text-decoration: none; font-size: 14px; margin-bottom: 30px; }
 .v13-rc { text-decoration: none; }
 .v13-recall { margin-top: 10px !important; }
+
+/* ===== 섬기는 이 — 포지션 아이콘 · 프로필 사진 · 펼친 칸(배정) ===== */
+.lu-card .ph-pos-head { display: flex !important; align-items: center; gap: 6px; }
+.lu-card .ph-posicon { display: inline-flex !important; width: 18px; height: 18px; color: #9C7F45; flex: none; background: transparent !important; border: 0 !important; }
+.lu-card .ph-posicon .pi13 { width: 18px; height: 18px; }
+.lu-card .ph-poscell:first-child .ph-posicon { color: #6E5A2E; }
+.lu-card .ph-possummary { grid-template-columns: 92px minmax(0, 1fr) !important; align-items: center !important; }
+.lu-card .ph-poscell:nth-child(n+4) .ph-possummary { grid-template-columns: 70px minmax(0, 1fr) !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-posicon { width: 15px; height: 15px; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-posicon .pi13 { width: 15px; height: 15px; }
+/* 이름 앞 작은 사진 */
+.lu-card .ph-namechip .ph-avatar { display: inline-flex !important; width: 24px !important; height: 24px !important; border-radius: 0 !important; flex: none; overflow: hidden; position: relative; background: #E6DCC2 !important; border: 1px solid #DDD6C8 !important; align-items: center; justify-content: center; margin: 0 !important; box-shadow: none !important; }
+.lu-card .ph-namechip .ph-avatar .ph-avatar-txt { font-size: 11px !important; color: #6E5A2E !important; font-family: 'MaruBuri', serif; }
+.lu-card .ph-namechip .ph-avatar .ph-avatar-img { display: block !important; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important; }
+.lu-card .ph-namechip .ph-avatar .ph-avatar-badge { display: none !important; }
+.lu-card .ph-namechip { align-items: center !important; gap: 8px !important; }
+.lu-card .ph-poscell:first-child .ph-namechip .ph-avatar { width: 30px !important; height: 30px !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-namechip .ph-avatar { display: none !important; }
+/* 펼친 칸 — 배정 · 빼기 · 추가 */
+.lu-card .ph-poscell[open] { background: #FFFFFF !important; outline: 1px solid #C6A664; outline-offset: -1px; z-index: 1; position: relative; }
+.lu-card .ph-poscell[open] .ph-possummary { border-bottom: 1px solid #ECE6DA !important; }
+.lu-card .ph-posbody { padding: 12px 14px 14px !important; display: flex; flex-direction: column; gap: 10px; background: #FFFFFF !important; border: 0 !important; }
+.lu-card .ph-posassigned { display: flex; flex-direction: column; gap: 2px; border: 0 !important; padding: 0 !important; background: transparent !important; }
+.lu-card .ph-assignedrow { display: grid !important; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px !important; background: #F5F1E8 !important; border: 0 !important; border-radius: 0 !important; }
+.lu-card .ph-assignedrow .ph-avatar { width: 36px !important; height: 36px !important; border-radius: 0 !important; position: relative; overflow: hidden; display: inline-flex !important; align-items: center; justify-content: center; background: #E6DCC2 !important; border: 0 !important; }
+.lu-card .ph-assignedrow .ph-avatar-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important; }
+.lu-card .ph-assignedrow .ph-avatar-txt { font-family: 'MaruBuri', serif; font-size: 13px; color: #6E5A2E; }
+.lu-card .ph-assignedrow > span:not(.ph-avatar) { font-size: 15px; font-weight: 500; color: #17201C; }
+.lu-card .ph-assignedrow form { margin: 0; }
+.lu-card .ph-assignedrow button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px; font-size: 12px; color: #8A4A12; border: 1px solid #E3D3C2; background: transparent; }
+.lu-card .ph-assignedrow button .yi { width: 12px; height: 12px; }
+.lu-card .ph-assignform { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 2px !important; margin: 0 !important; padding: 0 !important; background: transparent !important; border: 0 !important; }
+.lu-card .ph-assignform select, .lu-card .ph-assignform input[type="text"] { min-height: 44px !important; height: 44px; border: 1px solid #D6CFBF !important; background: #FBF9F4 !important; border-radius: 0 !important; padding: 0 10px !important; font: inherit; font-size: 14px !important; color: #17201C; box-shadow: none !important; outline: 0; width: 100%; box-sizing: border-box; }
+.lu-card .ph-assignform select:focus, .lu-card .ph-assignform input:focus { border-color: #C6A664 !important; }
+.lu-card .ph-assignform button[type="submit"] { all: unset; cursor: pointer; min-height: 44px; padding: 0 16px; background: #0F1A16; color: #E2CC97; font-size: 14px; display: flex; align-items: center; }
+@media (max-width: 380px) { .lu-card .ph-assignform { grid-template-columns: 1fr auto; } .lu-card .ph-assignform select { grid-column: 1 / -1; } }
+
+/* 곡 올리기 — 머리의 "+ 올리기"를 눌러야 보임 */
+.v13-addbtn { all: unset; cursor: pointer; font-size: 13px; color: #6E5A2E; padding: 10px 0 10px 8px; white-space: nowrap; }
+.v13-addwrap[hidden] { display: none !important; }
+.v13-addwrap[data-v13-add] { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; padding: 14px; background: #FFFFFF; border: 1px solid #C6A664; }
+.v13-addh { margin: 0 0 8px; font-family: 'MaruBuri', serif; font-size: 16px; font-weight: 600; }
+.v13-addwrap[data-v13-add] > details { border: 0 !important; background: #FBF9F4 !important; margin: 0 !important; border-radius: 0 !important; }
+.v13-addwrap[data-v13-add] > details > summary { min-height: 48px; display: flex !important; align-items: center; gap: 8px; padding: 0 14px !important; font-size: 14px !important; font-weight: 500; color: #17201C !important; border: 0 !important; background: transparent !important; list-style: none; }
+.v13-addwrap[data-v13-add] > details > summary::after { content: '›'; margin-left: auto; color: #C6A664; font-size: 18px; }
+.v13-addwrap[data-v13-add] > details[open] > summary::after { content: '–'; }
+.v13-addwrap[data-v13-add] > details[open] { background: #F5F1E8 !important; }
+.v13-addwrap[data-v13-add] > details > summary .yi { width: 16px; height: 16px; color: #9C7F45; }
+.v13-addwrap[data-v13-add] > details > :not(summary) { padding: 0 14px 14px; }
