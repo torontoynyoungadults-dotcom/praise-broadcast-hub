@@ -533,7 +533,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
   const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(String(s['Key']).replace(/\s*-+>\s*/g, '→'))}</b></span>` : '';
   const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><svg class="cn-metro" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l3.5 18h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 15l5-9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>${esc(bpm)}</b></span>` : '';
   const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="유튜브 영상" aria-label="유튜브 영상">${YT_MARK}</a>` : '';
-  const info = keyCell + bpmCell + ytBtn + jumpBtn;
+  const info = keyCell + bpmCell;                                              // V13 — 위 오른쪽은 Key · BPM 만, 유튜브 · 녹음은 아래 줄로
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
@@ -543,7 +543,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
     </div>
     ${s['송폼'] ? `<div class="cn-sec cn-sec-form"><span class="cn-lab">송폼</span>${bigForm ? formBig(s['송폼'] || '') : formChips(s['송폼'] || '')}</div>` : ''}
     ${s['비고'] ? `<div class="cn-snote">${noteHtml(s['비고'], tagSet)}</div>` : ''}
-    ${songSheetsHtml(s, sheets, editable, edit, { tools: sheetTools })}
+    ${songSheetsHtml(s, sheets, editable, ytBtn.replace('</a>', '<span>유튜브</span></a>') + jumpBtn + edit, { tools: sheetTools })}
     ${songRefHtml(s, refs, editable, back)}
   </div>`;
 }
