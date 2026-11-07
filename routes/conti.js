@@ -1086,7 +1086,6 @@ router.get('/conti', requireTeam, async (req, res) => {
   ${lineup}
   
 
-  ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
   ${recsAndShare(w, team, scope, markSongs, 'cn-recs', { admin: !!(req.ctx && req.ctx.isAdmin && !guestAccess.isGuest(req.ctx.member)) })}
   `;
@@ -1360,16 +1359,22 @@ function recsAndShare(w, team, scope, markSongs, recId, opt) {
     <div class="v13-rp" data-v13-rp="2"><p class="ph-sub">곡 MP3 — 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</p><div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div></div>
     </details>
     ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && opt.admin ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
-    <details class="ph-add">
-      <summary>+ 녹음 올리기</summary>
-      <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
+    <details class="r13-up">
+      <summary><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#C6A664" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4.5 19.5h15"/></svg><span>녹음 올리기</span><small>파일 · 링크</small></summary>
+      <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="a13-form r13-form" data-rec-form>
         <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
-        <input type="text" name="제목" placeholder="녹음 제목 (비워 두면 파일 이름 · 링크 제목이 자동으로 들어가요)">
-        <select name="구분"><option value="연습">연습 녹음</option><option value="예배">예배 녹음</option><option value="참고">참고 음원 (곡 MP3)</option></select>
-        <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac">
-        <input type="text" name="링크" placeholder="또는 링크 직접 입력 (파일 대신) — 유튜브 · 드라이브 · 음원 주소">
-        <input type="text" name="R2경로" placeholder="또는 R2에 올려 둔 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
-        <button class="ph-btn pri" type="submit">올리기</button>
+        <fieldset class="a13-kind"><legend>어떤 녹음인가요</legend><div>
+          <label><input type="radio" name="구분" value="연습" checked>연습</label><label><input type="radio" name="구분" value="예배">예배</label><label><input type="radio" name="구분" value="참고">참고 음원</label>
+        </div></fieldset>
+        <label class="a13-drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#17201C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><b>녹음 · 영상 파일 고르기</b><small data-a13-files>MP3 · M4A · WAV · MP4</small>
+          <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac" onchange="var s=this.parentNode.querySelector('[data-a13-files]');if(s)s.textContent=this.files.length?this.files[0].name:'MP3 · M4A · WAV · MP4'"></label>
+        <div class="a13-title"><label>제목 <small style="display:inline;color:#5C6660;">비워 두면 파일 이름 · 링크 제목으로</small></label>
+          <input type="text" name="제목" placeholder="예: 11/6 연습 전체" autocomplete="off"></div>
+        <details class="r13-alt"><summary>파일 대신 링크로</summary>
+          <input class="a13-link" type="text" name="링크" placeholder="유튜브 · 드라이브 · 음원 주소">
+          <input class="a13-link" type="text" name="R2경로" placeholder="R2 파일 경로 (예: 녹음/2026-11-01/찬양.mp3) — 앱 대역폭 안 씀" autocomplete="off">
+        </details>
+        <div class="a13-bar r13-bar"><button type="submit" class="a13-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C6A664" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4.5 19.5h15"/></svg><span>올리기</span></button></div>
       </form>
     </details>
   </div>

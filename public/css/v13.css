@@ -1745,3 +1745,20 @@ html body #ph-tabbody > .hm-sec, html body #ph-tabbody > .e13-sec, html body #ph
 @media (max-width: 899px) {
   html body .ph-wrap:has(.v13-bigdate) #ph-tabbody > .ph-card, html body .ph-wrap:has(.v13-bigdate) #ph-tabbody > .pc-target > .ph-card { padding: 18px 16px 4px !important; margin-left: -6px !important; margin-right: -6px !important; }
 }
+
+/* ---- 녹음 올리기 (V13) ---- */
+body .r13-up { margin: 8px 0 16px; border: 0 !important; background: transparent !important; }
+body .r13-up > summary { list-style: none; cursor: pointer; min-height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #0F1A16; color: #ECE6D9; font-size: 15px; letter-spacing: .04em; }
+body .r13-up > summary::-webkit-details-marker { display: none; }
+body .r13-up > summary small { font-size: 11px; color: #A9B4AE; letter-spacing: 0; }
+body .r13-up > summary:focus-visible { outline: 2px solid #C6A664; outline-offset: 2px; }
+body .r13-up[open] > summary { background: #22332C; }
+body .r13-up[open] > summary small::after { content: ' · 닫기'; }
+body .r13-up .r13-form { padding: 18px 0 0; gap: 18px; }
+body .r13-up .r13-bar { position: static; margin: 0; padding: 0; border: 0; background: transparent; }
+body .r13-alt { border: 0 !important; background: transparent !important; margin: 0 !important; }
+body .r13-alt > summary { list-style: none; cursor: pointer; font-size: 13px; color: #6E5A2E; min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 !important; }
+body .r13-alt > summary::before { content: '+'; color: #C6A664; }
+body .r13-alt[open] > summary::before { content: '–'; }
+body .r13-alt > summary::-webkit-details-marker { display: none; }
+body .r13-alt > input { display: block; width: 100%; margin-top: 6px; }
