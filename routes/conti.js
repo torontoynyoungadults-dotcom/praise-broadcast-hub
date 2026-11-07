@@ -2416,7 +2416,11 @@ router.get('/conti/listen', requireTeam, async (req, res) => {
   </section>
   ${cur ? `<section class="ph-card ls13-sec"><div class="v13-sechead"><h2 class="ph-h2">곡별로 듣기</h2></div><div class="ls13-songs" data-ls-songs></div>
     <p class="ls13-hint">곡을 누르면 그 곡 시작 위치로 바로 가요 · 위치가 없는 곡은 "여기서 시작"을 눌러 표시해요</p></section>
-  <div class="ls13-acts"><a href="/conti/practice?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span>악보 같이 보기</span></a><a href="${esc(recSrc(cur) + (recSrc(cur).includes('?') ? '&' : '?') + 'dl=1')}" download>${ui.icon('download')}<span>내려받기</span></a><button type="button" data-ls="share">${ui.icon('send')}<span>공유</span></button></div>` : ''}
+  <div class="ph-songsheets ls13-sheetwrap"><div class="ls13-acts"><button type="button" data-cn-svopen aria-expanded="false">${ui.icon('page')}<span>악보 같이 보기</span></button><a href="${esc(recSrc(cur) + (recSrc(cur).includes('?') ? '&' : '?') + 'dl=1')}" download>${ui.icon('download')}<span>내려받기</span></a><button type="button" data-ls="share">${ui.icon('send')}<span>공유</span></button></div>
+    <div class="cn-svpanel ls13-sheets" data-cn-svpanel hidden>${(() => {
+      const blocks = all.map((x, n) => w.sheets.filter((f) => f['곡ID'] === x['ID'] && f['파일링크']).map((f) => `<div class="cn-sv" data-cn-sv data-src="${esc(sheetViewSrc(f))}" data-name="${esc(f['제목'] || '악보')}"><div class="cn-svh"><span class="cn-svt"><b>${n + 1}. ${esc(x['제목'] || '')}</b>${x['Key'] ? `<small>${esc(String(x['Key']).replace(/\s*-+>\s*/g, '→'))}</small>` : ''}</span></div><div class="cn-svpages" data-cn-svpages><p class="cn-svwait">악보 불러오는 중…</p></div></div>`).join('')).join('');
+      return blocks || '<p class="ls13-hint">이 주 콘티에 올린 악보가 없어요.</p>';
+    })()}</div></div>` : ''}
   ${list.length ? `<section class="ph-card ls13-sec"><div class="v13-sechead"><h2 class="ph-h2">이 주의 ${kind === '참고' ? '참고 음원' : kind + ' 녹음'}</h2></div><div class="ls13-recs">${others}</div></section>` : ''}
   <a class="ls13-up" href="${back}#cn-recs">+ 녹음 올리기</a>`;
   spa.send(req, res, content, { title: `${team} 녹음` });

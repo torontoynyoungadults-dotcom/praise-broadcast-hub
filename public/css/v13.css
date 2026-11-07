@@ -985,3 +985,12 @@ body { background: var(--bg); }
 .lu-card .ph-namechip > .ph-avatar.ph-avatar .ph-avatar-txt { font-size: 11px !important; color: #6E5A2E !important; }
 .lu-card .ph-poscell:nth-child(10) { grid-column: 1 / span 2 !important; }
 .lu-card .ph-poscell[open]:nth-child(10) { grid-column: 1 / -1 !important; }
+.ls13-sheetwrap { margin-bottom: 26px; }
+.ls13-sheetwrap .ls13-acts { margin-bottom: 0; }
+.ls13-acts > button[aria-expanded="true"] { background: #0F1A16 !important; color: #E2CC97 !important; }
+.ls13-sheets { margin-top: 2px; background: #FFFFFF; padding: 10px; }
+.ls13-sheets .cn-sv { margin-bottom: 14px; }
+.ls13-sheets .cn-svh { padding: 6px 0 8px; border: 0 !important; background: transparent !important; }
+.ls13-sheets .cn-svt b { font-family: 'MaruBuri', serif; font-size: 15px; }
+.ls13-sheets .cn-svt small { margin-left: 8px; font-family: 'Bodoni Moda', serif; color: #6E5A2E; }
+.ls13-sheets img { width: 100%; height: auto; display: block; }
