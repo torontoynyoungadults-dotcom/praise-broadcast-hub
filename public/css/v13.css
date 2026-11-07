@@ -1481,3 +1481,4 @@ html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters
 }
 @media (max-width: 639px) { .ph-hubnav .ph-hubnav-in { padding: 0 4px; } }
 @media (min-width: 900px) { .ph-hero .ph-bar { width: 100% !important; } }
+.yg .yg-bar .yg-x, .yg .yg-bar .yg-back { background: transparent !important; color: #E2CC97 !important; border: 1px solid rgba(198,166,100,0.45) !important; border-radius: 0 !important; box-shadow: none !important; }
