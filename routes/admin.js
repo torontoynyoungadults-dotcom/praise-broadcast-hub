@@ -186,7 +186,7 @@ router.get('/admin', requireMember, async (req, res) => {
 
   ${(() => { const tq = ((activeTeams[0] && activeTeams[0]['팀명']) || '') ? '?team=' + encodeURIComponent((activeTeams[0] && activeTeams[0]['팀명']) || '') : ''; const row = (href, t, sub) => `<a class="ad13-row" href="${href}"><span><b>${t}</b><small>${sub}</small></span><i>›</i></a>`;
     return `<section class="ad13-sec" id="ad13-team"><div class="v13-sechead"><h2 class="ph-h2">팀원</h2></div><div class="ad13-rows">
-      ${req.isAdm ? row('/roster' + tq, '팀원 관리', '포지션 · 관리자 권한 · 초대') : ''}${row('/sound' + tq, '마이크 · 인이어 · P16', '싱어별 마이크 라인 · 인이어 번호')}${row('/conti' + tq + '#cn-guest', '객원 공유 링크', '로그인 없이 그날 콘티만 — 객원이 서는 날 예배 콘티에서')}</div></section>
+      ${req.isAdm ? row('/roster' + tq, '팀원 관리', '포지션 · 관리자 권한 · 초대') : ''}${row('/sound' + tq, '마이크 · 인이어 · P16', '싱어별 마이크 라인 · 인이어 번호')}</div></section>
     <section class="ad13-sec"><div class="v13-sechead"><h2 class="ph-h2">일정 도구</h2></div><div class="ad13-rows">
       ${row('/schedule/import' + tq, '스케줄 엑셀 올리기', '여러 주 편성을 한 번에')}${row('/schedule/generate' + tq, '연습 일정 미리 만들기', '2주 규칙 · 금요찬양기도회 제외')}${row('/events' + tq, '주일 외 예배 추가', '성탄절 · 송구영신 등')}${row('/schedule/history' + tq, '스케줄 변경 기록', '누가 · 언제 · 무엇을')}</div></section>`; })()}
 

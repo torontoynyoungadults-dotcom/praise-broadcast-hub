@@ -981,7 +981,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   let guestDay = '';
   const gNames = guestDayNames(byPos, roster, infoMap);
   if (gNames.length && !guestAccess.isGuest(ctx.member)) {                // 객원이 서는 날 — 그 날만 여는 공유 링크 (처음이면 만들어 둠)
-    try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.ensure(team, liveStore.roomOf(scope)), gNames, ctx.isAdmin, true); } catch (e) { console.error('[객원 링크]', e && e.message); }
+    // V13 — 객원 공유 링크는 화면에서 뺐어요 (이미 보낸 링크는 그대로 열림)
   }
   const pinfo = await practiceInfo(team, scope, date);
   const practice = scope.event ? practiceCard(team, pinfo) : practiceLine(team, pinfo, false);
@@ -1048,7 +1048,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   </section>
 
   ${lineup}
-  ${guestDay}
+  
 
   ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
