@@ -207,3 +207,14 @@ body { background: var(--bg); }
 .ph-sctable td { background: var(--bg-2); border-color: #ECE6DA !important; }
 .ph-sctable td.me, .ph-sctable .me { background: var(--v13-ink) !important; color: #E2CC97 !important; }
 .ph-chip, .ph-chipname { border-radius: 0 !important; }
+
+/* ======== 6단계 — 라이브러리 · 녹음 플레이어 (허브 포트 화면의 색 변수) ======== */
+:root[data-theme="light"] .fb, :root[data-theme="light"] .fp {
+  --g-bg: #FBF9F4; --g-bg2: #F5F1E8; --g-solid: #FBF9F4;
+  --g-line: #DDD6C8; --g-line2: #C9BE9F;
+  --g-ink: #17201C; --g-sub: #5C6660; --g-dim: #6E7671;
+  --g-a: #0F1A16; --g-a2: #6E5A2E; --g-a-rgb: 15, 26, 22; --g-ok: #2E6A4F; --g-bad: #8A4A12;
+}
+.fb, .fp { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.plr { border-radius: 0 !important; }
+.plr-ctl button, .plr-b { border-radius: 0 !important; }
