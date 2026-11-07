@@ -408,3 +408,13 @@ body { background: var(--bg); }
 .ph-wrap .cn-song .cn-sec-ref { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ph-wrap .cn-song .cn-sec-ref .cn-lab { font-size: 12px !important; color: #5C6660 !important; }
 .ph-wrap .cn-song .cn-sec-ref .cn-lab small, .ph-wrap .cn-song .cn-sec-ref .cn-lab em { display: none; }
+.ph-wrap .cn-song .cn-info .cn-cell.key { width: 100% !important; text-align: center; justify-content: center; box-sizing: border-box; }
+.ph-wrap .cn-song .cn-info .cn-cell.key i, .ph-wrap .cn-song .cn-info .cn-cell.key b { display: block; width: 100%; text-align: center; }
+.ph-wrap .cn-song .cn-info .cn-cell.bpm, .ph-wrap .cn-song .cn-info .cn-ytlink { width: 100% !important; box-sizing: border-box; }
+.ph-wrap .cn-song .cn-edit > summary { border: 0 !important; background: transparent !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+.ph-wrap .cn-song .cn-sec-ref button, .ph-wrap .cn-song .cn-sec-ref label, .ph-wrap .cn-song .cn-refup > :is(button, label, .cn-mini) { border: 0 !important; background: transparent !important; padding: 0 !important; min-height: 32px; font-size: 13px !important; color: #6E5A2E !important; box-shadow: none !important; text-decoration: underline; text-underline-offset: 3px; }
+.ph-wrap .cn-song .cn-sec-ref svg { display: none !important; }
+.ph-wrap .cn-cardhead { display: flex; align-items: center; gap: 12px; }
+.ph-wrap .cn-cardhead .ph-h2 { flex: 1; margin: 0 !important; display: flex; align-items: center; gap: 12px; }
+.ph-wrap .cn-cardhead [data-cn-reorder] { border: 0 !important; background: transparent !important; color: #6E5A2E !important; font-size: 13px !important; padding: 10px 0 10px 8px !important; box-shadow: none !important; }
+.ph-wrap .cn-cardhead [data-cn-reorder] svg { display: none; }
