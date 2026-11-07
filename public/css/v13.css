@@ -1073,3 +1073,13 @@ body { background: var(--bg); }
 .yn .s13 .s13-rh .d b { white-space: nowrap; }
 .yn .s13 .s13-foot button:not(.u) { all: unset; cursor: pointer; font-size: 12px !important; color: #6E5A2E !important; padding: 8px 0 !important; }
 .yn .s13 .s13-grid dt { font-weight: 400 !important; }
+.yn .s13 .s13-t thead th { background: #0F1A16 !important; color: #E2CC97 !important; }
+.yn .s13 .s13-t thead th.g { background: #22332C !important; color: #C6A664 !important; }
+.yn .s13 .s13-t thead th.my { background: #C6A664 !important; color: #0F1A16 !important; }
+.yn .s13 .s13-t tbody th.dc { background: #F2EEE6 !important; }
+.yn .s13 .s13-t tbody th.dc.mine { background: #E6DCC2 !important; }
+.yn .s13 .s13-t td { background: #FBF9F4 !important; }
+.yn .s13 .s13-t td.me { background: #0F1A16 !important; color: #E2CC97 !important; }
+.yn .s13 .s13-t td.offc span { display: inline !important; }
+.yn .s13 .s13-t td.offc span + span::before { content: ' · '; }
+.yn .s13 .s13-t th, .yn .s13 .s13-t td { line-height: 1.4 !important; }
