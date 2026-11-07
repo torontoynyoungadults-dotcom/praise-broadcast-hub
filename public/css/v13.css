@@ -428,3 +428,53 @@ body { background: var(--bg); }
 .lu-card .lu-b.mic::before { content: '마이크 '; }
 .lu-card .lu-b.iem::before { content: '인이어 '; }
 .lu-card .lu-b + .lu-b::before { content: ' · 인이어 '; white-space: pre; }
+
+/* ===== 홈 — 시안(Home) ===== */
+.hm-dark { background: #0F1A16; color: #ECE6D9; margin: 0 -16px 24px; padding: 0 16px 26px; }
+@media (min-width: 900px) { .hm-dark { margin-left: -28px; margin-right: -28px; padding-left: 28px; padding-right: 28px; } }
+.hm-hi { padding: 22px 4px 0; display: flex; flex-direction: column; gap: 8px; }
+.hm-hi > span { font-size: 13px; color: #A9B4AE; }
+.hm-hi h1 { margin: 0; font-family: 'MaruBuri', serif; font-size: 28px; font-weight: 700; line-height: 1.4; color: #ECE6D9; }
+.hm-next { margin-top: 24px; border: 1px solid rgba(198,166,100,0.5); }
+.hm-next-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; padding: 18px 18px 14px; }
+.hm-next-top > div { display: flex; flex-direction: column; gap: 6px; }
+.hm-next h2 { margin: 0; font-size: 12px; font-weight: 500; color: #C6A664; font-family: inherit; }
+.hm-next h2::after { display: none !important; }
+.hm-next-d { font-family: 'MaruBuri', serif; font-size: 22px; font-weight: 700; }
+.hm-next-s { font-size: 14px; color: #D9D2C3; }
+.hm-next-s b { font-weight: 500; color: #E2CC97; }
+.hm-dday { font-family: 'Bodoni Moda', serif; font-size: 58px; line-height: 0.85; color: #E2CC97; }
+.hm-cks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #22302A; }
+.hm-ck { padding: 10px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: #ECE6D9; text-align: center; }
+.hm-ck + .hm-ck { border-left: 1px solid #22302A; }
+.hm-ck i { width: 18px; height: 18px; border: 1px solid #C6A664; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px; font-style: normal; }
+.hm-ck.ok { color: #A9B4AE; }
+.hm-ck.ok i { background: #C6A664; color: #0F1A16; }
+.hm-next-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; background: #0F1A16; }
+.hm-next-btns a { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; text-decoration: none; }
+.hm-yt { background: #C6A664; color: #0F1A16 !important; font-weight: 500; }
+.hm-yt .yi { width: 16px; height: 16px; }
+.hm-ct { border: 1px solid #2C3A33; color: #ECE6D9 !important; }
+.hm-sec { margin-bottom: 28px; }
+.hm-rows { display: flex; flex-direction: column; gap: 2px; }
+.hm-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px; background: #FBF9F4; text-decoration: none; color: #17201C !important; }
+.hm-rd { display: flex; flex-direction: column; align-items: center; }
+.hm-rd small { font-size: 11px; color: #5C6660; }
+.hm-rd b { font-family: 'Bodoni Moda', serif; font-size: 22px; line-height: 1.1; font-weight: 400; }
+.hm-rt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.hm-rt > span { font-size: 15px; }
+.hm-rt small { font-size: 12px; color: #5C6660; }
+.hm-tag { font-size: 12px; padding: 5px 8px; border: 1px solid #D6CFBF; color: #5C6660; white-space: nowrap; }
+.hm-tag.on { background: #0F1A16; color: #E2CC97; border-color: #0F1A16; }
+.hm-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; margin-bottom: 28px; }
+.hm-tile2 { min-height: 104px; background: #FBF9F4; padding: 14px; text-decoration: none; color: #17201C !important; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
+.hm-tile2 .yi { width: 22px; height: 22px; }
+.hm-tile2 > span { display: flex; flex-direction: column; gap: 3px; }
+.hm-tile2 b { font-family: 'MaruBuri', serif; font-size: 16px; font-weight: 600; }
+.hm-tile2 small { font-size: 12px; color: #5C6660; }
+.hm-cta2 { position: fixed; left: 16px; right: 16px; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 40; max-width: 640px; margin: 0 auto; min-height: 58px; background: #0F1A16; color: #ECE6D9 !important; text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 14px 30px rgba(15,26,22,0.35); }
+.hm-cta2 > span { display: flex; flex-direction: column; gap: 2px; font-size: 15px; letter-spacing: 0.04em; }
+.hm-cta2 small { font-size: 11px; color: #C6A664; letter-spacing: 0; }
+.hm-cta2 .yi { color: #C6A664; width: 18px; height: 18px; }
+.ph-wrap:has(.hm-cta2) { padding-bottom: 120px !important; }
+.ph-hero-baronly + .hm-dark { margin-top: 0; }
