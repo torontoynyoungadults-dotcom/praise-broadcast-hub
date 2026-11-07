@@ -169,7 +169,7 @@ async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmi
   // 스케줄표의 "카드" 보기와 같은 모양 — 머리(날짜) + 3칸 격자 한 장. 칸을 누르면 그 칸이 한 줄 전체로 펼쳐져 배정 · 해제 (스케줄표 카드보다 글씨 · 사진을 조금 크게)
   // 줄마다 한 묶음 — 싱어 4칸 / 드럼 · 베이스 · 일렉 / 피아노 · 신디 · 어쿠기타 / 음향 · PPT · 방송총괄 (12칸 격자에서 4칸 줄은 3씩, 3칸 줄은 4씩)
   const snd = await soundSetup.get(team).catch(() => null);
-  const cells = POSITION_ROWS.map((row) => row.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap, snd).replace('<details class="ph-poscell"', `<details class="ph-poscell lu-w${row.length}"`)).join('')).join('');
+  const cells = POSITION_ROWS.filter((row) => !row.includes('음향')).map((row) => row.map((k) => lineupCell(scope, team, k, byPos[k] || [], roster, infoMap, snd).replace('<details class="ph-poscell"', `<details class="ph-poscell lu-w${row.length}"`)).join('')).join('');
   const head = scope.event
     ? `<b>${esc(week.shortKo(scope.date, true))}</b>${eventName ? `<span class="lu-evn">${esc(eventName)}</span>` : ''}`
     : `<b>${esc(week.shortKo(scope.date, true))}</b>`;

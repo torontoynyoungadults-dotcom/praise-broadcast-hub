@@ -92,7 +92,7 @@ router.get('/events', requireTeam, async (req, res) => {
   const [assignAll, songsAll, pracAll] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('연습일정')]);
   const prac = require('../lib/practice');
   const { POSITION_ROWS, canonicalPosition } = require('../lib/positions');
-  const POS = [].concat(...POSITION_ROWS);
+  const POS = [].concat(...POSITION_ROWS).filter((p) => !['음향', 'PPT', '방송총괄'].includes(p));
   const SH = { 인도자: '인도', 남성싱어: '남싱', 여성싱어: '여싱', 어쿠기타: '어쿠' };
   const pracRows = pracAll.filter((r) => r['팀ID'] === team);
   const DOWF = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];

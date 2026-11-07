@@ -8,6 +8,8 @@
   if (typeof schedTab !== 'function' || window.__v13sched) return;
   window.__v13sched = true;
   var orig = schedTab;
+  var BCAST13 = { 음향: 1, PPT: 1, 방송총괄: 1 };                  // 방송 자리는 잠시 빼고 보여 줌 (스케쥴 전체)
+  if (window.D && D.positions) D.positions = D.positions.filter(function (p) { return !BCAST13[p.key]; });
   var SH = { 인도자: '인도', 남성싱어: '남싱', 여성싱어: '여싱', 어쿠기타: '어쿠', 방송총괄: '방송총괄' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
   var CARD_ORDER = ['피아노', '신디', '드럼', '베이스', '일렉', '어쿠기타', '남성싱어', '여성싱어', '음향', 'PPT', '방송총괄'];
