@@ -179,7 +179,7 @@
         var no = 0;
         h += sec('그날 콘티', '', '<ol class="ld13-songs">' + r.songs.map(function (x) {
           var fin = x.kind === '결단', clo = x.kind === '폐회송', yt = ldYt(x.link); if (!fin && !clo) no++;
-          return '<li class="' + (me && x === me ? 'on' : '') + '"><span class="n">' + (fin ? '<i>후</i>' : clo ? '<i>폐</i>' : no) + '</span><span class="m"><b>' + esc(x.title) + '</b><small>' + esc([x.team, x.bpm ? x.bpm + ' BPM' : '', fin ? '설교 후 찬양' : clo ? '폐회송' : ''].filter(Boolean).join(' · ')) + '</small>' + (x.form ? '<small class="f">' + esc(x.form) + '</small>' : '') + '</span>' +
+          return '<li class="' + (me && x === me ? 'on' : '') + '"><span class="n">' + (fin ? '<i>후</i>' : clo ? '<i>폐</i>' : no) + '</span><span class="m"><b>' + esc(x.title) + '</b><small>' + esc([x.team, x.bpm ? x.bpm + ' BPM' : '', fin ? '설교 후 찬양' : clo ? '폐회송' : ''].filter(Boolean).join(' · ')) + '</small>' + (x.form ? '<small class="f">' + esc(String(x.form).split(/\s*[-,>›]\s*/).filter(Boolean).join(' › ')) + '</small>' : '') + '</span>' +
             '<span class="k">' + esc(String(x.key || '').replace(/\s*-+>\s*/g, '→')) + '</span>' + (yt ? '<a class="yt" href="https://www.youtube.com/watch?v=' + esc(yt) + '" target="_blank" rel="noopener" aria-label="' + esc(x.title) + ' 유튜브"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></a>' : '') + '</li>';
         }).join('') + '</ol>');
       }

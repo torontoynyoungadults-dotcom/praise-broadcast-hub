@@ -1367,3 +1367,7 @@ html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters
 .ld13-acts > button { background: #0F1A16; color: #E2CC97; }
 .ld13-acts > a { border: 1px solid #D6CFBF; background: #FBF9F4; color: #17201C !important; text-decoration: none; }
 .ld13-acts svg { width: 16px; height: 16px; fill: none; stroke: #9C7F45; stroke-width: 1.5; }
+.yc-sh.ld13-sh::before, .yc-sh.ld13-sh::after, .yc-sh.ld13-sh .yc-grab { display: none !important; }
+.yc-sh.ld13-sh > .yc-x { position: absolute !important; top: 12px !important; right: 12px !important; z-index: 3; width: 40px !important; height: 40px !important; border-radius: 0 !important; background: transparent !important; border: 1px solid rgba(198,166,100,0.45) !important; color: #E2CC97 !important; font-size: 22px !important; line-height: 1 !important; display: flex !important; align-items: center; justify-content: center; }
+.yc-sh.ld13-sh > .yc-x svg { stroke: #E2CC97 !important; color: #E2CC97 !important; }
+.ld13-h .t { text-align: left; align-items: flex-start; }
