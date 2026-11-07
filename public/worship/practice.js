@@ -1093,7 +1093,7 @@
         }, function () { if (myId === S.hi.id) S.hi.task = null; });
       }, function () { /* 그대로 (아래 그림) */ });
     }
-    stage.addEventListener('scroll', function () { if (S.lay && S.zoom > 1.01) hiSchedule(220); }, { passive: true });
+    stage.addEventListener('scroll', function () { if (S.lay && S.zoom > 1.01) hiSchedule(220); if (an && an.viewChanged) an.viewChanged(); }, { passive: true });
     /** 지금 페이지를 화면에 그립니다.
      *   · 같은 페이지 · 같은 크기를 이미 그려 뒀으면 아무것도 하지 않음 (리사이즈 · 패널 열고 닫기 · 도구 막대 접기가 여러 번 불러도 한 번만 그림)
      *   · 같은 그림을 이미 그리는 중이면 그 작업을 그대로 이어받음
@@ -1118,7 +1118,7 @@
         var c = null;
         var own = function () { var cv = slotOwn('L'); cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; } c = cv.getContext('2d'); return cv; };
         var showHit = function (cv) { slotShow('L', cv); S.pcCur = key; };
-        an.resize(cssW, cssH); an.setPage(pg);
+        an.resize(cssW, cssH); an.setPage(pg); if (an.viewChanged) an.viewChanged();
         S.cropNow = cr || null;
         if (S.zoom === 1) {                                                        // 자동 맞춤: 글자가 있는 부분의 시작점에 스크롤을 맞춤 (여백은 위 · 옆으로 스크롤하면 보임)
           stage.scrollLeft = cr && !spreadOn() ? Math.max(0, box.offsetLeft + cr.x0 * cssW - 4) : 0;

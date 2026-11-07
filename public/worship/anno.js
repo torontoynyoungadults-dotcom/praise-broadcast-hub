@@ -203,7 +203,7 @@
     for (i = 0; i < n - 1; i++) {                                                 // 캣멀-롬으로 촘촘히 (약 2.5px 간격)
       var i0 = i > 0 ? i - 1 : 0, i3 = i + 2 < n ? i + 2 : n - 1;
       var x0 = p[i0 * 2] * W, y0 = p[i0 * 2 + 1] * H, x1 = p[i * 2] * W, y1 = p[i * 2 + 1] * H, x2 = p[i * 2 + 2] * W, y2 = p[i * 2 + 3] * H, x3 = p[i3 * 2] * W, y3 = p[i3 * 2 + 1] * H;
-      var v1 = pr[i] / 100, v2 = pr[i + 1] / 100, steps = Math.max(1, Math.min(10, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 2.5)));
+      var v1 = pr[i] / 100, v2 = pr[i + 1] / 100, steps = Math.max(1, Math.min(16, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 1.5)));
       for (k = 0; k < steps; k++) {
         var t = k / steps, t2 = t * t, t3 = t2 * t;
         var qx = 0.5 * (2 * x1 + (-x0 + x2) * t + (2 * x0 - 5 * x1 + 4 * x2 - x3) * t2 + (-x0 + 3 * x1 - 3 * x2 + x3) * t3);
@@ -686,6 +686,7 @@
     function redraw() {
       if (S.dead) return;
       if (W8.on && !S.dirty && inkCur()) { wetDraw(); return; }                       // v9.7 — 긋는 동안: 작은 젖은 잉크 캔버스만
+      if (hiRedraw()) return;                                                         // 2026-11 — 크게 확대했을 때: 보이는 부분만 선명하게
       var dirty = S.dirty; S.dirty = false; if (dirty) S.baseOk = false;
       if (S.baseOk && S.baseId !== movingId()) S.baseOk = false;                   // 저장해 둔 그림이 지금 옮기는 항목과 다르면 버림
       if (!dirty && !S.baseOk && baseWorth()) buildBase();
@@ -703,27 +704,91 @@
         drawPage(ctx, S.W, S.H, S.page, null, null, 'main');
       }
       var now = Date.now(), keep = false;
-      S.live.forEach(function (l, id) {
-        if (now - l.at > 4000) { S.live.delete(id); return; }
-        keep = true;
-        if (l.pg !== S.page || !l.p || l.p.length < 2) return;
-        drawItem(ctx, { t: l.t, c: l.c, w: l.w, p: l.p }, S.W, S.H, { alpha: 0.85 });
-        var lx = l.p[l.p.length - 2] * S.W, ly = l.p[l.p.length - 1] * S.H;
-        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var tw = ctx.measureText(l.by || '').width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(l.by || '', lx + 10, ly - 9); ctx.restore();
-      });
+      S.live.forEach(function (l, id) { if (now - l.at > 4000) S.live.delete(id); else keep = true; });
       if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(true); }, 1200);
       if (W8.on && inkCur()) wetDraw();                                                 // 다른 까닭으로 전체를 다시 그려도 긋는 획은 젖은 잉크 쪽에
       else if (W8.on) wetEnd();                                                          // 떼어서 획이 필기 캔버스에 붙은 바로 그 프레임에 젖은 잉크를 지움 (깜빡임 없음)
+      paintOver(ctx);
+    }
+    /** 확정된 필기 위에 그리는 것들 — 다른 사람이 긋는 중인 획 · 내가 긋는 획(젖은 잉크가 없을 때) · 기호 미리보기 · 이름표 · 선택 상자 · 올가미 */
+    function paintOver(c) {
+      S.live.forEach(function (l) {
+        if (l.pg !== S.page || !l.p || l.p.length < 2) return;
+        drawItem(c, { t: l.t, c: l.c, w: l.w, p: l.p, pk: l.pk, pr: l.pr, live: l.live }, S.W, S.H, { alpha: 0.85 });
+        var lx = l.p[l.p.length - 2] * S.W, ly = l.p[l.p.length - 1] * S.H;
+        c.save(); c.font = '600 11px sans-serif'; c.fillStyle = 'rgba(20,20,26,.85)'; var tw = c.measureText(l.by || '').width; c.fillRect(lx + 6, ly - 20, tw + 8, 15); c.fillStyle = '#fff'; c.fillText(l.by || '', lx + 10, ly - 9); c.restore();
+      });
       if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl') && !W8.on) {
-        var cc = S.cur; drawItem(ctx, curItem(cc, cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : (cc.pred && cc.pred.length ? cc.p.concat(cc.pred) : cc.p)), S.W, S.H);
+        var cc = S.cur; drawItem(c, curItem(cc, cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : (cc.pred && cc.pred.length ? cc.p.concat(cc.pred) : cc.p)), S.W, S.H);
       } else if (S.cur && (S.cur.kind === 'sym' || S.cur.kind === 'fbox')) {
-        drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.75 });
+        drawItem(c, S.cur.item, S.W, S.H, { alpha: 0.75 });
       }
-      if (S.showBy) drawAuthorTags(ctx);
-      drawItemFlash(ctx); drawPeek(ctx);
+      if (S.showBy) drawAuthorTags(c);
+      drawItemFlash(c); drawPeek(c);
       var si = selItem();
-      if (si && si.pg === S.page && S.vis[S.sel.layer]) drawSel(ctx, si);
-      if (S.msel || (S.cur && S.cur.kind === 'lasso')) drawLasso(ctx);
+      if (si && si.pg === S.page && S.vis[S.sel.layer]) drawSel(c, si);
+      if (S.msel || (S.cur && S.cur.kind === 'lasso')) drawLasso(c);
+    }
+    /* 2026-11 — 확대해서 쓸 때 필기가 뿌옇던 문제: 크게 확대하면 페이지 전체 필기 캔버스는 iPad 한도 때문에 해상도를 낮춰야 해서 흐려집니다.
+       그래서 "지금 보이는 부분(+여유)"만 화면 해상도 그대로 다시 그리는 선명한 캔버스(yn-inkhi)를 그 자리에 겹치고,
+       아래 필기 캔버스는 그 부분을 비워 둡니다(겹쳐 번져 보이지 않게). 스크롤이 멈추면 새 자리로 다시 그림 (viewChanged). */
+    var HI = { cv: null, c: null, v: null };
+    function hiView() {
+      var real = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
+      if (S.dpr >= real - 0.05 || typeof document === 'undefined') return null;
+      var v = visRect(); if (!v) return null;
+      var mx = Math.round(v.w * 0.2), my = Math.round(v.h * 0.2);
+      var x0 = Math.max(0, v.x - mx), y0 = Math.max(0, v.y - my), x1 = Math.min(S.W, v.x + v.w + mx), y1 = Math.min(S.H, v.y + v.h + my);
+      var w = x1 - x0, h = y1 - y0; if (w < 16 || h < 16) return null;
+      var d = real; while (w * h * d * d > 8e6 && d > 1) d -= 0.25;
+      if (d <= S.dpr + 0.05) return null;
+      return { x: x0, y: y0, w: w, h: h, d: d, vx: v.x, vy: v.y, vw: v.w, vh: v.h };
+    }
+    function hiEnsure() {
+      if (HI.cv) return true; if (!cv.parentNode) return false;
+      try {
+        HI.cv = document.createElement('canvas'); HI.cv.className = 'yn-inkhi'; HI.cv.setAttribute('aria-hidden', 'true');
+        var z = ''; try { z = getComputedStyle(cv).zIndex; } catch (e) { z = ''; }
+        HI.cv.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;display:none;z-index:' + (z && z !== 'auto' ? z : 'auto');
+        cv.parentNode.insertBefore(HI.cv, wet && wet.parentNode === cv.parentNode ? wet : cv.nextSibling); HI.c = HI.cv.getContext('2d');
+        return !!HI.c;
+      } catch (e) { HI.cv = null; HI.c = null; return false; }
+    }
+    function hiOff() { if (!HI.v) return; HI.v = null; try { HI.cv.style.display = 'none'; HI.cv.width = HI.cv.height = 0; } catch (e) { /* 무시 */ } }
+    /** 선명한 부분 그리기 — true 면 이번 프레임은 이걸로 끝 */
+    function hiRedraw() {
+      var V = hiView(); if (!V || !hiEnsure()) { hiOff(); return false; }
+      try {
+        S.dirty = false; S.baseOk = false; S.inkCur = null;
+        ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); ctx.clearRect(0, 0, S.W, S.H);
+        hlPaint(null);
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, S.W, S.H); ctx.rect(V.x, V.y, V.w, V.h); ctx.clip('evenodd');   // 아래 캔버스: 선명한 부분 바깥만 (스크롤 중에 보이는 부분)
+        drawPage(ctx, S.W, S.H, S.page, null, null, 'main'); paintOver(ctx);
+        ctx.restore();
+        var pw = Math.max(1, Math.round(V.w * V.d)), ph = Math.max(1, Math.round(V.h * V.d)), h = HI.c;
+        if (HI.cv.width !== pw || HI.cv.height !== ph) { HI.cv.width = pw; HI.cv.height = ph; }
+        h.setTransform(1, 0, 0, 1, 0, 0); h.clearRect(0, 0, pw, ph); h.setTransform(pw / V.w, 0, 0, ph / V.h, -V.x * pw / V.w, -V.y * ph / V.h);
+        drawPage(h, S.W, S.H, S.page, null, null, 'main'); paintOver(h);
+        var st = HI.cv.style; st.left = V.x + 'px'; st.top = V.y + 'px'; st.width = V.w + 'px'; st.height = V.h + 'px';
+        if (st.display !== 'block') st.display = 'block';
+        HI.v = V;
+      } catch (e) { hiOff(); return false; }
+      var now = Date.now(), keep = false;
+      S.live.forEach(function (l, id) { if (now - l.at > 4000) S.live.delete(id); else keep = true; });
+      if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(true); }, 1200);
+      if (W8.on && inkCur()) wetDraw(); else if (W8.on) wetEnd();
+      return true;
+    }
+    /** 스크롤 · 확대 뒤 — 보이는 부분이 선명한 칸을 벗어났으면 다시 그림 */
+    function viewChanged() {
+      clearTimeout(HI.t);
+      HI.t = setTimeout(function () {
+        if (S.dead) return;
+        var want = hiView(), had = HI.v;
+        if (!want && !had) return;
+        if (want && had && want.d === had.d && want.vx >= had.x && want.vy >= had.y && want.vx + want.vw <= had.x + had.w && want.vy + want.vh <= had.y + had.h) return;   // 아직 선명한 칸 안
+        S.dirty = true; invalidate();
+      }, 160);
     }
     /* V842 — 누가 쓴 필기인지: 이름표 (짧게 · 같은 사람의 가까운 필기는 이름표 하나로) */
     function hon(n) { try { return typeof window !== 'undefined' && window.YNHon ? window.YNHon.name(n) : n; } catch (e) { return n; } }   // 찬양방송팀 허브 — 목사님 호칭
@@ -1547,6 +1612,8 @@
 
     /* ---- 바깥에서 부르는 함수 ---- */
     var api = {
+      /** 스크롤 · 확대가 멈춘 뒤 불러 주세요 — 크게 확대했을 때 보이는 부분을 선명하게 다시 그림 */
+      viewChanged: function () { viewChanged(); },
       resize: function (cssW, cssH) {
         S.dpr = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
         S.W = Math.max(1, Math.round(cssW)); S.H = Math.max(1, Math.round(cssH));
