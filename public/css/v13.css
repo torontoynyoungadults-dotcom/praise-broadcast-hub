@@ -1265,3 +1265,5 @@ body.rpf-on .v13-livebar { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .yn .l13-dock .r2 .go { all: unset; cursor: pointer; min-width: 128px; background: #C6A664; color: #0F1A16; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
 .yn .l13-dock .msg { margin: 0; font-size: 12px; color: #A9B4AE; min-height: 0; }
 .yn .l13-up { background: #FBF9F4; padding: 12px; }
+html[data-theme="light"] .yn .l13-q input[type="search"], .yn .l13-q input#rpQ { background: #17241F !important; background-color: #17241F !important; color: #ECE6D9 !important; border: 1px solid #2C3A33 !important; box-shadow: none !important; border-radius: 0 !important; }
+.yn .l13-repo #rpList, .yn .l13-repo #rpDock { margin: 0 !important; padding: 0 !important; }
