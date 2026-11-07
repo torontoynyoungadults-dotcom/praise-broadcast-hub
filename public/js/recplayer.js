@@ -334,16 +334,19 @@
     var items = snapshot(), i = items.findIndex(function (x) { return x.src === src; });
     F.play(items, i < 0 ? 0 : i, t != null ? Number(t) : 0);
   });
+  /** 곡 카드에서 눌렀으면 큰 제목은 곡 이름, 아래 줄에 녹음 이름 */
+  function songTitle(b) { var sg = b.getAttribute('data-rp-song'); if (!sg || !F) return; var t = F.root.querySelector('.rpv-t'), s2 = F.root.querySelector('.rpv-s'); var file = t.textContent; t.textContent = sg; s2.textContent = [b.getAttribute('data-rp-kind') ? b.getAttribute('data-rp-kind') + ' 녹음' : '', file].filter(Boolean).join(' · ') + (s2.textContent ? ' · ' + s2.textContent : ''); }
   /* ---- 콘티 곡 카드의 "▶ 영상 3:25" — 그 녹음을 이 곡 시작 위치부터 ---- */
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-rp-jump]'); if (!b) return;
     e.preventDefault();
     var src = b.getAttribute('data-rp-jump'), t = Number(b.getAttribute('data-rp-t')) || 0;
     if (!F) F = create();
-    if (F.current() === src) { F.seek(t); F.expand(); return; }
+    if (F.current() === src) { F.seek(t); F.expand(); songTitle(b); return; }
     var items = snapshot(), i = items.findIndex(function (x) { return x.src === src; });
     if (i < 0) { items.unshift({ src: src, title: b.getAttribute('title') || '녹음', by: '' }); i = 0; }
     F.play(items, i, t);
+    songTitle(b);
   });
 
   /* ---- 다른 화면(라이브러리 등)에서 쓰는 API — 목록 [{src, title, by}] 과 순서 ---- */

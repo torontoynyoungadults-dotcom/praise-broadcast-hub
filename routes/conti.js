@@ -529,7 +529,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
       </form>
     </details>` : '';
   const jp = jumps && jumps[s['ID']];                                        // 녹음 · 영상에서 이 곡이 시작하는 곳부터
-  const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
+  const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" data-rp-song="${esc(s['제목'] || '')}" data-rp-kind="${esc(jp.kind || '')}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
   const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(String(s['Key']).replace(/\s*-+>\s*/g, '→'))}</b></span>` : '';
   const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><svg class="cn-metro" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l3.5 18h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 15l5-9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>${esc(bpm)}</b></span>` : '';
   const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="유튜브 영상" aria-label="유튜브 영상">${YT_MARK}</a>` : '';
