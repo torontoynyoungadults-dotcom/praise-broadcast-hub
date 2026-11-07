@@ -1456,3 +1456,16 @@ html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters
 .yg .yg-rn { font-family: 'Bodoni Moda', serif; font-size: 20px; font-weight: 600; color: #17201C !important; }
 .yg .yg-rn small { font-family: 'Pretendard', sans-serif; font-size: 11px; color: #5C6660; font-weight: 400; }
 .yg .yg-none, .yg .yg-empty { color: #5C6660 !important; font-size: 13px; }
+
+/* ===== 그 밖의 화면 (음향 · 팀원관리 · 변경 기록 · 엑셀 · 사용설명서 · 내 정보 …) — 메뉴 아래 흑녹 제목 띠 ===== */
+.v13-ptitle { background: #0F1A16; color: #ECE6D9; margin: 0 -16px 22px; padding: 22px 16px 24px; }
+@media (min-width: 900px) { .v13-ptitle { margin: 0 -28px 22px; padding-left: 28px; padding-right: 28px; } .v13-ptitle > * { max-width: 760px; margin-left: auto !important; margin-right: auto !important; } }
+.v13-ptitle small { display: block; font-size: 12px; color: #C6A664; margin-bottom: 6px; }
+.v13-ptitle h1 { margin: 0; font-family: 'MaruBuri', serif; font-size: 26px; font-weight: 700; line-height: 1.3; color: #ECE6D9; }
+.v13-ptitle p { margin: 8px 0 0; font-size: 13px; line-height: 1.6; color: #A9B4AE; }
+.ph-wrap:has(.v13-ptitle) .ph-card { background: #FBF9F4 !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; margin-bottom: 22px !important; }
+.ph-wrap:has(.v13-ptitle) .ph-card.top-accent::before { display: none !important; }
+.ph-wrap:has(.v13-ptitle) .ph-btn { border-radius: 0 !important; box-shadow: none !important; }
+.ph-wrap:has(.v13-ptitle) .ph-btn.pri { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16 !important; }
+.ph-wrap:has(.v13-ptitle) input:not([type="checkbox"]):not([type="radio"]), .ph-wrap:has(.v13-ptitle) select, .ph-wrap:has(.v13-ptitle) textarea { border-radius: 0 !important; border: 1px solid #D6CFBF !important; background: #FFFFFF !important; box-shadow: none !important; }
+.ph-wrap:has(.v13-ptitle) .ph-admintabs { display: none !important; }
