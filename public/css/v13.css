@@ -1646,3 +1646,21 @@ html, body { overflow-x: clip; }
     padding-left: max(16px, calc(50vw - 380px)) !important; padding-right: max(16px, calc(50vw - 380px)) !important;
   }
 }
+
+/* ---- 관리 · 방문 기록 (관리자만) ---- */
+body .vs13-f { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin: 0 0 8px; }
+body .vs13-f > span { width: 72px; font-size: 12px; color: #5C6660; }
+body .vs13-chip { min-height: 34px; padding: 0 12px; display: inline-flex; align-items: center; border: 1px solid #DDD6C8; background: #FBF9F4; color: #17201C !important; font-size: 13px; text-decoration: none !important; }
+body .vs13-chip.on { background: #0F1A16; border-color: #0F1A16; color: #E2CC97 !important; }
+body .vs13-sum { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px; margin: 14px 0; }
+body .vs13-sum a { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #EFEBE3; text-decoration: none !important; color: #17201C !important; }
+body .vs13-sum b { font-size: 14px; font-weight: 600; }
+body .vs13-sum span { font-family: 'Bodoni Moda', serif; font-size: 18px; color: #6E5A2E; }
+body .vs13-sum small { font-size: 11px; color: #5C6660; }
+body .vs13-tw { overflow-x: auto; margin-top: 10px; border-top: 1px solid #17201C; }
+body .vs13-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+body .vs13-t th { text-align: left; font-weight: 500; font-size: 11px; color: #5C6660; padding: 8px 8px; border-bottom: 1px solid #DDD6C8; white-space: nowrap; background: transparent !important; }
+body .vs13-t td { padding: 9px 8px; border-bottom: 1px solid #ECE6DA; color: #17201C; vertical-align: top; background: transparent !important; }
+body .vs13-t td.w { white-space: nowrap; color: #6E5A2E; font-variant-numeric: tabular-nums; }
+body .vs13-t td.d { color: #5C6660; font-size: 12px; }
+body .vs13-t td.s { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }

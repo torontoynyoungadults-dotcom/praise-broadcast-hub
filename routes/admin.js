@@ -203,6 +203,36 @@ router.get('/admin', requireMember, async (req, res) => {
     ${logHtml}
     ${remMsg ? `<p class="ph-msg ${/실패|없/.test(remMsg) ? 'err' : 'ok'}">${esc(remMsg)}</p>` : ''}
   </div>`;
+  // 방문 기록 — 관리자만 · 맨 아래
+  let visitCard = '';
+  if (req.isAdm) {
+    const q = req.query || {};
+    const vd = [1, 7, 30].includes(Number(q.vd)) ? Number(q.vd) : 7;
+    const vm = [0, 1, 3, 5, 10].includes(Number(q.vm)) ? Number(q.vm) : 1;
+    const vp = String(q.vp || '').trim();
+    let all = [];
+    try { all = await require('../lib/visitLog').list(vd); } catch (e) { console.error('[방문 기록 읽기 실패]', e && e.message); }
+    const people = Array.from(new Set(all.map((v) => v.name).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
+    const shown = all.filter((v) => v.sec >= vm * 60 && (!vp || v.name === vp));
+    const dur = (sec) => sec >= 3600 ? `${Math.floor(sec / 3600)}시간 ${Math.round((sec % 3600) / 60)}분` : sec >= 60 ? `${Math.floor(sec / 60)}분${sec % 60 >= 30 && sec < 600 ? ' 30초' : ''}` : `${sec}초`;
+    const when = (at) => { const d = new Date(at.slice(0, 10) + 'T12:00:00'); const wd = '일월화수목금토'[d.getDay()]; return `${Number(at.slice(5, 7))}.${at.slice(8, 10)} (${wd}) ${at.slice(11, 16)}`; };
+    const link = (o) => { const p = Object.assign({ vd, vm, vp }, o); return '/admin?' + ['vd', 'vm', 'vp'].filter((k) => p[k] !== '' && p[k] != null).map((k) => k + '=' + encodeURIComponent(p[k])).join('&') + '#visits'; };
+    const chips = (list, key, curv) => list.map(([v, t]) => `<a class="vs13-chip${String(v) === String(curv) ? ' on' : ''}" href="${esc(link({ [key]: v }))}">${t}</a>`).join('');
+    const sum = new Map();
+    shown.forEach((v) => { const x = sum.get(v.name) || sum.set(v.name, { sec: 0, n: 0, last: v.at }).get(v.name); x.sec += v.sec; x.n++; });
+    const sumRows = Array.from(sum.entries()).sort((a, b) => b[1].sec - a[1].sec);
+    visitCard = `<div class="ph-card vs13" id="visits">
+    <h2 class="ph-h2">방문 기록</h2>
+    <p class="ph-sub">누가 · 언제 · 어느 페이지를 · 어떤 기기로 봤는지예요. 화면을 실제로 보고 있던 시간만 세요 (다른 앱으로 가거나 화면이 꺼지면 멈춰요). 관리자만 보여요.</p>
+    <div class="vs13-f"><span>기간</span>${chips([[1, '오늘'], [7, '7일'], [30, '30일']], 'vd', vd)}</div>
+    <div class="vs13-f"><span>머문 시간</span>${chips([[0, '모두'], [1, '1분 이상'], [3, '3분 이상'], [5, '5분 이상'], [10, '10분 이상']], 'vm', vm)}</div>
+    ${people.length ? `<div class="vs13-f"><span>사람</span>${chips([['', '모두']].concat(people.map((n) => [n, esc(n)])), 'vp', vp)}</div>` : ''}
+    ${sumRows.length > 1 ? `<div class="vs13-sum">${sumRows.map(([n, x]) => `<a href="${esc(link({ vp: n }))}"><b>${esc(n)}</b><span>${dur(x.sec)}</span><small>${x.n}번</small></a>`).join('')}</div>` : ''}
+    ${shown.length ? `<div class="vs13-tw"><table class="vs13-t"><thead><tr><th>언제</th><th>누가</th><th>페이지</th><th>기기</th><th>머문 시간</th></tr></thead><tbody>${shown.slice(0, 300).map((v) => `<tr><td class="w">${esc(when(v.at))}</td><td>${esc(v.name || '')}</td><td>${esc(v.page || v.path || '')}</td><td class="d">${esc(v.dev || '')}</td><td class="s">${dur(v.sec)}</td></tr>`).join('')}</tbody></table></div>
+      ${shown.length > 300 ? `<p class="ph-sub">최근 300개만 보여요 (모두 ${shown.length}개).</p>` : ''}`
+    : `<p class="ph-sub">${all.length ? '이 조건에 맞는 기록이 없어요.' : '아직 기록이 없어요. 오늘부터 쌓여요.'}</p>`}
+  </div>`;
+  }
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 시간 · 허브 문구를 관리합니다.' });
 
   const content = `
@@ -262,6 +292,7 @@ router.get('/admin', requireMember, async (req, res) => {
     <p class="ph-sub">로그인 없이 <b>예배 콘티 · 라이브 악보 · 스케줄표</b>를 볼 수 있는 링크예요 (고칠 수 없고 댓글만 가능). 방송팀에 전달해 주세요.</p>
     <div class="ph-list">${glRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
   </div>
+  ${visitCard}
   `;
   spa.send(req, res, content, { title: '관리자' });
 });

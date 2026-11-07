@@ -87,6 +87,7 @@ app.use(require('./routes/library'));
 app.use(require('./routes/sound'));   // /sound — 마이크 · 인이어 · P16 설정
 app.use(require('./routes/equipment'));
 app.use(require('./routes/drive'));   // /drive — 미디어팀 NAS(Synology) 파일 보기 · 재생 (lib/nas.js)
+app.use(require('./routes/visit'));   // /visit — 페이지 방문 기록 (관리자만 봄)
 app.use(require('./routes/admin'));
 app.use(require('./routes/home'));
 
@@ -124,6 +125,7 @@ async function shutdown(sig) {
   try { rt.flushAll(); } catch (e) { console.error('[종료 저장]', e && e.message); }
   try { await Promise.race([require('./lib/notify').flushPending(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* 끄는 중 */ }
   try { await Promise.race([require('./lib/liveUsageStore').flush(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* 끄는 중 — 라이브 악보 사용 기록 */ }
+  try { await Promise.race([require('./lib/visitLog').flush(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* 끄는 중 — 방문 기록 */ }
   try { await liveStore.drain(8000); } catch (e) { /* 끄는 중 */ }
   process.exit(0);
 }
@@ -131,4 +133,4 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`찬양방송팀 허브 — http://localhost:${PORT}`); if (process.env.NODE_ENV !== 'test') { require('./lib/weeklyDefaults').start(); require('./lib/practiceReminder').start(); require('./lib/calSync').start(); require('./lib/liveUsageStore').start(); } });
+server.listen(PORT, () => { console.log(`찬양방송팀 허브 — http://localhost:${PORT}`); if (process.env.NODE_ENV !== 'test') { require('./lib/weeklyDefaults').start(); require('./lib/practiceReminder').start(); require('./lib/calSync').start(); require('./lib/liveUsageStore').start(); require('./lib/visitLog').start(); } });
