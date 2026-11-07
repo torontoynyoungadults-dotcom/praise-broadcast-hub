@@ -47,7 +47,7 @@ html body .pv:not(#_) .pv-top .pv-b, html body .pv:not(#_) .pv-top .pv-grp {
 }
 html body .pv:not(#_) .pv-top .pv-grp { padding: 0; gap: 0; }
 html body .pv:not(#_) .pv-top .pv-grp > .pv-b { height: 38px; min-width: 38px; border: 0 !important; background: none !important; border-radius: 11px !important; }
-html body .pv:not(#_) .pv-top .pv-b:hover:not(:disabled), html body .pv:not(#_) .pv-top .pv-grp > .pv-b:hover:not(:disabled) { background: var(--ak-soft) !important; }
+html body .pv:not(#_) .pv-top .pv-b:hover:not(:disabled):not(.on):not([aria-pressed="true"]), html body .pv:not(#_) .pv-top .pv-grp > .pv-b:hover:not(:disabled):not(.on):not([aria-pressed="true"]) { background: var(--ak-soft) !important; }
 html body .pv:not(#_) .pv-top .pv-b .yi { width: 18px; height: 18px; }
 html body .pv:not(#_) .pv-top > .pv-b[aria-pressed="true"], html body .pv:not(#_) .pv-top > .pv-b.on,
 html body .pv.pv-sideopen:not(#_) .pv-top .pv-panelbtn, html body .pv.pv-moreopen:not(#_) .pv-top .pv-morebtn, html body .pv.pv-fs:not(#_) .pv-top .pv-fsbtn {
@@ -684,6 +684,11 @@ html body .pv.pv-compact:not(#_):not(#__) .pv-tools .pv-tool { width: 36px; min-
 html body .pv.pv-compact.pv-sideopen:not(#_) .pv-mq { display: none !important; }
 /* 좁은 위 막대(태블릿): ♫ 칸은 아이콘만 — 곡 제목이 보이게 */
 html body .pv.pv-tight:not(.pv-nosong):not(#_):not(#__) .pv-top .pv-songpill .pv-sheetwrap { flex: 0 0 40px !important; width: 40px; }
+/* 아이콘만 남길 때 — 고른 악보 이름 글씨가 잘려 "ㅈ" 처럼 보이지 않게 (고르는 목록은 그대로 열림) */
+html body .pv.pv-tight:not(.pv-nosong):not(#_):not(#__) .pv-top .pv-songpill .pv-sheetwrap { position: relative; justify-content: center; padding: 0 !important; overflow: hidden; }
+html body .pv.pv-tight:not(.pv-nosong):not(#_):not(#__) .pv-top .pv-songpill .pv-sheetwrap .pv-sheetic { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; margin: 0 !important; }
+html body .pv.pv-tight:not(.pv-nosong):not(#_):not(#__) .pv-top .pv-songpill .pv-sheetwrap .pv-sel { position: absolute; inset: 0; width: 100% !important; min-width: 0 !important; max-width: none !important; color: transparent !important; text-shadow: none !important; -webkit-text-fill-color: transparent; background: transparent !important; border: 0 !important; padding: 0 !important; opacity: 1; cursor: pointer; }
+html body .pv.pv-tight:not(.pv-nosong):not(#_):not(#__) .pv-top .pv-songpill .pv-sheetwrap .pv-sel option, html body .pv.pv-tight:not(.pv-nosong):not(#_):not(#__) .pv-top .pv-songpill .pv-sheetwrap .pv-sel optgroup { color: #17201C; -webkit-text-fill-color: #17201C; }
 
 /* ============================================================
    2026-11 (3차) — 유튜브 창이 화면 밖으로 잘리지 않게 (안쪽 스크롤) · 콘티 곡 → 악보 알약 · 콘티 자리 표시
