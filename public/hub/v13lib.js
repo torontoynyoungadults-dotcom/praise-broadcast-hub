@@ -96,7 +96,7 @@
           '<p class="a13-links">' + (recs.length ? '<button type="button" class="a13-ic" onclick="this.closest(\'.a13\').classList.toggle(\'recs\')" aria-label="녹음 ' + recs.length + '개">' + AIC.rec + '<span>녹음</span><b>' + recs.length + '</b></button>' : '') +
             (d.files.length ? '<button type="button" class="a13-ic" onclick="this.closest(\'.a13\').classList.toggle(\'files\')" aria-label="악보 ' + d.files.length + '개">' + AIC.file + '<span>악보</span><b>' + d.files.length + '</b></button>' : '') +
             (typeof ldOpen === 'function' ? '<button type="button" class="a13-ic"' + ldBtnAttrs(d.key, '') + '>' + AIC.info + '<span>자세히</span></button>' : '') +
-            '<button type="button" class="a13-ic go" onclick="goWeek(\'' + k + '\')"><span>콘티 열기</span>' + AIC.open + '</button></p>' +
+            '<button type="button" class="a13-ic go" onclick="goWeek(\'' + k + '\')"><span>열기</span>' + AIC.open + '</button></p>' +
           (d.files.length ? '<div class="a13-files afiles">' + d.files.map(fileChip).join('') + '</div>' : '') +
           (recs.length ? '<div class="a13-recs arrecs">' + recs.map(function (r) { return recCard(r, d.key, true); }).join('') + '</div>' : '') +
         '</div></article>';
