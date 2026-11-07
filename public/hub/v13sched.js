@@ -65,7 +65,7 @@
         '<div class="s13-offs"><span class="k">안 되는 날</span>' + (offs.length ? offs.slice(0, 8).map(function (x) { return '<span class="c">' + esc(md(x.day || x.date)) + '</span>'; }).join('') : '<span class="z">없음</span>') +
         '<button type="button" class="s13-fix" onclick="offToggle()" aria-expanded="' + (!!ST.offOpen) + '">' + (ST.offOpen ? '접기' : (offs.length ? '고치기' : '날짜 고르기')) + '</button></div>' +
         (ST.offOpen ? '<div class="s13-offcard">' + stOffCard() + '</div>' : '') +
-        '<div class="s13-cal2"><button type="button" data-mysched data-team="' + esc(HUB.team || '') + '">내 일정 캘린더 구독</button><a href="/cal/google/connect?team=' + encodeURIComponent(HUB.team || '') + '">구글 캘린더 연동</a></div>';
+        (D.committee ? '<a class="s13-genlink" href="/schedule/generate?team=' + encodeURIComponent(HUB.team || '') + '"><span><small>관리자</small>연습 일정 미리 만들기</span><i>›</i></a>' : '') + '<div class="s13-cal2"><button type="button" data-mysched data-team="' + esc(HUB.team || '') + '">내 일정 캘린더 구독</button><a href="/cal/google/connect?team=' + encodeURIComponent(HUB.team || '') + '">구글 캘린더 연동</a></div>';
     }
     return '<section class="s13-top" aria-labelledby="s13-mine-h">' + html + (ST.view !== 'card' ? tabs(true) : '') + '</section>';
   }

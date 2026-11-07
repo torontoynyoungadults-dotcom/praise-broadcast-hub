@@ -171,7 +171,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 시간 · 허브 문구를 관리합니다.' });
 
   const content = `
-  ${pageShell.hubNav('', '')}
+  ${pageShell.hubNav('admin', '')}
   ${pageShell.hero({ barOnly: true })}
   <section class="ad13-top"><h1>관리</h1><p>관리자에게만 보이는 화면이에요</p>
     <nav class="ad13-nav" aria-label="관리 바로가기"><a href="#ad13-team">팀원</a><a href="#ad13-time">일정</a><a href="#practice-mail">자동 안내</a><a href="#ad13-conti">콘티</a><a href="#ad13-link">연결</a></nav></section>

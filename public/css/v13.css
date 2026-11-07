@@ -1086,3 +1086,14 @@ body { background: var(--bg); }
 .yn .s13 .s13-sel .acts button { background: #FFFFFF !important; color: #17201C !important; border: 1px solid #D6CFBF !important; box-shadow: none !important; border-radius: 0 !important; font-weight: 400 !important; }
 .yn .s13 .s13-sel .acts button:first-child { background: #0F1A16 !important; color: #ECE6D9 !important; border-color: #0F1A16 !important; }
 .yn .s13 .s13-calh button { background: #FBF9F4 !important; }
+/* 스케쥴 위 — 관리자 연습 일정 미리 만들기 */
+.yn .s13 .s13-genlink { display: flex; align-items: center; justify-content: space-between; min-height: 52px; margin-top: 14px; padding: 0 14px; border: 1px solid #C6A664; background: rgba(198,166,100,0.1); color: #ECE6D9 !important; text-decoration: none; }
+.yn .s13 .s13-genlink span { display: flex; flex-direction: column; gap: 1px; font-size: 14px; }
+.yn .s13 .s13-genlink small { font-size: 11px; color: #C6A664; }
+.yn .s13 .s13-genlink i { font-style: normal; color: #C6A664; font-size: 18px; }
+/* 프로필 메뉴 — 아래 고정 바보다 위 */
+.ph-hero:has(.ph-me[open]), .ph-bar:has(.ph-me[open]) { position: relative; z-index: 1000 !important; }
+.ph-me[open]::before { z-index: 1000 !important; }
+.ph-me-sheet { z-index: 1001 !important; max-height: 85vh; overflow-y: auto; padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important; }
+body:has(.ph-me[open]) .v13-livebar, body:has(.ph-me[open]) .hm-cta2, body:has(.ph-me[open]) .ls13-mini, body:has(.ph-me[open]) .g13-bar { display: none !important; }
+.ph-hubtab-admin { color: #C6A664 !important; }
