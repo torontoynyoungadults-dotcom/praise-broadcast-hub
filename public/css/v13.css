@@ -980,3 +980,8 @@ body { background: var(--bg); }
 .lu-card .ph-namechip .ph-avatar .ph-avatar-txt { display: inline !important; }
 .ls13-song .t.none { font-family: 'Pretendard', sans-serif; font-size: 11px; color: #8E9A94; }
 .ls13-song .set { flex: none; width: 64px; justify-content: center; text-align: center; line-height: 1.3; }
+.lu-card .ph-namechip > .ph-avatar.ph-avatar { background: #E6DCC2 !important; border: 1px solid #DDD6C8 !important; width: 24px !important; height: 24px !important; padding: 0 !important; display: inline-flex !important; align-items: center; justify-content: center; position: relative; overflow: hidden; border-radius: 0 !important; }
+.lu-card .ph-poscell:first-child .ph-namechip > .ph-avatar.ph-avatar { width: 30px !important; height: 30px !important; }
+.lu-card .ph-namechip > .ph-avatar.ph-avatar .ph-avatar-txt { font-size: 11px !important; color: #6E5A2E !important; }
+.lu-card .ph-poscell:nth-child(10) { grid-column: 1 / span 2 !important; }
+.lu-card .ph-poscell[open]:nth-child(10) { grid-column: 1 / -1 !important; }
