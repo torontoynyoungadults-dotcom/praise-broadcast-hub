@@ -218,3 +218,9 @@ body { background: var(--bg); }
 .fb, .fp { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .plr { border-radius: 0 !important; }
 .plr-ctl button, .plr-b { border-radius: 0 !important; }
+
+/* ======== 7단계 — 주일 외 찬양 · 목록 ======== */
+.ph-list { gap: 2px !important; }
+.ph-list-item { border: 0 !important; padding: 13px 14px !important; }
+.ph-li-title, .ph-li-link.strong { font-family: var(--v13-serif); font-weight: 600 !important; }
+.ph-li-sub { color: var(--sub) !important; }
