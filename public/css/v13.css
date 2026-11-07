@@ -994,3 +994,12 @@ body { background: var(--bg); }
 .ls13-sheets .cn-svt b { font-family: 'MaruBuri', serif; font-size: 15px; }
 .ls13-sheets .cn-svt small { margin-left: 8px; font-family: 'Bodoni Moda', serif; color: #6E5A2E; }
 .ls13-sheets img { width: 100%; height: auto; display: block; }
+.ls13-mini { position: fixed; left: 16px; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 45; max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: 48px 52px minmax(0, 1fr) 44px; align-items: center; gap: 2px; background: #0F1A16; color: #ECE6D9; box-shadow: 0 14px 30px rgba(15,26,22,0.35); }
+.ls13-mini[hidden] { display: none; }
+.ls13-mini button { all: unset; cursor: pointer; height: 52px; display: flex; align-items: center; justify-content: center; color: #E2CC97; font-size: 13px; }
+.ls13-mini .p { background: #C6A664; }
+.ls13-mini .p svg { width: 20px; height: 20px; fill: #0F1A16; }
+.ls13-mini .i { display: flex; flex-direction: column; padding: 0 10px; min-width: 0; }
+.ls13-mini .i b { font-family: 'MaruBuri', serif; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls13-mini .i small { font-size: 11px; color: #A9B4AE; }
+.ph-wrap:has(.ls13-mini) { padding-bottom: 96px !important; }

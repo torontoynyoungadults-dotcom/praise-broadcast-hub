@@ -118,6 +118,18 @@
 
     var share = document.querySelector('[data-ls="share"]');
     if (share && !share._ls) { share._ls = true; share.addEventListener('click', function () { var u = location.href; if (navigator.share) navigator.share({ title: D.title, url: u }).catch(function () {}); else if (navigator.clipboard) navigator.clipboard.writeText(u).then(function () { share.querySelector('span').textContent = '링크 복사됨'; }); }); }
+    // 악보를 보며 아래로 내려가도 — 화면 아래 작은 재생 줄
+    var mini = document.createElement('div');
+    mini.className = 'ls13-mini'; mini.hidden = true;
+    mini.innerHTML = '<button type="button" data-m="back" aria-label="15초 뒤로">-15</button><button type="button" data-m="play" class="p" aria-label="재생">' + PLAY + '</button><span class="i"><b></b><small></small></span><button type="button" data-m="top" aria-label="플레이어로">▲</button>';
+    root.parentNode.appendChild(mini);
+    mini.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-m]'); if (!b) return; var m = b.getAttribute('data-m');
+      if (m === 'play') { if (au.paused) play(); else au.pause(); } else if (m === 'back') seek(au.currentTime - 15); else if (m === 'top') root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    function paintMini() { mini.querySelector('b').textContent = nowEl.textContent; mini.querySelector('small').textContent = fmt(au.currentTime) + ' / ' + fmt(dur()) + (abEl.textContent ? ' · ' + abEl.textContent : ''); mini.querySelector('.p').innerHTML = au.paused ? PLAY : PAUSE; }
+    au.addEventListener('timeupdate', paintMini); au.addEventListener('play', paintMini); au.addEventListener('pause', paintMini);
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { mini.hidden = es[0].isIntersecting; paintMini(); }).observe(root.querySelector('.ls13-ctl'));
     setRate(rate); paint();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
