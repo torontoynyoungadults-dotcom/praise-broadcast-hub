@@ -83,7 +83,7 @@
   if (typeof arCard === 'function') {
     window.arCard = arCard = function (d) {
       var dd = dt(d.date), k = esc(jsq(d.key));
-      var songs = d.songs.map(function (s) { return '<span class="s">' + esc(s.title) + (s.key ? ' <i>' + esc(String(s.key).replace(/\s*-+>\s*/g, '→')) + '</i>' : '') + '</span>'; }).join('');
+      var songs = d.songs.filter(function (s) { return s.kind !== '폐회송'; }).map(function (s) { return '<span class="s">' + esc(s.title) + (s.key ? ' <i>' + esc(String(s.key).replace(/\s*-+>\s*/g, '→')) + '</i>' : '') + '</span>'; }).join('');
       var hasClose = d.songs.some(function (s) { return s.kind === '폐회송'; });
       var sub = [d.event ? esc(d.event.name || '') : '', d.lead.length ? '인도 ' + esc(d.lead.map(function (n) { return typeof dispSlot === 'function' ? dispSlot(n, '인도자') : n; }).join(', ')) : '', hasClose ? '폐회송 포함' : ''].filter(Boolean).join(' · ');
       var recs = d.recs || [];

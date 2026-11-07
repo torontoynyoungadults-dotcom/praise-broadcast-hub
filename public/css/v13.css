@@ -1282,3 +1282,5 @@ html[data-theme="light"] .yn .l13-q input[type="search"], .yn .l13-q input#rpQ {
 .yn #body .seg { border-radius: 0 !important; background: transparent !important; gap: 2px; }
 .yn #body .seg button { border-radius: 0 !important; border: 1px solid #D6CFBF !important; background: transparent !important; color: #17201C !important; box-shadow: none !important; }
 .yn #body .seg button.on { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16 !important; }
+.yn .a13-links button { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 4px 0 !important; min-height: 0 !important; border-radius: 0 !important; font-weight: 400 !important; }
+html[data-theme="light"] .yn .l13-filters input[type="search"] { border: 0 !important; background: transparent !important; box-shadow: none !important; }
