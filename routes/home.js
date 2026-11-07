@@ -34,7 +34,7 @@ router.get('/', async (req, res) => {
     const name = String((ctx.member && ctx.member['이름']) || '').trim();
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' }));
     const days = ['일', '월', '화', '수', '목', '금', '토'];
-    const dateKo = `${now.getMonth() + 1}월 ${now.getDate()}일 ${days[now.getDay()]}요일`;
+    const dateKo = `${now.getMonth() + 1}월 ${now.getDate()}일 ${now.getDay() === 0 ? '주일' : days[now.getDay()] + '요일'}`;
     const greet = now.getDay() === 0 || now.getDay() === 6 ? '평안한 주말 보내세요' : '평안한 한 주 보내세요';
     const qs = q || (team ? `?team=${encodeURIComponent(team)}` : '');
     const esc = pageShell.esc;

@@ -1703,3 +1703,11 @@ html[data-theme] .yn .pk13-in { width: 100%; box-sizing: border-box; min-height:
 .yn .pk13-add button { all: unset; cursor: pointer; padding: 0 20px; min-height: 44px; display: flex; align-items: center; background: #0F1A16; color: #E2CC97; font-size: 14px; }
 .yn .pk13-done { padding: 18px 20px 0; }
 .yn .pk13-done button { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; background: #0F1A16; color: #ECE6D9; font-size: 15px; letter-spacing: .06em; }
+
+/* ---- 녹음 듣기 — 영상이면 화면을 보여 줌 ---- */
+body .ls13.has-video { display: flex; flex-direction: column; }
+body .ls13.has-video > * { order: 3; }
+body .ls13.has-video > .ls13-when, body .ls13.has-video > .ls13-title, body .ls13.has-video > .ls13-meta { order: 1; }
+body .ls13.has-video > .ls13-video { order: 2; }
+body .ls13-video[hidden] { display: none !important; }
+body .ls13-video { display: block; width: 100%; max-height: 62vh; aspect-ratio: 16 / 9; background: #000; object-fit: contain; margin: 14px 0 18px; border: 1px solid #2C3A33; }

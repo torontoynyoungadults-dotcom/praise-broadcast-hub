@@ -1177,7 +1177,7 @@ async function scheduleOf(team, me, today, to, base) {
       ev.alarm = `${short} 연습`;
     }
     const dd2 = new Date(g.date + 'T12:00:00');
-    out.push({ id: 'prac:' + g.date, kind: 'prac', date: g.date, time: g.time, title: `${practiceView.md(g.date)} ${DOW[dd2.getDay()]}요일 연습`,
+    out.push({ id: 'prac:' + g.date, kind: 'prac', date: g.date, time: g.time, title: `${practiceView.md(g.date)} ${dd2.getDay() === 0 ? '주일' : DOW[dd2.getDay()] + '요일'} 연습`,
       detail: [timeSettings.fmt(g.time), g.place, mine.map((x) => practiceView.targetName(x.t)).join(' · ') + ' 콘티'].filter(Boolean).join(' · '),
       off: mine.every((x) => x.off), google: practiceView.googleCalUrl(ev), ev });
   });
@@ -1428,7 +1428,7 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
     const dowK = '일월화수목금토'[new Date(cur.date + 'T12:00:00').getDay()];
     const navA = (g, dir) => g ? `<a class="v13-bd-nav" href="${q(g.date)}" aria-label="${dir} 연습 ${Number(g.date.slice(5, 7))}월 ${Number(g.date.slice(8, 10))}일">${ui.icon(dir === '이전' ? 'prev' : 'next')}</a>` : '<span class="v13-bd-nav" style="visibility:hidden"></span>';
     const head = `<section class="v13-bigdate" aria-label="이번 연습">
-      <span class="v13-bd-k">${dowK}요일 연습 · ${dd0 < 0 ? '마침' : dd0 === 0 ? '오늘' : 'D-' + dd0}</span>
+      <span class="v13-bd-k">${dowK === '일' ? '주일' : dowK + '요일'} 연습 · ${dd0 < 0 ? '마침' : dd0 === 0 ? '오늘' : 'D-' + dd0}</span>
       <div class="v13-bd-row">${navA(prevG, '이전')}<span class="v13-bd-d">${cur.date.slice(5, 7)}<i>.</i>${cur.date.slice(8, 10)}</span>${navA(nextG, '다음')}</div>
       <p class="v13-bd-line">${cur.targets.length > 1 ? `이 날 주일 콘티 ${cur.targets.length === 2 ? '두' : cur.targets.length} 개를 함께 연습해요` : esc(cur.targets.map((t) => practiceView.targetName(t)).join(' · ')) + ' 콘티를 연습해요'}</p>
     </section>`;
@@ -2423,7 +2423,7 @@ router.get('/conti/listen', requireTeam, async (req, res) => {
     const data = { src, id: String(cur['ID'] || ''), team, marks, songs, edit: true, title: String(cur['제목'] || '녹음') };
     const fname = String(cur['제목'] || '녹음');
     body = `<div class="ls13" data-ls13="${esc(JSON.stringify(data))}">
-      <p class="ls13-when">${rd.getMonth() + 1}월 ${rd.getDate()}일 ${'일월화수목금토'[rd.getDay()]}요일 ${kind === '참고' ? '참고 음원' : kind}</p>
+      <p class="ls13-when">${rd.getMonth() + 1}월 ${rd.getDate()}일 ${rd.getDay() === 0 ? '주일' : '일월화수목금토'[rd.getDay()] + '요일'} ${kind === '참고' ? '참고 음원' : kind}</p>
       <h1 class="ls13-title" data-ls-now>${esc(marks.length && songs.length ? (songs.find((s) => s.id === marks[0].id) || {}).k || fname : fname)}</h1>
       <p class="ls13-meta"><span data-ls-pos>${marks.length ? `1 / ${marks.length}곡 · ` : ''}</span>올린 이 ${esc(honorific.forTeam(team, cur['올린사람'] || ''))} · ${esc(fname)}</p>
       <div class="ls13-wave" data-ls-wave role="slider" tabindex="0" aria-label="재생 위치" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
@@ -2439,7 +2439,7 @@ router.get('/conti/listen', requireTeam, async (req, res) => {
         <button type="button" data-ls="song">지금 곡 반복</button><button type="button" data-ls="a">A 시작</button><button type="button" data-ls="b">B 끝</button><button type="button" data-ls="clear">반복 해제</button>
         <p data-ls-msg></p>
       </div>
-      <audio preload="metadata" src="${esc(src)}" data-ls-audio></audio>
+      <video preload="metadata" playsinline webkit-playsinline src="${esc(src)}" data-ls-audio class="ls13-video" hidden onloadedmetadata="if(this.videoWidth>0){this.hidden=false;this.closest('.ls13').classList.add('has-video')}"></video>
     </div>`;
   }
   const others = list.map((r) => `<a class="ls13-rec${cur && r === cur ? ' on' : ''}" href="${q({ kind, id: r['ID'] })}"><span class="pl" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span><span class="m"><b>${esc(r['제목'] || '녹음')}</b><small>${esc(honorific.forTeam(team, r['올린사람'] || ''))} · ${esc(String(r['날짜'] || '').slice(5).replace('-', '/'))} ${kind === '참고' ? '' : kind}</small></span>${cur && r === cur ? '<span class="now">재생 중</span>' : ''}</a>`).join('');

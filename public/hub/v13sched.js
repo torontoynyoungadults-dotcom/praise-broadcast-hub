@@ -223,7 +223,7 @@
     box.className = 'stpk pk13';
     box.innerHTML =
       '<header class="pk13-h">' +
-        '<div class="pk13-d">' + (isD ? '<b>' + dot(d) + '</b><span>' + DOW[dt(d).getDay()] + (DOW[dt(d).getDay()] === '일' ? ' · 주일' : '요일') + '</span>' : '<span>' + stTitle(r) + '</span>') + '</div>' +
+        '<div class="pk13-d">' + (isD ? '<b>' + dot(d) + '</b><span>' + (DOW[dt(d).getDay()] === '일' ? '주일' : DOW[dt(d).getDay()] + '요일') + '</span>' : '<span>' + stTitle(r) + '</span>') + '</div>' +
         '<h3>' + ic(p.key) + esc(p.label) + '</h3>' +
         '<p>' + (picked.length ? '지금 ' + picked.map(function (n) { return esc(dispName(n)); }).join(' · ') : '아직 비어 있어요') + ' · ' + (p.multi ? '여러 명 고를 수 있어요' : '누르면 바로 들어가요') + '</p>' +
       '</header>' +
