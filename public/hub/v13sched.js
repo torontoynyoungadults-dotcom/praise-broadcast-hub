@@ -47,7 +47,7 @@
 
   function shownRows() { var rows = stShown(); if (ST.onlyTbd) rows = rows.filter(function (r) { return tbd(r).length; }); return rows; }
 
-  /* 보기 탭 — 카드는 밝은 바탕, 표 · 달력은 흑녹 띠 안 */
+  /* 보기 탭 — 세 보기 모두 흑녹 띠 안 (같은 모양) */
   function tabs(dark) {
     return '<div class="s13-tabs' + (dark ? ' dark' : '') + '" role="tablist" aria-label="보기">' + [['card', '카드'], ['table', '표'], ['cal', '달력']].map(function (v) {
       return '<button type="button" role="tab" aria-selected="' + (ST.view === v[0]) + '" class="' + (ST.view === v[0] ? 'on' : '') + '" onclick="st13View(\'' + v[0] + '\')">' + v[1] + '</button>';
@@ -69,7 +69,7 @@
         (ST.offOpen ? '<div class="s13-offcard">' + stOffCard() + '</div>' : '') +
         '<a class="s13-genlink" href="/schedule/generate?team=' + encodeURIComponent(HUB.team || '') + '"><span><small>2주마다 금요일 · 금요찬양기도회 · 공휴일 빼고</small>연습 일정 미리 만들기</span><i>›</i></a>' + '<div class="s13-cal2"><button type="button" data-mysched data-team="' + esc(HUB.team || '') + '">내 일정 캘린더 구독</button><a href="/cal/google/connect?team=' + encodeURIComponent(HUB.team || '') + '">구글 캘린더 연동</a></div>';
     }
-    return '<section class="s13-top" aria-labelledby="s13-mine-h">' + html + (ST.view !== 'card' ? tabs(true) : '') + '</section>';
+    return '<section class="s13-top" aria-labelledby="s13-mine-h">' + html + tabs(true) + '</section>';
   }
 
   function rangeSel() { return '<label><span>기간</span><select onchange="stRange(this.value)">' + ST_RANGES.map(function (x) { return '<option value="' + x[0] + '"' + (ST.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>'; }
@@ -77,7 +77,7 @@
   /* 카드 */
   function cards() {
     var people = (D.members || []).map(function (m) { return m.name; });
-    var top = tabs(false) + '<div class="s13-filt">' + rangeSel() +
+    var top = '<div class="s13-filt">' + rangeSel() +
       '<label><span>사람 강조</span><select onchange="ST.hl=this.value;render();"><option value="">없음</option>' + people.map(function (n) { return '<option value="' + esc(n) + '"' + (n === ST.hl ? ' selected' : '') + '>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'; }).join('') + '</select></label></div>' +
       '<label class="s13-chk"><input type="checkbox"' + (ST.onlyTbd ? ' checked' : '') + ' onchange="st13Tbd(this.checked)"><span>미정 자리 있는 날만 보기</span></label>';
     var rows = shownRows(), t = today(), pm = posMap();
