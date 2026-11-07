@@ -978,3 +978,5 @@ body { background: var(--bg); }
 .v13-addwrap[data-v13-add] > details > summary .yi { width: 16px; height: 16px; color: #9C7F45; }
 .v13-addwrap[data-v13-add] > details > :not(summary) { padding: 0 14px 14px; }
 .lu-card .ph-namechip .ph-avatar .ph-avatar-txt { display: inline !important; }
+.ls13-song .t.none { font-family: 'Pretendard', sans-serif; font-size: 11px; color: #8E9A94; }
+.ls13-song .set { flex: none; width: 64px; justify-content: center; text-align: center; line-height: 1.3; }
