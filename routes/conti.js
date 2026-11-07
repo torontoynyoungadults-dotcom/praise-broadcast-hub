@@ -173,7 +173,7 @@ async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmi
     ? `<b>${esc(week.shortKo(scope.date, true))}</b>${eventName ? `<span class="lu-evn">${esc(eventName)}</span>` : ''}`
     : `<b>${esc(week.shortKo(scope.date, true))}</b>`;
   return `<div class="ph-card lu-card">
-    <h2 class="ph-h2">주일 편성</h2>
+    <div class="v13-sechead"><h2 class="ph-h2">섬기는 이</h2>${scope.event ? '' : `<a href="/schedule?team=${encodeURIComponent(team)}">스케줄표 ›</a>`}</div>
     <div class="lu${scope.event ? ' ev' : ''}">
       <div class="lu-head">${head}<span class="lu-hint">칸을 누르면 바로 배정해요</span></div>
       <div class="lu-grid">${cells}</div>
@@ -464,6 +464,11 @@ function contiToolbox({ team, scope, date, eventRow, w, kakao, stage }) {
   const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
   const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
   const yt = ytPlayAllHtml(w, team);
+  if (stage) return `<div class="v13-livebar">${liveBtn}<a class="v13-livebar-rec" href="#cn-recs" aria-label="녹음 듣기" title="녹음">${ui.icon('headphones')}</a></div>
+    <div class="v13-tools">${pkgBtn}${yt}${offBtn}</div>
+    <details class="v13-more"><summary>더 보기 · 방송팀 화면 · 카톡 요약</summary><div class="cn-toolrow">${stageBtn}${kakaoBtn}</div>${w.conti.length && kakao ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details>` : ''}</details>
+    <div class="cn-offpanel" data-cn-offpanel hidden></div>
+    <p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>`;
   return `<div class="ph-livebtns${stage ? '' : ' one'}">${liveBtn}${stageBtn}</div>
     <div class="cn-toolrow">${pkgBtn}${kakaoBtn}${offBtn}</div>
     ${yt}
@@ -859,6 +864,21 @@ async function practiceInfo(team, scope, date) {
   }
   return { p, together };
 }
+/** V13 — 연습 한 줄: "연습 · 11/6 금 · 오후 6:30 · 본당 · 마침" (noDate면 날짜 빼고) */
+function practiceLine(team, info, noDate) {
+  const { p } = info;
+  const href = `/practice-conti?team=${encodeURIComponent(team)}`;
+  let txt;
+  if (p.none) txt = '이 예배는 연습이 없어요';
+  else if (p.unset || !p.date) txt = '연습일 미정';
+  else {
+    const d = new Date(p.date + 'T12:00:00');
+    const dd = `${d.getMonth() + 1}/${d.getDate()} ${'일월화수목금토'[d.getDay()]}`;
+    txt = [noDate ? '' : dd, p.note || ''].filter(Boolean).join(' · ');
+  }
+  const done = p.date && p.date < week.todayStr();
+  return `<a class="v13-pline" href="${href}"><span class="k">연습</span><span class="t">${esc(txt)}</span>${done ? '<span class="s">마침</span>' : ''}</a>`;
+}
 function practiceCard(team, info) {
   const { p, together } = info;
   const href = `/schedule?team=${encodeURIComponent(team)}`;
@@ -960,7 +980,19 @@ router.get('/conti', requireTeam, async (req, res) => {
     try { guestDay = guestDayPanel(req, team, scope, await guestDayLink.ensure(team, liveStore.roomOf(scope)), gNames, ctx.isAdmin, true); } catch (e) { console.error('[객원 링크]', e && e.message); }
   }
   const pinfo = await practiceInfo(team, scope, date);
-  const practice = practiceCard(team, pinfo);
+  const practice = scope.event ? practiceCard(team, pinfo) : practiceLine(team, pinfo, false);
+  // V13 — 큰 날짜 + ‹ › + 내가 서는지 한 줄
+  const meName = String(ctx.member['이름'] || '').trim();
+  const myPos = Object.keys(byPos || {}).filter((k) => (byPos[k] || []).some((x) => String(x['이름'] || '').trim() === meName));
+  const today = week.todayStr();
+  const dDays = Math.round((new Date(date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000);
+  const dTxt = dDays === 0 ? '오늘' : dDays > 0 ? `D-${dDays}` : '지난 주일';
+  const cq = (d) => `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(d)}`;
+  const bigDate = `<section class="v13-bigdate" aria-label="${esc(week.labelKo(date))}">
+    <span class="v13-bd-k">주일 3부 예배 · ${dTxt}</span>
+    <div class="v13-bd-row"><a class="v13-bd-nav" href="${cq(week.shiftWeek(date, -1))}" aria-label="이전 주일">${ui.icon('prev')}</a><span class="v13-bd-d">${date.slice(5, 7)}<i>.</i>${date.slice(8, 10)}</span><a class="v13-bd-nav" href="${cq(week.shiftWeek(date, 1))}" aria-label="다음 주일">${ui.icon('next')}</a></div>
+    <p class="v13-bd-line">${myPos.length ? `<b>${esc(myPos.join(' · '))}</b>로 섬기는 주일입니다` : '섬기는 주일이 아닙니다'}</p>
+  </section>`;
   const hist = await historyFor(team, scope);
   const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
   const markSongs = songsForMarks(w);                                     // 녹음 플레이어 — 곡 시작 위치 찍기
@@ -969,8 +1001,9 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   const content = `
   ${pageShell.hubNav('conti', team)}
-  ${hero}
+  ${scope.event ? hero : pageShell.hero({ barOnly: true })}
   ${strip}
+  ${scope.event ? '' : bigDate}
   ${dayBanner}
   ${changeCard(chg, team)}
   ${practice}
@@ -1009,7 +1042,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
-  <div class="ph-card">
+  <div class="ph-card" id="cn-recs">
     <h2 class="ph-h2">녹음</h2>
     ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && req.ctx && req.ctx.isAdmin && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
     <h3 class="ph-h3">연습 녹음</h3>
