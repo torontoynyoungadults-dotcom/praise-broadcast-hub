@@ -1605,3 +1605,12 @@ body .a13-mini .a13-cancel { display: none; }
 
 html[data-theme] body .a13-mini .a13-title input, html[data-theme] body .a13-mini .a13-meta input { background: transparent !important; }
 html[data-theme] body .a13-mini .a13-yt [data-cn-ytlink] { flex: none !important; height: auto !important; }
+html[data-theme] body .a13-form .a13-sfb { border: 0 !important; background: transparent !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
+html[data-theme] body .a13-form .a13-sfb .fb-seq { background: #FBF9F4 !important; border: 0 !important; border-radius: 0 !important; }
+html[data-theme] body .a13-form .a13-sfb .fb-empty { background: transparent !important; border: 0 !important; padding: 0 !important; }
+html[data-theme] body .a13-form .a13-sfb .fb-tools { order: 3; }
+html[data-theme] body .a13-form .a13-sfb .fb-pal { order: 2; }
+html[data-theme] body .a13-form .a13-sfb .fb-bars { order: 1; }
+html[data-theme] body .a13-form .a13-sfb .fb-custom { order: 4; }
+html[data-theme] body .a13-form .a13-sfb .fb-hint { order: 5; }
+html[data-theme] body .a13-form .a13-sfb .fb-seq { order: 0; }
