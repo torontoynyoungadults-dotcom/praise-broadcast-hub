@@ -1083,3 +1083,6 @@ body { background: var(--bg); }
 .yn .s13 .s13-t td.offc span { display: inline !important; }
 .yn .s13 .s13-t td.offc span + span::before { content: ' · '; }
 .yn .s13 .s13-t th, .yn .s13 .s13-t td { line-height: 1.4 !important; }
+.yn .s13 .s13-sel .acts button { background: #FFFFFF !important; color: #17201C !important; border: 1px solid #D6CFBF !important; box-shadow: none !important; border-radius: 0 !important; font-weight: 400 !important; }
+.yn .s13 .s13-sel .acts button:first-child { background: #0F1A16 !important; color: #ECE6D9 !important; border-color: #0F1A16 !important; }
+.yn .s13 .s13-calh button { background: #FBF9F4 !important; }
