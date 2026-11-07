@@ -29,7 +29,12 @@
       try {
         if (!flashEl) { flashEl = doc.createElement('div'); flashEl.className = 'pv-flash'; flashEl.setAttribute('aria-hidden', 'true'); doc.body.appendChild(flashEl); }
         flashEl.classList.toggle('ci', !!e.countIn); flashEl.classList.toggle('acc', e.beat === 0);
-        flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
+        /* 2026-11 — 버벅임 수정: 예전에는 박마다 offsetWidth 로 화면 전체를 다시 계산(강제 레이아웃)해 아이패드에서 악보가 끊겨 보였음.
+           이제는 투명도만 바꾸는 애니메이션(그래픽 칩이 처리)이라 악보 그리기 · 스크롤에 영향이 없습니다. */
+        if (flashEl.animate) {
+          if (flashEl._fx) { try { flashEl._fx.cancel(); } catch (x) { /* 무시 */ } }
+          flashEl._fx = flashEl.animate([{ opacity: e.beat === 0 ? 0.42 : 0.26 }, { opacity: 0 }], { duration: 180, easing: 'ease-out' });
+        } else { flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go'); }
       } catch (x) { /* 화면 효과가 박자에 영향을 주면 안 됩니다 */ }
     }
     function metro() {
@@ -146,7 +151,7 @@
         dn.disabled = up.disabled = lock; wrap.classList.toggle('locked', lock);
       }
       function beat(e) {
-        el.classList.remove('b', 'b0'); void el.offsetWidth; el.classList.add('b'); if (e && e.beat === 0) el.classList.add('b0');
+        el.classList.add('b'); el.classList.toggle('b0', !!(e && e.beat === 0));      // 박마다 강제 레이아웃(offsetWidth) 없이 — 클래스는 140ms 뒤 빠지므로 다음 박엔 이미 비어 있음
         clearTimeout(bt); bt = setTimeout(function () { el.classList.remove('b', 'b0'); }, 140);
       }
       el.addEventListener('pointerdown', function (e) { e.stopPropagation(); longed = false; clearTimeout(pressT); pressT = setTimeout(function () { longed = true; P.showTab('metro'); }, 550); });
@@ -178,7 +183,7 @@
         var t = (run ? '클릭 끄기' : '클릭 켜기') + (b ? ' · ' + b + ' BPM' : '') + (lock ? ' (클릭 컨트롤을 따라가는 중)' : '') + ' — Space';
         btn.title = t; btn.setAttribute('aria-label', t);
       }
-      function beat(e) { btn.classList.remove('b', 'b0'); void btn.offsetWidth; btn.classList.add('b'); if (e && e.beat === 0) btn.classList.add('b0'); clearTimeout(bt); bt = setTimeout(function () { btn.classList.remove('b', 'b0'); }, 120); }
+      function beat(e) { btn.classList.add('b'); btn.classList.toggle('b0', !!(e && e.beat === 0)); clearTimeout(bt); bt = setTimeout(function () { btn.classList.remove('b', 'b0'); }, 120); }
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         var r = P.metroKey('toggle'); if (r === null) P.toast('클릭 도구를 불러오지 못했습니다.', true); sync();

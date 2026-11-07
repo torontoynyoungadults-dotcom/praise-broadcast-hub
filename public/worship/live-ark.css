@@ -47,7 +47,10 @@ html body .pv:not(#_) .pv-top .pv-b, html body .pv:not(#_) .pv-top .pv-grp {
 }
 html body .pv:not(#_) .pv-top .pv-grp { padding: 0; gap: 0; }
 html body .pv:not(#_) .pv-top .pv-grp > .pv-b { height: 38px; min-width: 38px; border: 0 !important; background: none !important; border-radius: 11px !important; }
-html body .pv:not(#_) .pv-top .pv-b:hover:not(:disabled):not(.on):not([aria-pressed="true"]), html body .pv:not(#_) .pv-top .pv-grp > .pv-b:hover:not(:disabled):not(.on):not([aria-pressed="true"]) { background: var(--ak-soft) !important; }
+/* 마우스가 있는 기기에서만 hover — 아이패드는 누른 뒤 hover 가 남아 켜진 단추 색을 덮었음 */
+@media (hover: hover) and (pointer: fine) {
+  html body .pv:not(#_) .pv-top .pv-b:hover:not(:disabled):not(.on):not([aria-pressed="true"]), html body .pv:not(#_) .pv-top .pv-grp > .pv-b:hover:not(:disabled):not(.on):not([aria-pressed="true"]) { background: var(--ak-soft) !important; }
+}
 html body .pv:not(#_) .pv-top .pv-b .yi { width: 18px; height: 18px; }
 html body .pv:not(#_) .pv-top > .pv-b[aria-pressed="true"], html body .pv:not(#_) .pv-top > .pv-b.on,
 html body .pv.pv-sideopen:not(#_) .pv-top .pv-panelbtn, html body .pv.pv-moreopen:not(#_) .pv-top .pv-morebtn, html body .pv.pv-fs:not(#_) .pv-top .pv-fsbtn {
@@ -72,7 +75,7 @@ html body .pv:not(#_) .pv-top .pv-kssave { color: var(--ak-go) !important; }
 /* 메트로놈(BPM) 단추 */
 html body .pv:not(#_) .pv-top .pv-metbtn { padding: 0 11px; gap: 6px; }
 html body .pv:not(#_) .pv-top .pv-metbtn .pv-metbpm { font-family: var(--ak-num); font-weight: 700; font-size: 13.5px; color: inherit; }
-html body .pv:not(#_) .pv-top .pv-metbtn[aria-pressed="true"] { background: var(--ak-on) !important; color: var(--ak-on-ink) !important; border-color: var(--ak-on) !important; }
+html body .pv:not(#_):not(#__) .pv-top .pv-metbtn[aria-pressed="true"], html body .pv:not(#_):not(#__) .pv-top .pv-metbtn.on { background: var(--ak-on) !important; color: var(--ak-on-ink) !important; border-color: var(--ak-on) !important; }
 /* 함께(실시간) 알약 — 연결되면 초록 */
 html body .pv:not(#_) .pv-top .pv-chips { border: 0 !important; background: none !important; gap: 6px; }
 html body .pv:not(#_) .pv-top .pv-chip {
@@ -608,7 +611,7 @@ html body .pv:not(#_) .pv-tools .pv-tg.pv-pills { display: none !important; }
 html body .pv:not(#_) .pv-tools .pv-tool { width: 38px; min-width: 38px; height: 38px; padding: 0 !important; display: inline-flex !important; align-items: center; justify-content: center; border-radius: 10px !important; border: 0 !important; background: none !important; color: var(--ak-ink2) !important; }
 html body .pv:not(#_) .pv-tools .pv-tool .nm { display: none !important; }
 html body .pv:not(#_) .pv-tools .pv-tool .ic, html body .pv:not(#_) .pv-tools .pv-tool .yi { width: 20px; height: 20px; font-size: 20px; background: none !important; box-shadow: none !important; }
-html body .pv:not(#_) .pv-tools .pv-tool:hover:not(:disabled) { background: var(--ak-soft) !important; }
+@media (hover: hover) and (pointer: fine) { html body .pv:not(#_) .pv-tools .pv-tool:not(.on):not([aria-pressed="true"]):hover:not(:disabled) { background: var(--ak-soft) !important; } }
 html body .pv:not(#_) .pv-tools .pv-tool.on { background: var(--ak-on) !important; color: var(--ak-on-ink) !important; }
 html body .pv:not(#_) .pv-tools .pv-tool:disabled { opacity: .35; }
 html body .pv:not(#_) .pv-tools .pv-tool.sm.pv-del, html body .pv:not(#_) .pv-tools .pv-cliprow .pv-tool, html body .pv:not(#_) .pv-tools .pv-lassorow .pv-tool { width: auto; padding: 0 10px !important; }

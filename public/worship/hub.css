@@ -180,7 +180,7 @@ button.pv-chip { cursor: pointer; }
 .pv-locked .pv-bpm, .pv-locked .pv-big { opacity: .7; }
 .pv-rng output { min-width: 62px; text-align: right; font-weight: 800; color: var(--g-a2); font-variant-numeric: tabular-nums; }
 /* 첫 박 전체 화면 깜빡임 — 화면 전체를 덮지만 눌림은 그대로 아래로 전달됩니다 */
-.pv-flash { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; background: rgb(211, 181, 123); opacity: 0; }
+.pv-flash { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; background: rgb(211, 181, 123); opacity: 0; will-change: opacity; transform: translateZ(0); contain: strict; }
 .pv-flash.ci { background: rgb(142, 203, 255); }
 .pv-flash.go { animation: pvflash .2s ease-out; }
 @keyframes pvflash { 0% { opacity: .55; } 100% { opacity: 0; } }
