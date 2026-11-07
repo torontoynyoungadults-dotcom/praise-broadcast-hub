@@ -1371,3 +1371,6 @@ html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters
 .yc-sh.ld13-sh > .yc-x { position: absolute !important; top: 12px !important; right: 12px !important; z-index: 3; width: 40px !important; height: 40px !important; border-radius: 0 !important; background: transparent !important; border: 1px solid rgba(198,166,100,0.45) !important; color: #E2CC97 !important; font-size: 22px !important; line-height: 1 !important; display: flex !important; align-items: center; justify-content: center; }
 .yc-sh.ld13-sh > .yc-x svg { stroke: #E2CC97 !important; color: #E2CC97 !important; }
 .ld13-h .t { text-align: left; align-items: flex-start; }
+.v13-livebar-yt { all: unset; cursor: pointer; width: 58px; min-height: 58px; background: #22332C; color: #E2CC97; display: flex; align-items: center; justify-content: center; }
+.v13-livebar-yt svg { width: 22px; height: 22px; }
+.v13-livebar-yt:focus-visible, .v13-livebar-rec:focus-visible { outline: 2px solid #E2CC97; outline-offset: -3px; }
