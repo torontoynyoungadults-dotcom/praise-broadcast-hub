@@ -97,7 +97,15 @@
     function fmt2(t) { if (!isFinite(t) || t < 0) t = 0; t = Math.floor(t); var m = Math.floor(t / 60), x = t % 60; return (m < 10 ? '0' : '') + m + ':' + (x < 10 ? '0' : '') + x; }
     function vBuild(key) { var h = 2166136261; key = String(key || ''); for (var i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); } h >>>= 0; var html = ''; for (var k = 0; k < 44; k++) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; html += '<i style="height:' + (26 + (h % 74)) + '%"></i>'; } vWave.innerHTML = html + '<b class="hd"></b><span class="abz"></span>'; vBars = vWave.querySelectorAll('i'); vHead = vWave.querySelector('.hd'); }
     function vPaint() { if (!vBars.length) return; var d = au.duration, p = d > 0 ? au.currentTime / d : 0, on = Math.round(p * vBars.length); for (var k = 0; k < vBars.length; k++) vBars[k].classList.toggle('on', k < on); vHead.style.left = (p * 100) + '%'; vC.textContent = fmt2(au.currentTime); vD.textContent = fmt2(d); var z = vWave.querySelector('.abz'); if (A != null && d > 0) { z.hidden = false; z.style.left = (A / d * 100) + '%'; z.style.width = (((B != null ? B : d) - A) / d * 100) + '%'; } else z.hidden = true; vAB.textContent = A != null ? 'A ' + fmt2(A) + ' ~ ' + (B != null ? 'B ' + fmt2(B) : '…') : ''; root.querySelector('.rpv-rep').classList.toggle('on', A != null); }
-    vWave.addEventListener('click', function (e) { var r = vWave.getBoundingClientRect(), d = au.duration || 0; if (d) { au.currentTime = Math.max(0, Math.min(d - 0.2, (e.clientX - r.left) / r.width * d)); vPaint(); } });
+    (function () {                                   // 끌어서 재생 위치 옮기기 (손가락 · 마우스 · 펜)
+      var dragging = false;
+      function at(e) { var r = vWave.getBoundingClientRect(), d = au.duration || 0; if (d) { au.currentTime = Math.max(0, Math.min(d - 0.2, (e.clientX - r.left) / r.width * d)); vPaint(); } }
+      vWave.style.touchAction = 'none';
+      vWave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { vWave.setPointerCapture(e.pointerId); } catch (x) {} at(e); e.preventDefault(); });
+      vWave.addEventListener('pointermove', function (e) { if (dragging) at(e); });
+      function end() { dragging = false; }
+      vWave.addEventListener('pointerup', end); vWave.addEventListener('pointercancel', end); vWave.addEventListener('lostpointercapture', end);
+    })();
 
     var st = load(), list = [], idx = -1, A = null, B = null, seeking = false;
     var rate = clampRate(st.rate || 1);

@@ -1731,3 +1731,6 @@ html body .yn .s13-t tbody td.ed:hover:not(.me) { background-color: #E6DCC2 !imp
 html body .yn .s13-t tbody td.offc { text-align: left !important; vertical-align: middle !important; }
 html body .yn .s13-t tbody td.offc > span { display: inline; text-align: left !important; }
 html body .yn .s13-t tbody td.offc > span + span::before { content: ' · '; color: #8E9A94; }
+body .ls13-wave { cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; }
+body .ls13-wave.drag .hd { width: 3px !important; box-shadow: 0 0 0 4px rgba(226,204,151,.25); }
+body .rpv [class*="wave"] { touch-action: none; user-select: none; -webkit-user-select: none; }

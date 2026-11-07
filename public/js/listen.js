@@ -67,7 +67,15 @@
     au.addEventListener('ended', function () { if (A != null) { seek(A); play(); } });
 
     function wavePos(e) { var r = wave.getBoundingClientRect(); var x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; return Math.max(0, Math.min(1, x / r.width)); }
-    wave.addEventListener('click', function (e) { var d = dur(); if (d) seek(wavePos(e) * d); });
+    (function () {                                   // 끌어서 재생 위치 옮기기 (손가락 · 마우스 · 펜)
+      var dragging = false;
+      function at(e) { var d = dur(); if (d) seek(wavePos(e) * d); }
+      wave.style.touchAction = 'none';
+      wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; wave.classList.add('drag'); try { wave.setPointerCapture(e.pointerId); } catch (x) {} at(e); e.preventDefault(); });
+      wave.addEventListener('pointermove', function (e) { if (dragging) at(e); });
+      function end() { dragging = false; wave.classList.remove('drag'); }
+      wave.addEventListener('pointerup', end); wave.addEventListener('pointercancel', end); wave.addEventListener('lostpointercapture', end);
+    })();
     wave.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') seek(au.currentTime - 5); if (e.key === 'ArrowRight') seek(au.currentTime + 5); });
 
     root.addEventListener('click', function (e) {
