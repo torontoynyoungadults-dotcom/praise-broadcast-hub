@@ -465,7 +465,7 @@ function contiToolbox({ team, scope, date, eventRow, w, kakao, stage }) {
   const kakaoBtn = w.conti.length ? `<button type="button" class="cn-mini cn-kakaobtn" data-cn-kakao>${ui.icon('clipboard')} 카카오톡 콘티 요약 복사</button>` : '';
   const offBtn = `<button type="button" class="cn-mini cn-offbtn" data-cn-offopen data-team="${esc(team)}" data-date="${esc(date)}" data-event="${esc(scope.event)}" aria-expanded="false">${ui.icon('download')} 오프라인용 다운로드</button>`;
   const yt = ytPlayAllHtml(w, team);
-  if (stage) return `<div class="v13-livebar">${liveBtn}<a class="v13-livebar-rec" href="#cn-recs" aria-label="녹음 듣기" title="녹음">${ui.icon('headphones')}</a></div>
+  if (stage) return `<div class="v13-livebar">${liveBtn}<a class="v13-livebar-rec" href="${`/conti/listen?team=${encodeURIComponent(team)}&${q}`}" aria-label="녹음 듣기" title="녹음">${ui.icon('headphones')}</a></div>
     <div class="v13-tools">${pkgBtn}${yt}${offBtn}</div>
     <!--v13-pline-->
     <details class="v13-more"><summary>더 보기 · 방송팀 화면 · 카톡 요약</summary><div class="cn-toolrow">${stageBtn}${kakaoBtn}</div>${w.conti.length && kakao ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details>` : ''}</details>
@@ -1312,12 +1312,15 @@ function recsAndShare(w, team, scope, markSongs, recId, opt) {
     <div class="v13-sechead"><h2 class="ph-h2">녹음</h2></div>
     ${(() => {
       const pr = w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고'), wr = w.recs.filter((r) => r['구분'] === '예배'), rf = w.recs.filter((r) => r['구분'] === '참고');
-      const cell = (i, t, sub) => `<button type="button" class="v13-rc" data-v13-rc="${i}" aria-expanded="false" onclick="var w=this.closest('.v13-recs'),i=this.getAttribute('data-v13-rc'),o=this.getAttribute('aria-expanded')!=='true';w.querySelectorAll('[data-v13-rc]').forEach(function(y){y.setAttribute('aria-expanded',String(o&&y===this))},this);w.querySelectorAll('[data-v13-rp]').forEach(function(p){p.hidden=!(o&&p.getAttribute('data-v13-rp')===i)})"><b>${t}</b><small>${sub}</small></button>`;
+      const lq = (k) => `/conti/listen?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(scope.date)}&kind=${encodeURIComponent(k)}`;
+      const cell = (i, t, sub) => `<a class="v13-rc" href="${lq(['연습', '예배', '참고'][i])}"><b>${t}</b><small>${sub}</small></a>`;
       return `<div class="v13-rcs">${cell(0, '연습', pr.length ? pr.length + '개' : '아직 없음')}${cell(1, '예배', wr.length ? wr.length + '개' : '예배 후')}${cell(2, '참고 음원', rf.length ? rf.length + '곡' : '아직 없음')}</div>`;
     })()}
-    <div class="v13-rp" data-v13-rp="0" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
-    <div class="v13-rp" data-v13-rp="1" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
-    <div class="v13-rp" data-v13-rp="2" hidden><p class="ph-sub">곡 MP3 — 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</p><div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div></div>
+    <details class="v13-more v13-recall"><summary>녹음 목록 · 고치기 · 지우기</summary>
+    <div class="v13-rp" data-v13-rp="0"><div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="v13-rp" data-v13-rp="1"><div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="v13-rp" data-v13-rp="2"><p class="ph-sub">곡 MP3 — 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</p><div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div></div>
+    </details>
     ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && opt.admin ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
@@ -2354,6 +2357,69 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
 });
 
 /** 녹음 플레이어에서 찍은 곡 시작 위치 저장 — { team, id: 녹음.ID, marks: [{t, id, k}] } → JSON */
+
+/* ================= V13 녹음 듣기 화면 — 시안(Recording): 연습 · 예배 · 참고 음원 탭, 파형 · 구간 반복 · 속도 · 곡별로 듣기 ================= */
+router.get('/conti/listen', requireTeam, async (req, res) => {
+  const team = req.ctx.current;
+  const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+  const scope = { event: eventRow ? eventRow['ID'] : '', date };
+  const w = await loadWeek(team, scope);
+  const KINDS = [['연습', (r) => r['구분'] !== '예배' && r['구분'] !== '참고'], ['예배', (r) => r['구분'] === '예배'], ['참고', (r) => r['구분'] === '참고']];
+  const kind = KINDS.some((k) => k[0] === req.query.kind) ? String(req.query.kind) : (w.recs.some(KINDS[0][1]) ? '연습' : w.recs.some(KINDS[1][1]) ? '예배' : '연습');
+  const list = w.recs.filter(KINDS.find((k) => k[0] === kind)[1]).filter((r) => recSrc(r));
+  const cur = list.find((r) => String(r['ID']) === String(req.query.id || '')) || list[0] || null;
+  const q = (o) => { const u = new URLSearchParams(Object.assign({ team }, scope.event ? { event: scope.event } : { date }, o)); return `/conti/listen?${u.toString()}`; };
+  const back = contiUrl(team, scope);
+  const all = [].concat(w.conti, w.final, w.closing);
+  const songs = all.map((x) => ({ id: String(x['ID'] || ''), k: String(x['제목'] || '제목 없음'), key: String(x['Key'] || '').replace(/\s*-+>\s*/g, ' → '), bpm: String(x['BPM'] || '') }));
+  const dd = new Date(date + 'T12:00:00');
+  const head = scope.event ? `${eventRow['이름']} · ${Number(date.slice(5, 7))}.${date.slice(8, 10)}` : `예배 콘티 · ${date.slice(5, 7)}.${date.slice(8, 10)}`;
+  const tabs = KINDS.map(([k, f]) => { const n = w.recs.filter(f).length; return `<a class="${k === kind ? 'on' : ''}" href="${q({ kind: k })}" aria-current="${k === kind ? 'page' : 'false'}">${k === '참고' ? '참고 음원' : k}${n ? ` · ${n}` : ''}</a>`; }).join('');
+  let body;
+  if (!cur) {
+    body = `<p class="ls13-empty">아직 ${kind === '참고' ? '참고 음원이' : kind + ' 녹음이'} 없어요. <a href="${back}#cn-recs">콘티 화면에서 올리기</a></p>`;
+  } else {
+    const src = recSrc(cur), marks = cleanMarks(cur['구간']);
+    const rDate = String(cur['날짜'] || date), rd = new Date(rDate + 'T12:00:00');
+    const data = { src, id: String(cur['ID'] || ''), team, marks, songs, edit: true, title: String(cur['제목'] || '녹음') };
+    const fname = String(cur['제목'] || '녹음');
+    body = `<div class="ls13" data-ls13="${esc(JSON.stringify(data))}">
+      <p class="ls13-when">${rd.getMonth() + 1}월 ${rd.getDate()}일 ${'일월화수목금토'[rd.getDay()]}요일 ${kind === '참고' ? '참고 음원' : kind}</p>
+      <h1 class="ls13-title" data-ls-now>${esc(marks.length && songs.length ? (songs.find((s) => s.id === marks[0].id) || {}).k || fname : fname)}</h1>
+      <p class="ls13-meta"><span data-ls-pos>${marks.length ? `1 / ${marks.length}곡 · ` : ''}</span>올린 이 ${esc(honorific.forTeam(team, cur['올린사람'] || ''))} · ${esc(fname)}</p>
+      <div class="ls13-wave" data-ls-wave role="slider" tabindex="0" aria-label="재생 위치" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+      <div class="ls13-times"><span data-ls-t>0:00</span><span data-ls-ab class="ab"></span><span data-ls-d>0:00</span></div>
+      <div class="ls13-ctl">
+        <button type="button" class="sq" data-ls="rate" aria-label="재생 속도">1.0<i>×</i></button>
+        <button type="button" class="sk" data-ls="back" aria-label="15초 뒤로">${ui.icon('undo')}<small>15</small></button>
+        <button type="button" class="pp" data-ls="play" aria-label="재생"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <button type="button" class="sk" data-ls="fwd" aria-label="15초 앞으로">${ui.icon('redo')}<small>15</small></button>
+        <button type="button" class="sq" data-ls="rep" aria-label="반복" aria-expanded="false">${ui.icon('repeat')}</button>
+      </div>
+      <div class="ls13-rep" data-ls-reppanel hidden>
+        <button type="button" data-ls="song">지금 곡 반복</button><button type="button" data-ls="a">A 시작</button><button type="button" data-ls="b">B 끝</button><button type="button" data-ls="clear">반복 해제</button>
+        <p data-ls-msg></p>
+      </div>
+      <audio preload="metadata" src="${esc(src)}" data-ls-audio></audio>
+    </div>`;
+  }
+  const others = list.map((r) => `<a class="ls13-rec${cur && r === cur ? ' on' : ''}" href="${q({ kind, id: r['ID'] })}"><span class="pl" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span><span class="m"><b>${esc(r['제목'] || '녹음')}</b><small>${esc(honorific.forTeam(team, r['올린사람'] || ''))} · ${esc(String(r['날짜'] || '').slice(5).replace('-', '/'))} ${kind === '참고' ? '' : kind}</small></span>${cur && r === cur ? '<span class="now">재생 중</span>' : ''}</a>`).join('');
+  const content = `
+  ${pageShell.hero({ barOnly: true })}
+  <section class="ls13-top">
+    <a class="ls13-back" href="${back}">‹ ${esc(head)}</a>
+    <nav class="ls13-tabs" aria-label="녹음 종류">${tabs}</nav>
+    ${body}
+  </section>
+  ${cur ? `<section class="ph-card ls13-sec"><div class="v13-sechead"><h2 class="ph-h2">곡별로 듣기</h2></div><div class="ls13-songs" data-ls-songs></div>
+    <p class="ls13-hint">곡을 누르면 그 곡 시작 위치로 바로 가요 · 위치가 없는 곡은 "여기서 시작"을 눌러 표시해요</p></section>
+  <div class="ls13-acts"><a href="/conti/practice?team=${encodeURIComponent(team)}&${scope.event ? 'event=' + encodeURIComponent(scope.event) : 'date=' + encodeURIComponent(date)}">${ui.icon('page')}<span>악보 같이 보기</span></a><a href="${esc(recSrc(cur) + (recSrc(cur).includes('?') ? '&' : '?') + 'dl=1')}" download>${ui.icon('download')}<span>내려받기</span></a><button type="button" data-ls="share">${ui.icon('send')}<span>공유</span></button></div>` : ''}
+  ${list.length ? `<section class="ph-card ls13-sec"><div class="v13-sechead"><h2 class="ph-h2">이 주의 ${kind === '참고' ? '참고 음원' : kind + ' 녹음'}</h2></div><div class="ls13-recs">${others}</div></section>` : ''}
+  <a class="ls13-up" href="${back}#cn-recs">+ 녹음 올리기</a>`;
+  spa.send(req, res, content, { title: `${team} 녹음` });
+});
+
 router.post('/conti/recordings/marks', requireTeam, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
