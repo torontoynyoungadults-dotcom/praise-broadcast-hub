@@ -172,8 +172,14 @@ router.get('/admin', requireAdmin, async (req, res) => {
 
   const content = `
   ${pageShell.hubNav('', '')}
-  ${hero}
-  ${pageShell.adminTabs('admin', '')}
+  ${pageShell.hero({ barOnly: true })}
+  <section class="ad13-top"><h1>관리</h1><p>관리자에게만 보이는 화면이에요</p>
+    <nav class="ad13-nav" aria-label="관리 바로가기"><a href="#ad13-team">팀원</a><a href="#ad13-time">일정</a><a href="#practice-mail">자동 안내</a><a href="#ad13-conti">콘티</a><a href="#ad13-link">연결</a></nav></section>
+  ${(() => { const tq = ((activeTeams[0] && activeTeams[0]['팀명']) || '') ? '?team=' + encodeURIComponent((activeTeams[0] && activeTeams[0]['팀명']) || '') : ''; const row = (href, t, sub) => `<a class="ad13-row" href="${href}"><span><b>${t}</b><small>${sub}</small></span><i>›</i></a>`;
+    return `<section class="ad13-sec" id="ad13-team"><div class="v13-sechead"><h2 class="ph-h2">팀원</h2></div><div class="ad13-rows">
+      ${row('/roster' + tq, '팀원 관리', '포지션 · 관리자 권한 · 초대')}${row('/sound' + tq, '마이크 · 인이어 · P16', '싱어별 마이크 라인 · 인이어 번호')}${row('/conti' + tq + '#cn-guest', '객원 공유 링크', '로그인 없이 그날 콘티만 — 객원이 서는 날 예배 콘티에서')}</div></section>
+    <section class="ad13-sec"><div class="v13-sechead"><h2 class="ph-h2">일정 도구</h2></div><div class="ad13-rows">
+      ${row('/schedule/import' + tq, '스케줄 엑셀 올리기', '여러 주 편성을 한 번에')}${row('/schedule/generate' + tq, '연습 일정 미리 만들기', '2주 규칙 · 금요찬양기도회 제외')}${row('/events' + tq, '주일 외 예배 추가', '성탄절 · 송구영신 등')}${row('/schedule/history' + tq, '스케줄 변경 기록', '누가 · 언제 · 무엇을')}</div></section>`; })()}
 
   ${remCard}
 
@@ -197,14 +203,14 @@ router.get('/admin', requireAdmin, async (req, res) => {
     </details>
   </div>
 
-  <div class="ph-card">
+  <div class="ph-card" id="ad13-time">
     <h2 class="ph-h2">예배 · 연습 시간</h2>
     <p class="ph-sub">거의 매주 같은 시간이라 기본값으로 두었어요. PDF 커버와 스케줄표에 자동으로 들어가요. 연습 시간은 스케줄표에서 그 주만 따로 바꿀 수 있고, <b>주일 외 찬양</b>은 행사마다 시간을 따로 적어요.</p>
     <div class="ph-list">${timeCards}</div>
   </div>
 
-  <div class="ph-card">
-    <h2 class="ph-h2">폐회송</h2>
+  <div class="ph-card" id="ad13-conti">
+    <h2 class="ph-h2">콘티 기본값 · 폐회송</h2>
     <p class="ph-sub">축도 직전에 부르는 곡이에요. 보통 1년에 한 번 정도만 바뀌어요 — 여기서 정해두면 매주 콘티에 자동으로 들어가고, 인쇄용 PDF 패키지와 라이브 악보에도 함께 나와요. 악보도 여기서 올려두면 똑같이 매주 따라가요. 어느 한 주만 다르면 그 주의 콘티 화면에서 바로 고치면 돼요.</p>
     <div class="ph-list">${chCards || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
   </div>
@@ -216,7 +222,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
     <div class="ph-list">${pdRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>
   </div>
 
-  <div class="ph-card">
+  <div class="ph-card" id="ad13-link">
     <h2 class="ph-h2">방송팀 보기 링크</h2>
     <p class="ph-sub">로그인 없이 <b>예배 콘티 · 라이브 악보 · 스케줄표</b>를 볼 수 있는 링크예요 (고칠 수 없고 댓글만 가능). 방송팀에 전달해 주세요.</p>
     <div class="ph-list">${glRows || '<p class="ph-sub">활성 찬양팀이 없어요.</p>'}</div>

@@ -832,3 +832,22 @@ body { background: var(--bg); }
 .e13-past .d { font-family: 'Bodoni Moda', serif; font-size: 20px; }
 .e13-past .n { font-size: 14px; }
 .e13-past .y { font-size: 11px; color: #5C6660; }
+
+/* ===== 관리 — 시안(Admin) ===== */
+.ad13-top { background: #0F1A16; color: #ECE6D9; margin: 0 -16px 22px; padding: 24px 16px 0; }
+@media (min-width: 900px) { .ad13-top { margin: 0 -28px 22px; padding-left: 28px; padding-right: 28px; } }
+.ad13-top h1 { margin: 0 0 6px; font-family: 'MaruBuri', serif; font-size: 28px; font-weight: 700; color: #ECE6D9; }
+.ad13-top p { margin: 0 0 16px; font-size: 13px; color: #A9B4AE; }
+.ad13-nav { display: flex; gap: 0; border-top: 1px solid rgba(198,166,100,0.35); overflow-x: auto; }
+.ad13-nav a { flex: 1 0 auto; text-align: center; padding: 13px 8px; font-size: 13px; color: #A9B4AE !important; text-decoration: none; white-space: nowrap; }
+.ad13-nav a:hover { color: #E2CC97 !important; }
+.ad13-sec { margin-bottom: 28px; }
+.ad13-rows { display: flex; flex-direction: column; gap: 2px; }
+.ad13-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px; background: #FBF9F4; text-decoration: none; color: #17201C !important; min-height: 44px; }
+.ad13-row span { display: flex; flex-direction: column; gap: 2px; }
+.ad13-row b { font-size: 15px; font-weight: 500; }
+.ad13-row small { font-size: 12px; color: #5C6660; }
+.ad13-row i { font-style: normal; color: #C6A664; font-size: 18px; }
+.ph-wrap:has(.ad13-top) .ph-card { background: #FBF9F4 !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; margin-bottom: 24px !important; }
+.ph-wrap:has(.ad13-top) .ph-card.top-accent::before { display: none !important; }
+.ph-wrap:has(.ad13-top) .ph-admintabs { display: none !important; }
