@@ -15,6 +15,7 @@
   function cur() { if (TAB === 'repo') return 'repo'; if (TAB === 'stats') return 'stats'; return (AR && AR.view) || 'date'; }
   window.libNav = libNav = function () {
     var c = cur(), t = TOP[c] || TOP.repo, sub = t[1];
+    if (c === 'stats' && typeof SS !== 'undefined' && SS.data && typeof statItems === 'function') { try { var li = statItems(), dist = {}; li.forEach(function (i) { dist[i.c] = 1; }); sub = '<b>' + li.length + '</b> 부른 곡 · 서로 다른 곡 <b>' + Object.keys(dist).length + '</b>'; } catch (e) { /* 숫자 없이 */ } }
     if (c === 'repo' && RP && RP.data) { var s = RP.data.songs || []; sub = '<b>' + s.length + '</b> 곡 · 악보 있는 곡 ' + s.filter(function (x) { return x.sheets.length; }).length; }
     var nf = typeof rpFilterCount === 'function' ? rpFilterCount() : 0;
     var search = c === 'repo' ? '<div class="l13-q"><label for="rpQ" class="l13-ql">곡 찾기</label><input type="search" id="rpQ" placeholder="제목 · 원곡팀 · 가사 한 줄로 찾기" value="' + esc((RP && RP.q) || '') + '" oninput="RP.q=this.value;RP.more=60;rpRedraw();"><button type="button" class="l13-fb' + (RP && RP.fopen ? ' on' : '') + '" aria-label="필터" aria-expanded="' + !!(RP && RP.fopen) + '" onclick="RP.fopen=!RP.fopen;render();"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>' + (nf ? '<i>' + nf + '</i>' : '') + '</button></div>' : '';
@@ -137,6 +138,26 @@
       });
       if (last) out += '</section>';
       return out + (past.length > (AR.more || 30) && AR.range !== 'up' ? '<button type="button" class="l13-more" onclick="AR.more=(AR.more||30)+20;arRedraw();">더 보기 · ' + (past.length - (AR.more || 30)) + '번 남음</button>' : '');
+    };
+  }
+
+  /* 통계 — 시안(LibraryStats): 기간 4칸 · 구분 · 인도자 · 곡 찾기, 종류 탭, PDF */
+  if (typeof statsTab === 'function') {
+    var origStats = statsTab;
+    window.statsTab = statsTab = function () {
+      if (!SS.data || (!SS.items.length && !Object.keys(SS.data.svcDates || {}).length)) return origStats();
+      var leads = {}; SS.items.forEach(function (i) { lineup(i.key).lead.forEach(function (n) { leads[n] = 1; }); });
+      var rad = function (k, v, label) { return '<button type="button" role="radio" aria-checked="' + (SS[k] === v) + '" class="' + (SS[k] === v ? 'on' : '') + '" onclick="SS.' + k + '=\'' + v + '\';SS.more=false;render();">' + label + '</button>'; };
+      var views = [['song', '곡 순위'], ['team', '원곡 팀'], ['lead', '인도자'], ['people', '사람'], ['month', '월별']];
+      return '<div class="l13-repo l13-stats">' +
+        '<div class="l13-seg4" role="radiogroup" aria-label="기간">' + rad('range', '3', '3개월') + rad('range', '6', '6개월') + rad('range', '12', '1년') + rad('range', 'all', '전체') + '</div>' +
+        '<div class="l13-filters"><label><span>구분</span><select onchange="SS.kind=this.value;SS.more=false;render();">' + [['all', '전체'], ['콘티', '콘티'], ['결단', '설교 후 찬양']].map(function (x) { return '<option value="' + x[0] + '"' + (SS.kind === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>' +
+          '<label><span>인도자</span><select onchange="SS.lead=this.value;SS.more=false;render();"><option value="">전체</option>' + Object.keys(leads).sort().map(function (n) { return '<option value="' + esc(n) + '"' + (SS.lead === n ? ' selected' : '') + '>' + esc(leadTitle(n)) + '</option>'; }).join('') + '</select></label>' +
+          '<label class="w2"><span>곡 찾기</span><input type="search" id="ssq" value="' + esc(SS.q || '') + '" placeholder="곡 · 팀" oninput="SS.q=this.value;SS.more=false;statRedraw();"></label></div>' +
+        '<div class="l13-vt" role="tablist" aria-label="통계 종류">' + views.map(function (v) { return '<button type="button" role="tab" aria-selected="' + (SS.view === v[0]) + '" class="' + (SS.view === v[0] ? 'on' : '') + '" onclick="SS.view=\'' + v[0] + '\';SS.more=false;render();">' + v[1] + '</button>'; }).join('') + '</div>' +
+        '<div class="panel l13-sb" id="ssBody">' + statView(statItems()) + '</div>' +
+        '<button type="button" class="l13-more" onclick="hubDoc(\'hubStatsDoc\',[TOKEN,SS.range===\'all\'?\'\':SS.range,SS.kind,SS.lead,SS.q],\'ssDocMsg\')">PDF로 받기 (지금 고른 조건)</button><p class="msg docmsg" id="ssDocMsg"></p>' +
+        '<p class="l13-note">띄어쓰기 · 대소문자 · 한 글자 오타는 같은 곡으로 묶었어요. 사람 · 인도자는 편성이 입력된 예배 기준이에요.</p></div>';
     };
   }
 })();

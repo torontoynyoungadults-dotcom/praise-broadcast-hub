@@ -1284,3 +1284,14 @@ html[data-theme="light"] .yn .l13-q input[type="search"], .yn .l13-q input#rpQ {
 .yn #body .seg button.on { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16 !important; }
 .yn .a13-links button { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 4px 0 !important; min-height: 0 !important; border-radius: 0 !important; font-weight: 400 !important; }
 html[data-theme="light"] .yn .l13-filters input[type="search"] { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+/* 통계 */
+.yn .l13-seg4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+.yn .l13-seg4 button { all: unset; cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: center; background: #FBF9F4; font-size: 13px; color: #17201C; }
+.yn .l13-seg4 button.on { background: #0F1A16; color: #E2CC97; }
+.yn .l13-filters .w2 { grid-column: 1 / -1; }
+.yn .l13-vt { display: flex; overflow-x: auto; border-bottom: 1px solid #DDD6C8; scrollbar-width: none; }
+.yn .l13-vt button { all: unset; cursor: pointer; flex: 1 0 auto; text-align: center; padding: 12px 10px; font-size: 13px; color: #5C6660; border-bottom: 2px solid transparent; white-space: nowrap; }
+.yn .l13-vt button.on { color: #17201C; font-weight: 500; border-bottom-color: #0F1A16; }
+.yn .l13-sb { padding: 6px 14px !important; }
+.yn .l13-sb .ssbar, .yn .l13-sb [class*="bar"] > i, .yn .l13-sb .bar i { background: #C6A664 !important; border-radius: 0 !important; }
+.yn .l13-sb b, .yn .l13-sb .n { font-family: 'Bodoni Moda', serif; }
