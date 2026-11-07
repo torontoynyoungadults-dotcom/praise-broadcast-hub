@@ -309,4 +309,81 @@ router.post('/schedule/practice/autofill', requireTeam, async (req, res) => {
   backTo(req, res, team, b);
 });
 
+
+/* ---------- 연습 일정 미리 만들기 (관리자) — lib/practicePlan.js. 미리 보고 → 스케줄표('연습일정')에 넣기 ---------- */
+const practicePlan = require('../lib/practicePlan');
+const pracLib = require('../lib/practice');
+const timeSettings = require('../lib/timeSettings');
+function planOpts(q) {
+  const y = Number(q.year) || (new Date().getMonth() >= 9 ? new Date().getFullYear() + 1 : new Date().getFullYear());
+  return { year: y, every: Number(q.every) || 2, start: String(q.start || ''), skipLastFri: q.last !== '0', skipHolidays: q.hol !== '0' };
+}
+router.get('/schedule/generate', requireTeam, async (req, res) => {
+  const team = req.ctx.current;
+  if (!req.ctx.isAdmin) return spa.redirect(req, res, `/schedule?team=${encodeURIComponent(team)}`);
+  const o = planOpts(req.query), p = practicePlan.plan(o);
+  const ts = await timeSettings.get(team);
+  const qs = (x) => { const u = new URLSearchParams({ team, year: String(p.year), every: String(p.every), last: p.skipLast ? '1' : '0', hol: p.skipHol ? '1' : '0', start: p.start }); Object.keys(x || {}).forEach((k) => u.set(k, x[k])); return `/schedule/generate?${u.toString()}`; };
+  const md = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const dot = (d) => `${d.slice(5, 7)}.${d.slice(8, 10)}`;
+  let lastM = '';
+  const rows = p.slots.map((sl, i) => {
+    const m = (sl.fri || sl.sundays[0]).slice(5, 7);
+    const head = m !== lastM ? `<h3>${Number(m)}월</h3>` : ''; lastM = m;
+    const sun = sl.sundays.map(md).join(' · ') + ' 주일';
+    return head + (sl.ok
+      ? `<div class="g13-r"><span class="d">${dot(sl.fri)}</span><span class="m">${esc(sun)}</span><span class="ok">확정</span></div>`
+      : `<div class="g13-r tbd"><span class="d">${sl.fri ? dot(sl.fri) : '?'}</span><span class="m"><span>${esc(sl.fri ? sun : sun.replace(' 주일', ' 주일 하나만'))}</span><small>${esc(sl.why)}</small></span><label class="fix"><span>날짜 정하기</span><input type="date" name="fix_${i}" aria-label="${esc(sun)} 연습 날짜 정하기"></label></div>`);
+  }).join('');
+  const seg = [1, 2, 3].map((n) => `<a role="radio" aria-checked="${p.every === n}" class="${p.every === n ? 'on' : ''}" href="${qs({ every: String(n) })}">${n}주</a>`).join('');
+  const chk = (k, on, t, sub) => `<a class="g13-ck" href="${qs({ [k]: on ? '0' : '1' })}" role="checkbox" aria-checked="${on}"><i>${on ? '✓' : ''}</i><span><b>${t}</b><small>${sub}</small></span></a>`;
+  const content = `
+  ${pageShell.hero({ barOnly: true })}
+  <section class="g13-top">
+    <a class="g13-back" href="/schedule?team=${encodeURIComponent(team)}">‹ 스케줄표 · 관리자</a>
+    <h1>연습 일정<br>미리 만들기</h1>
+    <div class="g13-year"><a href="${qs({ year: String(p.year - 1), start: '' })}" aria-label="${p.year - 1}년">‹</a><span>${p.year}</span><a href="${qs({ year: String(p.year + 1), start: '' })}" aria-label="${p.year + 1}년">›</a></div>
+    <div class="g13-cnt"><div><b>${p.counts.all}</b><small>연습 자리</small></div><div><b>${p.counts.ok}</b><small>날짜 확정</small></div><div class="t"><b>${p.counts.tbd}</b><small>미정</small></div></div>
+  </section>
+  <form method="post" action="/schedule/generate" class="g13">
+    <input type="hidden" name="team" value="${esc(team)}"><input type="hidden" name="year" value="${p.year}"><input type="hidden" name="every" value="${p.every}">
+    <input type="hidden" name="last" value="${p.skipLast ? '1' : '0'}"><input type="hidden" name="hol" value="${p.skipHol ? '1' : '0'}"><input type="hidden" name="start" value="${esc(p.start)}">
+    <section><div class="v13-sechead"><h2 class="ph-h2">규칙</h2></div>
+      <div class="g13-rule">
+        <div class="g13-b"><span class="k">한 번 연습할 때 준비하는 주일</span><div class="g13-seg" role="radiogroup" aria-label="연습 간격">${seg}</div><small>첫 주일 바로 전 금요일에 주일 ${p.every === 1 ? '하나를' : p.every === 2 ? '두 개를' : '세 개를'} 함께 연습해요</small></div>
+        <div class="g13-b g13-two"><div><span class="k">요일 · 시간</span><b>금 ${esc(timeSettings.fmt(ts.practice) || '')}</b><small>${esc(ts.place || '')} · 관리에서 바꿔요</small></div>
+          <div><span class="k">첫 연습</span><b>${dot(p.start)}</b><small>${esc(p.slots.find((x) => x.fri === p.start) ? p.slots.find((x) => x.fri === p.start).sundays.map(md).join(' · ') : '')}</small><input type="date" value="${esc(p.start)}" aria-label="첫 연습 날짜" onchange="location.href='${qs({}).replace(/&start=[^&]*/, '')}&start='+this.value"></div></div>
+        <div class="g13-b"><span class="k">연습하지 않는 금요일</span>${chk('last', p.skipLast, '매달 마지막 금요일', '금요찬양기도회')}${chk('hol', p.skipHol, '공휴일', '신정 · 성금요일 · 성탄 전날')}</div>
+        <div class="g13-b"><span class="k">연습 날이 막히면</span><p class="g13-note">미정으로 두고 나중에 직접 정해요 — 아래에서 바로 날짜를 넣어도 돼요.</p></div>
+      </div>
+    </section>
+    <section><div class="v13-sechead"><h2 class="ph-h2">미리 보기</h2></div><div class="g13-list">${rows}</div>
+      <p class="g13-foot">성탄절(12/25)과 송구영신(12/31) 연습은 주일 외 찬양에서 따로 정해요. 미정인 날은 스케줄표에 "연습 미정"으로 들어가고, 팀원 화면에도 그렇게 보여요. 이미 정해 둔 연습일은 이 일정으로 바뀌어요.</p>
+    </section>
+    <div class="g13-bar"><a href="/schedule?team=${encodeURIComponent(team)}">취소</a><button type="submit">스케줄표에 ${p.counts.all}개 넣기</button></div>
+  </form>`;
+  spa.send(req, res, content, { title: `${team} 연습 일정 미리 만들기` });
+});
+router.post('/schedule/generate', requireTeam, async (req, res) => {
+  const team = req.ctx.current;
+  if (!req.ctx.isAdmin) return res.status(403).send('관리자만');
+  const p = practicePlan.plan(planOpts(req.body || {}));
+  const ts = await timeSettings.get(team), note = timeSettings.practiceNote(ts);
+  const all = (await sheetsDb.readAll('연습일정', { fresh: true })).filter((r) => r['팀ID'] === team);
+  const del = [], add = [], now = new Date().toISOString();
+  const id = () => 'P' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  p.slots.forEach((sl, i) => {
+    const fix = String((req.body || {})['fix_' + i] || '');
+    const date = sl.ok ? sl.fri : (pracLib.isDate(fix) ? fix : '');
+    sl.sundays.forEach((sun) => {
+      pracLib.rowsOf(sun, sun, all).forEach((r) => del.push(r.__row));
+      add.push({ 'ID': id(), '팀ID': team, '날짜': date || pracLib.addDays(sun, -2), '비고': date ? note : pracLib.TBD_PRACTICE, '등록시각': now, '대상': sun });
+    });
+  });
+  await sheetsDb.deleteRows('연습일정', del);
+  await sheetsDb.appendRows('연습일정', add);
+  try { await schedLog.log(p.slots.flatMap((sl) => sl.sundays.map((sun) => ({ team, by: String(req.ctx.member['이름'] || ''), key: sun, date: sun, ev: '', kind: '연습', before: '', after: sl.ok ? sl.fri : '연습 미정' })))); } catch (e) { console.error('[연습 미리 만들기 기록]', e && e.message); }
+  spa.redirect(req, res, `/schedule?team=${encodeURIComponent(team)}&range=next6`);
+});
+
 module.exports = router;
