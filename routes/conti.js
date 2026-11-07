@@ -322,8 +322,13 @@ function formChips(form) {
     const code = t.k === 'C(Voice)' ? 'C (Voice)' : t.k;
     return code + (t.bars ? ` (${t.bars}마디)` : '') + (t.rep > 1 ? ` ×${t.rep}` : '');
   };
-  // 화살표는 앞 칸에 붙여서 — 줄이 바뀔 때 줄 맨 앞에 › 가 오지 않게
-  return `<p class="cn-ftext" aria-label="송폼">${toks.map((t, i) => `<span class="cn-ft">${esc(one(t))}${i < toks.length - 1 ? '<i aria-hidden="true">›</i>' : ''}</span>`).join(' ')}</p>`;
+  // V13 — 구간마다 태그: 노래(실선) · 간주(점선 + 마디) · 전조(흑녹). 읽는 사람용 글자(aria-label)는 예전 한 줄 그대로
+  const INST = /^(intro|itld|interlude|inst|out|outro|end|ending)/i;
+  const kind = (t) => (t.k === 'KeyUp' ? 'key' : INST.test(t.k) ? 'inst' : 'voc');
+  const label = (t) => (t.k === 'KeyUp' ? 'Key ↑' : t.k === 'C(Voice)' ? 'C' : t.k);
+  const small = (t) => [t.k === 'C(Voice)' ? 'Voice' : '', t.bars ? String(t.bars) : '', t.rep > 1 ? `×${t.rep}` : ''].filter(Boolean).join(' ');
+  const flat = toks.map(one).join(' › ');
+  return `<p class="cn-ftext cn-ftags" aria-label="송폼 ${esc(flat)}">${toks.map((t) => `<span class="cn-ft cn-ft-${kind(t)}" aria-hidden="true">${esc(label(t))}${small(t) ? `<small>${esc(small(t))}</small>` : ''}</span>`).join('')}</p>`;
 }
 
 /** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */
@@ -518,7 +523,7 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
   const jp = jumps && jumps[s['ID']];                                        // 녹음 · 영상에서 이 곡이 시작하는 곳부터
   const jumpBtn = jp ? `<button type="button" class="cn-recjump" data-rp-jump="${esc(jp.src)}" data-rp-t="${jp.t}" title="${jp.kind} ${jp.video ? '영상' : '녹음'} — 이 곡 시작(${mmss(jp.t)})부터 재생">${ui.icon(jp.video ? 'play' : 'headphones')}<span>${jp.video ? '영상' : '녹음'} ${mmss(jp.t)}</span></button>` : '';
   const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(s['Key'])}</b></span>` : '';
-  const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><b>${esc(bpm)}</b></span>` : '';
+  const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><svg class="cn-metro" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l3.5 18h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 15l5-9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>${esc(bpm)}</b></span>` : '';
   const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="유튜브 영상" aria-label="유튜브 영상">${YT_MARK}</a>` : '';
   const info = keyCell + bpmCell + ytBtn + jumpBtn;
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">

@@ -116,3 +116,42 @@ body { background: var(--bg); }
 
 /* 다크 화면은 이전 샴페인 골드 그대로 두고, 머리만 같은 흑녹으로 */
 :root:not([data-theme="light"]) .ph-card { background: transparent !important; }
+
+/* ======== 2단계 — 예배 콘티 곡 카드 ======== */
+.cn-song { background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; padding: 18px 2px !important; box-shadow: none !important; }
+.cn-song.fin, .cn-song.clo { background: transparent !important; }
+.cn-shead { flex-wrap: wrap; align-items: flex-start !important; gap: 4px 12px !important; }
+.cn-no { width: 34px !important; height: auto !important; background: none !important; color: #9C7F45 !important; font-family: var(--v13-num) !important; font-size: 34px !important; font-weight: 400 !important; line-height: .9 !important; place-items: start !important; }
+.cn-no .yi { width: 22px !important; height: 22px !important; color: #9C7F45; }
+.cn-tb { flex: 1 1 0; min-width: 0; padding-top: 2px; }
+.cn-ti { font-family: var(--v13-serif) !important; font-weight: 600 !important; font-size: 19px !important; letter-spacing: 0 !important; line-height: 1.35 !important; }
+.cn-tb small, .cn-tb .cn-tm, .cn-tb .cn-team { font-size: 14px !important; color: var(--accent-ink) !important; }
+
+/* KEY / BPM 블록 — 위 KEY(종이), 바로 옆 BPM(흑녹 + 메트로놈) */
+.cn-song .cn-info { flex: 1 1 100% !important; display: flex !important; flex-wrap: wrap; align-items: stretch !important; gap: 0 !important; margin: 10px 0 0 46px !important; }
+.cn-cell { border-radius: 0 !important; padding: 7px 12px !important; }
+.cn-cell.key { background: var(--bg-2) !important; border: 1px solid #C9BE9F !important; flex-direction: row !important; align-items: baseline !important; gap: 8px !important; }
+.cn-cell.key b { font-family: var(--v13-num); font-weight: 600 !important; font-size: 21px !important; color: var(--ink) !important; }
+.cn-cell.bpm { background: var(--v13-ink) !important; border: 1px solid var(--v13-ink) !important; flex-direction: row !important; align-items: center !important; gap: 6px !important; }
+.cn-cell.bpm i { color: #A9B4AE !important; }
+.cn-cell.bpm b { font-family: var(--v13-num); font-weight: 400 !important; font-size: 19px !important; color: #ECE6D9 !important; }
+.cn-metro { width: 15px; height: 15px; color: var(--v13-gold); flex: none; }
+.cn-cell i { font-size: 10px !important; letter-spacing: .08em !important; }
+.cn-cell.yt { margin-left: 8px !important; background: transparent !important; border: 1px solid #D6CFBF !important; color: var(--ink) !important; }
+.cn-cell.yt .cn-ytmark, .cn-ytmark { color: var(--ink) !important; }
+.cn-song .cn-info .cn-recjump { margin-left: 8px; border-radius: 0 !important; background: transparent !important; border: 1px solid #D6CFBF !important; }
+
+/* 송폼 태그 */
+.cn-sec-form { margin: 12px 0 0 46px !important; background: none !important; padding: 0 !important; border: 0 !important; }
+.cn-sec-form .cn-lab { display: none !important; }
+.cn-ftags { display: flex !important; flex-wrap: wrap; gap: 4px; margin: 0 !important; background: none !important; padding: 0 !important; }
+.cn-ftags .cn-ft { display: inline-flex; align-items: baseline; gap: 4px; padding: 6px 9px; font-size: 13px; line-height: 1.2; font-weight: 500; color: var(--ink); background: var(--bg-2); border: 1px solid var(--line); }
+.cn-ftags .cn-ft small { font-size: 11px; font-weight: 400; color: var(--accent-ink); }
+.cn-ftags .cn-ft-inst { background: transparent; border: 1px dashed #B7AC8E; color: var(--sub); font-weight: 400; }
+.cn-ftags .cn-ft-key { background: var(--v13-ink); border-color: var(--v13-ink); color: var(--v13-gold-hi); }
+.cn-song .ph-songsheets, .cn-snote { margin-left: 46px !important; }
+.cn-snote { font-size: 14px; }
+@media (max-width: 380px) { .cn-song .cn-info, .cn-sec-form, .cn-song .ph-songsheets, .cn-snote { margin-left: 0 !important; } }
+
+/* 콘티 위 도구 줄(PDF · 카톡 · 오프라인 · 유튜브) — 각진 칸 */
+.cn-toolrow .cn-mini, .cn-ybig { border-radius: 0 !important; background: var(--bg-2) !important; border: 1px solid var(--line) !important; color: var(--ink) !important; box-shadow: none !important; min-height: 44px; }
