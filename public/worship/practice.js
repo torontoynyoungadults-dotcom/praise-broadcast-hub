@@ -302,7 +302,7 @@
           '<button type="button" class="ak-mi" data-a="ak-click">' + I('gear') + '클릭 · BPM 컨트롤<small>이 기기</small></button>' +
           '<button type="button" class="ak-mi" data-a="pdf">' + I('download') + '필기 포함 PDF</button>' +
           '<button type="button" class="ak-mi" data-a="ak-rec">' + I('rec') + '연습 녹음</button>' +
-          '<button type="button" class="ak-mi" data-a="ak-usage" hidden>' + I('chart') + '라이브 악보 사용 기록<small>관리자</small></button>' +
+          '<button type="button" class="ak-mi" data-a="ak-usage" hidden>' + I('chart') + '라이브 악보 사용 기록<small>팀원 모두</small></button>' +
         '</div>' +
         '<div class="ak-msub">보기 · 더 보기</div>' +
         '<div class="pv-mp-view"></div>' +

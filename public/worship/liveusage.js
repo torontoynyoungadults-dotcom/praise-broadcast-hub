@@ -67,7 +67,7 @@
       if (menuBtn || dead) return;
       var acts = P.el.querySelector('.pv-acts'); if (!acts) return;
       menuBtn = doc.createElement('button'); menuBtn.type = 'button'; menuBtn.className = 'pv-b lu-actbtn';
-      menuBtn.title = '라이브 악보 사용 기록 — 누가 언제 몇 분 봤는지 (권한 있는 분만)'; menuBtn.setAttribute('aria-label', '라이브 악보 사용 기록');
+      menuBtn.title = '라이브 악보 사용 기록 — 누가 언제 몇 분 봤는지 (팀원 모두)'; menuBtn.setAttribute('aria-label', '라이브 악보 사용 기록');
       menuBtn.innerHTML = (I('timer') || I('calendar')) + '<span class="pv-mt">라이브 악보 사용 기록</span>';
       menuBtn.addEventListener('click', function (e) { e.stopPropagation(); openView(P, token, function () { take(); return post('liveUsageBeat', [token, { sid: id, room: room, label: label, ms: Math.min(acc, 90000), open: false, dev: dev }]).then(function () { acc = 0; }, function () {}); }); });
       acts.appendChild(menuBtn);
@@ -173,12 +173,12 @@
     var st = { by: 'grid', range: '5w', data: null, err: '', open: {} };                 // 2026-11 Ark — 처음은 「표」(사람 × 날짜)
     view = doc.createElement('div'); view.className = 'lu-back';
     view.innerHTML = '<section class="lu" role="dialog" aria-modal="true" aria-labelledby="luTitle">' +
-      '<header class="lu-hd"><div class="lu-t"><h3 id="luTitle"><small>관리자만 · 1년 보관</small>라이브 악보 사용 기록</h3><button type="button" class="lu-x" data-x="1" aria-label="닫기">' + (I('close') || '✕') + '</button></div>' +
+      '<header class="lu-hd"><div class="lu-t"><h3 id="luTitle"><small>팀원 모두 · 1년 보관</small>라이브 악보 사용 기록</h3><button type="button" class="lu-x" data-x="1" aria-label="닫기">' + (I('close') || '✕') + '</button></div>' +
       '<div class="lu-ctl"><div class="lu-seg" role="group" aria-label="보기"><button type="button" data-by="grid">표</button><button type="button" data-by="day">날짜별</button><button type="button" data-by="person">사람별</button></div>' +
       '<div class="lu-seg" role="group" aria-label="기간">' + RANGES.map(function (r) { return '<button type="button" data-rg="' + r[0] + '">' + r[1] + '</button>'; }).join('') + '</div></div>' +
       '<div class="lu-sum"></div></header>' +
       '<div class="lu-bd"><p class="lu-msg">불러오는 중…</p></div>' +
-      '<footer class="lu-ft">화면이 켜져 있던 시간만 셉니다 (다른 앱 · 화면 꺼짐 제외) · 1년 보관 · 이 화면은 권한 있는 분만 볼 수 있어요</footer></section>';
+      '<footer class="lu-ft">화면이 켜져 있던 시간만 셉니다 (다른 앱 · 화면 꺼짐 제외) · 1년 보관 · 팀원 모두 볼 수 있어요</footer></section>';
     ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'keydown'].forEach(function (k) { view.addEventListener(k, function (e) { if (k !== 'keydown' || e.key !== 'Escape') e.stopPropagation(); }, { passive: k !== 'keydown' }); });
     view.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeView(); } });
     view.addEventListener('click', function (e) {
