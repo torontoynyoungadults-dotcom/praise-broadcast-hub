@@ -52,6 +52,18 @@
         '<button type="button" class="rpf-expand" data-rp-a="expand" title="자세히" aria-label="자세히 펼치기" aria-expanded="false">' + I.up + '</button>' +
         '<button type="button" class="rpf-x" data-rp-a="close" title="닫기" aria-label="플레이어 닫기">' + I.close + '</button>' +
       '</div>' +
+      '<div class="rpv">' +
+        '<div class="rpv-top"><span class="rpv-k">녹음</span><button type="button" class="rpv-min" data-rp-a="expand" aria-label="작게 접기">접기</button><button type="button" class="rpv-x" data-rp-a="close" aria-label="플레이어 닫기">' + I.close + '</button></div>' +
+        '<b class="rpv-t"></b><span class="rpv-s"></span>' +
+        '<div class="rpv-wave" role="slider" tabindex="0" aria-label="재생 위치" aria-valuemin="0" aria-valuemax="100"></div>' +
+        '<div class="rpv-times"><span class="rpv-c">00:00</span><span class="rpv-ab"></span><span class="rpv-d">00:00</span></div>' +
+        '<div class="rpv-ctl"><button type="button" class="sq rpv-rate" data-rp-a="ratecycle" aria-label="재생 속도">1.0<i>×</i></button>' +
+          '<button type="button" class="sk" data-rp-a="back15" aria-label="15초 뒤로"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4h4"/></svg><small>15</small></button>' +
+          '<button type="button" class="pp rpv-go" data-rp-a="toggle" aria-label="재생 / 멈춤">' + I.play + '</button>' +
+          '<button type="button" class="sk" data-rp-a="fwd15" aria-label="15초 앞으로"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/></svg><small>15</small></button>' +
+          '<button type="button" class="sq rpv-rep" data-rp-a="rep" aria-label="구간 반복" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 11V8h13l-3-3M20 13v3H7l3 3"/></svg></button></div>' +
+        '<div class="rpv-reppanel"><button type="button" data-rp-a="setA">A 시작</button><button type="button" data-rp-a="setB">B 끝</button><button type="button" data-rp-a="clearAB">반복 해제</button><button type="button" data-rp-a="adv">곡 위치 · 소리 · 이전/다음</button></div>' +
+      '</div>' +
       '<div class="rp-seek"><input class="rp-bar" type="range" min="0" max="1000" value="0" step="1" aria-label="재생 위치"></div>' +
       '<div class="rpf-more">' +
         '<div class="rp-ctl">' +
@@ -80,13 +92,20 @@
     var bar = $('.rp-bar'), cur = $('.rp-cur'), dur = $('.rp-dur'), go = $('.rp-go'), rateEl = $('.rp-rate'), msg = $('.rp-msg'),
         ttl = $('.rp-title'), by = $('.rp-by'), abEl = $('.rp-ab'), vol = $('.rp-vol'), auto = $('.rp-auto'), loop = $('.rp-loop'), exp = $('.rpf-expand'),
         markGrp = $('.rp-markgrp'), markBox = $('.rp-marklist'), vshow = $('.rpf-vshow');
+    var vT = $('.rpv-t'), vS = $('.rpv-s'), vWave = $('.rpv-wave'), vC = $('.rpv-c'), vD = $('.rpv-d'), vAB = $('.rpv-ab'), vGo = $('.rpv-go'), vRate = $('.rpv-rate'), vBars = [], vHead = null;
+    var RCYCLE = [0.75, 0.9, 1, 1.1, 1.25, 1.5];
+    function fmt2(t) { if (!isFinite(t) || t < 0) t = 0; t = Math.floor(t); var m = Math.floor(t / 60), x = t % 60; return (m < 10 ? '0' : '') + m + ':' + (x < 10 ? '0' : '') + x; }
+    function vBuild(key) { var h = 2166136261; key = String(key || ''); for (var i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); } h >>>= 0; var html = ''; for (var k = 0; k < 44; k++) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; html += '<i style="height:' + (26 + (h % 74)) + '%"></i>'; } vWave.innerHTML = html + '<b class="hd"></b><span class="abz"></span>'; vBars = vWave.querySelectorAll('i'); vHead = vWave.querySelector('.hd'); }
+    function vPaint() { if (!vBars.length) return; var d = au.duration, p = d > 0 ? au.currentTime / d : 0, on = Math.round(p * vBars.length); for (var k = 0; k < vBars.length; k++) vBars[k].classList.toggle('on', k < on); vHead.style.left = (p * 100) + '%'; vC.textContent = fmt2(au.currentTime); vD.textContent = fmt2(d); var z = vWave.querySelector('.abz'); if (A != null && d > 0) { z.hidden = false; z.style.left = (A / d * 100) + '%'; z.style.width = (((B != null ? B : d) - A) / d * 100) + '%'; } else z.hidden = true; vAB.textContent = A != null ? 'A ' + fmt2(A) + ' ~ ' + (B != null ? 'B ' + fmt2(B) : '…') : ''; root.querySelector('.rpv-rep').classList.toggle('on', A != null); }
+    vWave.addEventListener('click', function (e) { var r = vWave.getBoundingClientRect(), d = au.duration || 0; if (d) { au.currentTime = Math.max(0, Math.min(d - 0.2, (e.clientX - r.left) / r.width * d)); vPaint(); } });
+
     var st = load(), list = [], idx = -1, A = null, B = null, seeking = false;
     var rate = clampRate(st.rate || 1);
     try { au.preservesPitch = true; au.mozPreservesPitch = true; au.webkitPreservesPitch = true; } catch (e) { /* 기본값이 음높이 유지 */ }
     vol.value = st.vol == null ? 100 : st.vol; auto.checked = st.auto !== false; loop.checked = !!st.loop; au.volume = vol.value / 100;
 
     function say(t, bad) { msg.textContent = t || ''; msg.classList.toggle('bad', !!bad); root.classList.toggle('has-msg', !!t); }
-    function applyRate() { au.playbackRate = rate; rateEl.textContent = rate.toFixed(2) + '×'; root.querySelectorAll('[data-rp-rate]').forEach(function (b) { b.classList.toggle('on', Math.abs(Number(b.getAttribute('data-rp-rate')) - rate) < 0.001); }); }
+    function applyRate() { au.playbackRate = rate; rateEl.textContent = rate.toFixed(2) + '×'; if (vRate) vRate.innerHTML = (Math.abs(rate - 1) < 0.001 ? '1.0' : String(Math.round(rate * 100) / 100)) + '<i>×</i>'; root.querySelectorAll('[data-rp-rate]').forEach(function (b) { b.classList.toggle('on', Math.abs(Number(b.getAttribute('data-rp-rate')) - rate) < 0.001); }); }
     function setRate(r) { rate = clampRate(r); applyRate(); st.rate = rate; save(st); }
     function paintBar() {
       var d = au.duration, p = d > 0 ? au.currentTime / d : 0, pc = (p * 100).toFixed(2);
@@ -97,6 +116,7 @@
         ? 'linear-gradient(90deg,' + base + ' ' + pc + '%,' + off + ' ' + pc + '%), linear-gradient(90deg,transparent ' + a + '%,rgba(255,138,61,.55) ' + a + '%,rgba(255,138,61,.55) ' + b + '%,transparent ' + b + '%)'
         : 'linear-gradient(90deg,' + base + ' ' + pc + '%,' + off + ' ' + pc + '%)';
       cur.textContent = fmt(au.currentTime); dur.textContent = fmt(d);
+      vPaint();
     }
     function paintAB() { abEl.textContent = A == null && B == null ? '' : (A != null ? fmt(A) : '–') + ' ~ ' + (B != null ? fmt(B) : '–'); paintBar(); }
     function markList() {                              // 지금 화면에 있는 목록에서 재생 중인 줄 표시
@@ -118,6 +138,7 @@
       if (i < 0) i = 0; if (i >= list.length) i = list.length - 1;
       var it = list[i]; idx = i; A = B = null; pendT = t > 0 ? t : 0; paintAB(); say('');
       ttl.textContent = it.title || '녹음'; by.textContent = it.by || '';
+      vT.textContent = it.title || '녹음'; vS.textContent = [it.by ? '올린 이 ' + it.by : '', list.length > 1 ? (i + 1) + ' / ' + list.length : ''].filter(Boolean).join(' · '); vBuild(it.src);
       paintVideo(isVideo(it.src));
       au.src = it.src; applyRate(); au.load(); markList(); meta(); show(); paintMarks(); place();
       if (play) au.play().catch(function (e) { if (e && e.name !== 'AbortError' && e.name !== 'NotSupportedError') say('재생을 시작하지 못했어요. 재생 버튼을 한 번 더 눌러 주세요.', true); });
@@ -195,6 +216,10 @@
       setA: function () { if (idx < 0) return; A = au.currentTime; if (B != null && B <= A) B = null; paintAB(); say('구간 시작을 ' + fmt(A) + ' 로 잡았어요. 끝나는 곳에서 "B 끝"을 눌러요.'); },
       setB: function () { if (idx < 0) return; if (A == null) A = 0; if (au.currentTime <= A + 0.3) { say('B(끝)는 A(시작)보다 뒤여야 해요.', true); return; } B = au.currentTime; paintAB(); say('구간 반복 중 — 해제하려면 "해제".'); },
       clearAB: function () { A = B = null; paintAB(); say(''); },
+      back15: function () { seekBy(-15); }, fwd15: function () { seekBy(15); },
+      ratecycle: function () { var n = 0; for (var k = 0; k < RCYCLE.length; k++) if (Math.abs(RCYCLE[k] - rate) < 0.001) n = k + 1; setRate(RCYCLE[n % RCYCLE.length]); },
+      rep: function () { var o = !root.classList.contains('rep'); root.classList.toggle('rep', o); root.querySelector('.rpv-rep').setAttribute('aria-expanded', String(o)); place(); },
+      adv: function () { root.classList.toggle('adv'); place(); },
       full: function () {                                 // 영상 크게 — 전체 화면 (아이폰은 영상 전용 전체 화면)
         try { if (au.requestFullscreen) au.requestFullscreen(); else if (au.webkitEnterFullscreen) au.webkitEnterFullscreen(); else if (au.webkitRequestFullscreen) au.webkitRequestFullscreen(); } catch (e) { say('전체 화면을 열지 못했어요.', true); }
       },
@@ -219,8 +244,8 @@
     au.addEventListener('timeupdate', function () { if (A != null && B != null && B > A && au.currentTime >= B) au.currentTime = A; paintBar(); });
     au.addEventListener('loadedmetadata', function () { applyRate(); paintBar(); if (au.videoWidth > 0 && !root.classList.contains('has-video')) paintVideo(true); });
     au.addEventListener('durationchange', paintBar);
-    au.addEventListener('play', function () { go.innerHTML = I.pause; root.classList.add('playing'); markList(); });
-    au.addEventListener('pause', function () { go.innerHTML = I.play; root.classList.remove('playing'); markList(); });
+    au.addEventListener('play', function () { go.innerHTML = I.pause; vGo.innerHTML = I.pause; root.classList.add('playing'); markList(); });
+    au.addEventListener('pause', function () { go.innerHTML = I.play; vGo.innerHTML = I.play; root.classList.remove('playing'); markList(); });
     au.addEventListener('waiting', function () { say('불러오는 중…'); });
     au.addEventListener('playing', function () { say(A != null && B != null ? '구간 반복 중' : ''); });
     au.addEventListener('ended', function () {
@@ -283,7 +308,8 @@
     }
     return {
       root: root, au: au, restore: restore,
-      play: function (items, i, t) { list = items; select(i, true, t); },
+      play: function (items, i, t) { list = items; select(i, true, t); setExpanded(true); },
+      expand: function () { setExpanded(true); },
       seek: seekTo,
       current: function () { return idx >= 0 && list[idx] ? list[idx].src : ''; },
       playing: function () { return idx >= 0 && !au.paused; },
@@ -314,7 +340,7 @@
     e.preventDefault();
     var src = b.getAttribute('data-rp-jump'), t = Number(b.getAttribute('data-rp-t')) || 0;
     if (!F) F = create();
-    if (F.current() === src) { F.seek(t); return; }
+    if (F.current() === src) { F.seek(t); F.expand(); return; }
     var items = snapshot(), i = items.findIndex(function (x) { return x.src === src; });
     if (i < 0) { items.unshift({ src: src, title: b.getAttribute('title') || '녹음', by: '' }); i = 0; }
     F.play(items, i, t);
