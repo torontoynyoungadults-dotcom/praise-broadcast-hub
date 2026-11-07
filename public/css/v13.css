@@ -1630,3 +1630,19 @@ body .a13-bar { bottom: 84px; }
   html body .yn .s13 .s13-tw { overflow-x: auto !important; max-width: 760px; margin-left: auto; margin-right: auto; }
 }
 html, body { overflow-x: clip; }
+
+/* ===== 넓은 화면 — 모든 흑녹 띠(머리 · 메뉴 · 날짜 띠 · 큰 날짜 · 페이지 머리)를 화면 끝까지 똑같이 ===== */
+@media (min-width: 900px) {
+  html body .ph-hero, html body .ph-hubnav, html body .ph-wstrip, html body .v13-bigdate, html body .v13-bigdate + .pc-tabs,
+  html body .v13-ptitle, html body .ls13-top, html body .e13-top, html body .ad13-top, html body .g13-top, html body .hm-dark {
+    margin-left: calc(50% - 50vw) !important; margin-right: calc(50% - 50vw) !important; max-width: none !important; width: auto !important; box-sizing: border-box;
+  }
+  html body .ph-hero, html body .ph-hubnav, html body .ph-wstrip, html body .v13-bigdate, html body .v13-ptitle,
+  html body .ls13-top, html body .e13-top, html body .ad13-top, html body .g13-top, html body .hm-dark {
+    padding-left: max(28px, calc(50vw - 552px)) !important; padding-right: max(28px, calc(50vw - 552px)) !important;
+  }
+  html body .yn .s13 .s13-top, html body .yn .l13-top, html body .yn .l13-tabs {
+    margin-left: calc(50% - 50vw) !important; margin-right: calc(50% - 50vw) !important;
+    padding-left: max(16px, calc(50vw - 380px)) !important; padding-right: max(16px, calc(50vw - 380px)) !important;
+  }
+}
