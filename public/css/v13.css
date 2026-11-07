@@ -1109,7 +1109,7 @@ body:has(.ph-me[open]) .v13-livebar, body:has(.ph-me[open]) .hm-cta2, body:has(.
   .ph-wrap .ph-wstrip .ph-wstrip-scroll > * { flex: 1 1 0 !important; max-width: 120px; min-width: 88px !important; }
   .ph-wrap .ph-wstrip .ph-wstrip-day { font-size: 22px !important; }
   .v13-bd-row { max-width: 640px; }
-  .pc-tabs { max-width: 760px; margin-left: auto !important; margin-right: auto !important; }
+  .v13-bigdate + .pc-tabs { max-width: none !important; }
   .yn .s13 .s13-top > *, .yn .s13 .s13-main { max-width: 760px; margin-left: auto; margin-right: auto; }
   .yn .l13-top > *, .yn .l13-tabs { max-width: 760px; margin-left: auto !important; margin-right: auto !important; }
   .yn .yn-main #body > :not(.l13-top):not(.l13-tabs):not(.s13) { max-width: 760px; margin-left: auto; margin-right: auto; }
