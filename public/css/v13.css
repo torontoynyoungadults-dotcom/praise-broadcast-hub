@@ -716,3 +716,15 @@ body { background: var(--bg); }
 .pc-target > .ph-card { margin-bottom: 28px !important; }
 .pc-away { color: #8A4A12 !important; }
 .cn-cardhead .cn-mini { border: 0 !important; background: transparent !important; color: #6E5A2E !important; font-size: 13px !important; box-shadow: none !important; padding: 10px 0 10px 8px !important; }
+/* 스케줄표 — yn.css 단추 · 입력 모양 덮기 */
+.yn .s13 .s13-cal2 > button, .yn .s13 .s13-cal2 > a { all: unset; box-sizing: border-box; cursor: pointer; min-height: 44px; border: 1px solid rgba(198,166,100,0.45) !important; background: transparent !important; color: #E2CC97 !important; display: flex !important; align-items: center; justify-content: center; font-size: 12px !important; text-align: center; box-shadow: none !important; }
+.yn .s13 .s13-filt select { appearance: auto; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; min-height: 24px !important; height: auto !important; font-size: 14px !important; border-radius: 0 !important; }
+.yn .s13 .s13-rh .tag { font-size: 11px !important; font-weight: 400 !important; padding: 4px 7px !important; border: 1px solid #D6CFBF !important; background: transparent !important; color: #5C6660 !important; border-radius: 0 !important; box-shadow: none !important; }
+.yn .s13 .s13-rh .tag.on { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16 !important; }
+.yn .s13 .s13-foot button { all: unset; cursor: pointer; font-size: 12px !important; color: #6E5A2E !important; padding: 8px 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.yn .s13 .s13-grid { gap: 1px; background: #ECE6DA; border-top: 1px solid #ECE6DA; }
+.yn .s13 .s13-grid .c { border: 0 !important; background: #FFFFFF; }
+.yn .s13 .s13-grid .c.me { background: #E6DCC2; }
+.yn .s13 .s13-grid .c.ed:hover { background: #F5F1E8; }
+.yn .s13 .s13-tabs button, .yn .s13 .s13-bot > button, .yn .s13 .s13-calh button { box-shadow: none !important; }
+.yn .s13 .s13-bot > * { border: 0 !important; background: #FBF9F4 !important; font-size: 12px !important; color: #17201C !important; }
