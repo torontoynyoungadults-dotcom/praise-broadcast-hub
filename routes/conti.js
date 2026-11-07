@@ -1011,7 +1011,7 @@ router.get('/conti', requireTeam, async (req, res) => {
 
   <div class="ph-card">
     <h2 class="ph-h2">녹음</h2>
-    ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
+    ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && req.ctx && req.ctx.isAdmin && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
     <h3 class="ph-h3">연습 녹음</h3>
     <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
     <h3 class="ph-h3">예배 녹음</h3>

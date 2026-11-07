@@ -224,3 +224,9 @@ body { background: var(--bg); }
 .ph-list-item { border: 0 !important; padding: 13px 14px !important; }
 .ph-li-title, .ph-li-link.strong { font-family: var(--v13-serif); font-weight: 600 !important; }
 .ph-li-sub { color: var(--sub) !important; }
+
+/* ======== 8단계 — 관리 ======== */
+.ph-admintabs { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px !important; padding: 0 !important; }
+.ph-admintabs .ph-btn { border: 0 !important; }
+.rg-st, .ph-rr-st { border-radius: 0 !important; }
+.ph-rr { background: var(--bg-2); border: 0 !important; }
