@@ -167,3 +167,17 @@ body { background: var(--bg); }
 .ph-wstrip-cell.on .ph-wstrip-month, .ph-wstrip-cell.on .ph-wstrip-day, .ph-wstrip-cell.on .ph-wstrip-ratio { color: #0F1A16 !important; opacity: 1 !important; }
 .ph-wstrip-jump, .ph-wstrip-cal, .ph-wstrip-callabel { color: var(--v13-gold) !important; background: transparent !important; border-color: #22302A !important; }
 .ph-hero-title + .ph-hero-sub { margin-top: 4px !important; }
+
+/* ======== 3단계 — 연습 콘티 ======== */
+.pc-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; background: #DDD6C8; padding: 2px; margin: 0 0 18px; position: sticky; top: 0; z-index: 4; }
+.pc-tabs a { min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: var(--bg); color: var(--sub); text-decoration: none; }
+.pc-tabs a b { font-family: var(--v13-num); font-weight: 400; font-size: 19px; color: inherit; }
+.pc-tabs a small { font-size: 12px; }
+.pc-tabs a.on { background: var(--v13-ink); color: #ECE6D9; }
+.pc-tabs a.on b { font-weight: 600; }
+.pc-tabs a.on small { color: var(--v13-gold-hi); }
+.pc-target[hidden] { display: none !important; }
+.pc-thead .ph-h2::after { display: none; }
+.pc-person { border-radius: 0 !important; }
+.pc-person.me { background: var(--v13-sel) !important; }
+.pc-sec h3 { font-family: var(--v13-serif); font-weight: 700; }

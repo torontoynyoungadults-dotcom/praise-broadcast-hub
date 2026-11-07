@@ -1324,11 +1324,10 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
           <span class="ph-pr-with">${cur.targets.length > 1 ? `이 날 ${cur.targets.length}개 콘티를 함께 연습해요 · ` : ''}${cur.targets.map((t) => esc(practiceView.targetName(t))).join(' · ')}</span></div>
         <a class="ph-pr-edit" href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 바꾸기 ${ui.icon('next')}</a>
       </div>
-      <div class="pc-cal"><span class="pc-callab">${ui.icon('calendar')} 캘린더에 추가</span>
-        <a class="cn-mini" href="/practice-conti/calendar.ics?team=${encodeURIComponent(team)}&pd=${encodeURIComponent(cur.date)}">아이폰 · 맥 캘린더</a>
-        <a class="cn-mini" href="${esc(practiceView.googleCalUrl(practiceView.calEvent(team, cur, null, process.env.BASE_URL || `${req.protocol}://${req.get('host')}`)))}" target="_blank" rel="noopener">구글 캘린더</a></div>
+
     </div>`;
     const cards = [];
+    const tabInfo = [];
     for (const t of cur.targets) {
       const scope = { event: t.event, date: t.date };
       const eventRow = t.event ? await specialServiceById(team, t.event) : null;
@@ -1355,7 +1354,9 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       const songsHtml = sec('콘티', w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))), `<div class="pc-add">${songForm('콘티', team, scope, roster, byPos, hist)}</div>`)
         + sec('설교 후 찬양', w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))))
         + sec('폐회송', w.closing.map((s) => songCard(s, Object.assign({ index: 1, kind: '폐회송' }, songCtx))));
-      cards.push(withBack(`<section class="ph-card pc-target" aria-label="${esc(practiceView.targetName(t))} 콘티">
+      const tIdx = cards.length;
+      tabInfo.push({ i: tIdx, name: practiceView.targetName(t), date: t.date, mine: (people.find((x) => x.name === me) || {}).pos || null, away: !!(people.find((x) => x.name === me && x.off)) });
+      cards.push(withBack(`<section class="ph-card pc-target" id="pc-t-${tIdx}" aria-label="${esc(practiceView.targetName(t))} 콘티">
         <div class="pc-thead">
           <div><h2 class="ph-h2">${esc(practiceView.targetName(t))} 콘티</h2><p class="pc-tdate">${esc(week.labelKo(t.date))}${cur.targets.length > 1 ? ` · ${cur.targets.indexOf(t) + 1} / ${cur.targets.length}` : ''}</p></div>
           <div class="pc-tlinks"><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기 ${ui.icon('next')}</a></div>
@@ -1381,7 +1382,10 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
         })()}
       </section>`, q(cur.date)));
     }
-    body = head + cards.join('');
+    // V13 — 같은 날 연습하는 주일이 둘 이상이면 위에 주일 탭 (한 번에 한 주일 콘티만)
+    const tabs = cards.length > 1 ? `<nav class="pc-tabs" aria-label="함께 연습하는 주일">${tabInfo.map((x) => `<a href="#pc-t-${x.i}" data-pc-tab="${x.i}"${x.i === 0 ? ' class="on" aria-current="true"' : ''}><b>${Number(x.date.slice(5, 7))}.${x.date.slice(8, 10)} ${esc(x.name.replace(/^\d+월 \d+일\s*/, ''))}</b><small>${x.mine ? '나 ' + esc(x.mine.join(' · ')) : '나 쉼'}</small></a>`).join('')}</nav>
+      <script>(function(){function go(){var h=location.hash.replace('#pc-t-','');var n=document.querySelectorAll('[data-pc-tab]');if(!n.length)return;if(h===''||!document.getElementById('pc-t-'+h))h='0';n.forEach(function(a){var on=a.getAttribute('data-pc-tab')===h;a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current');});document.querySelectorAll('.pc-target').forEach(function(sct){sct.hidden=sct.id!=='pc-t-'+h;});}go();window.addEventListener('hashchange',go);})();</script>` : '';
+    body = head + tabs + cards.join('');
   }
 
   const content = `
