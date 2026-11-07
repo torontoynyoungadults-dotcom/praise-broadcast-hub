@@ -993,7 +993,7 @@ router.get('/conti', requireTeam, async (req, res) => {
   // V13 — 말씀 후(설교 후 찬양 · 폐회송) 한 섹션 — 줄: 라벨 | 제목 · 원곡팀 · 송폼 | 키 (♩ BPM)
   const afterRows = (() => {
     const keyTxt = (x) => esc(String(x['Key'] || '').replace(/\s*-+>\s*/g, '→'));
-    const formLine = (x) => String(x['송폼'] || '').split(/[\s,]+/).filter(Boolean).join(' › ');
+    const formLine = (x) => String(x['송폼'] || '').split(/[\s,>›-]+/).filter(Boolean).join(' › ');
     const lastC = w.conti[w.conti.length - 1];
     const same = (x) => lastC && String(lastC['제목'] || '').trim() && String(lastC['제목'] || '').trim() === String(x['제목'] || '').trim();
     const row = (label, x) => (x

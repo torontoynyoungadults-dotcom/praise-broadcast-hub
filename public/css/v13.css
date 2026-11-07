@@ -531,3 +531,9 @@ body { background: var(--bg); }
 .v13-share .ph-inlineform input[type="text"] { flex: 1; min-height: 46px; border: 1px solid #D6CFBF !important; background: #FBF9F4 !important; padding: 0 12px; font-size: 14px; border-radius: 0 !important; }
 .v13-share .ph-inlineform .ph-btn { min-height: 46px; padding: 0 18px; border: 0 !important; background: #0F1A16 !important; color: #E2CC97 !important; font-size: 14px; border-radius: 0 !important; }
 .v13-share .ph-list:has(> .ph-sub:only-child) .ph-sub { font-size: 14px; color: #5C6660; margin: 0; }
+.lu-card .ph-chipname { overflow: visible !important; text-overflow: clip !important; white-space: nowrap; max-width: none !important; flex: 0 0 auto; }
+.lu-card .ph-namechip { overflow: visible !important; max-width: none !important; }
+.lu-card .lu-b, .lu-card .lu-b b { font-weight: 400 !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-possummary { flex-wrap: nowrap !important; padding: 12px 4px 12px 14px !important; white-space: nowrap; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-posnames { flex-wrap: nowrap !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-namechip.none .ph-dash::after { font-size: 14px; }
