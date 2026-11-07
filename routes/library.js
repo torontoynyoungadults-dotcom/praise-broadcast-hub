@@ -32,7 +32,7 @@ router.get('/library', requireTeam, async (req, res) => {
   const [tab, view] = VIEWS[String(req.query.v || '')] || VIEWS.repo;
   await hubPage.send(req, res, {
     nav: 'library', tab, view, title: `${team} 라이브러리`,
-    hero: { eyebrow: `${team} · 라이브러리`, title: '라이브러리', sub: '곡 · 악보 · 지난 콘티 · 녹음 · 통계를 한곳에서' },
+    hero: { barOnly: true },
   });
 });
 
