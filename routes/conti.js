@@ -329,8 +329,9 @@ function formChips(form) {
   const kind = (t) => (t.k === 'KeyUp' ? 'key' : INST.test(t.k) ? 'inst' : 'voc');
   const label = (t) => (t.k === 'KeyUp' ? 'Key ↑' : t.k === 'C(Voice)' ? 'C' : t.k);
   const small = (t) => [t.k === 'C(Voice)' ? 'Voice' : '', t.bars ? String(t.bars) : '', t.rep > 1 ? `×${t.rep}` : ''].filter(Boolean).join(' ');
+  const sec = (k) => (/^V\d?$/.test(k) ? 'v' : /^PC\d?$/.test(k) ? 'pc' : /^C\d?$/.test(k) || k === 'C(Voice)' ? 'c' : /^B\d?$/.test(k) ? 'b' : /^(Tag|Vamp|Turn|Coda)$/i.test(k) ? 'tag' : 'etc');
   const flat = toks.map(one).join(' › ');
-  return `<p class="cn-ftext cn-ftags" aria-label="송폼 ${esc(flat)}">${toks.map((t) => `<span class="cn-ft cn-ft-${kind(t)}" aria-hidden="true">${esc(label(t))}${small(t) ? `<small>${esc(small(t))}</small>` : ''}</span>`).join('')}</p>`;
+  return `<p class="cn-ftext cn-ftags" aria-label="송폼 ${esc(flat)}">${toks.map((t) => `<span class="cn-ft cn-ft-${kind(t)} cn-fs-${sec(t.k)}" aria-hidden="true">${esc(label(t))}${small(t) ? `<small>${esc(small(t))}</small>` : ''}</span>`).join('')}</p>`;
 }
 
 /** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */

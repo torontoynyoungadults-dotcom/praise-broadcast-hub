@@ -1762,3 +1762,42 @@ body .r13-alt > summary::before { content: '+'; color: #C6A664; }
 body .r13-alt[open] > summary::before { content: '–'; }
 body .r13-alt > summary::-webkit-details-marker { display: none; }
 body .r13-alt > input { display: block; width: 100%; margin-top: 6px; }
+
+/* ===== 곡 카드 — 송폼 구간 색 (차분하게) · 아래 버튼 ===== */
+html body .cn-ftags .cn-ft.cn-fs-v   { background: #EDF1EE; border-color: #D3DDD7; color: #1E3A31; }
+html body .cn-ftags .cn-ft.cn-fs-pc  { background: #F1F0E9; border-color: #DAD7C9; color: #4A4532; }
+html body .cn-ftags .cn-ft.cn-fs-c   { background: #F5EFE2; border-color: #E2D5B6; color: #5A4520; }
+html body .cn-ftags .cn-ft.cn-fs-b   { background: #ECEFF3; border-color: #D2D8E1; color: #283246; }
+html body .cn-ftags .cn-ft.cn-fs-tag { background: #F3EEF0; border-color: #DFD3D8; color: #4D2F3A; }
+html body .cn-ftags .cn-ft.cn-fs-v small, html body .cn-ftags .cn-ft.cn-fs-pc small, html body .cn-ftags .cn-ft.cn-fs-c small, html body .cn-ftags .cn-ft.cn-fs-b small, html body .cn-ftags .cn-ft.cn-fs-tag small { color: inherit; opacity: .7; }
+html body .cn-ftags .cn-ft-inst { background: transparent !important; border: 1px dashed #BDB9AE !important; color: #6B716D !important; }
+html body .cn-ftags .cn-ft-key { background: #0F1A16 !important; border-color: #0F1A16 !important; color: #E2CC97 !important; }
+
+html body .ph-wrap .cn-song .cn-acts { gap: 6px !important; }
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn,
+html body .ph-wrap .cn-song .cn-acts .cn-ytlink,
+html body .ph-wrap .cn-song .cn-acts .cn-recjump,
+html body .ph-wrap .cn-song .cn-edit > summary,
+html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label {
+  all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex !important; align-items: center; gap: 7px;
+  min-height: 38px !important; height: 38px; padding: 0 13px !important; background: #FFFFFF !important; border: 1px solid #DEDDD8 !important;
+  color: #17201C !important; font-size: 13px !important; font-weight: 500 !important; text-decoration: none !important; white-space: nowrap; border-radius: 0 !important;
+  transition: background .12s ease, border-color .12s ease;
+}
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn:hover, html body .ph-wrap .cn-song .cn-acts .cn-ytlink:hover, html body .ph-wrap .cn-song .cn-acts .cn-recjump:hover,
+html body .ph-wrap .cn-song .cn-edit > summary:hover, html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label:hover { background: #F6F6F4 !important; border-color: #0F1A16 !important; }
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn[aria-expanded="true"] { background: #0F1A16 !important; border-color: #0F1A16 !important; color: #ECE6D9 !important; }
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn[aria-expanded="true"] svg { color: #C6A664 !important; }
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn svg, html body .ph-wrap .cn-song .cn-acts .cn-ytlink svg, html body .ph-wrap .cn-song .cn-acts .cn-recjump svg, html body .ph-wrap .cn-song .cn-acts .cn-recjump .yi,
+html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label svg, html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label .yi {
+  display: inline-block !important; width: 15px !important; height: 15px !important; color: #8A6D35 !important; flex: none;
+}
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn > svg:last-child { display: none !important; }
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn span, html body .ph-wrap .cn-song .cn-acts .cn-ytlink span, html body .ph-wrap .cn-song .cn-acts .cn-recjump { text-decoration: none !important; }
+html body .ph-wrap .cn-song .cn-acts .cn-svbtn b, html body .ph-wrap .cn-song .cn-acts .cn-recjump b, html body .ph-wrap .cn-song .cn-acts .cn-recjump small {
+  font-family: 'Bodoni Moda', serif !important; font-weight: 400 !important; font-size: 14px !important; color: #6E5A2E !important; text-decoration: none !important;
+}
+html body .ph-wrap .cn-song .cn-edit > summary { margin-left: auto; background: transparent !important; border-color: transparent !important; color: #5C6660 !important; }
+html body .ph-wrap .cn-song .cn-edit > summary:hover { border-color: #DEDDD8 !important; background: #FFFFFF !important; }
+html body .ph-wrap .cn-song .cn-sec-ref { margin-top: 6px !important; }
+html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label { background: transparent !important; border-style: dashed !important; border-color: #C9C6BC !important; color: #5C6660 !important; font-size: 12.5px !important; height: 34px; min-height: 34px !important; }
