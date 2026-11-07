@@ -1207,3 +1207,61 @@ body:has(.ph-me[open]) .v13-livebar, body:has(.ph-me[open]) .hm-cta2, body:has(.
 .rpf:not(.open) .rp-by, .rpf:not(.open) .rpf-time { color: #A9B4AE !important; }
 .rpf:not(.open) button { color: #E2CC97; }
 body.rpf-on .v13-livebar { bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* ===== 라이브러리 2차 — 시안(Library) 그대로 ===== */
+.yn .l13-top { padding-top: 24px !important; padding-bottom: 20px !important; }
+.yn .l13-h h1 { font-size: 24px !important; }
+.yn .l13-h span { font-size: 12px !important; }
+.yn .l13-q { display: flex; gap: 2px; margin-top: 14px !important; }
+.yn .l13-q input[type="search"] { flex: 1; min-height: 48px !important; background: #17241F !important; border: 1px solid #2C3A33 !important; font-size: 14px !important; }
+.yn .l13-fb { all: unset; cursor: pointer; position: relative; width: 48px; min-height: 48px; border: 1px solid #2C3A33; color: #C6A664; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.yn .l13-fb svg { width: 20px; height: 20px; }
+.yn .l13-fb.on { background: #C6A664; color: #0F1A16; border-color: #C6A664; }
+.yn .l13-fb i { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; background: #E2CC97; color: #0F1A16; font-size: 10px; font-style: normal; display: flex; align-items: center; justify-content: center; }
+/* 탭 — 밝은 띠, 고른 탭은 흰 바탕 + 아래 진한 선 */
+.yn .l13-tabs { background: #EFEBE3 !important; border-top: 0 !important; border-bottom: 1px solid #DDD6C8; margin-bottom: 16px !important; padding: 0 !important; }
+.yn .l13-tabs button { flex: 1 1 0 !important; min-height: 48px; padding: 0 6px !important; display: flex !important; align-items: center; justify-content: center; font-size: 13px !important; color: #5C6660 !important; border-bottom: 2px solid transparent !important; }
+.yn .l13-tabs button.on { background: #FBF9F4 !important; color: #17201C !important; font-weight: 500; border-bottom-color: #0F1A16 !important; }
+.yn .l13-repo { display: flex; flex-direction: column; gap: 14px; padding-bottom: 150px; }
+.yn .l13-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.yn .l13-chip { all: unset; cursor: pointer; box-sizing: border-box; min-height: 36px; padding: 0 12px; border: 1px solid #D6CFBF; font-size: 12px; color: #17201C; display: inline-flex; align-items: center; }
+.yn .l13-chip.on { background: #0F1A16; border-color: #0F1A16; color: #E2CC97; }
+.yn .l13-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.yn .l13-filters label { display: flex; flex-direction: column; gap: 2px; background: #FBF9F4; padding: 8px 12px; }
+.yn .l13-filters label span { font-size: 10px; color: #5C6660; }
+.yn .l13-filters select { border: 0 !important; background: transparent !important; font-size: 14px !important; padding: 0 !important; min-height: 24px !important; box-shadow: none !important; border-radius: 0 !important; }
+.yn .l13-clear { all: unset; cursor: pointer; grid-column: 1 / -1; min-height: 40px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #8A4A12; }
+.yn .l13-list { list-style: none; margin: 0; padding: 0; background: #FBF9F4; }
+.yn .l13-list > li.l13-song { border: 0 !important; border-top: 1px solid #ECE6DA !important; background: transparent !important; }
+.yn .l13-list > li.l13-song:first-child { border-top: 0 !important; }
+.yn .l13-list .l13-song .rp-row { display: grid !important; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px 14px !important; }
+.yn .l13-list .l13-song .lpick { display: flex; align-items: center; justify-content: center; }
+.yn .l13-list .l13-song .lpick input { position: static !important; opacity: 1 !important; width: 20px !important; height: 20px !important; margin: 0; accent-color: #0F1A16; -webkit-appearance: checkbox; appearance: auto; }
+.yn .l13-list .l13-song .lpick i { display: none !important; }
+.yn .l13-list .l13-song .t b { font-size: 15px !important; }
+.yn .l13-list .l13-song .t small { font-size: 11px !important; }
+.yn .l13-list .l13-song .t small.warn { color: #8A4A12 !important; }
+.yn .l13-list .l13-song.picked { background: #E6DCC2 !important; }
+.yn .l13-list .l13-song.picked .t small { color: #5C4A24 !important; }
+.yn .l13-list .l13-song.open { background: #FFFFFF !important; }
+.yn .l13-list .l13-song .rp-det { padding: 0 14px 14px 54px !important; }
+.yn .l13-more { all: unset; cursor: pointer; box-sizing: border-box; min-height: 48px; border: 1px solid #D6CFBF; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.yn .l13-note { margin: 0; font-size: 11px; color: #5C6660; line-height: 1.6; }
+.yn .l13-empty { font-size: 14px; color: #5C6660; }
+/* 아래 고정 — 고른 곡 콘티에 넣기 */
+.yn .l13-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: #0F1A16; color: #ECE6D9; padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -12px 30px rgba(15,26,22,0.3); }
+@media (min-width: 900px) { .yn .l13-dock { left: 50%; right: auto; width: 760px; transform: translateX(-50%); } }
+.yn .l13-dock .r1 { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.yn .l13-dock .r1 b { font-family: 'Bodoni Moda', serif; font-size: 20px; font-weight: 400; color: #E2CC97; }
+.yn .l13-dock .r1 span { flex: 1; }
+.yn .l13-dock .r1 label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #D9D2C3; }
+.yn .l13-dock .r1 input { width: 16px; height: 16px; accent-color: #C6A664; }
+.yn .l13-dock .r1 .x { all: unset; cursor: pointer; font-size: 12px; color: #A9B4AE; padding: 6px 0 6px 8px; }
+.yn .l13-dock .r2 { display: flex; gap: 2px; }
+.yn .l13-dock .r2 label { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 6px 12px; border: 1px solid #2C3A33; }
+.yn .l13-dock .r2 label span { font-size: 10px; color: #A9B4AE; }
+.yn .l13-dock .r2 select { border: 0 !important; background: transparent !important; color: #ECE6D9 !important; font-size: 14px !important; padding: 0 !important; box-shadow: none !important; min-height: 22px !important; }
+.yn .l13-dock .r2 select option { color: #17201C; }
+.yn .l13-dock .r2 .go { all: unset; cursor: pointer; min-width: 128px; background: #C6A664; color: #0F1A16; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+.yn .l13-dock .msg { margin: 0; font-size: 12px; color: #A9B4AE; min-height: 0; }
+.yn .l13-up { background: #FBF9F4; padding: 12px; }

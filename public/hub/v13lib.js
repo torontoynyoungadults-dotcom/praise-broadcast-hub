@@ -16,7 +16,8 @@
   window.libNav = libNav = function () {
     var c = cur(), t = TOP[c] || TOP.repo, sub = t[1];
     if (c === 'repo' && RP && RP.data) { var s = RP.data.songs || []; sub = '<b>' + s.length + '</b> 곡 · 악보 있는 곡 ' + s.filter(function (x) { return x.sheets.length; }).length; }
-    var search = c === 'repo' ? '<div class="l13-q"><label for="rpQ" class="l13-ql">곡 찾기</label><input type="search" id="rpQ" placeholder="제목 · 원곡팀 · 주제 · 메모로 찾기" value="' + esc((RP && RP.q) || '') + '" oninput="RP.q=this.value;RP.more=60;rpRedraw();"></div>' : '';
+    var nf = typeof rpFilterCount === 'function' ? rpFilterCount() : 0;
+    var search = c === 'repo' ? '<div class="l13-q"><label for="rpQ" class="l13-ql">곡 찾기</label><input type="search" id="rpQ" placeholder="제목 · 원곡팀 · 가사 한 줄로 찾기" value="' + esc((RP && RP.q) || '') + '" oninput="RP.q=this.value;RP.more=60;rpRedraw();"><button type="button" class="l13-fb' + (RP && RP.fopen ? ' on' : '') + '" aria-label="필터" aria-expanded="' + !!(RP && RP.fopen) + '" onclick="RP.fopen=!RP.fopen;render();"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>' + (nf ? '<i>' + nf + '</i>' : '') + '</button></div>' : '';
     return '<section class="l13-top"><div class="l13-h"><h1>' + t[0] + '</h1><span>' + sub + '</span></div>' + search + '</section>' +
       '<div class="l13-tabs" role="tablist" aria-label="라이브러리 보기">' + LIB_VIEWS.map(function (v, i) {
         return '<button type="button" role="tab" class="' + (libOn(v) ? 'on' : '') + '" aria-selected="' + libOn(v) + '" onclick="libGo(' + i + ')">' + v[2] + '</button>';
@@ -25,23 +26,57 @@
   if (typeof repoTab === 'function') {
     var origRepo = repoTab;
     window.repoTab = repoTab = function () {
-      var h = origRepo();
-      h = h.replace(/<div class="lib-search">[\s\S]*?<\/div>/, '').replace(/<p class="lib-sum">[\s\S]*?<\/p>/, '');
-      return h;
+      if (RP.err || !RP.data) return origRepo();
+      var f = RP.data.facets, n = rpFilterCount();
+      var chip = function (on, label, js) { return '<button type="button" class="l13-chip' + (on ? ' on' : '') + '" aria-pressed="' + !!on + '" onclick="' + js + '">' + label + '</button>'; };
+      var sorts = [['recent', '최근 부른 순'], ['uses', '많이 부른 순'], ['title', '가나다 순']];
+      return '<div class="l13-repo">' +
+        '<div class="l13-chips">' + sorts.map(function (x) { return chip(RP.sort === x[0], x[1], 'RP.sort=\'' + x[0] + '\';render();'); }).join('') +
+          chip(RP.onlySheet, '악보 있는 곡만', 'RP.onlySheet=!RP.onlySheet;RP.more=60;render();') +
+          (D.canEdit ? chip(RP.up, '+ 악보 PDF', 'RP.up=!RP.up;render();') : '') + '</div>' +
+        (RP.fopen ? '<div class="l13-filters">' +
+          '<label><span>Key</span><select onchange="RP.key=this.value;rpRedraw();">' + rpOpts(f.keys, RP.key, '모든 Key') + '</select></label>' +
+          '<label><span>원곡팀</span><select onchange="RP.team=this.value;rpRedraw();">' + rpOpts(f.teams, RP.team, '모든 원곡팀') + '</select></label>' +
+          '<label><span>주제</span><select onchange="RP.theme=this.value;rpRedraw();">' + rpOpts(f.themes, RP.theme, '모든 주제') + '</select></label>' +
+          '<label><span>인도자</span><select onchange="RP.leader=this.value;rpRedraw();">' + rpOpts(f.leaders, RP.leader, '모든 인도자', true) + '</select></label>' +
+          (n ? '<button type="button" class="l13-clear" onclick="RP.key=RP.team=RP.theme=RP.leader=\'\';RP.onlySheet=false;render();">필터 지우기</button>' : '') + '</div>' : '') +
+        (RP.up && D.canEdit ? '<div class="l13-up">' + rpUpForm() + '</div>' : '') +
+        '<div id="rpList">' + rpList() + '</div>' +
+        '<p class="l13-note">곡을 누르면 지난 Key · 송폼 · 악보 · 가사 · 부른 날이 한 화면에 열려요.' + (D.canEdit ? ' 체크하면 아래에서 바로 콘티에 넣을 수 있어요.' : '') + '</p>' +
+        '<div id="rpDock">' + rpDock() + '</div></div>';
+    };
+  }
+  if (typeof rpList === 'function') {
+    window.rpList = rpList = function () {
+      var list = rpSongs();
+      if (!list.length) return '<p class="l13-empty">조건에 맞는 곡이 없어요.</p>';
+      var shown = list.slice(0, RP.more || 60);
+      return '<ul class="l13-list">' + shown.map(rpCard).join('') + '</ul>' +
+        (list.length > shown.length ? '<button type="button" class="l13-more" onclick="RP.more=(RP.more||60)+60;rpRedraw();">더 보기 · ' + (list.length - shown.length) + '곡 남음</button>' : '');
+    };
+  }
+  if (typeof rpDock === 'function') {
+    window.rpDock = rpDock = function () {
+      var n = Object.keys(RP.sel).length;
+      if (!D.canEdit || !n) return '';
+      var date = DATE || D.nextWeek || D.thisWeek || '';
+      return '<div class="l13-dock" role="region" aria-label="고른 곡 콘티에 넣기"><div class="r1"><b>' + n + '</b><span>곡 선택됨</span><label><input type="checkbox"' + (RP.attach ? ' checked' : '') + ' onchange="RP.attach=this.checked"> 악보도 함께</label><button type="button" class="x" onclick="RP.sel={};render();" aria-label="선택 지우기">지우기</button></div>' +
+        '<div class="r2"><label><span>넣을 곳</span><select onchange="RP.kind=this.value"><option value="콘티"' + (RP.kind === '콘티' ? ' selected' : '') + '>' + esc(md(date)) + ' 콘티</option><option value="결단"' + (RP.kind === '결단' ? ' selected' : '') + '>' + esc(md(date)) + ' 설교 후 찬양</option></select></label><button type="button" class="go" onclick="rpUse()">콘티에 넣기</button></div><p class="msg" id="rpMsg"></p></div>';
     };
   }
   if (typeof rpCard === 'function') {
     window.rpCard = rpCard = function (s) {
       var open = !!RP.open[s.id], l = s.last || {};
+      var noTeam = !s.team;
       var sub = [s.team || '원곡팀 비어 있음', l.bpm ? l.bpm + ' BPM' : '', s.sheets.length ? '악보 ' + s.sheets.length : '', s.hasLyrics ? '가사' : ''].filter(Boolean).map(esc).join(' · ');
-      var h = '<div class="rp-card l13-song' + (open ? ' open' : '') + (RP.sel[s.id] ? ' picked' : '') + '" data-id="' + esc(s.id) + '"><div class="rp-row">' +
+      var h = '<li class="rp-card l13-song' + (open ? ' open' : '') + (RP.sel[s.id] ? ' picked' : '') + '" data-id="' + esc(s.id) + '"><div class="rp-row">' +
         (D.canEdit ? '<label class="lpick" title="콘티에 넣을 곡 고르기"><input type="checkbox" aria-label="' + esc(s.title) + ' 선택"' + (RP.sel[s.id] ? ' checked' : '') + ' onchange="rpPick(this)"><i></i></label>' : '') +
         '<button type="button" class="rp-main" onclick="rpToggle(this)" aria-expanded="' + open + '">' +
-          '<span class="t"><b>' + esc(s.title) + '</b><small>' + sub + '</small></span>' +
+          '<span class="t"><b>' + esc(s.title) + '</b><small' + (noTeam ? ' class="warn"' : '') + '>' + sub + '</small></span>' +
           '<span class="k"><b>' + esc(String(l.key || '').replace(/\s*-+>\s*/g, '→')) + '</b><small>' + (s.uses ? s.uses + '회 · ' + esc(rpDay(s.lastDate)) : '기록 없음') + '</small></span>' +
         '</button></div>';
       if (open) h += rpDetail(s);
-      return h + '</div>';
+      return h + '</li>';
     };
   }
 
