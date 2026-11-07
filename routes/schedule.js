@@ -351,7 +351,7 @@ router.get('/schedule/generate', requireTeam, async (req, res) => {
     <section><div class="v13-sechead"><h2 class="ph-h2">규칙</h2></div>
       <div class="g13-rule">
         <div class="g13-b"><span class="k">한 번 연습할 때 준비하는 주일</span><div class="g13-seg" role="radiogroup" aria-label="연습 간격">${seg}</div><small>첫 주일 바로 전 금요일에 주일 ${p.every === 1 ? '하나를' : p.every === 2 ? '두 개를' : '세 개를'} 함께 연습해요</small></div>
-        <div class="g13-b g13-two"><div><span class="k">요일 · 시간</span><b>금 ${esc(timeSettings.fmt(ts.practice) || '')}</b><small>${esc(ts.place || '')} · 관리에서 바꿔요</small></div>
+        <div class="g13-b g13-two"><div><span class="k">요일 · 시간</span><b>금 ${esc(String(ts.practice || '18:30'))}</b><small>${esc(ts.place || '')} · 관리에서 바꿔요</small></div>
           <div><span class="k">첫 연습</span><b>${dot(p.start)}</b><small>${esc(p.slots.find((x) => x.fri === p.start) ? p.slots.find((x) => x.fri === p.start).sundays.map(md).join(' · ') : '')}</small><input type="date" value="${esc(p.start)}" aria-label="첫 연습 날짜" onchange="location.href='${qs({}).replace(/&start=[^&]*/, '')}&start='+this.value"></div></div>
         <div class="g13-b"><span class="k">연습하지 않는 금요일</span>${chk('last', p.skipLast, '매달 마지막 금요일', '금요찬양기도회')}${chk('hol', p.skipHol, '공휴일', '신정 · 성금요일 · 성탄 전날')}</div>
         <div class="g13-b"><span class="k">연습 날이 막히면</span><p class="g13-note">미정으로 두고 나중에 직접 정해요 — 아래에서 바로 날짜를 넣어도 돼요.</p></div>
