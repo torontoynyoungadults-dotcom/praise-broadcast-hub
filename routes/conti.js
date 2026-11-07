@@ -2426,6 +2426,7 @@ router.get('/conti/listen', requireTeam, async (req, res) => {
       <p class="ls13-when">${rd.getMonth() + 1}월 ${rd.getDate()}일 ${rd.getDay() === 0 ? '주일' : '일월화수목금토'[rd.getDay()] + '요일'} ${kind === '참고' ? '참고 음원' : kind}</p>
       <h1 class="ls13-title" data-ls-now>${esc(marks.length && songs.length ? (songs.find((s) => s.id === marks[0].id) || {}).k || fname : fname)}</h1>
       <p class="ls13-meta"><span data-ls-pos>${marks.length ? `1 / ${marks.length}곡 · ` : ''}</span>올린 이 ${esc(honorific.forTeam(team, cur['올린사람'] || ''))} · ${esc(fname)}</p>
+      <video preload="metadata" playsinline webkit-playsinline src="${esc(src)}" data-ls-audio class="ls13-video" hidden onloadedmetadata="if(this.videoWidth>0){this.hidden=false;this.closest('.ls13').classList.add('has-video')}"></video>
       <div class="ls13-wave" data-ls-wave role="slider" tabindex="0" aria-label="재생 위치" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
       <div class="ls13-times"><span data-ls-t>0:00</span><span data-ls-ab class="ab"></span><span data-ls-d>0:00</span></div>
       <div class="ls13-ctl">
@@ -2439,7 +2440,6 @@ router.get('/conti/listen', requireTeam, async (req, res) => {
         <button type="button" data-ls="song">지금 곡 반복</button><button type="button" data-ls="a">A 시작</button><button type="button" data-ls="b">B 끝</button><button type="button" data-ls="clear">반복 해제</button>
         <p data-ls-msg></p>
       </div>
-      <video preload="metadata" playsinline webkit-playsinline src="${esc(src)}" data-ls-audio class="ls13-video" hidden onloadedmetadata="if(this.videoWidth>0){this.hidden=false;this.closest('.ls13').classList.add('has-video')}"></video>
     </div>`;
   }
   const others = list.map((r) => `<a class="ls13-rec${cur && r === cur ? ' on' : ''}" href="${q({ kind, id: r['ID'] })}"><span class="pl" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span><span class="m"><b>${esc(r['제목'] || '녹음')}</b><small>${esc(honorific.forTeam(team, r['올린사람'] || ''))} · ${esc(String(r['날짜'] || '').slice(5).replace('-', '/'))} ${kind === '참고' ? '' : kind}</small></span>${cur && r === cur ? '<span class="now">재생 중</span>' : ''}</a>`).join('');
