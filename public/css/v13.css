@@ -1711,3 +1711,6 @@ body .ls13.has-video > .ls13-when, body .ls13.has-video > .ls13-title, body .ls1
 body .ls13.has-video > .ls13-video { order: 2; }
 body .ls13-video[hidden] { display: none !important; }
 body .ls13-video { display: block; width: 100%; max-height: 62vh; aspect-ratio: 16 / 9; background: #000; object-fit: contain; margin: 14px 0 18px; border: 1px solid #2C3A33; }
+html body .yn .yc-sh:has(.pk13) .yc-x { color: #E2CC97 !important; font-size: 22px !important; line-height: 1 !important; }
+html body .yn .pk13-h, html body .yn .pk13-h p { text-align: left !important; }
+html body .yn .pk13-h::after { display: none !important; }
