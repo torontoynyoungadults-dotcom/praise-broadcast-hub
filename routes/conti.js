@@ -1256,6 +1256,26 @@ router.get('/practice-conti/calendar.ics', requireTeam, async (req, res) => {
   res.send(practiceView.icsText(ev));
 });
 
+/**
+ * 연습 콘티를 처음 열 때 보여 줄 연습 — 지난 연습은 다음 연습이 있는 주(월요일)가 올 때까지 그대로 보여 줍니다.
+ *  예) 11/6(금) 연습 → 다음 연습 11/20(금): 11/15(일)까지는 11/6 연습, 11/16(월)부터 11/20 연습.
+ *  지난 연습의 예배가 모두 지났으면(그 사이 연습이 더 멀리 있어도) 다음 연습으로 넘어갑니다.
+ */
+function defaultPractice(gs, today) {
+  const next = gs.find((g) => g.date >= today);
+  const past = gs.filter((g) => g.date < today), last = past[past.length - 1] || null;
+  if (!next) return last;
+  if (!last) return next;
+  const nextMon = prac.addDays(next.date, -((new Date(next.date + 'T12:00:00').getDay() + 6) % 7));
+  if (today >= nextMon) return next;
+  return last.targets.some((t) => t.date >= today) ? last : next;
+}
+/** 한 연습에 여러 콘티(2주치)가 있으면 다가오는 예배를 먼저 — 11/8 이 지나면 11/15 콘티가 맨 위로 (지난 것은 뒤로) */
+function upcomingFirst(targets, today) {
+  const up = targets.filter((t) => t.date >= today), done = targets.filter((t) => t.date < today);
+  return up.concat(done);
+}
+
 router.get('/practice-conti', requireTeam, async (req, res) => {
   const ctx = req.ctx;
   const team = ctx.current;
@@ -1271,7 +1291,8 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
     gs = gs.filter((g) => g.targets.length);
   }
   const want = prac.isDate(req.query.pd) ? String(req.query.pd) : '';
-  const cur = gs.find((g) => g.date === want) || gs.find((g) => g.date >= today) || gs[gs.length - 1] || null;
+  const cur = gs.find((g) => g.date === want) || defaultPractice(gs, today);
+  if (cur) cur.targets = upcomingFirst(cur.targets, today);
   const q = (d) => `/practice-conti?team=${encodeURIComponent(team)}&pd=${encodeURIComponent(d)}`;
   const me = String(ctx.member['이름'] || '').trim();
 

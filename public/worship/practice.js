@@ -34,7 +34,9 @@
     var saved = ls('layout');
     if (saved === 'tablet' || saved === 'computer') return saved;
     var coarse = false; try { coarse = root.matchMedia('(pointer: coarse)').matches; } catch (e) {}
-    return (coarse && root.innerWidth < 1400) || root.innerWidth < 900 ? 'tablet' : 'computer';
+    /* v9.15 — 아이패드는 키보드 · 트랙패드를 붙이면 (pointer: coarse) 가 꺼지거나 "데스크톱용 사파리"로 보여 컴퓨터 화면이 되고, 컴퓨터 화면은 손바닥 무시가 꺼져 있었음 */
+    var nav = root.navigator || {}, ipad = /iPad/.test(nav.userAgent || '') || (nav.platform === 'MacIntel' && (nav.maxTouchPoints || 0) > 1);
+    return ipad || (coarse && root.innerWidth < 1400) || root.innerWidth < 900 ? 'tablet' : 'computer';
   }
   /** 송폼 칸(V1, C2 …)에서 클릭 큐 이름으로 */
   var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', V4: 'v4', 'C(Voice)': 'cvoice', C: 'c', C2: 'c2', C3: 'c3', PC: 'pc', PC2: 'pc2', B: 'b', B1: 'b', B2: 'b2', Intro: 'intro',   // V842 — C2 → Chorus 2 · Inst → Instrumental
@@ -57,9 +59,10 @@
   function normName(s) { return String(s || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[\s_\-\.\(\)\[\]·,]/g, ''); }
   /** 악보 파일 이름에서 어느 곡인지 짐작 (제목이 파일 이름에 들어 있으면) */
   function guessSong(name, songs) {
-    var n = normName(name), best = -1, bl = 0;
-    (songs || []).forEach(function (s, i) { var t = normName(s.title); if (t.length >= 2 && n.indexOf(t) >= 0 && t.length > bl) { best = i; bl = t.length; } });
-    return best;
+    var n = normName(name), best = -1, bl = 0, hit = [];
+    (songs || []).forEach(function (s, i) { var t = normName(s.title); if (t.length >= 2 && n.indexOf(t) >= 0) { hit.push(t); if (t.length > bl) { best = i; bl = t.length; } } });
+    var distinct = hit.filter(function (t, k) { return hit.indexOf(t) === k && !hit.some(function (o) { return o !== t && o.indexOf(t) >= 0; }); });      // 같은 곡이 콘티 · 결단에 두 번 있어도 한 곡으로      // v8.28 — 여러 곡 제목이 든 이름은 묶음 악보라 한 곡으로 짐작하지 않음
+    return distinct.length > 1 ? -1 : best;
   }
 
   var TOOLS = [
@@ -173,42 +176,135 @@
     if (current) { try { current.close(); } catch (e) {} }
     if (!doc || !doc.body) return null;
     var sheets = (opts.sheets || []).filter(function (s) { return s && s.id; });
-    var songs = opts.songs || [];
+    /* 2026-11 — BPM 이 「64-65」 · 「64~66」 처럼 범위로 올라오면 앞 숫자(64)로 맞춤 (클릭 · 표시 모두) */
+    var bpmFirst = function (v) { var m = /(\d{2,3}(?:\.\d+)?)/.exec(String(v == null ? '' : v)); var n = m ? Math.round(+m[1]) : 0; return n >= 30 && n <= 300 ? n : ''; };
+    var songs = (opts.songs || []).map(function (s) { if (!s || s.bpm == null || s.bpm === '' || typeof s.bpm === 'number') return s; var o = Object.assign({}, s); o.bpmRaw = s.bpm; o.bpm = bpmFirst(s.bpm); return o; });
+    /* v8.81 — 악보는 올린 순서가 아니라 콘티(곡) 순서로 돕니다. 곡 ↔ 악보는 「곡별 악보로 저장」 해 둔 페이지 범위 → 없으면 파일 이름에 곡 제목이 든 곡.
+       콘티에 이어지지 않는 악보(찬양 설명 · 따로 올린 악보 등)는 올린 순서대로 맨 뒤에 둡니다. */
+    /* v9.8 — 곡 기준 악보 고르기 (public/worship/songpick.js). 곡마다 쓸 악보를 정하고(고른 것 → 곡별 저장 → 직접 연결 → 파일 이름 → 올린 순서),
+       곡에 악보가 여럿이면 쓰지 않는 악보는 "대체 악보"로 두어 페이지 넘김이 같은 곡의 다른 악보로 새지 않게 합니다.
+       songpick.js 를 못 불러왔거나 계산이 실패하면 예전 방식(목록 순서대로 · 파일 이름으로 곡 짐작)으로 그대로 동작합니다. */
+    var PICK = root.YNSongPick || null;
+    var ordSeq = 0;
+    function ordOf(f) { if (f._ord == null) f._ord = ++ordSeq; return f._ord; }
+    function pickCtx(list) {
+      return {
+        sheets: list || sheets, songs: songs, ord: ordOf,
+        nameSong: function (f) { return guessSong(f.name, songs); },
+        mineSong: function (f) { return sheetSongIdx(f); },             // 2026-11 — 나만 보는 악보를 붙여 둔 콘티 곡
+        sheetOut: function (f) { var v = typeof S !== 'undefined' && S && S.cfg ? cfgGet('sheetsong', f.id) : null; return !!(v && v.out); },
+        pinned: function (i) {                                         // 이 곡에 고른 악보 { id, page } — 설정(팀 · 나만)에서
+          var s = songs[i]; if (!s || typeof S === 'undefined' || !S || !S.cfg) return null;
+          var v = cfgGet('songsheet', s.title); return v && v.id ? v : null;
+        },
+        splitPage: function (f, i) {                                   // 「곡별 악보로 저장」 해 둔 페이지 범위의 첫 페이지
+          var s = songs[i], t = s ? normName(s.title) : '', best = 0;
+          (opts.splits || []).forEach(function (sp) {
+            if (!sp || sp.fileId !== f.id || normName(sp.title) !== t) return;
+            var ps = parseSpec(sp.spec); if (ps.length) { var mn = Math.min.apply(null, ps); if (!best || mn < best) best = mn; }
+          });
+          return best;
+        },
+        manualPage: function (f, i) {                                  // 직접 연결해 둔 페이지 ↔ 곡 연결의 첫 페이지
+          if (typeof S === 'undefined' || !S || !S.maps || !S.cfg) return 0;
+          var man = mapOf(f).manual || {}, best = 0;
+          Object.keys(man).forEach(function (p) { var n = +p; if (man[p] === i && n >= 1 && (!best || n < best)) best = n; });
+          return best;
+        }
+      };
+    }
+    /** 2026-11 — 악보 → 콘티 곡 연결 (설정 'sheetsong' { t } · { out }). 곡 번호 | -1 */
+    function sheetSongIdx(f) {
+      if (!f || typeof S === 'undefined' || !S || !S.cfg) return -1;
+      var v = cfgGet('sheetsong', f.id); if (!v || !v.t) return -1;
+      for (var i = 0; i < songs.length; i++) if (songs[i].title === v.t) return i;
+      return -1;
+    }
+    function pickSafe(fn, dflt) { if (!PICK) return dflt; try { var r = fn(); return r == null ? dflt : r; } catch (e) { return dflt; } }
+    function pickAnalyze(list) { return pickSafe(function () { return PICK.analyze(pickCtx(list)); }, null); }
+    function contiRank(f, an) {
+      if (an && an.rank[f.id] != null) return an.rank[f.id];             // v9.8 — 이 악보를 쓰는 첫 곡 자리
+      if (f.mine) return -1;                                              // 곡에 안 붙인 내 악보는 맨 뒤
+      var ov = typeof S !== 'undefined' && S && S.cfg ? cfgGet('sheetsong', f.id) : null; if (ov && ov.out) return -1;      // 2026-11 — 「콘티 밖 (맨 뒤)」
+      var best = -1;
+      (opts.splits || []).forEach(function (sp) {
+        if (!sp || sp.fileId !== f.id) return;
+        var t = normName(sp.title);
+        songs.forEach(function (s, i) { if (normName(s.title) === t && (best < 0 || i < best)) best = i; });
+      });
+      return best >= 0 ? best : guessSong(f.name, songs);
+    }
+    function orderByConti(list) {
+      list.forEach(ordOf);                                               // 올린 순서를 처음 본 순서로 기억 (같은 조건일 때 앞에 올린 악보가 기본)
+      var an = pickAnalyze(list);
+      var keyed = list.map(function (f, i) { return { f: f, i: i, r: contiRank(f, an), c: f.mine ? 2 : an && an.rank[f.id] != null ? 0 : 1 }; });      // c: 0 = 곡이 쓰는 팀 악보 · 1 = 대체 · 2 = 곡에 붙인 내 악보          // c: 0 = 곡이 쓰는 악보 · 1 = 그 밖(대체 악보 · 곡에 안 묶인 악보)
+      keyed.sort(function (a, b) { var ar = a.r < 0 ? (a.f.mine ? 2e6 : 1e6) : a.r, br = b.r < 0 ? (b.f.mine ? 2e6 : 1e6) : b.r; return ar - br || a.c - b.c || a.i - b.i; });      // 같은 곡 자리에서는 쓰는 악보가 먼저 (처음 열 때 고른 악보가 열리도록)      // v9.6 — 나만 보는 악보는 맨 뒤
+      keyed.forEach(function (k) { if (k.r >= 0) k.f.label = (k.r + 1) + '. ' + (k.f.name || '악보'); else delete k.f.label; });
+      return keyed.map(function (k) { return k.f; });
+    }
+    (function () { var o = orderByConti(sheets); sheets.length = 0; o.forEach(function (x) { sheets.push(x); }); })();
     if (!sheets.length) { try { root.alert('열 수 있는 악보가 없습니다. 먼저 악보(PDF · 사진)를 올려주세요.'); } catch (e) {} return null; }
 
     var S = {
-      layout: detectLayout(), hand: ls('hand') === 'left' ? 'left' : 'right', fit: null, zoom: 1, sheetIdx: 0, page: 1, pages: 1, songIdx: -1,
-      doc: null, rid: 0, task: null, tab: '', layer: 'team', scope: 'song', follow: ls('fpage') !== '0', followM: false, prefTouched: false, prefT: 0, pendingNav: null, applying: false, navT: 0, dead: false,
+      layout: detectLayout(), hand: ls('hand') === 'left' ? 'left' : 'right', fit: null, zoom: 1, sheetIdx: 0, page: 1, pages: 1, songIdx: -1, pristine: true,
+      doc: null, rid: 0, task: null, tab: '', layer: 'team', scope: 'song', follow: ls('fpage') !== '0', followM: ls('fmetro2') === '1', prefTouched: false, prefT: 0, pendingNav: null, applying: false, navT: 0, dead: false,
       scopeOf: {}, unsent: {}, recent: {}, delRecent: {}, teamId: 0, localMine: {}, delMine: {}, mineLoaded: {}, teamFrom: {}, annoId: 0, mineDirty: {}, mineT: 0, minePend: 0, savedAt: 0, msgT: 0, lang: ls('lang') === 'ko' ? 'ko' : 'en',
       recvCue: ls('recvcue') !== '0', sendCue: ls('sendcue') !== '0', loadId: 0, cache: {}, cacheOrder: []
     };
     S.fit = S.layout === 'tablet' ? 'page' : 'width';
-    var startIdx = 0; sheets.forEach(function (s, i) { if (s.id === opts.start) startIdx = i; }); S.sheetIdx = startIdx;
+    var startIdx = 0; sheets.forEach(function (s, i) { if (s.id === opts.start) startIdx = i; });
+    /* 특정 악보를 눌러 연 게 아니면 항상 1번 곡부터 — 콘티 곡 악보가 곡 이름과 안 맞는 파일(한 파일에 묶은 콘티 등)이고 결단찬양 악보만 곡 이름이 맞으면
+       결단찬양 악보가 맨 앞으로 정렬돼 결단부터 열렸음. 맨 앞 악보가 결단찬양 것이면, 곡에 안 묶인 팀 악보(콘티 앞쪽 곡일 가능성이 큼)부터 엽니다 */
+    var startFirstSong = false;
+    if (!opts.start && sheets.length > 1) {
+      var rankOf = function (f) { var m = /^(\d+)\. /.exec((f && f.label) || ''); return m ? +m[1] - 1 : -1; };
+      var r0 = rankOf(sheets[0]);
+      if (r0 >= 0 && songs[r0] && songs[r0].kind === '결단') {
+        var alt = -1; sheets.forEach(function (f, i) { if (alt < 0 && !f.mine && rankOf(f) < 0) alt = i; });
+        if (alt >= 0) { startIdx = alt; startFirstSong = true; }
+      }
+    }
+    S.sheetIdx = startIdx;
 
     /* ------------------------------------------------------------ 화면 뼈대 */
     var el = doc.createElement('div');
     el.className = 'pv';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '라이브 악보');
     el.innerHTML =
-      /* v9.16 — 위 막대 다이어트 (청년부 앱과 같은 구성): 악보 · 이 페이지의 곡을 한 칸(알약)으로 · 페이지 넘기기 작게 · 자주 안 쓰는 단추(밝기 · 떠 있는 창 · 화면 배치 · 여백 · 두 페이지 · PDF)는 「⋯」 안으로 ·
-         클릭 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 악보 · 페이지 · (요청) · 클릭 · ⋯ 만 */
+      /* v9.16 — 위 막대 다이어트: 곡 · 악보를 한 칸(알약)으로 · 페이지 넘기기 작게 · 자주 안 쓰는 단추(밝기 · 악보 편집 · 떠 있는 창 · 화면 배치 · 여백 · 두 페이지 · PDF)는 「⋯」 안으로 ·
+         클릭 켜기/끄기 단추 · 유튜브 단추(빨간 아이콘). 폰(좁은 화면)은 닫기 · 곡 · 페이지 · 클릭 · ⋯ 만 */
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)" aria-label="닫기">' + I('close') + '</button>' +
-        '<div class="pv-title pv-songpill"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select>' +
-          '<label class="pv-sheetwrap" title="이 페이지가 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 페이지면 다음 곡이 나올 때까지 같은 곡으로 봅니다."><span class="pv-sheetic" aria-hidden="true">' + I('note') + '</span><select class="pv-sel pv-songsel" style="display:none" aria-label="이 페이지의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)"></select></label><span class="pv-songinfo"></span></div>' +
-        '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 페이지 (←)" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지 (→)" aria-label="다음 페이지">' + I('next') + '</button></div>' +
+        '<div class="pv-title pv-songpill"><select class="pv-sel pv-songsel" style="display:none" aria-label="곡 선택" title="곡을 고르면 그 곡에 연결된 악보가 열립니다. 곡마다 쓸 악보는 「🔗 곡별 악보 연결…」 에서 정하세요."></select>' +
+          '<label class="pv-sheetwrap" title="이 곡에 쓸 악보를 고릅니다 — 고른 악보는 다음에도 이 곡의 악보로 열립니다 (팀장 · 인도자가 고르면 팀 모두에게)"><span class="pv-sheetic" aria-hidden="true">' + I('page') + '</span><select class="pv-sel pv-sheetsel" aria-label="이 곡의 악보 선택"></select></label>' +
+          '<label class="pv-sheetwrap pv-psw" style="display:none" title="이 페이지가 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡별 악보 연결 · 곡별 악보로 저장도 여기서"><span class="pv-sheetic" aria-hidden="true">' + I('note') + '</span><select class="pv-sel pv-pagesongsel" aria-label="이 페이지의 곡 (자동으로 찾은 곡)"></select></label><span class="pv-songinfo"></span></div>' +
+        '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 페이지 (←)" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-pg">1 / 1</span><span class="ak-pos" aria-live="polite"></span><button class="pv-b" data-a="next" title="다음 페이지 (→)" aria-label="다음 페이지">' + I('next') + '</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)" aria-label="줄이기">' + I('minus') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)" aria-label="키우기">' + I('plus') + '</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" aria-label="여백 자동 맞춤" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">' + I('crop') + '<span class="pv-tx"> 여백</span></button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" aria-label="두 페이지 나란히 보기" title="두 페이지 나란히 보기 (컴퓨터 화면)">' + I('spread') + '<span class="pv-tx"> 두 페이지</span></button></div>' +
         '<div class="pv-grp pv-chips"><button type="button" class="pv-chip pv-conn" data-a="rtmenu" aria-haspopup="dialog" aria-expanded="false" title="실시간 — 눌러서 페이지 리드하기 · 따라가기 고르기">…</button><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤 · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
+        /* 2026-11 Ark — 찬양팀 · 방송팀에 짧은 메시지 (모니터 요청 · 자주 쓰는 말) — livemsg.js 가 창을 엽니다 */
+        /* 2026-11 Ark — GoodNotes 처럼: 위 막대 「도구」 단추로 필기 도구 줄을 위 막대 바로 아래에 열고 닫음 (떠 있는 「도구 열기」 알약 대신) */
+        '<button type="button" class="pv-b pv-penbtn" data-a="pentools" aria-pressed="false" aria-label="필기 도구 열기" title="필기 도구 열기 / 닫기">' + I('pen') + '</button>' +
+        '<button type="button" class="pv-b pv-msgbtn" data-a="msg" aria-haspopup="dialog" aria-label="찬양팀에 메시지 보내기" title="메시지 보내기 — 모니터 요청 · 자주 쓰는 말">' + I('msg') + '<span class="pv-msgn" aria-hidden="true"></span></button>' +
         '<button type="button" class="pv-b pv-wsbtn" data-a="ws-off" hidden aria-label="예배 모드 켜짐 — 두 번 눌러 끄기" title="예배 모드 — 두 번 누르면 꺼집니다">' + I('lock') + '<span class="pv-tx"> 예배 모드</span></button>' +
         '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="클릭 켜기" title="클릭 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
         '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−1</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-kssave" data-a="ks-save" hidden title="이 키를 팀 모두의 악보에 저장" aria-label="바꾼 키를 팀에 저장">저장</button></div>' +
-        '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + YT_ICON + '<span class="pv-mt">YouTube 참고 영상</span></button><button type="button" class="pv-b pv-refbtn" style="display:none" title="이 곡의 참고 음원 — 지금 악보 키로 바꿔 재생" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + '<span class="pv-mt">참고 음원</span></button>' +
+        '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + (I('ytv') || YT_ICON) + '<span class="pv-mt">YouTube 참고 영상</span></button><button type="button" class="pv-b pv-refbtn" style="display:none" title="이 곡의 참고 음원 — 지금 악보 키로 바꿔 재생" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + '<span class="pv-mt">참고 음원</span></button>' +
+          '<button type="button" class="pv-b pv-spreadtop" data-a="spread" aria-pressed="false" aria-label="두 페이지 나란히 보기" title="두 페이지 나란히 보기">' + I('spread') + '</button>' +      // 2026-11 — 두 페이지 보기를 위 막대에 바로
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기" aria-label="패널 열기/닫기">' + I('panel') + '</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="메뉴 열기 (도구 · 보기 · 더 보기)" title="메뉴 열기 / 닫기"><span class="ic">' + I('more') + '</span><span class="nm">메뉴</span></button>' +
-        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="더 보기 (화면 배치 · 밝기 · 떠 있는 창)" title="더 보기 — 화면 배치 · 여백 · 두 페이지 · 밝기 · 떠 있는 창">' + I('more') + '</button>' +
+        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="더 보기 (화면 배치 · 밝기 · 악보 편집 · 떠 있는 창)" title="더 보기 — 화면 배치 · 여백 · 두 페이지 · 밝기 · 악보 편집 · 떠 있는 창">' + I('more') + '</button>' +
       '</header>' +
       '<div class="pv-morepop" role="group" aria-label="더 보기">' +
+        /* 2026-11 Ark — 자주 쓰는 일곱 가지를 맨 위 목록으로 (나머지 · 보기 · 떠 있는 창은 아래 「더 보기」) */
+        '<div class="ak-mlist" role="group" aria-label="자주 쓰는 메뉴">' +
+          '<button type="button" class="ak-mi" data-a="ak-ws">' + I('fullscreen') + '예배 모드<small>전체 화면</small></button>' +
+          '<button type="button" class="ak-mi" data-a="ak-click">' + I('gear') + '클릭 · BPM 컨트롤<small>이 기기</small></button>' +
+          '<button type="button" class="ak-mi" data-a="pdf">' + I('download') + '필기 포함 PDF</button>' +
+          '<button type="button" class="ak-mi" data-a="ak-rec">' + I('rec') + '연습 녹음</button>' +
+          '<button type="button" class="ak-mi" data-a="ak-usage" hidden>' + I('chart') + '라이브 악보 사용 기록<small>관리자</small></button>' +
+        '</div>' +
+        '<div class="ak-msub">보기 · 더 보기</div>' +
         '<div class="pv-mp-view"></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면" aria-label="태블릿 화면">' + I('tablet') + '<span class="pv-tx"> 태블릿</span></button><button data-layout="computer" title="컴퓨터 화면" aria-label="컴퓨터 화면">' + I('laptop') + '<span class="pv-tx"> 컴퓨터</span></button></div>' +
         '<div class="pv-acts" role="group" aria-label="더 보기 동작">' +
@@ -227,7 +323,7 @@
       '<div class="pv-main">' +
         '<div class="pv-tools" role="toolbar" aria-label="필기 도구"></div>' +
         '<div class="pv-stage"><div class="pv-pagebox"><canvas class="pv-pdf"></canvas><canvas class="pv-anno"></canvas></div>' +
-          '<div class="pv-pagebox pv-pagebox2" style="display:none" title="오른쪽 페이지 (보기 전용) — 눌러서 왼쪽으로 가져오면 필기할 수 있습니다"><canvas class="pv-pdf2"></canvas></div>' +
+          '<div class="pv-pagebox pv-pagebox2" style="display:none" title="오른쪽 페이지 (보기 전용) — 눌러서 왼쪽으로 가져오면 필기할 수 있습니다"><canvas class="pv-pdf2"></canvas><canvas class="pv-anno2" aria-hidden="true"></canvas></div>' +
           '<div class="pv-loading">악보를 불러오는 중…</div><div class="pv-toast" role="status" aria-live="polite"></div><div class="pv-sympop"></div></div>' +
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
@@ -243,7 +339,7 @@
         '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">' + I('metronome') + ' 클릭 · 시작음 · 함께 (패널 열기)</button></div></section>' +
       '</aside>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
-    el.classList.toggle('pv-nosub', !songs.length);
+    el.classList.toggle('pv-nosong', !songs.length);
     function $(sel) { return el.querySelector(sel); }
     var stage = $('.pv-stage'), box = $('.pv-pagebox'), pdfCv = $('.pv-pdf'), annoCv = $('.pv-anno'), loading = $('.pv-loading'), toastEl = $('.pv-toast');
     var toolsEl = $('.pv-tools'), sideEl = $('.pv-side'), tabsEl = $('.pv-tabs'), panesEl = $('.pv-panes'), sheetSel = $('.pv-sheetsel');
@@ -253,21 +349,68 @@
       clearTimeout(S.msgT); if (t) S.msgT = setTimeout(function () { toastEl.className = 'pv-toast'; }, ms || (bad ? 5000 : 2200));
     }
 
-    /** 나만 보는 악보는 목록 맨 뒤 (이 앱은 서버가 콘티 순서로 줌) */
-    function orderMine(list) { return list.filter(function (x) { return !x.mine; }).concat(list.filter(function (x) { return x.mine; })); }
     function canMine() { return !!(opts.callServer && opts.token && S.room && !opts.readOnly); }
+    function sheetOptText(s, i) { return (s.mine ? '🔒 ' : '') + h(s.label || s.name || ('악보 ' + (i + 1))) + (s.mine ? ' (나만)' : ''); }
+    /** v9.8 — 지금 곡의 악보 후보 { idx, id, page, how } 목록 · 쓰는 악보 (계산이 안 되면 빈 목록) */
+    function songSheetsNow() {
+      var cs = S.songIdx; if (!PICK || cs < 0 || !songs[cs]) return null;
+      var an = pickAnalyze(); if (!an) return null;
+      return { cands: an.cands[cs] || [], chosen: an.chosen[cs] || null, an: an };
+    }
+    /** 2026-11 — 두 번째 칸 = 고른 콘티 곡의 악보 (자동 · 직접 고른 것 · 붙인 내 악보) + 콘티 밖 악보 + 설정 */
     function paintSheetSel() {
-      var cur = sheets[S.sheetIdx];
-      sheetSel.innerHTML = sheets.map(function (s, i) { return '<option value="' + i + '">' + (s.mine ? '🔒 ' : '') + h(s.label || s.name || ('악보 ' + (i + 1))) + (s.mine ? ' (나만)' : '') + '</option>'; }).join('') +
-        (canMine() ? '<option value="__mineadd">🔒 나만 보는 악보 올리기 · 관리…</option>' + (cur && cur.mine ? '<option value="__minedel">🗑 이 악보 지우기 (나만 보는 악보)</option>' : '') : '');
+      var cur = sheets[S.sheetIdx], g = songSheetsNow(), an = g ? g.an : null, body = '', inSong = {}, cs = S.songIdx;
+      var nm = function (x) { return h(String(x.name || '악보').replace(/\.(pdf|png|jpe?g|webp|gif)$/i, '')); };
+      if (g) {
+        var pin = cfgGet('songsheet', songs[cs].title), mineL = (an.mine || [])[cs] || [];
+        body += '<optgroup label="' + h((cs + 1) + '. ' + songs[cs].title + ' 의 악보') + '">' + g.cands.map(function (c) {
+          inSong[c.idx] = 1; var chosen = g.chosen && g.chosen.idx === c.idx;
+          return '<option value="' + c.idx + '">' + (chosen ? (pin && pin.id === sheets[c.idx].id ? '✓ ' : '자동 · ') : '') + nm(sheets[c.idx]) + (c.page > 1 ? ' · ' + c.page + '쪽~' : '') + '</option>';
+        }).join('') + mineL.map(function (m) { inSong[m.idx] = 1; return '<option value="' + m.idx + '">🔒 ' + nm(sheets[m.idx]) + ' (나만)</option>'; }).join('') +
+          (g.cands.length || mineL.length ? '' : '<option value="__none" disabled>이 곡에 붙은 악보가 없어요</option>') + '</optgroup>';
+        var outs = [], rest = [];
+        sheets.forEach(function (x, i) { if (inSong[i]) return; (an.rank[x.id] == null && an.alt[x.id] == null ? outs : rest).push('<option value="' + i + '">' + sheetOptText(x, i) + '</option>'); });
+        if (outs.length) body += '<optgroup label="콘티 밖 악보 (맨 뒤)">' + outs.join('') + '</optgroup>';
+        if (rest.length) body += '<optgroup label="다른 곡의 악보">' + rest.join('') + '</optgroup>';
+        var canPin = !!(cur && !cur.mine && !inSong[S.sheetIdx]), outV = cur ? cfgGet('sheetsong', cur.id) : null;
+        body += '<optgroup label="설정">' +
+          (pin ? '<option value="__auto">↺ 자동으로 (가장 잘 맞는 악보)</option>' : '') +
+          (canPin ? '<option value="__pin">📌 지금 악보를 "' + h(songs[cs].title) + '" 의 악보로</option>' : '') +
+          (cur && cur.mine ? '<option value="__mineattach">🔒 이 내 악보를 붙일 곡 바꾸기…</option>' : '') +
+          (cur && !cur.mine && canTeam() ? (outV && outV.out ? '<option value="__outclear">↖ 콘티 밖 해제 (자동 연결)</option>' : '<option value="__out">↘ 이 악보를 콘티 밖 (맨 뒤)으로</option>') : '') +
+          '<option value="__pagesong">▸ 이 페이지의 곡 바꾸기…</option><option value="__links">🔗 곡별 악보 연결…</option>' +
+          (canTeam() && opts.callServer ? '<option value="__split">▸ 곡별 악보로 저장…</option>' : '') + '</optgroup>';
+      } else {
+        body = sheets.map(function (x, i) { return '<option value="' + i + '">' + sheetOptText(x, i) + '</option>'; }).join('');
+      }
+      if (canMine()) body += '<optgroup label="나만 보는 악보"><option value="__mineadd">🔒 올리기 · 곡에 붙이기…</option>' + (cur && cur.mine ? '<option value="__minedel">🗑 이 악보 지우기</option>' : '') + '</optgroup>';
+      if (sheetSel.__h !== body) { sheetSel.innerHTML = body; sheetSel.__h = body; }
       sheetSel.value = String(S.sheetIdx);
+      sheetSel.title = g ? '"' + songs[cs].title + '" 곡의 악보 — 자동으로 고르거나 직접 고를 수 있어요 (곡 · 날짜마다 기억)' : '악보 고르기';
+      try { renderSongSel(); } catch (e) { /* 아직 화면을 다 만들기 전 */ }
+      try { paintPos(); } catch (e) { /* 아직 */ }
     }
     paintSheetSel();
     sheetSel.onchange = function () {
       var v = sheetSel.value;
       if (v === '__mineadd') { sheetSel.value = String(S.sheetIdx); pickMine(); return; }
       if (v === '__minedel') { sheetSel.value = String(S.sheetIdx); delMine(); return; }
-      loadSheet(+v, 1, true);
+      if (v === '__pin') { sheetSel.value = String(S.sheetIdx); chooseSheet(S.sheetIdx, S.songIdx, S.page); return; }
+      if (v === '__auto') { sheetSel.value = String(S.sheetIdx); var st0 = songs[S.songIdx]; if (st0) { cfgSet('songsheet', st0.title, null); reorderSheets(); paintSheetSel(); goSong(S.songIdx); toast('"' + st0.title + '" 곡은 가장 잘 맞는 악보로 자동으로 열려요.', false, 2200); } return; }
+      if (v === '__out') { sheetSel.value = String(S.sheetIdx); setSheetSong(sheets[S.sheetIdx], -1); return; }
+      if (v === '__outclear') { sheetSel.value = String(S.sheetIdx); setSheetSong(sheets[S.sheetIdx], null); return; }
+      if (v === '__mineattach') { sheetSel.value = String(S.sheetIdx); openMinePanel(); return; }
+      if (v === '__pagesong') { sheetSel.value = String(S.sheetIdx); openPageSong(); return; }
+      if (v === '__links') { sheetSel.value = String(S.sheetIdx); openLinkPanel(); return; }
+      if (v === '__split') { sheetSel.value = String(S.sheetIdx); saveSplit(); return; }
+      if (v === '__none') { sheetSel.value = String(S.sheetIdx); return; }
+      var idx = +v, g = songSheetsNow(), c = g && g.cands.filter(function (x) { return x.idx === idx; })[0];
+      if (c) {                                                                      // 이 곡의 악보 중 하나 → 그 악보를 이 곡에 쓰기로 저장하고 엽니다
+        var target = sheets[idx];
+        if (!g.chosen || g.chosen.idx !== idx) chooseSheet(idx, S.songIdx, c.page);          // 저장하면 악보 순서가 다시 정해져 번호가 바뀔 수 있으므로
+        var ni = sheets.indexOf(target); if (ni < 0) ni = idx;                                // 악보 자체로 번호를 다시 찾아서 엽니다
+        S.pickSong = S.songIdx; loadSheet(ni, c.page, true);
+      } else loadSheet(idx, 1, true);                                              // 다른 악보 → 그냥 엽니다 (곡은 페이지 · 파일 이름으로 정해짐, 예전과 같음)
     };
     /* ------------------------------------------------------------ v9.6 나만 보는 악보
        라이브 악보에서 내가 올린 PDF · 사진 악보 — 내 악보 목록에만 보이고(🔒), 다른 팀원에게는 보이지 않습니다.
@@ -276,14 +419,22 @@
     var minePanel = doc.createElement('div'); minePanel.className = 'pv-minepanel'; minePanel.setAttribute('role', 'dialog'); minePanel.setAttribute('aria-label', '나만 보는 악보'); minePanel.hidden = true;
     minePanel.innerHTML = '<div class="pv-mp-in"><div class="pv-mp-h"><b>🔒 나만 보는 악보</b><button type="button" class="pv-mp-x" aria-label="닫기">✕</button></div>' +
       '<p class="pv-mp-p">여기서 올린 PDF · 사진 악보는 <b>나에게만</b> 보여요. 다른 팀원 목록에는 나오지 않고, 이 악보를 보는 동안에는 페이지 컨트롤이어도 팀 화면을 넘기지 않아요. 이 예배(날짜)에 저장됩니다.</p>' +
+      '<label class="pv-mp-songl">어느 곡의 악보인가요? <select class="pv-sel pv-mp-songsel" aria-label="이 악보를 붙일 콘티 곡"></select></label>' +
       '<label class="pv-btn2 primary pv-mp-pick">PDF · 사진 고르기<input type="file" class="pv-mineinput" accept="application/pdf,image/*" multiple></label>' +
       '<div class="pv-mp-list"></div></div>';
     var mineInput = minePanel.querySelector('.pv-mineinput');
+    function songOpts(sel) { return songs.map(function (x, i) { return '<option value="' + i + '"' + (sel === i ? ' selected' : '') + '>' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('') + '<option value="-1"' + (sel < 0 ? ' selected' : '') + '>콘티 밖 (맨 뒤)</option>'; }
     function paintMinePanel() {
       var mine = sheets.filter(function (x) { return x.mine; }), lst = minePanel.querySelector('.pv-mp-list');
-      lst.innerHTML = mine.length ? mine.map(function (x) { return '<div class="pv-mp-row"><button type="button" class="pv-mp-open" data-id="' + h(x.id) + '">🔒 ' + h(x.name || '악보') + '</button><button type="button" class="pv-mp-del" data-id="' + h(x.id) + '" aria-label="지우기">지우기</button></div>'; }).join('') : '<p class="pv-mp-p">아직 올린 악보가 없어요.</p>';
+      var ms = minePanel.querySelector('.pv-mp-songsel'), sl = minePanel.querySelector('.pv-mp-songl');      // 2026-11 — 올리기 전에 붙일 곡 (기본 = 지금 곡)
+      if (ms) { ms.innerHTML = songOpts(S.songIdx >= 0 ? S.songIdx : -1); sl.style.display = songs.length ? '' : 'none'; }
+      lst.innerHTML = mine.length ? mine.map(function (x) { return '<div class="pv-mp-row"><button type="button" class="pv-mp-open" data-id="' + h(x.id) + '">🔒 ' + h(x.name || '악보') + '</button>' + (songs.length ? '<select class="pv-sel pv-mp-att" data-id="' + h(x.id) + '" aria-label="' + h(x.name || '악보') + ' 를 붙일 곡">' + songOpts(sheetSongIdx(x)) + '</select>' : '') + '<button type="button" class="pv-mp-del" data-id="' + h(x.id) + '" aria-label="지우기">지우기</button></div>'; }).join('') : '<p class="pv-mp-p">아직 올린 악보가 없어요.</p>';
     }
     function openMinePanel() { paintMinePanel(); minePanel.hidden = false; }
+    minePanel.addEventListener('change', function (e) {
+      var t = e.target; if (!t || !t.classList || !t.classList.contains('pv-mp-att')) return;
+      var f = sheets.filter(function (x) { return x.id === t.getAttribute('data-id'); })[0]; if (f) setSheetSong(f, +t.value);
+    });
     minePanel.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b) { if (e.target === minePanel) minePanel.hidden = true; return; }
       if (b.classList.contains('pv-mp-x')) { minePanel.hidden = true; return; }
@@ -295,7 +446,7 @@
       var had = {}; sheets.forEach(function (x) { had[x.id] = x; });
       var cur = sheets[S.sheetIdx];
       (list || []).forEach(function (x) { if (x && x.id && !had[x.id]) { sheets.push({ id: x.id, name: x.name || '나만 보는 악보', mine: true }); had[x.id] = 1; } });
-      var next = orderMine(sheets.slice()); sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
+      var next = orderByConti(sheets.slice()); sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
       S.sheetIdx = Math.max(0, sheets.indexOf(cur)); paintSheetSel(); P.emit('sheets', sheets.slice(), []);
       if (openId) { var i = -1; sheets.forEach(function (x, k) { if (x.id === openId) i = k; }); if (i >= 0) loadSheet(i, 1, false); }
     }
@@ -310,18 +461,18 @@
       if (!files.length) { toast('PDF 또는 사진 파일을 골라 주세요.', true); return; }
       minePanel.hidden = true;
       var big = files.filter(function (f) { return f.size > 20 * 1024 * 1024; }); if (big.length) { toast('파일은 20MB까지 올릴 수 있어요: ' + big[0].name, true, 6000); return; }
-      var lastId = '', n = 0;
+      var lastId = '', n = 0, msel = minePanel.querySelector('.pv-mp-songsel'), attTo = songs.length && msel ? +msel.value : -1;
       toast('나만 보는 악보를 올리는 중… (' + files.length + '개)', false, 60000);
       files.reduce(function (p, f) {
         return p.then(function () {
           return readUrl(f).then(function (url) {
             return new Promise(function (res, rej) { opts.callServer('worshipMySheetAdd', [opts.token, S.room, f.name, url], res, function (e) { rej(e instanceof Error ? e : new Error((e && e.message) || '올리지 못했습니다.')); }); });
-          }).then(function (r) { n++; if (r && r.sheet) { lastId = r.sheet.id; addMineSheets([r.sheet]); } });
+          }).then(function (r) { n++; if (r && r.sheet) { lastId = r.sheet.id; if (attTo >= 0 && songs[attTo]) cfgSetIn('mine', 'sheetsong', r.sheet.id, { t: songs[attTo].title }); addMineSheets([r.sheet]); } });
         });
       }, Promise.resolve()).then(function () {
         if (S.dead) return;
         mineInput.value = '';
-        toast('🔒 나만 보는 악보 ' + n + '개를 올렸어요 — 다른 팀원에게는 보이지 않아요.', false, 4000);
+        toast('🔒 나만 보는 악보 ' + n + '개를 올렸어요' + (attTo >= 0 && songs[attTo] ? ' — "' + songs[attTo].title + '" 곡 뒤에 넘겨져요.' : ' — 콘티 맨 뒤에 넘겨져요.'), false, 4000);
         if (lastId) addMineSheets([], lastId);
       }, function (e) { if (!S.dead) { toast((e && e.message) || '올리지 못했습니다.', true, 6000); if (lastId) addMineSheets([], lastId); } });
     };
@@ -341,14 +492,16 @@
     }
 
     /* ------------------------------------------------------------ 레이아웃 */
+    /** v9.15 — 펜 입력(손바닥 무시)은 터치 화면이면 태블릿 · 컴퓨터 화면 모두에 적용 (마우스 · 트랙패드만 있는 컴퓨터는 영향 없음 — 마우스는 원래 손가락이 아님) */
+    function penModeFor(v) { var nav = root.navigator || {}; return S.layout === 'tablet' || (nav.maxTouchPoints || 0) > 1 ? v : 'off'; }
     function applyLayout(l, save) {
       S.layout = l === 'tablet' ? 'tablet' : 'computer';
       if (save) { ls('layout', S.layout); S.fit = S.layout === 'tablet' ? 'page' : 'width'; S.zoom = 1; }
       el.classList.toggle('pv-tablet', S.layout === 'tablet'); el.classList.toggle('pv-computer', S.layout === 'computer');
       el.classList.toggle('pv-lefty', S.hand === 'left');
-      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? !!S.sideOn : false);       // 패널은 열 때마다 닫힌 채로 시작 (이번에 연 동안만 기억)
+      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? ls('side') === '1' : false);
       Array.prototype.forEach.call(el.querySelectorAll('[data-layout]'), function (b) { b.classList.toggle('on', b.getAttribute('data-layout') === S.layout); b.setAttribute('aria-pressed', b.getAttribute('data-layout') === S.layout ? 'true' : 'false'); });
-      an && an.setPenMode(S.layout === 'tablet' ? (ls('penmode') || 'auto') : 'off');
+      an && an.setPenMode(penModeFor(ls('penmode') || 'auto'));
       if (S.compact !== calcCompact()) setCompact(calcCompact());
       if (S.doc) renderSoon(30);
     }
@@ -377,14 +530,14 @@
       if (on) {
         var v = drawerEl.querySelector('[data-slot="view"]'), t = drawerEl.querySelector('[data-slot="tools"]');
         [$('.pv-zoom'), $('.pv-layoutseg'), $('.pv-chips')].forEach(function (n) { if (n) hold(n, v); });
-        hold(toolsEl, t);
+        void t;                                                          // 2026-11 Ark — 폰에서도 필기 도구는 위 막대 아래 한 줄 (서랍으로 옮기지 않음)
         var ac = drawerEl.querySelector('[data-slot="acts"]');                            // v9.16 — 폰: 유튜브 · 전체 화면 · 밝기 · 악보 편집 · 떠 있는 창도 서랍(⋯) 안으로
-        [songs.length ? $('.pv-sheetwrap') : null, $('.pv-keyctl'), $('.pv-hx'), $('.pv-acts')].forEach(function (n) { if (n) hold(n, ac); });      // 악보 고르기도 서랍 맨 위 (곡 칸을 넓게)
+        [songs.length ? $('.pv-psw') : $('.pv-sheetwrap'), $('.pv-keyctl'), $('.pv-hx'), $('.pv-acts')].forEach(function (n) { if (n) hold(n, ac); });      // 악보 고르기도 서랍 맨 위 (곡 칸을 넓게)
         el.classList.remove('pv-sideopen');
       } else {
         setDrawer(false);
         holders.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
-        if (S.layout === 'computer' && S.sideOn) el.classList.add('pv-sideopen');
+        if (S.layout === 'computer' && ls('side') === '1') el.classList.add('pv-sideopen');
       }
     }
     function autoFit() {                                              // 폰을 옆으로 눕히면 한 페이지가 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
@@ -410,7 +563,7 @@
       if (S.compact || !top) { applyNarrow(0); el.classList.remove('pv-tight'); return; }
       var keep = t ? t.style.minWidth : '', lv = 0;
       el.classList.remove('pv-tight');
-      for (lv = 0; lv < 2; lv++) {                                                 // 펴 놓고 재야 정확 (같은 프레임 안이라 깜빡이지 않음)
+      for (lv = 1; lv < 2; lv++) {                                                 // 펴 놓고 재야 정확 (같은 프레임 안이라 깜빡이지 않음) · 2026-11 Ark — 확대 · 여백 · 두 페이지는 늘 「⋯」 안 (시안)
         applyNarrow(lv);
         if (t) t.style.minWidth = lv === 0 ? '230px' : '170px';                     // 곡 · 악보 알약이 최소한 이만큼은 보여야 함
         var over = top.scrollWidth - top.clientWidth > 1;
@@ -423,6 +576,7 @@
     }
     function setMore(open) {
       open = !!open && !S.compact; el.classList.toggle('pv-moreopen', open); moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) { var ub = moreEl.querySelector('[data-a="ak-usage"]'); if (ub) ub.hidden = !(P.liveUsage && P.liveUsage.owner && P.liveUsage.owner()); }
       if (open) {                                                                  // v9.16 — 「⋯」 바로 아래, 화면 밖으로 나가지 않게
         try { var br = moreBtn.getBoundingClientRect(), er = el.getBoundingClientRect(); moreEl.style.top = Math.round(br.bottom - er.top + 6) + 'px'; moreEl.style.right = Math.max(8, Math.round(er.right - br.right)) + 'px'; } catch (e) { /* 자리는 CSS 기본값 */ }
       }
@@ -440,10 +594,18 @@
 
     /* 필기 도구 막대 접기/펴기 — 접으면 악보가 화면 전체 폭을 씁니다. 도구 막대는 그대로 두고 숨기기만 해서 필기 · 실시간 동기화에 영향이 없습니다 */
     var toolsBtn = $('.pv-toolsbtn');
+    /* 2026-11 Ark — 도구 줄 높이만큼 악보 칸을 아래로 (--ak-trh) — 줄이 접히거나 글꼴 줄이 생겨도 따라감 */
+    function trhSync() {
+      if (S.dead) return; var on = !el.classList.contains('pv-toolshide') && !S.fs, hgt = on ? Math.round(toolsEl.getBoundingClientRect().height) : 0;
+      var cur = el.style.getPropertyValue('--ak-trh'); if (cur !== hgt + 'px') { el.style.setProperty('--ak-trh', hgt + 'px'); if (typeof renderSoon === 'function') renderSoon(60); }
+    }
+    try { if (root.ResizeObserver) new root.ResizeObserver(function () { trhSync(); }).observe(toolsEl); } catch (e) { /* 열고 닫을 때 다시 잼 */ }
     function setTools(show, save) {
       el.classList.toggle('pv-toolshide', !show);
       try { if (!show && typeof placePill === 'function') placePill(); else if (show && FL.tools) requestAnimationFrame(function () { flPlace('tools'); }); } catch (e) {}
       toolsBtn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      var penB = el.querySelector('.pv-penbtn'); if (penB) { penB.setAttribute('aria-pressed', show ? 'true' : 'false'); penB.setAttribute('aria-label', show ? '필기 도구 닫기' : '필기 도구 열기'); }
+      requestAnimationFrame(trhSync);
       toolsBtn.setAttribute('aria-label', show ? '필기 도구 숨기기' : '필기 도구 보이기');
       toolsBtn.querySelector('.ic').innerHTML = I(show ? 'up' : 'pen');
       toolsBtn.querySelector('.nm').textContent = show ? '도구' : '도구 열기';
@@ -459,8 +621,6 @@
       S.dockMore = !!on; el.classList.toggle('pv-dockmore', S.dockMore); if (save) ls('dockmore', S.dockMore ? '1' : '0');
       var b = toolsEl.querySelector('[data-a="dockmore"]'); if (b) { b.setAttribute('aria-pressed', S.dockMore ? 'true' : 'false'); b.setAttribute('aria-expanded', S.dockMore ? 'true' : 'false'); }
     }
-    if (opts.readOnly) { el.classList.add('pv-ro'); setTools(false, false); }          // 방송팀 보기 링크 — 보기 전용 (필기 도구 없음)
-    if (ls('tools') !== '1') setTools(false, false);                      // 기본은 접힘 (v11) — "도구 열기" 로 펴면 '1' 로 기억
     if (!(root.__YN_KEEP_TOOLS && ls('tools') === '1')) setTools(false, false);   // V838 — 라이브 악보를 열 때마다 도구는 늘 접힌 채로 시작 (열어 쓰는 동안만 펴짐). __YN_KEEP_TOOLS 는 옛 기본값으로 시험하는 시험 전용
     /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
        ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
@@ -498,7 +658,7 @@
       var on = force != null ? force : !el.classList.contains('pv-sideopen');
       if (on && S.compact) setDrawer(false);
       el.classList.toggle('pv-sideopen', on);
-      if (S.layout === 'computer' && !S.compact) S.sideOn = !!on;
+      if (S.layout === 'computer' && !S.compact) ls('side', on ? '1' : '0');
       if (on && !S.tab && P.tabs.length) showTab(P.tabs[0].id);
       renderSoon(260);
     }
@@ -587,8 +747,21 @@
     /** 태블릿 위 캡슐 도크가 열려 있으면 그 밑에서부터 악보가 시작 (도크가 악보 윗부분을 가리지 않게) */
     function dockPad() { return 0; }                                   // v6 — 도구 도크는 악보 위에 떠 있고 옮길 수 있으므로 악보를 밀어내지 않습니다
     var DOCK_PAD = 54;
+    /* v12.11 — 악보 칸 크기는 ResizeObserver 가 알려 준 값을 씀 — 넘길 때마다 clientWidth 를 읽어 화면 배치를 억지로 다시 계산하던 것(넘김마다 수 ms)을 없앰.
+       크기가 바뀌면 곧 다시 그림 (패널 열고 닫기 · 회전 · 창 크기) */
+    var STG = { w: 0, h: 0 };
+    function stageRead() { if (!STG.w) { STG.w = stage.clientWidth; STG.h = stage.clientHeight; } }      // 비어 있으면 한 번 읽어 채움 (그다음부터는 ResizeObserver 가 고침)
+    function stageW() { stageRead(); return STG.w; }
+    function stageH() { stageRead(); return STG.h; }
+    try {
+      if (root.ResizeObserver) new root.ResizeObserver(function () {
+        var cw = stage.clientWidth, ch = stage.clientHeight, had = STG.w > 0, moved = STG.w !== cw || STG.h !== ch;     // (이 안에서는 배치가 이미 끝나 있어 읽어도 싸요)
+        STG.w = cw; STG.h = ch;
+        if (moved && had && S.doc && !S.dead) renderSoon(60);
+      }).observe(stage);
+    } catch (e) { /* 없으면 예전처럼 그때그때 읽음 */ }
     function fitScale(info, cr) {
-      var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' && !S.compact ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8 - dockPad());
+      var aw = Math.max(200, stageW() - (S.layout === 'computer' && !S.compact ? 24 : 8)), ah = Math.max(200, stageH() - 8 - dockPad());
       if (spreadOn()) aw = Math.max(150, (aw - 12) / 2);                 // 두 페이지 : 각 페이지가 가로 절반
       function one(w, h) { var fw = aw / w, fh = ah / h; return S.fit === 'page' ? Math.min(fw, fh) : fw; }
       var full = one(info.w, info.h); if (!cr) return full;
@@ -598,24 +771,53 @@
     /* ------------------------------------------------------------ 두 페이지 나란히 (컴퓨터 화면)
        왼쪽 = 지금 페이지 (필기 · 실시간 동기화는 이 페이지에만 — 기존 그대로). 오른쪽 = 다음 페이지 (보기 전용, 눌러서 왼쪽으로 가져오면 필기 가능). */
     var box2 = $('.pv-pagebox2'), pdf2 = $('.pv-pdf2'), spreadBtn = $('.pv-spreadbtn');
+    var anno2 = $('.pv-anno2');
+    /* 두 쪽 보기 — 오른쪽 페이지 위에도 필기(송폼 라벨 · 펜 · 글자 …)를 보기 전용으로 얹습니다.
+       같은 악보 파일이면 지금 불러온 필기에서, 다음 악보 파일이면 그 파일의 필기를 한 번 받아 둡니다 (기기 저장분 → 서버, 1분 동안 다시 묻지 않음) */
+    S.right = null; S.rAnno = {};
+    function rightAnnoOf(fid) {
+      var e = S.rAnno[fid];
+      if (e && (e.loading || Date.now() - e.at < 60000)) return e;
+      var keep = e && e.items ? e.items : null;
+      e = S.rAnno[fid] = { at: Date.now(), loading: 0, items: keep || { team: [], mine: [] } };
+      var got = { team: {}, mine: {} }, put = function (ly, list) { (list || []).forEach(function (it) { if (it && it.id) got[ly][it.id] = it; }); };
+      scopes().forEach(function (sc) { var c = acacheGet(fid, sc); if (c) { put('team', c.team); put('mine', c.mine); } });
+      var done = function () { e.items = { team: Object.keys(got.team).map(function (k) { return got.team[k]; }), mine: Object.keys(got.mine).map(function (k) { return got.mine[k]; }) }; paintRightAnno(); };
+      done();
+      if (opts.callServer) scopes().forEach(function (sc) {
+        e.loading++;
+        opts.callServer('worshipAnnoLoad', [opts.token, fid, sc, false], function (r) { e.loading--; if (r) { put('team', r.team); put('mine', r.mine); } e.at = Date.now(); done(); },
+          function () { e.loading--; e.at = Date.now(); });
+      });
+      return e;
+    }
+    function paintRightAnno() {
+      var R = S.right;
+      if (!anno2 || !R || !spreadOn() || box2.style.display === 'none') { if (anno2 && anno2.width) { anno2.width = anno2.height = 0; } return; }
+      var W = Math.round(R.w * R.dpr), H = Math.round(R.h * R.dpr);
+      anno2.style.width = R.w + 'px'; anno2.style.height = R.h + 'px';
+      if (anno2.width !== W || anno2.height !== H) { anno2.width = W; anno2.height = H; }
+      var c = anno2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
+      try {
+        if (R.fid === fileId()) { an.drawPage(c, W, H, R.p); return; }
+        var e = rightAnnoOf(R.fid), list = (e.items.team || []).concat(e.items.mine || []).filter(function (it) { return it.pg === R.p; });
+        list.filter(function (i) { return i.t === 'hl'; }).concat(list.filter(function (i) { return i.t !== 'hl'; })).forEach(function (it) { YA.drawItem(c, it, W, H); });
+      } catch (er) { /* 필기를 못 그려도 악보는 그대로 */ }
+    }
     /* 허브 v5 — 아이패드를 가로로 눕힌 태블릿 화면(라이브 모드)에서도 두 페이지를 나란히 (넓은 가로 화면에서만) */
     function landscapeWide() { var w = root.innerWidth || 0, hh = root.innerHeight || 0; return w > hh && w >= 1000; }
     function spreadAllowed() { return S.layout === 'computer' || (S.layout === 'tablet' && landscapeWide()); }
-    /* 무대 폭은 ResizeObserver 로 기억 — spreadOn() 이 넘김마다 수십 번 불려도 레이아웃을 다시 계산하게(강제 리플로) 하지 않음 */
-    var stageW = 0;
-    try { if (root.ResizeObserver) new root.ResizeObserver(function (en) { var r = en[0] && en[0].contentRect; if (r) stageW = Math.round(r.width); }).observe(stage); } catch (e) { /* 아래에서 직접 잼 */ }
-    function stageWidth() { return stageW || stage.clientWidth; }
-    function spreadOn() { return !!S.spread && spreadAllowed() && stageWidth() >= 860; }
+    function spreadOn() { return !!S.spread && spreadAllowed() && stageW() >= 860; }
     function syncSpreadUi() {
       var on = spreadOn(), can = spreadAllowed();
       el.classList.toggle('pv-spread', on); spreadBtn.style.display = can ? '' : 'none';
-      spreadBtn.classList.toggle('on', on); spreadBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); var fsSp = el.querySelector('.pv-fsspread'); if (fsSp) { fsSp.style.display = can ? '' : 'none'; fsSp.classList.toggle('on', on); fsSp.setAttribute('aria-pressed', on ? 'true' : 'false'); fsSp.title = on ? '한 페이지로 보기' : '두 페이지 보기'; }
+      spreadBtn.classList.toggle('on', on); spreadBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); var spTop = el.querySelector('.pv-spreadtop'); if (spTop) { spTop.style.display = can ? '' : 'none'; spTop.classList.toggle('on', on); spTop.setAttribute('aria-pressed', on ? 'true' : 'false'); } var fsSp = el.querySelector('.pv-fsspread'); if (fsSp) { fsSp.style.display = can ? '' : 'none'; fsSp.classList.toggle('on', on); fsSp.setAttribute('aria-pressed', on ? 'true' : 'false'); fsSp.title = on ? '한 페이지로 보기' : '두 페이지 보기'; }
       if (!on) box2.style.display = 'none';
     }
     /* v11 — 두 페이지 보기는 "파일 하나" 안에서만 짝을 짓지 않고, 악보 파일이 여러 개로 나뉘어 있어도 이어서 두 페이지씩 보입니다.
        오른쪽 페이지 = 같은 파일의 다음 페이지 · 파일 끝이면 다음 악보 파일의 첫 페이지 (넘기는 순서와 같은 순서). */
     function sheetIdxOf(d) { if (!d) return -1; for (var i = 0; i < sheets.length; i++) if (sheets[i].id === d.fid) return i; return -1; }
-    function stepSheet(si, dir) { var j = si + dir; return j >= 0 && j < sheets.length ? j : -1; }
+    function stepSheet(si, dir) { var j = pickSafe(function () { return PICK.neighbor(PICK.analyze(pickCtx()), si, dir); }, null); if (j == null) j = si + dir; return j >= 0 && j < sheets.length ? j : -1; }
     function rightPosOf(d, pg) {
       var si = sheetIdxOf(d); if (si < 0) return null;
       if (pg < d.n) return { s: si, p: pg + 1 };
@@ -627,14 +829,13 @@
       fetchDoc(sheets[i]).then(function (d2) { if (!S.dead && !S.loadingTo) cb(d2); }, function () { /* 못 열면 그대로 */ });
     }
     function goPos(t, user) { if (t.s === S.sheetIdx) goPage(t.p, user); else loadSheet(t.s, t.p, user); }
-    /** 두 페이지 보기에서 "다음": 지금 보이는 오른쪽 페이지의 그다음으로 (파일 경계를 넘어서도). 처리했으면 true */
+    /** 두 페이지 보기에서 "다음": 지금 보이는 오른쪽 페이지의 그다음으로 (파일 경계를 넘어서도). 오른쪽이 다음 곡이면 그 쪽을 왼쪽으로. 처리했으면 true */
     function spreadNext(user) {
       var R = S.doc ? rightPosOf(S.doc, S.page) : null; if (!R) return false;
-      /* 오른쪽 페이지가 다른 곡이면 한 장만 넘김 — 오른쪽 악보가 왼쪽으로 와서 클릭 · 송폼 · Key 가 그 곡을 따라가고, 오른쪽엔 그다음 페이지 */
-      try {
-        var sL = resolveSong(sheets[S.sheetIdx], S.page), sR = resolveSong(sheets[R.s], R.p);
-        if (sL != null && sR != null && sL >= 0 && sR >= 0 && sR !== sL) { goPos(R, user); return true; }
-      } catch (e) { /* 곡을 모르면 예전처럼 두 장 */ }
+      /* 왼쪽 · 오른쪽이 다른 곡이면 (A곡 끝 | B곡 시작) 한 쪽만 넘겨 B곡을 왼쪽으로 — 클릭 · 곡 정보가 왼쪽 곡을 따르므로 */
+      var sL = -1, sR = -1;
+      try { sL = resolveSong(sheets[S.sheetIdx], S.page); sR = resolveSong(sheets[R.s], R.p); } catch (e) { /* 모르면 예전처럼 두 쪽 */ }
+      if (sR >= 0 && sR !== sL) { goPos(R, user); return true; }
       withDoc(R.s, function (dR) {
         var T = R.p < dR.n ? { s: R.s, p: R.p + 1 } : null;
         if (!T) { var j = stepSheet(R.s, 1); if (j >= 0) T = { s: j, p: 1 }; }
@@ -657,78 +858,40 @@
     /** 두 페이지 보기 오른쪽(다음) 페이지 — 저장소에 있으면 붙이기만, 없으면 따로 그린 뒤 붙입니다.
      *  v9.5: 예전에는 화면 canvas 에 바로 그리면서 앞 작업을 멈추지 않아, 빨리 넘기면 "같은 canvas 에 두 번 그리기" 오류로 오른쪽이 비곤 했습니다 */
     var rightTask = null;
-    /* 오른쪽 페이지에도 필기(송폼 라벨 · 펜 · 글자 …)를 보기 전용으로 겹쳐 그림.
-       같은 파일이면 지금 불러온 필기에서, 다른 파일이면 그 파일 필기를 따로 받아 둠 (기기 저장 → 서버) */
-    S.rAnno = {}; S.rLast = null;
-    function rightItems(file, pg) {
-      var e = S.rAnno[file];
-      if (!e || Date.now() - e.at > 20000) loadRightAnno(file);
-      return e ? e.items.filter(function (i) { return i.pg === pg; }) : [];
-    }
-    function loadRightAnno(file) {
-      var e = S.rAnno[file] || (S.rAnno[file] = { at: 0, items: [], by: {} });
-      if (e.busy) return; e.busy = true; e.at = Date.now();
-      var put = function (sc, ly, list) { e.by[sc + '|' + ly] = (list || []).map(function (i) { return Object.assign({ ly: ly }, i); }); e.items = [].concat.apply([], Object.keys(e.by).map(function (k) { return e.by[k]; })); };
-      var sheet = sheets.filter(function (f) { return f.id === file; })[0], mineF = !!(sheet && sheet.mine), left = scopes().length;
-      scopes().forEach(function (sc) {
-        var c = acacheGet(file, sc); if (c) { if (!mineF) put(sc, 'team', c.team); put(sc, 'mine', c.mine); }
-        if (!opts.callServer) { if (--left <= 0) e.busy = false; return; }
-        var useRt = !mineF && rt && rt.online;                                          // 팀 필기는 실시간 서버(가장 최신)에서, 내 필기는 시트에서
-        if (useRt) rt.call('anno:load', { file: file, scope: sc }).then(function (r) { put(sc, 'team', (r && r.items) || []); repaintRight(); }, function () { /* 기기 저장분 그대로 */ });
-        opts.callServer('worshipAnnoLoad', [opts.token, file, sc, mineF || !!useRt], function (r) {
-          if (r) { put(sc, 'mine', r.mine || []); if (!mineF && !useRt && Array.isArray(r.team)) put(sc, 'team', r.team); }
-          if (--left <= 0) { e.busy = false; e.at = Date.now(); repaintRight(); }
-        }, function () { if (--left <= 0) e.busy = false; });
-      });
-      if (S.rLast) repaintRight();
-    }
-    function drawRightAnno(c, W, H, rp) {
-      try {
-        if (typeof an === 'undefined' || !an) return;
-        if (rp.s === S.sheetIdx) { an.drawPage(c, W, H, rp.p); return; }
-        var f = sheets[rp.s]; if (!f || !YA || !YA.drawItem) return;
-        var vis = (an.state && an.state().vis) || { team: true, mine: true };
-        var list = rightItems(f.id, rp.p).filter(function (i) { return vis[i.ly] !== false; });
-        list.filter(function (i) { return i.t === 'hl'; }).forEach(function (i) { YA.drawItem(c, i, W, H, { blend: true }); });
-        list.filter(function (i) { return i.t !== 'hl'; }).forEach(function (i) { YA.drawItem(c, i, W, H); });
-      } catch (e) { /* 필기를 못 그려도 악보는 그대로 */ }
-    }
-    var rpT = 0;
-    function repaintRight() { clearTimeout(rpT); rpT = setTimeout(function () { var L = S.rLast; if (L && !S.dead && spreadOn()) renderRight(L.id, L.pg, L.d, L.base, L.dpr); }, 250); }
     function renderRight(id, pg, d, base, dpr) {
-      S.rLast = { id: id, pg: pg, d: d, base: base, dpr: dpr };
       syncSpreadUi();
       if (rightTask) { try { rightTask.cancel(); } catch (e) {} rightTask = null; }
       var rp = spreadOn() ? rightPosOf(d, pg) : null;
-      if (!rp) { box2.style.display = 'none'; return; }
+      if (!rp) { box2.style.display = 'none'; S.right = null; paintRightAnno(); return; }
       var rdoc = rp.s === sheetIdxOf(d) ? Promise.resolve(d) : fetchDoc(sheets[rp.s]);
       rdoc.then(function (d2) { if (id !== S.rid || !spreadOn()) return; return pageInfo(d2, rp.p).then(function (info) { return [d2, info]; }); }).then(function (di) {
         if (!di || id !== S.rid || !spreadOn()) return;
         var d2 = di[0], info = di[1], rn = rp.p;
         var L = sideLayout(info, base), w = L.cssW, hh = L.cssH, sig = pcSig(d2, rn, w, hh, L.dpr);
         var paint = function (src) {
-          if (id !== S.rid || !spreadOn()) return;
+          if (id !== S.rid || !spreadOn()) return false;
           box2.style.display = ''; box2.style.width = w + 'px'; box2.style.height = hh + 'px';
-          pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px';
-          if (pdf2.width !== src.width || pdf2.height !== src.height) { pdf2.width = src.width; pdf2.height = src.height; }
-          var c = pdf2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0);
-          drawRightAnno(c, pdf2.width, pdf2.height, rp); S.rPaintAt = root.performance ? root.performance.now() : Date.now();
+          slotShow('R', src); pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px';      // v12.11 — 오른쪽도 복사하지 않고 그 그림을 그대로 걺
+          S.right = { fid: d2.fid, p: rn, w: w, h: hh, dpr: L.dpr }; paintRightAnno();
+          return true;
         };
-        var hit = pcGet(sig); if (hit) { paint(hit.cv); return; }
+        var hit = pcGet(sig); if (hit && !(hit.cv.width > 0)) { pcDrop(sig); hit = null; }          // V899 — 비워진 그림이면 다시 그림
+        if (hit) { paint(hit.cv); return; }
         (S.pre.get(sig) || prerender(d2, rn, base)).then(function () {
-          var h2 = pcGet(sig); if (h2) { paint(h2.cv); return; }
+          var h2 = pcGet(sig); if (h2 && !(h2.cv.width > 0)) { pcDrop(sig); h2 = null; }
+          if (h2) { paint(h2.cv); return; }
           if (id !== S.rid || !spreadOn()) return;                                          // 저장소에 자리가 없을 때만 — 따로 그려서 붙임
           var off = doc.createElement('canvas'); off.width = Math.round(w * L.dpr); off.height = Math.round(hh * L.dpr);
           var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, off.width, off.height);
           var t = info.draw(off, base * L.dpr); rightTask = t;
-          t.promise.then(function () { if (rightTask === t) rightTask = null; paint(off); off.width = off.height = 0; }, function () { if (rightTask === t) rightTask = null; off.width = off.height = 0; });
+          t.promise.then(function () { if (rightTask === t) rightTask = null; if (!paint(off)) off.width = off.height = 0; }, function () { if (rightTask === t) rightTask = null; off.width = off.height = 0; });
         });
       }, function () { box2.style.display = 'none'; });
     }
     box2.onclick = function () { var rp = S.doc ? rightPosOf(S.doc, S.page) : null; if (rp) goPos(rp, true); toast('필기하려면 이 페이지가 왼쪽에 옵니다. 다음 페이지는 오른쪽에 보입니다.'); };
     S.spread = ls('spread') === '1' || (ls('spread') === null && S.layout === 'tablet' && landscapeWide());   // 태블릿 가로 화면은 처음에 두 페이지 (직접 끄면 기억)
     function toggleSpread() {
-      if (!spreadAllowed() || stageWidth() < 860) { toast('두 페이지 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
+      if (!spreadAllowed() || stageW() < 860) { toast('두 페이지 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
       S.spread = !S.spread; ls('spread', S.spread ? '1' : '0'); S.zoom = 1; renderPage();
     }
     /* ------------------------------------------------------------ 그려 둔 페이지 그림 저장소
@@ -739,14 +902,39 @@
     S.pcache = new Map(); S.pcBytes = 0; S.pcCur = ''; S.drawnSig = null; S.drawnOk = false; S.pending = null;
     /* 폰 · 작은 태블릿은 화면 그림 자체가 메모리를 많이 쓰므로 저장소를 더 작게 (48MB), 컴퓨터는 96MB */
     var TOUCHY = !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches);
-    /* 폰(짧은 변 < 700px)만 작게. 아이패드는 세로(820px)로 들어도 태블릿 — 예전에는 세로 아이패드를 폰으로 봐서 48MB(쪽 3장)만 두는 바람에
-       미리 그린 다음 쪽이 앞 쪽에 밀려 지워지고, 넘길 때마다 처음부터 다시 그리곤 했음 */
-    var SHORT = Math.min(root.innerWidth || 1200, root.innerHeight || 900);
-    var PHONE = SHORT < 700;
-    var PC_MAX_BYTES = (PHONE ? 48 : 96) * 1024 * 1024, PC_ONE_MAX = (PHONE ? 22 : 40) * 1024 * 1024, PC_MAX_N = PHONE ? 8 : 12;
+    var PHONE = (root.innerWidth || 1200) < 900 || (root.matchMedia && root.matchMedia('(pointer: coarse)').matches && (root.innerWidth || 1200) < 1100);
+    var PC_MAX_BYTES = (PHONE ? 48 : 96) * 1024 * 1024, PC_ONE_MAX = (PHONE ? 22 : 40) * 1024 * 1024, PC_MAX_N = 10;
     function pcSig(d, pg, w, h, dpr) { return d.fid + '|' + pg + '|' + w + 'x' + h + '@' + dpr; }
     function pcGet(sig) { var e = S.pcache.get(sig); if (!e) return null; S.pcache.delete(sig); S.pcache.set(sig, e); return e; }      // 방금 쓴 것을 맨 뒤로 (가장 오래 안 쓴 것이 앞)
-    function pcDrop(k) { var e = S.pcache.get(k); if (!e) return; S.pcache.delete(k); S.pcBytes -= e.bytes; try { e.cv.width = e.cv.height = 0; } catch (x) {} }
+    function pcDrop(k) { var e = S.pcache.get(k); if (!e) return; S.pcache.delete(k); S.pcBytes -= e.bytes; if (e.cv === pdfCv || e.cv === pdf2) return; try { e.cv.width = e.cv.height = 0; } catch (x) {} }      // 화면에 걸려 있는 그림은 비우지 않음 (화면에서 내려올 때 비움)
+    function pcHas(cv) { var it = S.pcache.values(), n; while (!(n = it.next()).done) if (n.value.cv === cv) return true; return false; }
+    /* v12.11 — 넘김 최적화: 저장해 둔 페이지 그림을 화면 canvas 에 "복사"하지 않고 그 canvas 를 그대로 화면에 겁니다 (2배 화소 한 쪽 ≈ 800만 화소 복사가 사라짐).
+       화면에서 내려온 canvas 는 저장소에 있으면 그대로 두고, 아니면 비웁니다. own = 새로 그릴 때 쓰는 자기 canvas */
+    var SLOT = { L: { own: pdfCv }, R: { own: pdf2 } };
+    function slotShow(side, cv) {
+      var cur = side === 'L' ? pdfCv : pdf2; if (cv === cur) return cv;
+      /* V899 — 두 페이지 보기: 이 그림이 지금 반대쪽에 걸려 있으면(오른쪽 페이지가 왼쪽으로 넘어올 때 등) 반대쪽에 빈 canvas 를 먼저 걸어 둡니다.
+         예전에는 같은 canvas 를 양쪽이 함께 가리켜, 다음 오른쪽 페이지를 걸 때 왼쪽 그림을 바꿔 치우고 오른쪽은 비어 필기만 보였습니다 */
+      var oside = side === 'L' ? 'R' : 'L', ocur = side === 'L' ? pdf2 : pdfCv;
+      if (cv === ocur) {
+        var oo = SLOT[oside]; if (!oo.own || oo.own === cv || pcHas(oo.own)) oo.own = doc.createElement('canvas');
+        var blank = oo.own; blank.className = cv.className; blank.style.cssText = cv.style.cssText; if (cv.getAttribute('aria-hidden')) blank.setAttribute('aria-hidden', cv.getAttribute('aria-hidden'));
+        if (cv.parentNode) cv.replaceWith(blank);
+        if (oside === 'L') pdfCv = blank; else pdf2 = blank;
+      }
+      cur = side === 'L' ? pdfCv : pdf2; if (cv === cur) return cv;
+      cv.className = cur.className; cv.style.cssText = cur.style.cssText; if (cur.getAttribute('aria-hidden')) cv.setAttribute('aria-hidden', cur.getAttribute('aria-hidden'));
+      cur.replaceWith(cv);
+      if (side === 'L') pdfCv = cv; else pdf2 = cv;
+      if (cur !== SLOT[side].own && !pcHas(cur)) { try { cur.width = cur.height = 0; } catch (x) {} }
+      return cv;
+    }
+    /** 새로 그릴 canvas — 화면에 걸린 것이 저장소 것이면 자기 canvas 로 바꿔 걺 (저장해 둔 그림 위에 다른 페이지를 그리지 않게) */
+    function slotOwn(side) {
+      var o = SLOT[side];
+      if (!o.own || pcHas(o.own)) o.own = doc.createElement('canvas');
+      return slotShow(side, o.own);
+    }
     function pcClear() { Array.from(S.pcache.keys()).forEach(pcDrop); S.pcBytes = 0; }
     /** bytes 가 들어갈 자리를 만듭니다 — 가장 오래 안 쓴 것부터 버리되 지금 보는 페이지(S.pcCur)은 지키고, 그래도 안 되면 false */
     function pcRoom(bytes) {
@@ -786,11 +974,7 @@
        · 두 페이지 나란히 보기에서도 다음 두 페이지를 미리 그려 둡니다 (예전에는 늘 새로 그림)
        · 이미 그리고 있는 페이지로 넘기면 같은 그림을 두 번 그리지 않고 끝나기를 기다렸다 붙입니다 (S.pre)
        · 넘긴 뒤에 끝난 미리 그리기도 버리지 않고 저장해 둡니다 (되돌아올 때 바로) */
-    S.pre = new Map(); S.preTask = new Map();
-    /** 넘긴 페이지를 그려야 하는데 미리 그리기가 다른 페이지를 그리는 중이면 멈춤 — 화면 · PDF 작업자를 지금 페이지에 먼저 (멈춘 것은 넘긴 뒤 다시 미리 그림) */
-    function preCancelExcept(keep) {                                                     // keep: 남길 그림의 앞부분 ("파일|쪽|")
-      S.preTask.forEach(function (t, sig) { if (keep.some(function (k) { return sig.indexOf(k) === 0; })) return; try { t.cancel(); } catch (e) { /* 이미 끝남 */ } });
-    }
+    S.pre = new Map();
     /** v9.7 — 지금 펜 · 지우개로 긋는 중인가 (그동안 무거운 일을 미룸) */
     function inking() { try { return !!(an && an.busy && an.busy()); } catch (e) { return false; } }
     /** d 의 n 페이지를 화면 크기에 맞춰 그려 저장소에 넣습니다 → Promise(sig). base 를 주면 그 배율로 (두 페이지 보기의 오른쪽 페이지) */
@@ -807,9 +991,8 @@
           var off = doc.createElement('canvas'); off.width = pw; off.height = ph;
           var c = off.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pw, ph);
           var t; try { t = info.draw(off, L.base * L.dpr); } catch (e) { return null; }
-          S.preTask.set(sig, t);
-          var pr = t.promise.then(function () { S.pre.delete(sig); S.preTask.delete(sig); if (!S.dead) { pcAdd(sig, off); return sig; } off.width = off.height = 0; return null; },
-            function () { S.pre.delete(sig); S.preTask.delete(sig); off.width = off.height = 0; return null; });
+          var pr = t.promise.then(function () { S.pre.delete(sig); if (!S.dead) { pcAdd(sig, off); return sig; } off.width = off.height = 0; return null; },
+            function () { S.pre.delete(sig); off.width = off.height = 0; return null; });
           S.pre.set(sig, pr);
           return pr;
         });
@@ -847,16 +1030,14 @@
         chain.then(function () {
           if (id !== S.rid || S.dead) return;
           var jobs = [];
-          if (edge.next && S.sheetIdx < sheets.length - 1) jobs.push([S.sheetIdx + 1, 'first']);
-          if (edge.prev && S.sheetIdx > 0) jobs.push([S.sheetIdx - 1, 'last']);
-          if (spreadOn()) { var R1 = rightPosOf(d, pg0); if (R1 && R1.s !== S.sheetIdx) jobs.unshift([R1.s, 'second']); }   // 오른쪽이 다른 곡 파일 → 다음 넘김은 한 장(그 파일 1·2쪽)
+          if (edge.next) { var nj = flowStep(1); if (nj >= 0) jobs.push([nj, 'first']); }                  // v9.8 — 곡 흐름의 다음 · 이전 악보 (같은 곡의 대체 악보는 건너뜀)
+          if (edge.prev) { var pj = flowStep(-1); if (pj >= 0) jobs.push([pj, 'last']); }
           if (spreadOn()) { var R0 = rightPosOf(d, pg0); if (R0 && R0.s !== S.sheetIdx) { var n2 = stepSheet(R0.s, 1); if (n2 >= 0 && !jobs.some(function (x) { return x[0] === n2; })) jobs.push([n2, 'first']); } }      // v11 — 오른쪽이 다음 파일이면 그다음 파일도 미리
           return jobs.reduce(function (p, j) {
             return p.then(function () {
               if (id !== S.rid || S.dead) return;
               return fetchDoc(sheets[j[0]]).then(function (d2) {
                 if (id !== S.rid || S.dead) return;
-                if (j[1] === 'second') return prerender(d2, 1).then(function () { if (d2.n < 2 || id !== S.rid) return; return pageInfo(d2, 1).then(function (li) { return prerender(d2, 2, layoutOf(li, null).base); }); });
                 var n = j[1] === 'first' ? 1 : d2.n;
                 return prerender(d2, n).then(function () {
                   if (!spreadOn() || j[1] !== 'first' || d2.n < 2 || id !== S.rid) return;
@@ -867,7 +1048,7 @@
           }, Promise.resolve());
         }).catch(function () { /* 미리 그리기는 실패해도 화면에 영향 없음 */ });
       };
-      setTimeout(go, 90);                                                                   // 지금 페이지가 화면에 나온 뒤 잠깐(0.09초) — 연달아 누를 때 미리 그리기가 넘김을 막지 않게
+      setTimeout(go, 16);                                                                   // 지금 페이지가 화면에 나온 다음 프레임에 바로 (예전: 한가할 때까지 최대 1.5초)
     }
     /* ------------------------------------------------------------ v9.7 확대했을 때 "보이는 부분만 선명하게"
        페이지 전체 그림(pdfCv)은 메모리 한도 안의 해상도로 두고, 화면에 보이는 부분만 기기 화소 그대로 따로 그려 위에 덮습니다 (PDF 보기 앱 방식).
@@ -933,8 +1114,9 @@
         var pw = Math.round(cssW * dpr), ph = Math.round(cssH * dpr);
         box.style.width = cssW + 'px'; box.style.height = cssH + 'px';
         pdfCv.style.width = cssW + 'px'; pdfCv.style.height = cssH + 'px';
-        if (pdfCv.width !== pw || pdfCv.height !== ph) { pdfCv.width = pw; pdfCv.height = ph; }
-        var c = pdfCv.getContext('2d');
+        var c = null;
+        var own = function () { var cv = slotOwn('L'); cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; } c = cv.getContext('2d'); return cv; };
+        var showHit = function (cv) { slotShow('L', cv); S.pcCur = key; };
         an.resize(cssW, cssH); an.setPage(pg);
         S.cropNow = cr || null;
         if (S.zoom === 1) {                                                        // 자동 맞춤: 글자가 있는 부분의 시작점에 스크롤을 맞춤 (여백은 위 · 옆으로 스크롤하면 보임)
@@ -951,17 +1133,19 @@
         }
         var done = function () { if (id === S.rid) { S.lay = { d: d, pg: pg, L: L, sig: sig }; hiSchedule(160); clearTimeout(S.ldT); turnDone(hit ? 'cache' : 'draw'); S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
         var key = pcSig(d, pg, cssW, cssH, dpr), hit = pcGet(key);
-        if (hit) {                                                                 // 이미 그려 둔 그림 — 붙이기만
-          c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(hit.cv, 0, 0); renderRight(id, pg, d, base, dpr); done(); return;
+        if (hit && !(hit.cv.width > 0)) { pcDrop(key); hit = null; }                // V899 — 비워진 그림이면 새로 그림
+        if (hit) {                                                                 // 이미 그려 둔 그림 — 그 canvas 를 그대로 화면에 (복사 없음)
+          showHit(hit.cv); renderRight(id, pg, d, base, dpr); done(); return;
         }
         var fresh = function () {
           if (id !== S.rid) return;
           var h2 = pcGet(key);
-          if (h2) { hit = h2; c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(h2.cv, 0, 0); done(); return; }
-          c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, pdfCv.width, pdfCv.height);
-          var t = info.draw(pdfCv, base * dpr); S.task = t;
+          if (h2) { hit = h2; showHit(h2.cv); done(); return; }
+          var cv = own();
+          c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+          var t = info.draw(cv, base * dpr); S.task = t;
           return t.promise.then(function () {
-            if (id === S.rid) { if (S.zoom <= 1.01) pcCopy(key, pdfCv); done(); }               // v9.7 — 확대한 그림은 저장해 두지 않음 (크고 다시 볼 일이 드묾 · 메모리)
+            if (id === S.rid) { if (S.zoom <= 1.01 && cv === pdfCv) { var nb = cv.width * cv.height * 4; if (nb <= PC_ONE_MAX && !S.pcache.has(key) && pcRoom(nb)) { pcAdd(key, cv); S.pcCur = key; } } done(); }     // v9.7 — 확대한 그림은 저장해 두지 않음 · v12.11 — 복사하지 않고 그린 canvas 를 그대로 저장소에
           }, function (e) {
             if (S.pending && S.pending.id === id) S.pending = null;
             if (e && e.name === 'RenderingCancelledException') return;
@@ -969,8 +1153,6 @@
             loading.style.display = 'none'; toast('이 페이지를 그리지 못했습니다.', true);
           });
         };
-        var rpK = spreadOn() ? rightPosOf(d, pg) : null;
-        preCancelExcept([d.fid + '|' + pg + '|'].concat(rpK && sheets[rpK.s] ? [sheets[rpK.s].id + '|' + rpK.p + '|'] : []));
         renderRight(id, pg, d, base, dpr);
         var inflight = S.pre.get(key);                                               // v9.5 — 미리 그리는 중인 페이지면 같은 그림을 다시 그리지 않고 끝나기를 기다림
         var pr = inflight ? inflight.then(fresh, fresh) : fresh();
@@ -989,13 +1171,52 @@
     /** 여러 곳에서 "다시 그려라"가 몰려 와도 한 번만 (마지막 요청 기준) — 리사이즈 · 패널 · 도구 막대 접기 */
     function renderSoon(ms) {
       clearTimeout(S.rsT);
-      S.rsT = setTimeout(function () { S.rsT = 0; if (S.doc && !S.dead) renderPage(); }, ms == null ? 120 : ms);
+      S.rsT = setTimeout(function () { S.rsT = 0; STG.w = STG.h = 0; if (S.doc && !S.dead) renderPage(); }, ms == null ? 120 : ms);     // 배치가 바뀐 뒤라 칸 크기를 새로 읽음
     }
-    function pgLabel() { var t = S.page + ' / ' + S.pages; $('.pv-pg').textContent = t; var f = $('.pv-fspg'); if (f) f.textContent = t; }
+    function pgLabel() { var t = S.page + ' / ' + S.pages; $('.pv-pg').textContent = t; var f = $('.pv-fspg'); if (f) f.textContent = t; paintPos(); }
+    /** 2026-11 — 콘티 기준 자리: 「곡 2/5 · 악보 1/2」 (곡에 붙은 악보 = 쓰는 팀 악보 + 붙인 내 악보) · 콘티 밖 악보는 「콘티 밖 · 악보 k/n」 */
+    function songPos() {
+      var cur = sheets[S.sheetIdx]; if (!cur) return null;
+      var an = pickAnalyze();
+      if (!an || !songs.length) return { text: '악보 ' + (S.sheetIdx + 1) + '/' + sheets.length, song: -1 };
+      var unatt = function (x) { return an.rank[x.id] == null && an.alt[x.id] == null && !(S.maps[x.id] && S.maps[x.id].scanned && Object.keys(S.maps[x.id].auto).length); };
+      if (isOutSheet(an, cur)) { var tail = sheets.filter(unatt); return { text: '콘티 밖 · 악보 ' + (tail.indexOf(cur) + 1) + '/' + tail.length, song: -1, out: true }; }
+      var si = S.songIdx >= 0 ? S.songIdx : an.rank[cur.id] != null ? an.rank[cur.id] : -1; if (si < 0) return null;
+      var list = [], ch = an.chosen[si]; if (ch && (!sheets[ch.idx] || !sheets[ch.idx].mine)) list.push(ch.idx);
+      ((an.mine || [])[si] || []).forEach(function (m) { if (list.indexOf(m.idx) < 0) list.push(m.idx); });
+      if (!list.length) list.push(S.sheetIdx);                                       // 한 파일에 여러 곡이 든 악보 (쪽마다 곡)
+      var k = list.indexOf(S.sheetIdx);
+      return { text: '곡 ' + (si + 1) + '/' + songs.length + ' · 악보 ' + (k < 0 ? '다른 것' : (k + 1) + '/' + Math.max(1, list.length)), song: si, k: k, n: list.length };
+    }
+    /** 지금 악보가 「콘티 밖」 인가 — 어느 곡에도 안 붙었고, 쪽에서 곡도 못 찾았고, (일부러 콘티 밖으로 · 내 악보 · 지금 곡에 따로 악보가 있음) 일 때.
+        곡에 안 붙은 묶음 악보(한 파일에 콘티 전체)는 지금 곡으로 봅니다 */
+    function isOutSheet(an, cur) {
+      if (!an || !cur || an.rank[cur.id] != null || an.alt[cur.id] != null || resolveSong(cur, S.page) >= 0) return false;
+      var ov = cfgGet('sheetsong', cur.id);
+      return !!((ov && ov.out) || cur.mine || S.songIdx < 0 || an.chosen[S.songIdx]);
+    }
+    function paintPos() { var e = $('.ak-pos'); if (!e) return; var p0 = null; try { p0 = songPos(); } catch (x) { p0 = null; } e.textContent = p0 ? p0.text : ''; e.title = p0 ? p0.text : ''; }
+    /* 2026-11 — 설정 한 층에 바로 저장 (내 악보 → 곡 연결은 늘 「나만」, 팀 악보는 팀장 · 인도자면 팀) */
+    function cfgSetIn(layer, kind, key, value) {
+      var k = ck(kind, key); if (value == null) delete S.cfg[layer][k]; else S.cfg[layer][k] = value;
+      cfgSend(layer, kind, key, value);
+    }
+    /** 악보를 콘티 곡에 붙이기 — i: 곡 번호 · -1: 콘티 밖 (맨 뒤) · null: 자동 (파일 이름 · 곡별 저장으로) */
+    function setSheetSong(f, i, quiet) {
+      if (!f || !f.id) return;
+      var layer = f.mine ? 'mine' : canTeam() ? 'team' : 'mine';
+      var v = i == null ? null : i >= 0 && songs[i] ? { t: songs[i].title } : f.mine ? null : { out: 1 };
+      cfgSetIn(layer, 'sheetsong', f.id, v);
+      delete S.maps[f.id]; reorderSheets(); paintSheetSel(); renderSongSel();
+      if (sheets[S.sheetIdx] === f) { var idx = resolveSong(f, S.page); if (idx >= 0) setSong(idx, true); renderSongSel(); }
+      paintPos();
+      if (!quiet) toast(i == null ? '이 악보를 자동 연결로 되돌렸어요.' : i >= 0 ? '"' + (songs[i] || {}).title + '" 곡의 악보로 붙였어요' + (f.mine ? ' (나만)' : '') + '.' : '콘티 밖 악보로 — 맨 뒤에 넘겨져요.', false, 2400);
+    }
 
     function loadSheet(idx, page, fromUser) {
       idx = clamp(idx | 0, 0, sheets.length - 1);
       var f = sheets[idx], lid = ++S.loadId; turnStart();
+      if (S.pristineKeep) S.pristineKeep = false; else if (lid > 1) S.pristine = false;           // v9.8 — 처음 열린 뒤 아무것도 안 건드린 상태(pristine)인지 (설정이 늦게 도착했을 때 곡의 악보로 맞추는 데 씀)
       flushMine(); an.closeEditor();
       S.sheetIdx = idx; paintSheetSel(); S.loadingTo = lid; S.loadWant = page || 1;
       mineLayerSync(true);                                                                // v9.13 — 나만 보는 악보에는 내 필기만 (팀으로 보내지 않음)
@@ -1004,7 +1225,9 @@
       clearTimeout(S.ldT);
       if (S.cache[f.id]) S.ldT = setTimeout(function () { if (lid === S.loadId && !S.dead && !S.drawnOk) loading.style.display = 'flex'; }, 250);
       else loading.style.display = 'flex';
-      var g = guessSong(f.name, songs); if (g >= 0 && S.songIdx !== g && !S.applying) setSong(g, true);
+      var g = S.pickSong != null ? S.pickSong : guessSong(f.name, songs);                  // v9.8 — 곡을 먼저 골라 연 악보는 그 곡 그대로 (파일 이름 짐작으로 바꾸지 않음)
+      S.pickSong = null;
+      if (g >= 0 && S.songIdx !== g && !S.applying) setSong(g, true);
       var pgT = root.setInterval(function () {                                        // 내려받는 동안 "악보를 불러오는 중… 42% (1.3MB / 3.0MB)"
         var pr = PROG[f.id];
         if (lid !== S.loadId || S.dead || !pr) { if (lid !== S.loadId || S.dead) root.clearInterval(pgT); return; }
@@ -1030,13 +1253,14 @@
       });
     }
     /* v6.9 — 지금 악보를 그린 뒤, 나머지 악보를 미리 받아 둡니다 → 다른 악보로 넘겨도 내려받기를 기다리지 않음 (순서대로 하나씩 · 실패는 무시)
-       v9.9 — 더 빨리 · 더 많이: 그린 직후(0.2초) 시작 · 다음 악보부터 · 앞 4개는 열어(읽어) 두고 나머지는 파일만 받아 둠 (BYTE_MAX 안에서).
+       v9.9 — 더 빨리 · 더 많이: 그린 직후(0.2초) 시작 · 곡 흐름의 다음 악보부터 · 앞 4개는 열어(읽어) 두고 나머지는 파일만 받아 둠 (BYTE_MAX 안에서).
        필기하는 동안에는 잠깐 쉬었다가 이어 감. */
     function preloadSheets() {
       if (!S.mineAsked) setTimeout(loadMine, 50);                                      // v9.9 — 첫 악보를 그렸으니 이제 내 악보 목록
       if (S.preT || S.dead || sheets.length < 2) return;
-      var order = [], max = Math.min(BYTE_MAX - 1, sheets.length - 1);
-      for (var k = 1; k < sheets.length && order.length < max; k++) { var j = (S.sheetIdx + k) % sheets.length; order.push(sheets[j]); }
+      var order = [], max = Math.min(BYTE_MAX - 1, sheets.length - 1), up = pickSafe(function () { return PICK.upcoming(PICK.analyze(pickCtx()), S.sheetIdx, max); }, null);       // v9.8 — 곡 흐름의 다음 악보들 (대체 악보는 미리 받지 않음)
+      if (up) up.forEach(function (j) { order.push(sheets[j]); });
+      else for (var k = 1; k < sheets.length && order.length < max; k++) { var j2 = (S.sheetIdx + k) % sheets.length; order.push(sheets[j2]); }
       S.preT = setTimeout(function () {
         var i = 0, go = function () {
           if (S.dead || i >= order.length) { S.preT = 0; return; }
@@ -1052,7 +1276,7 @@
     function goPage(n, fromUser) {
       if (S.loadingTo) { S.loadWant = n | 0 || 1; return; }                             // v9.5 — 악보를 불러오는 중이면 그 악보의 몇 페이지를 열지만 바꿈 (앞 악보에 넘기지 않게)
       if (!S.doc) return; n = clamp(n | 0, 1, S.pages); if (n === S.page) return;
-      turnStart(); S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); syncSongForPage(); renderPage(); P.emit('page', n);
+      S.pristine = false; turnStart(); S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); syncSongForPage(); renderPage(); P.emit('page', n);
       if (fromUser) sendNav();
     }
     /* v9.5 — 다른 악보를 불러오는 동안 누른 넘김은 모아 두었다가 불러온 뒤 그대로 적용 (예전: 앞 악보 페이지 수로 계산해 페이지를 건너뛰었음) */
@@ -1061,17 +1285,20 @@
       var q = S.navQ; S.navQ = 0;
       for (var i = 0; i < Math.abs(q); i++) { if (q > 0) nextPage(user); else prevPage(user); if (S.loadingTo) { S.navQ += (q > 0 ? 1 : -1) * (Math.abs(q) - i - 1); return; } }
     }
+    /** v9.8 — 악보 끝에서 넘길 때 가는 악보 번호 (dir +1 다음 · -1 이전, 없으면 -1).
+     *  곡 흐름대로: 같은 곡의 다른(대체) 악보로 넘어가지 않고 다음 곡의 악보로 갑니다. 계산이 안 되면 예전처럼 목록의 앞 · 뒤 */
+    function flowStep(dir) { return stepSheet(S.sheetIdx, dir); }
     function nextPage(user) {
       if (S.loadingTo) { S.navQ++; return; }
       if (spreadOn() && S.doc && spreadNext(user)) return;
       if (S.page < S.pages) goPage(S.page + (spreadOn() && S.page + 1 < S.pages ? 2 : 1), user);
-      else if (S.sheetIdx < sheets.length - 1) loadSheet(S.sheetIdx + 1, 1, user);
+      else { var nj = flowStep(1); if (nj >= 0) loadSheet(nj, 1, user); }
     }
     function prevPage(user) {
       if (S.loadingTo) { S.navQ--; return; }
       if (spreadOn() && S.doc && spreadPrev(user)) return;
       if (S.page > 1) goPage(S.page - (spreadOn() && S.page > 2 ? 2 : 1), user);
-      else if (S.sheetIdx > 0) { var pi = S.sheetIdx - 1; loadSheet(pi, 9999, user); }
+      else { var pj = flowStep(-1); if (pj >= 0) loadSheet(pj, 9999, user); }
     }
     function setZoom(z, user) { S.zoom = clamp(z, 0.4, 5); renderPage(); if (user) sendNav(); }
     /** Ctrl+휠 · 트랙패드 핀치처럼 짧은 시간에 여러 번 오는 확대는, 화면은 CSS 로 바로 크기만 미리 보여 주고 실제 다시 그리기는 멈춘 뒤 한 번만 */
@@ -1128,6 +1355,7 @@
       songs.length = 0; (list || []).forEach(function (x) { songs.push(x); });
       applySongCfg();
       S.maps = {};                                                       // 곡 순서가 바뀌었을 수 있어 페이지↔곡 연결을 다시 계산
+      reorderSheets();                                                   // 곡 순서가 바뀌면 악보 순서도 따라감
       var ni = -1; songs.forEach(function (x, i) { if (ni < 0 && songIdentity(x) === keep) ni = i; });
       if (ni < 0) ni = S.songIdx >= 0 && S.songIdx < songs.length ? S.songIdx : -1;
       renderSongSel(); if (S.doc) { scanTitles(S.doc, sheets[S.sheetIdx]); var idx = resolveSong(sheets[S.sheetIdx], S.page); if (idx >= 0) ni = idx; }
@@ -1137,6 +1365,7 @@
       var m = S.maps[fileIdV]; if (!m) return;
       var v = cfgGet('map', fileIdV); if (!v && !force) return; m.manual = v ? JSON.parse(JSON.stringify(v)) : {};
       if (S.doc && sheets[S.sheetIdx] && sheets[S.sheetIdx].id === fileIdV) { syncSongForPage(); renderSongSel(); }
+      paintSheetSel();                                                   // v9.8 — 직접 연결이 바뀌면 곡마다의 후보 악보도 달라질 수 있음
     }
     function loadCfg() {
       if (!opts.callServer || !S.room) return;
@@ -1150,6 +1379,12 @@
         }
         applyPrefs(S.cfg.mine[ck('follow', 'sync')]);
         Object.keys(S.maps).forEach(function (id) { applyMapCfg(id, false); });
+        reorderSheets(); paintSheetSel();                                                      // v9.8 — 곡마다 고른 악보를 반영해 악보 순서 · 「이 곡의 악보」 칸을 다시 계산 (보던 악보는 그대로)
+        /* 처음 열고 아직 아무것도 안 건드렸고(페이지 · 악보 · 곡 그대로) 특정 악보를 눌러 연 것도 아니면, 그 곡에 고른 악보로 맞춥니다 (설정은 열린 뒤에 도착하므로) */
+        if (S.pristine && !opts.start && !S.dead && S.songIdx >= 0 && S.page === 1) {
+          var g0 = songSheetsNow();
+          if (g0 && g0.chosen && g0.chosen.idx !== S.sheetIdx) { S.pristineKeep = true; S.pickSong = S.songIdx; loadSheet(g0.chosen.idx, g0.chosen.page, false); }
+        }
         if (S.doc) { syncSongForPage(); renderSongSel(); if (S.songIdx >= 0) setSong(S.songIdx, true); }
         P.emit('cfg', { kind: 'all', key: '', remote: false });
       }, function () { /* 연결이 안 되면 이 기기에 기억된 값으로 계속 */ });
@@ -1158,8 +1393,14 @@
       if (!m || m.cid === S.cid || !m.kind) return;
       var k = ck(m.kind, m.key);
       if (m.value == null) delete S.cfg.team[k]; else S.cfg.team[k] = m.value;
+      if (m.kind === 'sheetsong') { delete S.maps[m.key]; reorderSheets(); paintSheetSel(); renderSongSel(); P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by }); return; }
+      if (m.kind === 'songsheet') {                                       // v9.8 — 누가 곡에 쓸 악보를 바꿨음: 목록 · 칸만 다시 그림 (보고 있는 악보는 건드리지 않음 — 페이지 넘김은 리더가 따로 보냄)
+        reorderSheets(); paintSheetSel(); renderSongSel();
+        toast((m.by || '팀') + ' 님이 "' + m.key + '" 곡의 악보를 바꿨습니다.', false, 2400);
+        P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by }); return;
+      }
       if (m.kind === 'map' && S.manual) { P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by, solo: true }); return; }   // 혼자 보기 — 저장만, 지금 곡은 그대로
-      if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast(YNHon.say(m.by || '팀') + ' 페이지 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
+      if (m.kind === 'map') { applyMapCfg(m.key, true); if (sheets[S.sheetIdx] && sheets[S.sheetIdx].id === m.key) toast((m.by || '팀') + ' 님이 페이지 ↔ 곡 연결을 바꿨습니다.', false, 2200); }
       P.emit('cfg', { kind: m.kind, key: m.key, remote: true, by: m.by });
     }
     function applySongPatch(kind, seq, patch, by, remote) {
@@ -1168,7 +1409,7 @@
       Object.assign(songs[i], patch); applySongCfg();
       if (i === S.songIdx && !(remote && S.manual)) setSong(i, true);                   // 혼자 보기 중에는 남이 고친 곡 정보로 지금 BPM 을 바꾸지 않음
       renderSongSel(); P.emit('songedit', songs[i], !!remote);
-      if (remote) toast(YNHon.say(by || '팀') + ' "' + songs[i].title + '" 곡 정보를 바꿨습니다.', false, 2400);
+      if (remote) toast((by || '팀') + ' 님이 "' + songs[i].title + '" 곡 정보를 바꿨습니다.', false, 2400);
     }
     function songsSig(list) { return (list || []).map(function (x) { return [x.title, x.key, x.bpm, x.form, x.link, x.team, x.seq, x.kind].join('\u0002'); }).join('\u0001'); }
     var refetchT = 0;
@@ -1190,7 +1431,13 @@
       if (!opts.callServer || !S.room || S.dead) return;
       opts.callServer('worshipLiveSheets', [opts.token, S.room], function (r) { if (!S.dead && r && Array.isArray(r.sheets)) replaceSheets(r.sheets); }, function () {});
     }
-    function sheetSig(a) { return a.map(function (x) { return x.id + ':' + (x.name || '') + ':' + JSON.stringify(x.map || {}); }).join('|'); }
+    function reorderSheets() {
+      var cur = sheets[S.sheetIdx], next = orderByConti(sheets.slice());
+      if (next.map(function (x) { return x.id + (x.label || ''); }).join('|') === sheets.map(function (x) { return x.id + (x.label || ''); }).join('|')) return;
+      sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
+      S.sheetIdx = Math.max(0, sheets.indexOf(cur)); paintSheetSel(); P.emit('sheets', sheets.slice(), []);
+    }
+    function sheetSig(a) { return a.map(function (x) { return x.id + ':' + (x.name || '') + ':' + (x.label || '') + ':' + JSON.stringify(x.map || {}); }).join('|'); }
     function replaceSheets(list) {
       if (!list.length) return;
       var cur = sheets[S.sheetIdx], had = {}, mapChanged = false;
@@ -1215,7 +1462,7 @@
       });
       sheets.forEach(function (x) { if (x.mine && next.indexOf(x) < 0) next.push(x); });     // v9.6 — 나만 보는 악보는 팀 목록에 없으므로 그대로 둠
       if (cur && next.indexOf(cur) < 0) next.push(cur);                                   // 지워진 악보라도 보고 있는 동안은 남겨 둠
-      next = orderMine(next);
+      next = orderByConti(next);                                                          // 올린 순서가 아니라 콘티 순서
       if (sheetSig(next) === sheetSig(sheets)) return;
       sheets.length = 0; next.forEach(function (x) { sheets.push(x); });
       S.sheetIdx = Math.max(0, sheets.indexOf(cur));
@@ -1308,13 +1555,38 @@
       }
     }
     S.maps = {};
+    /* v8.20 — 「곡별 악보로 저장」 해 둔 페이지 범위(opts.splits: [{fileId,title,spec}]) → 이 파일의 페이지 → 곡 번호.
+       (자동 인식보다 먼저, 내가 직접 고른 연결(manual)보다는 나중에 적용됩니다) */
+    function parseSpec(spec) {
+      var out = [];
+      String(spec || '').split(/[,\s]+/).forEach(function (t) {
+        var m = /^(\d{1,3})(?:\s*[-–~]\s*(\d{1,3}))?$/.exec(t.trim()); if (!m) return;
+        var a = +m[1], b = m[2] ? +m[2] : a; if (b < a || b - a > 400) return;
+        for (var p = a; p <= b; p++) out.push(p);
+      });
+      return out;
+    }
+    function songIdxByTitle(title) {
+      var n = normName(title), best = -1;
+      songs.forEach(function (x, i) { if (best < 0 && normName(x.title) === n) best = i; });
+      return best;
+    }
+    function splitMapOf(f) {
+      var map = {};
+      (opts.splits || []).forEach(function (sp) {
+        if (!sp || sp.fileId !== f.id) return;
+        var i = songIdxByTitle(sp.title);                // 이 예배 콘티에 없는 곡의 페이지는 −1 (앞 곡이 이어지지 않도록 비워 둠)
+        parseSpec(sp.spec).forEach(function (p) { map[p] = i; });
+      });
+      return map;
+    }
     function mapOf(f) {
       var m = S.maps[f.id];
       if (!m) {
         var saved = {}, shared = cfgGet('map', f.id);
         if (shared) saved = JSON.parse(JSON.stringify(shared)); else { try { saved = JSON.parse(ls('map.' + (S.room || '') + '.' + f.id) || '{}') || {}; } catch (e) { saved = {}; } }
-        if (!shared && !Object.keys(saved).length && f.map) { saved = {}; Object.keys(f.map).forEach(function (p) { saved[p] = f.map[p]; }); }       // 곡별 악보로 저장해 둔 페이지 범위가 기본 연결
-        m = S.maps[f.id] = { auto: {}, manual: saved, scanned: false, scanning: false, base: guessSong(f.name, songs) };
+        var att = sheetSongIdx(f), out0 = cfgGet('sheetsong', f.id);
+        m = S.maps[f.id] = { auto: {}, manual: saved, split: splitMapOf(f), scanned: false, scanning: false, base: att >= 0 ? att : out0 && out0.out ? -1 : guessSong(f.name, songs) };
       }
       return m;
     }
@@ -1325,10 +1597,10 @@
     }
     function resolveSong(f, pg) {
       var m = mapOf(f), cur = m.base;
-      for (var p = 1; p <= pg; p++) { if (m.manual[p] != null) cur = m.manual[p]; else if (m.auto[p] != null) cur = m.auto[p]; }
+      for (var p = 1; p <= pg; p++) { if (m.manual[p] != null) cur = m.manual[p]; else if (m.split[p] != null) cur = m.split[p]; else if (m.auto[p] != null) cur = m.auto[p]; }
       return cur;
     }
-    function autoSongAt(f, pg) { var m = mapOf(f), cur = m.base; for (var p = 1; p <= pg; p++) if (m.auto[p] != null) cur = m.auto[p]; return cur; }
+    function autoSongAt(f, pg) { var m = mapOf(f), cur = m.base; for (var p = 1; p <= pg; p++) { if (m.split[p] != null) cur = m.split[p]; else if (m.auto[p] != null) cur = m.auto[p]; } return cur; }
     /** v9.5 — 페이지 제목 읽기는 그리기와 같은 PDF 작업자를 씁니다. 화면을 다 그린 뒤 · 그리는 중이 아닐 때만 한 페이지씩 (넘김을 막지 않게) */
     function scanTitlesSoon(d, f) { setTimeout(function () { if (!S.dead) scanTitles(d, f); }, 400); }
     function pdfIdle() {
@@ -1356,17 +1628,169 @@
       return step().then(function () { if (S.doc === d) syncSongForPage(); });
     }
     function songLabel(i) { return i >= 0 && songs[i] ? (i + 1) + '. ' + songs[i].title : '없음'; }
+    /* v9.8 — 곡 칸이 기본입니다: 곡을 고르면 그 곡의 악보(여러 개면 고른 악보)가 열립니다. 페이지를 넘겨 다음 곡으로 가도 이 칸이 따라 바뀝니다.
+       (예전의 "이 페이지의 곡 바꾸기" — 한 파일에 여러 곡이 든 악보에서 페이지마다 곡을 직접 정하는 것 — 은 맨 아래 「▸ 이 페이지의 곡 바꾸기…」 로 옮겼습니다) */
     function renderSongSel() {
       var sel = $('.pv-songsel'); if (!sel) return;
-      el.classList.toggle('pv-nosub', !songs.length);                                // v9.16 — 곡이 없으면 이 페이지의 곡 칸을 숨김 (알약 = 악보 칸)
-      if (!songs.length) { sel.style.display = 'none'; return; }
-      var f = sheets[S.sheetIdx], m = mapOf(f), man = m.manual[S.page], auto = autoSongAt(f, S.page);
-      var html = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('') +
-        (canTeam() && opts.callServer && S.room ? '<option value="__split">▸ 곡별 악보로 저장…</option>' : '');
-      sel.innerHTML = html; sel.value = man != null ? String(man) : 'auto'; sel.style.display = '';
+      el.classList.toggle('pv-nosong', !songs.length);                                // v9.16 — 곡이 없으면 알약 전체가 악보 칸
+      if (!songs.length) { sel.style.display = 'none'; var pw0 = $('.pv-psw'); if (pw0) pw0.style.display = 'none'; return; }
+      var f = sheets[S.sheetIdx], man = f ? mapOf(f).manual[S.page] : null;
+      /* v9.18 — 찬양방송팀 허브와 같은 알약: 왼쪽 = 곡(제목만, 콘티 순서 · 결단찬양 마지막) · 오른쪽 ♫ = 이 페이지의 곡(자동 · 직접) + 연결 설정.
+         곡을 고르면 그 곡에 연결된 악보가 열리고, 콘티에 묶이지 않은 악보는 「그 밖의 악보」 아래에 */
+      var an = pickAnalyze(), used = {}, curSong = S.songIdx;
+      if (an) songs.forEach(function (x, i) { var c = an.chosen[i]; if (c && sheets[c.idx]) used[c.idx] = 1; });
+      var rows = songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }), rowsT = songs.map(function (x, i) { return '<option value="' + i + '">' + h(x.title) + '</option>'; });
+      var others = an ? sheets.map(function (x, i) { return used[i] ? '' : '<option value="s' + i + '">' + sheetOptText(x, i) + '</option>'; }).join('') : '';
+      var cur = sheets[S.sheetIdx], chosenCur = an && curSong >= 0 && an.chosen[curSong] && an.chosen[curSong].idx === S.sheetIdx;
+      var val = (!an || chosenCur || !cur) ? String(curSong) : (used[S.sheetIdx] ? String(curSong) : 's' + S.sheetIdx);
+      var canPin = !!(an && cur && !cur.mine && curSong >= 0 && !(an.cands[curSong] || []).some(function (c) { return c.idx === S.sheetIdx; }));
+      /* 2026-11 — 첫 칸 = 콘티 순서 (1, 2, 3 …) 만. 악보는 두 번째 칸에서. 콘티 밖 악보를 보는 중이면 「콘티 밖 악보」 */
+      void others; void rowsT;
+      var outNow = isOutSheet(an, cur);      // 한 파일에 여러 곡(쪽마다 곡을 찾은 악보)은 콘티 밖이 아님
+      if (outNow) val = '-2'; else val = String(curSong);
+      var selHtml = (outNow ? '<option value="-2">콘티 밖 악보</option>' : curSong < 0 ? '<option value="-1">곡 선택</option>' : '') + rows.join('');
+      if (sel.__h !== selHtml) { sel.innerHTML = selHtml; sel.__h = selHtml; }          // v12.11 — 넘길 때마다 목록을 다시 만들지 않음 (바뀐 때만)
+      sel.value = val; if (sel.value !== val) sel.value = String(curSong); sel.style.display = '';
+      sel.title = '콘티 곡 (올린 순서) — 고르면 그 곡의 악보가 열립니다.';
+      var ps = $('.pv-pagesongsel'), pw = $('.pv-psw');
+      if (ps) {
+        var auto = cur ? autoSongAt(cur, S.page) : -1;
+        var psHtml = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + rows.join('') +
+          '<optgroup label="설정">' +
+          (canPin ? '<option value="__pin">📌 지금 악보를 "' + h(songs[curSong].title) + '" 의 악보로 지정</option>' : '') +
+          (an ? '<option value="__links">🔗 곡별 악보 연결…</option>' : '') +
+          (canTeam() && opts.callServer ? '<option value="__split">▸ 곡별 악보로 저장…</option>' : '') +
+          '</optgroup>';
+        if (ps.__h !== psHtml) { ps.innerHTML = psHtml; ps.__h = psHtml; }
+        ps.value = man != null ? String(man) : 'auto'; ps.classList.toggle('manual', man != null);
+        if (pw) pw.style.display = cur ? '' : 'none';
+      }
       sel.classList.toggle('manual', man != null);
-      var sb = $('.pv-splitbtn'); if (sb && !sb.getAttribute('data-p')) { sb.setAttribute('data-p', '1'); splitBtnPaint(f.map && Object.keys(f.map).length ? 'saved' : 'dirty'); } else if (sb) sb.style.display = (canTeam() && opts.callServer && S.room && songs.length) ? '' : 'none';
     }
+    /** 오른쪽 ♫ 칸 — 이 페이지의 곡을 직접 정하거나(자동으로 되돌리기) 연결 설정을 엽니다 */
+    function onPageSongSel() {
+      var v = this.value, f = sheets[S.sheetIdx];
+      if (v === '__links') { renderSongSel(); openLinkPanel(); return; }
+      if (v === '__split') { renderSongSel(); saveSplit(); return; }
+      if (v === '__pin') { renderSongSel(); chooseSheet(S.sheetIdx, S.songIdx, S.page); return; }
+      if (!f) { renderSongSel(); return; }
+      var m = mapOf(f);
+      if (v === 'auto') delete m.manual[S.page]; else if (+v >= 0 && +v < songs.length) m.manual[S.page] = +v; else { renderSongSel(); return; }
+      saveManual(f);
+      var idx = resolveSong(f, S.page); if (idx >= 0) setSong(idx, true);
+      renderSongSel(); paintSheetSel(); sendNav();
+      toast(v === 'auto' ? '이 페이지를 자동 연결로 되돌렸습니다.' : '이 페이지부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
+    }
+    /** 곡 → 악보: 그 곡에 쓸 악보를 열고 그 곡이 시작하는 페이지로 갑니다. 악보가 없는 곡은 곡 정보(BPM · 송폼 · 영상)만 바꿉니다. */
+    function goSong(i) {
+      var s = songs[i]; if (!s) { renderSongSel(); return; }
+      S.pristine = false;
+      if (!PICK) { legacySongPick(i); return; }                                      // songpick.js 가 없으면 예전 방식 (이 페이지를 그 곡으로)
+      var an = pickAnalyze(), c = an && an.chosen[i];
+      if (!c) {
+        setSong(i); renderSongSel(); paintSheetSel();
+        toast('"' + s.title + '" 의 악보가 아직 없어요. 악보 칸에서 악보를 열고 맨 아래 「📌 지정」 으로 이 곡에 연결하세요.', false, 4200);
+        return;
+      }
+      if (c.idx === S.sheetIdx && S.doc && !S.loadingTo) {                           // 이미 이 악보를 보는 중 (한 파일에 여러 곡) → 그 곡 첫 페이지로
+        setSong(i, true); renderSongSel(); paintSheetSel();
+        if (S.page !== c.page) goPage(c.page, true); else sendNav();
+        return;
+      }
+      S.pickSong = i; loadSheet(c.idx, c.page, true);
+    }
+    function legacySongPick(i) {
+      var f = sheets[S.sheetIdx]; if (!f) return;
+      var m = mapOf(f); m.manual[S.page] = i; saveManual(f);
+      var idx = resolveSong(f, S.page); if (idx >= 0) setSong(idx, true); renderSongSel(); sendNav();
+      toast('이 페이지부터 "' + ((songs[i] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
+    }
+    /** 이 악보(sIdx)를 곡 i 의 악보로 지정합니다 — 설정(songsheet)에 저장: 팀장 · 인도자는 팀 모두에게, 그 밖에는 나에게만 ("나만 보기" 중에도 나에게만).
+     *  이 페이지가 다른 곡으로 읽히면 이 페이지부터 이 곡으로 연결해 곡 칸이 어긋나지 않게 합니다. */
+    function chooseSheet(sIdx, i, page) {
+      var f = sheets[sIdx], s = songs[i]; if (!f || !s || f.mine || !f.id) return;
+      page = clamp(Math.round(+page) || 1, 1, 500);
+      var m = mapOf(f);
+      if (resolveSong(f, page) !== i && m.manual[page] !== i) { m.manual[page] = i; saveManual(f); }
+      var cur = cfgGet('songsheet', s.title);
+      if (!cur || cur.id !== f.id || (cur.page || 1) !== page) {
+        var layer = cfgSet('songsheet', s.title, { id: f.id, page: page });
+        toast('"' + s.title + '" 곡은 이제 이 악보로 열려요 · ' + (layer === 'team' ? '팀 모두에게 저장' : '나에게만 저장'), false, 2600);
+      }
+      reorderSheets(); paintSheetSel(); renderSongSel(); P.emit('songsheet', s, f);
+    }
+    /* 「▸ 이 페이지의 곡 바꾸기…」 — 페이지마다 곡을 직접 정합니다 (한 파일에 여러 곡이 든 악보 · 자동으로 찾은 곡이 틀릴 때). 이 페이지부터 다음 곡이 나올 때까지 같은 곡으로 봅니다. */
+    var songPanel = doc.createElement('div'); songPanel.className = 'pv-minepanel pv-songpanel'; songPanel.setAttribute('role', 'dialog'); songPanel.setAttribute('aria-label', '이 페이지의 곡'); songPanel.hidden = true;
+    function paintSongPanel() {
+      var f = sheets[S.sheetIdx], man = f ? mapOf(f).manual[S.page] : null, auto = f ? autoSongAt(f, S.page) : -1;
+      songPanel.innerHTML = '<div class="pv-mp-in"><div class="pv-mp-h"><b>이 페이지는 어느 곡인가요?</b><button type="button" class="pv-mp-x" aria-label="닫기">✕</button></div>' +
+        '<p class="pv-mp-p"><b>' + S.page + '페이지</b>부터 다음 곡이 나올 때까지 같은 곡으로 봅니다. 자동으로 찾은 곡: ' + h(songLabel(auto)) + '</p>' +
+        '<div class="pv-mp-list">' + songs.map(function (x, i) { return '<div class="pv-mp-row"><button type="button" class="pv-mp-open' + (man === i ? ' on' : '') + '" data-song="' + i + '">' + (man === i ? '✓ ' : '') + h((i + 1) + '. ' + x.title) + '</button></div>'; }).join('') +
+        (man != null ? '<div class="pv-mp-row"><button type="button" class="pv-mp-open" data-song="auto">↺ 자동으로 되돌리기</button></div>' : '') + '</div></div>';
+    }
+    function openPageSong() { if (!sheets[S.sheetIdx]) return; paintSongPanel(); songPanel.hidden = false; }
+    songPanel.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button') : null; if (!b) { if (e.target === songPanel) songPanel.hidden = true; return; }
+      if (b.classList.contains('pv-mp-x')) { songPanel.hidden = true; return; }
+      var v = b.getAttribute('data-song'); if (v == null) return;
+      var f = sheets[S.sheetIdx], m = f && mapOf(f); if (!f) return;
+      if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
+      songPanel.hidden = true; saveManual(f);
+      var idx = resolveSong(f, S.page); if (idx >= 0) setSong(idx, true);
+      renderSongSel(); paintSheetSel(); sendNav();
+      toast(v === 'auto' ? '이 페이지를 자동 연결로 되돌렸습니다.' : '이 페이지부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
+    });
+    /* v9.17 — 「🔗 곡별 악보 연결…」: 곡마다 쓸 악보(와 시작 쪽)를 한 곳에서 정합니다. 고른 악보는 다음에도 그 곡의 악보로 열립니다 (팀장 · 인도자가 고르면 팀 모두에게) */
+    var linkPanel = doc.createElement('div'); linkPanel.className = 'pv-minepanel pv-linkpanel'; linkPanel.setAttribute('role', 'dialog'); linkPanel.setAttribute('aria-label', '곡별 악보 연결'); linkPanel.hidden = true;
+    function paintLinkPanel() {
+      var an = pickAnalyze(); if (!an) { linkPanel.hidden = true; return; }
+      var opts2 = sheets.filter(function (x) { return !x.mine; });
+      linkPanel.innerHTML = '<div class="pv-mp-in"><div class="pv-mp-h"><b>🔗 곡별 악보 연결</b><button type="button" class="pv-mp-x" aria-label="닫기">✕</button></div>' +
+        '<p class="pv-mp-p">곡마다 어느 악보로 열지 정합니다. 악보를 곡별로 올렸다면 자동으로 연결돼 있어요. 한 파일에 여러 곡이 있으면 곡마다 시작 쪽을 적으세요. 페이지 넘김은 이 곡 순서(콘티 · 결단찬양 마지막)로 이어집니다.</p>' +
+        '<div class="pv-lk-list">' + songs.map(function (x, i) {
+          var c = an.chosen[i], pinned = (function () { var v = cfgGet('songsheet', x.title); return v && v.id ? v : null; })();
+          return '<div class="pv-lk-row" data-song="' + i + '"><div class="pv-lk-t">' + h((i + 1) + '. ' + x.title) + '</div>' +
+            '<div class="pv-lk-c"><select class="pv-sel pv-lk-sel" aria-label="' + h(x.title) + ' 악보">' +
+            '<option value="">' + (pinned ? '자동으로 되돌리기' : '자동') + (c && !pinned ? ' (' + h(sheets[c.idx].name || '악보') + ')' : (!c ? ' (악보 없음)' : '')) + '</option>' +
+            opts2.map(function (f) { return '<option value="' + h(f.id) + '"' + (c && sheets[c.idx] === f && pinned ? ' selected' : '') + '>' + h(f.name || '악보') + '</option>'; }).join('') +
+            '</select><input type="number" class="pv-lk-pg" min="1" max="500" inputmode="numeric" value="' + (pinned ? Math.max(1, +pinned.page || 1) : (c ? c.page : 1)) + '" aria-label="시작 쪽" title="이 곡이 시작하는 쪽"' + (pinned ? '' : ' disabled') + '></div></div>';
+        }).join('') + '</div></div>';
+      songs.forEach(function (x, i) {                                       // 자동일 때는 지금 쓰는 악보를 미리 보여 줌 (고르면 고정)
+        var c = an.chosen[i], row = linkPanel.querySelector('.pv-lk-row[data-song="' + i + '"]'), pinned = cfgGet('songsheet', x.title);
+        if (row && c && sheets[c.idx] && !(pinned && pinned.id)) row.setAttribute('data-auto', sheets[c.idx].id);
+      });
+    }
+    function openLinkPanel() { paintLinkPanel(); if (linkPanel.innerHTML) linkPanel.hidden = false; }
+    function applyLink(row) {
+      var i = +row.getAttribute('data-song'), x = songs[i]; if (!x) return;
+      var id = row.querySelector('.pv-lk-sel').value, pg = clamp(Math.round(+row.querySelector('.pv-lk-pg').value) || 1, 1, 500);
+      if (!id) {
+        var was = cfgGet('songsheet', x.title);
+        if (was && was.id) sheets.forEach(function (f) { if (f.id === was.id) { var mm = mapOf(f); if (mm.manual[was.page || 1] === i) { delete mm.manual[was.page || 1]; saveManual(f); } } });      // 고르면서 함께 저장된 「이 쪽부터 이 곡」 연결도 풀어 진짜 자동으로
+        cfgSet('songsheet', x.title, null);
+        reorderSheets(); renderSongSel(); paintSheetSel(); paintLinkPanel();
+        toast('"' + x.title + '" 의 악보를 자동 연결로 되돌렸습니다.', false, 2400);
+        return;
+      }
+      var idx = -1; sheets.forEach(function (f, k) { if (f.id === id) idx = k; });
+      if (idx < 0) return;
+      chooseSheet(idx, i, pg);
+      paintLinkPanel();
+    }
+    linkPanel.addEventListener('change', function (e) {
+      var t = e.target, row = t && t.closest ? t.closest('.pv-lk-row') : null; if (!row) return;
+      if (t.classList.contains('pv-lk-sel')) {                                 // 새로 고른 악보의 시작 쪽 — 그 곡으로 곡별 저장 해 둔 쪽이 있으면 그 쪽부터
+        var i = +row.getAttribute('data-song'), id = t.value, pgEl = row.querySelector('.pv-lk-pg');
+        if (id) { var an = pickAnalyze(), fi = -1; sheets.forEach(function (f, k) { if (f.id === id) fi = k; }); var cc = an && (an.cands[i] || []).filter(function (c) { return c.idx === fi; })[0]; pgEl.value = String(cc ? cc.page : 1); pgEl.disabled = false; }
+        else pgEl.disabled = true;
+      }
+      applyLink(row);
+    });
+    linkPanel.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button') : null;
+      if (!b) { if (e.target === linkPanel) linkPanel.hidden = true; return; }
+      if (b.classList.contains('pv-mp-x')) linkPanel.hidden = true;
+    });
     function syncSongForPage() {
       if (S.applying || !S.doc || S.dead) return;
       var idx = resolveSong(sheets[S.sheetIdx], S.page);
@@ -1401,47 +1825,72 @@
     }
     /** 배지가 페이지 맨 위를 가리지 않게, 글자가 시작하는 곳을 배지 아래로 (컴퓨터 화면은 배지가 오른쪽 위 빈 곳에 뜨므로 그대로) */
     function badgePad() { return 0; }                                  // v6 — 송폼은 악보 위가 아니라 떠 있는 "송폼" 창에 (페이지 맨 위를 가리지 않음)
-    /** 지금 악보의 페이지 ↔ 곡 연결(자동 + 직접 고른 것)을 곡별 악보(곡 + 페이지 범위)로 저장 — 다음에 그 곡을 콘티에 가져오면 페이지 범위도 같이 따라옵니다 */
-    function splitBtnPaint(state) {            // state: 'dirty' | 'saving' | 'saved'
-      var b = $('.pv-splitbtn'); if (!b) return;
-      var show = canTeam() && opts.callServer && S.room && songs.length; b.style.display = show ? '' : 'none';
-      b.textContent = state === 'saving' ? '저장 중…' : state === 'saved' ? '✓ 곡별 저장됨' : '💾 곡별 저장'; b.classList.toggle('on', state === 'saved'); b.disabled = state === 'saving';
-    }
-    var splitT = 0;
-    /** auto=true: 직접 고른 페이지 ↔ 곡이 바뀐 뒤 잠깐 있다가 조용히 저장 (확인창 · 오류 알림 없음) · false: [💾 곡별 저장] 단추 */
-    function saveSplit(auto) {
-      clearTimeout(splitT);
-      var f = sheets[S.sheetIdx], total = S.pages || 0;
-      if (!f || !S.doc || !total) { if (!auto) toast('악보가 열린 뒤에 저장할 수 있습니다.', true); return; }
-      var by = {}, i, pg;
-      for (pg = 1; pg <= total; pg++) { i = resolveSong(f, pg); if (i != null && i >= 0 && songs[i]) (by[i] = by[i] || []).push(pg); }
-      var keys = Object.keys(by);
-      if (!keys.length) { if (!auto) toast('곡에 연결된 페이지가 없습니다. "이 페이지부터 곡 선택" 으로 먼저 연결해주세요.', true); return; }
-      function spec(a) { var o = [], j = 0; while (j < a.length) { var k = j; while (k + 1 < a.length && a[k + 1] === a[k] + 1) k++; o.push(k > j ? a[j] + '–' + a[k] : String(a[j])); j = k + 1; } return o.join(', '); }
-      splitBtnPaint('saving');
-      opts.callServer('worshipSheetSplit', [opts.token, S.room, f.id, by], function (r) {
-        splitBtnPaint('saved');
-        var n = (r && r.songs && r.songs.length) || keys.length;
-        toast((auto ? '페이지 ↔ 곡 연결을 곡별 악보로 저장했어요' : '곡별 악보로 저장했습니다') + ' (' + n + '곡) — 다음에 이 곡을 쓰면 그대로 따라옵니다.', false, 2800);
-      }, function (e) { splitBtnPaint('dirty'); if (!auto) toast((e && e.message) || '저장하지 못했습니다.', true); });
-    }
-    function splitLater() { if (!(canTeam() && opts.callServer && S.room)) return; splitBtnPaint('dirty'); clearTimeout(splitT); splitT = setTimeout(function () { saveSplit(true); }, 2500); }
-    (function () { var b = $('.pv-splitbtn'); if (b) b.onclick = function () { saveSplit(false); }; })();
+    $('.pv-pagesongsel').onchange = onPageSongSel;
     $('.pv-songsel').onchange = function () {
-      if (this.value === '__split') { renderSongSel(); saveSplit(false); return; }
-      var f = sheets[S.sheetIdx], m = mapOf(f), v = this.value;
-      if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
-      saveManual(f); var idx = resolveSong(f, S.page);
-      if (idx >= 0) setSong(idx, true); renderSongSel(); sendNav(); splitLater();
-      toast(v === 'auto' ? '이 페이지를 자동 연결로 되돌렸습니다.' : '이 페이지부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
+      var v = this.value;
+      if (v === '__split') { renderSongSel(); saveSplit(); return; }
+      if (v === '__pagesong') { renderSongSel(); openPageSong(); return; }
+      if (v === '__links') { renderSongSel(); openLinkPanel(); return; }
+      if (v === '__pin') { renderSongSel(); chooseSheet(S.sheetIdx, S.songIdx, S.page); return; }
+      if (v === '__mineadd') { renderSongSel(); pickMine(); return; }
+      if (v === '__minedel') { renderSongSel(); delMine(); return; }
+      if (v.charAt(0) === 's' && /^s\d+$/.test(v)) { var si = +v.slice(1); if (si >= 0 && si < sheets.length) loadSheet(si, 1, true); else renderSongSel(); return; }
+      var i = +v; if (!(i >= 0 && i < songs.length)) { renderSongSel(); return; }
+      goSong(i);
     };
 
+    /** 「▸ 곡별 악보로 저장…」 — 지금 정해 둔 페이지 ↔ 곡 연결대로, 곡마다 「그 곡 + 페이지 범위」로 악보저장소에 저장 (패키지 원본은 그대로, 다시 저장하면 이전 저장을 바꿈) */
+    function saveSplit() {
+      if (S.splitBusy) return;
+      var f = sheets[S.sheetIdx];
+      if (!f || !S.doc || !(S.pages > 0)) { toast('악보가 열린 뒤에 저장할 수 있습니다.', true); return; }
+      var byIdx = {}, n = 0, names = [];
+      for (var p = 1; p <= S.pages; p++) {
+        var i = resolveSong(f, p);
+        if (i >= 0 && songs[i]) { (byIdx[i] = byIdx[i] || []).push(p); n++; }
+      }
+      Object.keys(byIdx).forEach(function (k) { names.push((+k + 1) + '. ' + songs[+k].title + ' (' + byIdx[k].length + '페이지)'); });
+      if (!n) { toast('곡에 연결된 페이지가 없습니다. 페이지마다 위쪽 곡 칸에서 곡을 골라 주세요.', true); return; }
+      var msg = '지금 정해 둔 페이지 ↔ 곡 연결대로, 곡마다 그 곡의 페이지만 잘라 곡별 PDF 로 만듭니다.\n\n' + names.join('\n') +
+        '\n\n곡별 PDF 가 이 주 악보로 들어가고, 이 묶음 악보는 이 주 목록에서 빠집니다 (악보 저장소에는 「원본」으로 남습니다). 다시 저장하면 같은 곡 PDF 를 바꿉니다.';
+      if (opts.legacySplit) msg = '지금 정해 둔 페이지 ↔ 곡 연결대로, 곡마다 「그 곡 + 페이지 범위」로 저장합니다.\n\n' + names.join('\n') +
+        '\n\n다른 주 콘티로 곡을 가져가도 이 페이지 범위가 따라가 라이브 악보에서 자동으로 연결됩니다. 다시 저장하면 이전 저장을 바꿉니다.';      // 찬양방송팀 허브 — 묶음 PDF 는 그대로 두고 페이지 범위만 저장
+      var go = opts.confirmSplit ? opts.confirmSplit(msg) : root.confirm(msg);
+      Promise.resolve(go).then(function (okGo) {
+        if (!okGo) return;
+        S.splitBusy = true; toast('곡별 PDF 를 만드는 중… (악보가 길면 조금 걸립니다)', false, 20000);
+        var fin = function (res) {
+          S.splitBusy = false;
+          if (opts.onSplitSaved) { try { opts.onSplitSaved(res); } catch (e) {} }
+          toast('곡별 PDF 를 만들었습니다 · ' + ((res && res.songs && res.songs.length) || names.length) + '곡', false, 3200);
+          var first = res && res.songs && res.songs[0] && res.songs[0].fileId;
+          api.close();                                         // 묶음 원본이 목록에서 빠졌으므로 곡별 악보로 다시 엽니다
+          if (opts.onSplitDone) { try { opts.onSplitDone(res, first); } catch (e) {} }
+        };
+        var bad = function (e) { S.splitBusy = false; toast('저장하지 못했습니다: ' + ((e && e.message) || ''), true); };
+        if (opts.callServer && opts.legacySplit) {                // 찬양방송팀 허브 — 페이지 범위만 저장 (화면은 그대로 열어 둠)
+          opts.callServer('worshipSheetSplit', [opts.token, S.room, f.id, byIdx], function (res) {
+            S.splitBusy = false;
+            toast('곡별 악보로 저장했습니다 · ' + ((res && res.songs && res.songs.length) || names.length) + '곡 — 다음에 이 곡을 쓰면 그대로 따라옵니다.', false, 3200);
+          }, bad);
+          return;
+        }
+        fetch('/pkg/split', { method: 'POST', headers: { 'x-pkg-token': opts.token, 'Content-Type': 'application/json' }, body: JSON.stringify({ date: S.room, fileId: f.id, byIdx: byIdx }), credentials: 'same-origin' })
+          .then(function (r) { return r.json().catch(function () { return { ok: false, msg: '응답을 읽지 못했습니다.' }; }); })
+          .then(function (j) { if (j && j.ok) fin(j); else bad({ message: (j && j.msg) || '처리하지 못했습니다.' }); })
+          .catch(function () { bad({ message: '서버에 연결하지 못했습니다.' }); });
+      });
+    }
+
     function setSong(i, silent) {
+      var prevSong = S.songIdx;
       S.songIdx = i >= 0 && i < songs.length ? i : -1;
+      if (prevSong !== S.songIdx) { renderSongSel(); paintSheetSel(); }                 // v9.8 — 곡이 바뀌면 곡 칸 · 그 곡의 악보 칸도 따라 바뀜
       var s = songs[S.songIdx], t = $('.pv-songinfo');
       t.textContent = s ? [s.title, s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ') : '';
       setYt(s); setRef(s);
       updateFormBadge();
+      if (prevSong !== S.songIdx && S.tool === 'fbox') renderTools();                   // 송폼 라벨 줄은 곡마다 달라짐
       P.emit('song', s || null, S.songIdx);
       if (!silent) sendNav();
     }
@@ -1502,8 +1951,9 @@
       ytBox.innerHTML = '<div class="pv-yth" data-drag title="끌어서 옮기기"><span class="pv-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">' + YI('close') + '</button></div><div class="pv-ytbody"></div>';
       ytBox.querySelector('.pv-yth button').onclick = closeYt;
       ytBox.style.right = 'auto'; ytBox.style.bottom = 'auto';
-      if (P.floatWin) P.floatWin('yt', ytBox, function () { return S.compact ? { x: 0.5, y: 0.98 } : { x: 0.98, y: 0.9 }; }); else el.appendChild(ytBox);
+      if (P.floatWin) P.floatWin('yt', ytBox, function () { return S.compact ? { x: 0.5, y: 0 } : { x: 0.98, y: 0.9 }; }); else el.appendChild(ytBox);      // 2026-11 — 폰은 위쪽 (아래 막대와 겹치지 않게)
       ytBtn.classList.add('on'); ytBtn.setAttribute('aria-pressed', 'true');
+      try { if (root.ResizeObserver && P.floatPlace) { var ytRo = new root.ResizeObserver(function () { if (ytBox) P.floatPlace('yt'); else ytRo.disconnect(); }); ytRo.observe(ytBox); } } catch (e) { /* 2026-11 — 영상 창이 커지면(송폼 구간 · 조절 칸) 화면 안으로 다시 맞춤 */ }
       var body = ytBox.querySelector('.pv-ytbody');
       if (!S.ksHub) { S.ksHub = []; P.on('keyshift', function () { S.ksHub.slice().forEach(function (f) { try { f(); } catch (e) { /* 무시 */ } }); }); }      // V897 — 유튜브 창의 「악보 키와 함께」
       var sheetKey = { get: function () { return P.keyShift(); }, set: function (n) { P.setKeyShift(n); }, on: function (f) { S.ksHub.push(f); return function () { var i = S.ksHub.indexOf(f); if (i >= 0) S.ksHub.splice(i, 1); }; } };
@@ -1530,7 +1980,7 @@
       setEraseBack: function (v) { S.eraseBack = !!v; ls('eraseback', v ? '1' : '0'); }, eraseBack: function () { return S.eraseBack !== false; },
       setPenTap: function (on) { ls('pentap', on ? '1' : '0'); if (an.setPenTap) an.setPenTap(!!on); },
       penMode: function () { return (an.state && an.state().penMode) || 'auto'; },
-      setPenModePref: function (v) { v = v === 'always' || v === 'off' ? v : 'auto'; ls('penmode', v); an.setPenMode(S.layout === 'tablet' ? v : 'off'); },
+      setPenModePref: function (v) { v = v === 'always' || v === 'off' ? v : 'auto'; ls('penmode', v); an.setPenMode(penModeFor(v)); },
       swapPenEraser: function () { return an.swapPenEraser ? an.swapPenEraser() : false; },
       formBadge: function () { return S.fbadge !== false; },
       setFormBadge: function (on) { S.fbadge = !!on; ls('fbadge', on ? '1' : '0'); updateFormBadge(); },
@@ -1559,7 +2009,7 @@
       callServer: opts.callServer, toAuthorsOnly: function (ids) { toAuthorsOnly(ids); }, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
       status: function () { return { conn: rt ? rt.state : 'unavailable', minePending: S.minePend, savedAt: S.savedAt, unsent: Object.keys(S.unsent).length }; }
     };
-    /* 연습 키 이동 (Feature 2) — 곡마다 −6 ~ +6 반음 (녹음 · 유튜브 소리는 audio-shift.js 가 ±3 까지만), 이 기기에만 기억(팀에 보내지 않음). 화음 탭(harmony-ui.js)이 'keyshift' 를 듣고 악보 코드를 따라 바꾸며,
+    /* 연습 키 이동 (Feature 2) — 곡마다 −3 ~ +3 반음, 이 기기에만 기억(팀에 보내지 않음). 화음 탭(harmony-ui.js)이 'keyshift' 를 듣고 악보 코드를 따라 바꾸며,
        유튜브 카드 · 키 바꿔 듣기 카드(audio-shift.js)가 같은 값을 씁니다. ensureTab: 탭을 화면에 띄우지 않고 (처음 한 번만) 만들어 둡니다. */
     function ksName() { var s = songs[S.songIdx]; return 'ks.' + (s ? normName(s.title) : '_'); }
     P.keyShift = function () { var v = parseInt(ls(ksName()), 10); return isFinite(v) ? clamp(v, -6, 6) : 0; };
@@ -1651,11 +2101,17 @@
     P.on('song', paintKs); P.on('keyshift', function () { setTimeout(paintKs, 0); });
     setTimeout(paintKs, 0);
     S.room = opts.room || '';
-    el.appendChild(minePanel); paintSheetSel(); setTimeout(loadMine, 4000);              // v9.6 — 나만 보는 악보 목록 (내 것만) · v9.9 — 첫 악보 · 실시간 연결이 먼저. 보통은 첫 악보를 그린 직후에 부름
+    el.appendChild(minePanel); el.appendChild(songPanel); el.appendChild(linkPanel); paintSheetSel(); setTimeout(loadMine, 4000);              // v9.6 — 나만 보는 악보 목록 (내 것만) · v9.9 — 첫 악보 · 실시간 연결이 먼저 (서버가 이 일로 바쁘지 않게). 보통은 첫 악보를 그린 직후에 부름
     var rt = null, an = null;
 
     /* ------------------------------------------------------------ 필기 엔진 연결 */
     var YA = root.YNAnno;
+    /* 2026-11 Ark — 고급스러운 잉크 색 15가지 + 형광펜용 부드러운 색 7가지 (서버는 어떤 #rrggbb 든 받음) */
+    var ARK_INK = [['#1b1b1f', '잉크 검정'], ['#4a4e57', '흑연'], ['#8a8178', '웜 그레이'], ['#1f2f5c', '네이비'], ['#4c6a9c', '슬레이트 블루'], ['#14596a', '딥 틸'], ['#2f5d3a', '포레스트'], ['#6b7a2e', '올리브'],
+      ['#c08a2b', '오커'], ['#c1603f', '테라코타'], ['#a63a2e', '브릭 레드'], ['#d23c3c', '크림슨'], ['#7a2135', '버건디'], ['#5e3a6e', '플럼'], ['#ffffff', '흰색 (수정액)']];
+    var ARK_HL = [['#f4d84a', '버터'], ['#f8c59a', '살구'], ['#f5b5c6', '블러시'], ['#cdb8ee', '라벤더'], ['#a9d3f0', '스카이'], ['#a8e0b8', '민트'], ['#d9d4cb', '웜 그레이']];
+    var ARK_NAME = {}; ARK_INK.concat(ARK_HL).forEach(function (x) { ARK_NAME[x[0]] = x[1]; });
+    var INK = ARK_INK.map(function (x) { return x[0]; }), HLC = ARK_HL.map(function (x) { return x[0]; });
     if (!YA) { toast('필기 도구를 불러오지 못했습니다. 새로고침해 주세요.', true); }
     an = YA ? YA.create({
       host: box, canvas: annoCv, clipEl: stage, me: opts.me || '', canEdit: !!opts.canEdit, hlBlend: true,      // v10 — 형광펜은 악보 글자 "밑에" (굿노트 방식)
@@ -1670,7 +2126,7 @@
       onAdd: function (layer, it) { annoSend(layer, it, 'add'); }, onDel: function (layer, id) { annoSend(layer, { id: id }, 'del'); },
       onClear: function (layer, ids, pg, all) { annoClear(layer, ids, pg, all); },
       onLive: function (m) { if (rt && rt.online && !(sheets[S.sheetIdx] && sheets[S.sheetIdx].mine)) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
-      onChange: function () { P.emit('annochange'); try { acachePersist(); } catch (e) { /* 저장 못 해도 화면은 그대로 */ } },
+      onChange: function () { P.emit('annochange'); if (S.right && S.right.fid === fileId()) paintRightAnno(); try { acachePersist(); } catch (e) { /* 저장 못 해도 화면은 그대로 */ } },
       onMessage: function (t, bad) { toast(t, bad); },
       keepEditor: function (a) { return !!(a && (toolsEl.contains(a) || (drawerEl && drawerEl.contains(a)) || (TP && TP.pop && TP.pop.contains(a)))); },
       teamBlocked: function () {
@@ -1880,11 +2336,15 @@
       } catch (e) { done(); }
     }
     /* ---- 따라가기 (페이지 · 클릭 독립) — 이 기기에 저장 + 서버(내 설정)에 저장 + 접속자 목록에 표시 ---- */
+    /** 2026-11 Ark — 접속자 목록(「함께」 오늘 함께하는 팀)에 보일 내 상태: 따라가기 + 보고 있는 페이지 */
+    function prefsNow() { return { page: S.follow, metro: S.followM, at: { pg: S.page, n: S.pages, s: S.songIdx, mine: !!(sheets[S.sheetIdx] && sheets[S.sheetIdx].mine) } }; }
+    var atT = 0, atSig = '';
+    function pushAt() { clearTimeout(atT); atT = setTimeout(function () { var a = prefsNow(), sig = a.at.pg + '/' + a.at.n + '/' + a.at.s; if (sig === atSig || !rt || !rt.online || S.dead) return; atSig = sig; rt.call('prefs', a).catch(function () { atSig = ''; }); }, 1500); }
     function pushPrefs() {
       S.prefTouched = true; clearTimeout(S.prefT);
       S.prefT = setTimeout(function () {
         var v = { page: S.follow, metro: S.followM };
-        if (rt && rt.online) rt.call('prefs', v).catch(function () {});
+        if (rt && rt.online) rt.call('prefs', prefsNow()).catch(function () {});
         cfgSend('mine', 'follow', 'sync', v);                          // 계정에 저장 → 다른 기기 · 다음 접속에서도 같은 상태
       }, 400);
     }
@@ -1907,10 +2367,10 @@
       if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '🔒 혼자 보기 — 남이 넘기는 페이지 · BPM · 콜아웃 · 곡 정보가 내 화면을 바꾸지 않아요.')); }
     }
     function setFollowM(b, quiet) {
-      return;                                                             // v6 — 클릭 따라가기 없앰 (예전 호출은 아무 일도 하지 않음)
+      /* v6 에서 없앴던 클릭 따라가기를 2026-11 Ark 「함께 › 팀 클릭 같이 받기」 로 되살림 — 기기마다 직접 켜야만 (기본 꺼짐, 'fmetro2') */
       b = !!b; if (S.followM === b && !quiet) return;
       var wasManual = S.manual;
-      S.followM = b; ls('fmetro', b ? '1' : '0');
+      S.followM = b; ls('fmetro2', b ? '1' : '0');
       renderChips(); P.emit('followm', b); if (wasManual !== S.manual) P.emit('manual', S.manual);
       if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isClicker ? '내 클릭 조작을 팀에 보냅니다.' : '클릭 컨트롤의 클릭을 따라갑니다.') : (rt && rt.isClicker ? '클릭 동기화를 껐습니다. 내 조작은 팀에 보내지 않습니다.' : '클릭 따라가기를 껐습니다. 내 클릭은 내가 직접 조절합니다.')); }
     }
@@ -1948,9 +2408,9 @@
       var t = { online: '● 실시간 연결됨 — ' + (rt ? rt.peers.length : 0) + '명 접속 중', connecting: '○ 연결하는 중…', offline: '○ 연결이 끊겼습니다 (자동으로 다시 연결)', unavailable: '○ 혼자 보기 — 실시간을 쓸 수 없습니다', denied: '✕ 이 예배에 접속할 권한이 없습니다', idle: '○ 준비 중' }[st] || st;
       var x = '<div class="pv-rt-st ' + st + '">' + h(t) + '</div>';
       if (on) {
-        x += '<div class="pv-rt-sec"><b>' + YI('page') + ' 페이지 리드</b><small>' + (mine ? '내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 리드 중입니다.' : '아직 리드하는 사람이 없습니다.') + '</small>' +
+        x += '<div class="pv-rt-sec"><b>' + YI('page') + ' 페이지 리드</b><small>' + (mine ? '내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(root.YNHon ? root.YNHon.say(lead) : lead + ' 님이') + ' 리드 중입니다.' : '아직 리드하는 사람이 없습니다.') + '</small>' +
           (can ? (mine ? '<button type="button" class="pv-btn2" data-r="release">리드 내려놓기</button>' : lead ? '<button type="button" class="pv-btn2 warn" data-r="force">리드 넘겨받기</button>' : '<button type="button" class="pv-btn2 primary" data-r="claim">📄 내가 페이지 리드하기</button>') : '<small>팀장 · 인도자만 리드할 수 있습니다.</small>') + '</div>';
-        x += '<div class="pv-rt-sec pv-solo' + (S.manual ? ' on' : '') + '"><label class="pv-chk"><input type="checkbox" data-r="solo"' + (S.manual ? ' checked' : '') + '> <b>🔒 혼자 보기 — 남의 정보 안 받기</b></label><small>켜면 다른 사람이 넘기는 페이지 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 페이지↔곡 연결이 내 화면을 바꾸지 않아요.' + (mine ? ' 내 넘김도 팀에 보내지 않아요.' : '') + ' (팀 필기와 나에게 온 요청 메시지는 그대로 보여요)</small>' +
+        x += '<div class="pv-rt-sec pv-solo' + (S.manual ? ' on' : '') + '"><label class="pv-chk"><input type="checkbox" data-r="solo"' + (S.manual ? ' checked' : '') + '> <b>🔒 혼자 보기 — 남의 정보 안 받기</b></label><small>켜면 다른 사람이 넘기는 페이지 · 바꾸는 BPM · 콜아웃 깜빡임 · 곡 정보 · 페이지↔곡 연결이 내 화면을 바꾸지 않아요.' + (mine ? ' 내 넘김도 팀에 보내지 않아요.' : '') + ' (팀 필기는 그대로 보여요)</small>' +
           (!S.follow && lead && !mine ? '<button type="button" class="pv-btn2" data-r="now">리드 화면으로 한 번만 가기</button>' : '') + '</div>';
         x += '<div class="pv-rt-sec"><label class="pv-chk"><input type="checkbox" data-r="send"' + (S.sendCue ? ' checked' : '') + '> 리드일 때 콜아웃을 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-r="recv"' + (S.recvCue ? ' checked' : '') + '> 리드의 콜아웃 받기</label></div>';
       }
@@ -2052,17 +2512,20 @@
            (그대로 두면 "아무도 리드 안 함" 상태가 되어 다른 기기 설정이 퍼질 수 있었음) */
         if (S.hadLead && !r.leader) rt.claim(false).then(function () { sendNav(); renderChips(); }, function () { S.hadLead = false; });
         if (S.hadClick && !r.clicker) rt.claimClick(false).then(function () { renderChips(); P.emit('clicker'); }, function () { S.hadClick = false; });
-        rt.call('prefs', { page: S.follow, metro: S.followM }).catch(function () {});      // 접속자 목록에 내 따라가기 상태 표시
+        rt.call('prefs', prefsNow()).catch(function () {});      // 접속자 목록에 내 따라가기 상태 표시 (2026-11 — 보고 있는 페이지도)
         if (r.you) an.setPerms(r.you.name, r.you.canEdit);
         if (S.doc) { loadTeam(S.annoId, fileId()); retryMine(); }                                  // 안정화 — annoId 를 올리면 아직 오는 중인 "내 필기" 불러오기 응답이 버려져 내 필기가 통째로 안 보이던 문제
-        if (r.nav && !rt.isLeader) applyNav(r.nav, false);
+        /* 라이브 악보는 처음 열 때 항상 1번 곡부터 — 방에 남은 마지막 위치(지난 연습의 결단찬양 등)로 끌려가지 않음. 컨트롤이 다음에 넘기면 그때부터 따라갑니다.
+           와이파이가 끊겼다 다시 붙은 경우(두 번째 joined 부터)에만, 지금 컨트롤이 있고 최근 위치일 때 다시 맞춥니다 */
+        var firstJoin = !S.joinedOnce; S.joinedOnce = true;
+        if (!firstJoin && r.nav && r.leader && !rt.isLeader && !(r.serverTime && r.nav.t && r.serverTime - r.nav.t > 30 * 60 * 1000)) applyNav(r.nav, false);
         if (r.metro) P.emit('metro', r.metro);
       });
       rt.on('metro', function (m) { P.emit('metro', m); });
       rt.on('nav', function (n) { applyNav(n, false); });
       rt.on('leader', function (m) { if (m && m.reason !== 'left') S.hadLead = !!(m.name && rt.me && m.name === rt.me.name);
         if (rt.isLeader) sendNav();
-        else if (m && m.name && m.reason === 'takeover') toast(YNHon.say(m.name) + ' 페이지 컨트롤을 넘겨받았습니다.');
+        else if (m && m.name && m.reason === 'takeover') toast((root.YNHon ? root.YNHon.say(m.name) : m.name + ' 님이') + ' 페이지 컨트롤을 넘겨받았습니다.');
         else if (m && !m.name && m.reason === 'left') toast('페이지 컨트롤이 나갔습니다.');
         renderChips();
       });
@@ -2072,12 +2535,11 @@
         toast('보내지 못한 필기가 있습니다: ' + r.error.message, true); P.emit('sync');
       });
       rt.on('clicker', function (m) { if (m && m.reason !== 'left') S.hadClick = !!(m.name && rt.me && m.name === rt.me.name);
-        if (m && m.name && m.reason === 'takeover' && !rt.isClicker) toast(YNHon.say(m.name) + ' 클릭 컨트롤을 넘겨받았습니다.');
+        if (m && m.name && m.reason === 'takeover' && !rt.isClicker) toast((root.YNHon ? root.YNHon.say(m.name) : m.name + ' 님이') + ' 클릭 컨트롤을 넘겨받았습니다.');
         else if (m && !m.name && m.reason === 'left') toast('클릭 컨트롤이 나갔습니다.');
       });
       rt.on('cue', function (c) { P.emit('cue', c); });
       rt.on('lead', function (st) { P.emit('lead', st); });                          // V842 — 리드의 BPM · 송폼 위치 (화면만)
-      rt.on('msg', function (m) { P.emit('msg', m); }); rt.on('msg:ack', function (a) { P.emit('msg:ack', a); });   // 요청 메시지 (livemsg.js)
       rt.on('cfg', onRemoteCfg);
       rt.on('song', function (m) { if (m && m.cid !== S.cid) applySongPatch(m.kind, m.seq, m.patch, m.by, true); });
       rt.on('songs:changed', function () { refetchSongs(); });
@@ -2101,7 +2563,7 @@
     function slotSave(k, i, v) { var a = slotSizes(k); a[i] = v; ls('sz.' + k, JSON.stringify(a)); }
     function slotDot(k, v, i) { if (k === 'white') return Math.max(4, Math.min(20, Math.round(v * 420))); if (k === 'pen') return Math.max(2, Math.min(18, Math.round(v * 1500))); if (k === 'hl') return Math.max(3, Math.min(20, Math.round(v * 380))); return 4 + i * 4; }
     S.szEdit = -1; S.eraseBack = ls('eraseback') !== '0';
-    S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9\u3131-\uD7A3()]{1,10}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
+    S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9\u3131-\uD7A3()]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
     function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'white' ? 'white' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
     S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
     /* V865 — 마지막에 쓰던 색 · 굵기를 기억 (도구마다, 이 기기) */
@@ -2128,7 +2590,6 @@
     /* 음표 도구 = 기호 도구에 음표 · 쉼표 팔레트 (필기 저장 형식은 기호와 같음) */
     function toolOn(t) { return t === 'note' ? S.tool === 'sym' : S.tool === t; }
     function setTool(t, fromAnno, quiet) {
-      if (opts.readOnly && t !== 'none') return;
       if (S.worship && t !== 'none') { if (!quiet) toast('예배 모드에서는 필기 · 편집이 잠겨 있어요 (위의 자물쇠를 두 번 눌러 끄기)', false, 2400); if (fromAnno) { try { an.setTool('none'); } catch (e) {} } return; }      // V871
       if (t === 'chord') t = 'text';                                                     // v10 — 코드 도구는 글자 도구로 (예전 단축키 · 기억도 그대로 동작)
       if (t === 'note' || t === 'sym') {                                                 // v10 — 기호 · 음표 하나로: 음표(Alt+N)는 음표 칸을 펼친 채로
@@ -2222,7 +2683,7 @@
       var ae = doc.activeElement;
       if (ae && ae.tagName === 'INPUT' && (ae.type === 'range' || ae.type === 'number') && toolsEl.contains(ae)) { S.toolsDirty = true; return; }          // 숫자칸에 직접 치는 중에는 다시 그리지 않음
       S.toolsDirty = false;
-      var st = an.state ? an.state() : {}, hl = S.tool === 'hl', cols = hl ? YA.HL_COLORS : YA.PALETTE;
+      var st = an.state ? an.state() : {}, hl = S.tool === 'hl', cols = hl ? HLC : INK;
       var sel = S.tool === 'select' && an.selected ? an.selected() : null;
       var txt = S.tool === 'text' || S.tool === 'chord' || S.tool === 'sym' || !!(sel && (sel.t === 'text' || sel.t === 'sym' || sel.t === 'fbox')), isSym = S.tool === 'sym' || !!(sel && sel.t === 'sym');
       var fsz = sel ? (sel.sz || (sel.t === 'fbox' ? 0.028 : sel.t === 'sym' ? 0.032 : 0.024)) : isSym ? (st.symSize || 0.032) : (st.textSize || 0.024);
@@ -2245,34 +2706,33 @@
         (sel ? '<button type="button" class="pv-tool sm" data-a="copysel" title="선택한 것 복사 (Ctrl/⌘+C)"><span class="ic">' + I('copy') + '</span><span class="nm">복사</span></button>' : '') +
         (hasClip ? '<button type="button" class="pv-tool sm" data-a="paste" title="붙여넣기 (Ctrl/⌘+V)"><span class="ic">' + I('paste') + '</span><span class="nm">붙여넣기</span></button>' : '') + '</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
-      var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
-      /* 송폼 라벨 — 지금 곡의 송폼에 있는 칸(V4 · C(Voice) · Tag2 …)을 앞에 모두, 그 뒤에 기본 라벨 (콜아웃 · 같은 것은 한 번만) */
-      function fboxTagList() {
-        var out = [], seen = {}, cur = [];
-        try {
-          var idx = typeof badgeIdx === 'function' ? badgeIdx(S.page) : -1; if (idx < 0) idx = S.songIdx;
-          var sg = typeof songs !== 'undefined' && idx >= 0 ? songs[idx] : null, f = sg ? String(sg.form || '').trim() : '';
-          if (f) {
-            var toks = root.YNForm && root.YNForm.parse ? root.YNForm.parse(f) : [];
-            if (toks.length === 1 && /\s/.test(toks[0].k)) toks = String(toks[0].k).split(/\s+/).filter(Boolean).map(function (k) { return { k: k }; });
-            toks.forEach(function (t) {
-              if (!t || !t.k || (root.YNForm.isCall && root.YNForm.isCall(t.k))) return;
-              var k = String(t.k).replace(/^Intro$/i, 'Int').replace(/[^A-Za-z0-9\u3131-\uD7A3()]/g, '').slice(0, 10);
-              if (k && !seen[k]) { seen[k] = 1; cur.push({ k: k, sf: 1 }); }
-            });
-          }
-        } catch (e) { cur = []; }
-        out = cur;
-        var rest = YA.FBOX_TAGS.filter(function (k) { return !seen[k]; }).map(function (k, i) { return { k: k, sep: cur.length && i === 0 }; });
-        return out.concat(rest);
+      if (!sel && S.tool !== 'white' && !S.colPicked && cols.indexOf(String(curCol || '').toLowerCase()) < 0) {             // 2026-11 Ark — 늘 고른 색이 하나 보이게 (예전 색이면 첫 색으로)
+        curCol = S.curColor = cols[0]; if (hl) { an.setHlColor(curCol); S.hlSel = curCol; } else { an.setColor(curCol); if (S.tool !== 'chord' && S.tool !== 'fbox') S.penSel = curCol; }
       }
-      var fbRow = S.tool !== 'fbox' ? '' :
-        '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + fboxTagList().map(function (x) { var k = x.k; return (x.sep ? '<i class="pv-fbsep" aria-hidden="true"></i>' : '') + '<button type="button" class="pv-fbtag' + (x.sf ? ' sf' : '') + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h((x.sf ? '이 곡 송폼 · ' : '') + (YA.FBOX_NAMES[k] || k)) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
+      /* 2026-11 Ark — 글자 도구: 글꼴(이름을 그 글꼴로) · 크기를 도구 줄에서 바로 */
+      var akFont = !(S.tool === 'text' && !sel) || !YA || !YA.FONT_KEYS ? '' : '<div class="pv-tg ak-fsz" role="group" aria-label="글자 크기"><button type="button" class="pv-tool sm" data-step="-2" aria-label="글자 작게">A−</button><b class="ak-fszv">' + Math.round(fsz * 1000) + '</b><button type="button" class="pv-tool sm" data-step="2" aria-label="글자 크게">A+</button></div><div class="pv-tg ak-fontrow" role="group" aria-label="글꼴">' + YA.FONT_KEYS.map(function (k) {
+          try { if (YA.fontReady) YA.fontReady(k); } catch (e) { /* 글꼴 받기는 덤 */ }
+          var nm = String((YA.FONT_NAMES || {})[k] || k).replace(/\s*\(.*\)$/, '');
+          return '<button type="button" class="ak-font' + (S.font === k ? ' on' : '') + '" data-akfont="' + k + '" aria-pressed="' + (S.font === k) + '" style="--akf:' + h((YA.FONTS || {})[k] || 'inherit') + '">' + h(nm) + '</button>';
+        }).join('') + '</div>';
+      var colRow = (S.tool === 'select' && !sel) || S.tool === 'white' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = ARK_NAME[c] || (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
+      var fbRow = S.tool !== 'fbox' ? '' : (function () {
+        /* 지금 곡의 송폼에 있는 칸(V4 · PC2 · KeyUp …)을 앞에 모두, 그 뒤에 기본 라벨 중 없는 것 — 서버가 받는 모양(영문 · 숫자 · 한글 8자)만 */
+        var mine = [], seen = {};
+        formTokens(songs[S.songIdx]).forEach(function (t) { var k = String(t.k || ''); if (/^[A-Za-z0-9\u3131-\uD7A3()]{1,8}$/.test(k) && !seen[k]) { seen[k] = 1; mine.push(k); } });
+        var rest = YA.FBOX_TAGS.filter(function (k) { return !seen[k]; });
+        var btn = function (k, fm) {
+          var inf = root.YNForm && root.YNForm.info ? root.YNForm.info(k) : null, nm = YA.FBOX_NAMES[k] || (inf && inf.ko) || k;
+          return '<button type="button" class="pv-fbtag' + (fm ? ' fm' : '') + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(nm + (fm ? ' (이 곡 송폼)' : '')) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>';
+        };
+        return '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + mine.map(function (k) { return btn(k, true); }).join('') +
+          (mine.length && rest.length ? '<i class="pv-fbsep" aria-hidden="true"></i>' : '') + rest.map(function (k) { return btn(k, false); }).join('') + '</div>';
+      })();
       toolsEl.innerHTML =
         '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">' + I('up') + '</span><span class="nm">접기</span></button>' +
         '<div class="pv-tg">' + TOOLS.map(function (t) { var on = toolOn(t.t); return '<button class="pv-tool' + (on ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + on + '"><span class="ic">' + I(t.ic) + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         styleBtnHtml() +
-        colRow +
+        colRow + akFont +
         fontRow + clipRow +
         fbRow +
         (S.tool === 'select' || S.tool === 'lasso' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { var k = sizeKey(), sv = slotSizes(k); return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[k] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + (SZ_RANGE[k] ? ' — 한 번 더 누르면 굵기 조절' : '') + '"><i style="--s:' + slotDot(k, sv[i], i) + 'px"></i></button>'; }).join('') +
@@ -2288,6 +2748,7 @@
     }
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
+      if (b.dataset.akfont) { S.font = b.dataset.akfont; ls('font', S.font); an.setFont(S.font); renderTools(); if (an.focusEditor) an.focusEditor(); return; }
       if (b.dataset.fbtag) { S.fboxTag = b.dataset.fbtag; an.setFboxTag(S.fboxTag); ls('fbtag', S.fboxTag); renderTools(); return; }
       if (b.dataset.tool) { setTool(toolOn(b.dataset.tool) && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
       if (b.dataset.step != null) { if (e.detail === 0) stepFsz(+b.dataset.step); return; }               // 마우스 · 터치는 pointerdown (꾹 누르면 반복), 키보드(Enter · Space)만 여기서
@@ -2361,12 +2822,11 @@
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { toolsEl.addEventListener(n, holdStop); });
     doc.addEventListener('pointerup', holdStop);
     P.on('annochange', function () { clearTimeout(S.toolT); S.toolT = setTimeout(renderTools, 60); });
-    P.on('annochange', function () { try { delete S.rAnno[fileId()]; } catch (e) {} var L = S.rLast, rp = L && L.d ? rightPosOf(L.d, L.pg) : null; if (rp && rp.s === S.sheetIdx) repaintRight(); });   // 왼쪽에서 고친 파일은 다음에 오른쪽에 올 때 새로 받음   // 같은 파일 오른쪽 페이지의 필기도 바로
-    ['songedit', 'songs', 'page', 'sheet', 'cfg'].forEach(function (n) { P.on(n, function () { updateFormBadge(); if (S.tool === 'fbox' && typeof renderTools === 'function') renderTools(); }); });   // 송폼 라벨 줄도 그 곡 송폼으로
+    ['songedit', 'songs', 'page', 'sheet', 'cfg'].forEach(function (n) { P.on(n, function () { updateFormBadge(); }); });
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
-    S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
+    S.curColor = INK[0];
     var origSetTool = setTool;
-    setTool = function (t) { if (t === 'chord') t = 'text'; origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (t === 'chord' || t === 'fbox') ? ((S.toolCol && S.toolCol[t]) || '#111111') : (S.penSel || YA.PALETTE[0]);   /* v6.9 — 코드 · 송폼 라벨의 기본색은 검정 (색을 바꾸면 그 도구에서는 기억) */ if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none') setDrawer(false); };     // v6.1 — 도구를 고르면 서랍을 닫아 바로 악보에 쓸 수 있게
+    setTool = function (t) { if (t === 'chord') t = 'text'; origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || HLC[0]) : (t === 'chord' || t === 'fbox') ? ((S.toolCol && S.toolCol[t]) || INK[0]) : (S.penSel || INK[0]);   /* v6.9 — 코드 · 송폼 라벨의 기본색은 검정 (색을 바꾸면 그 도구에서는 기억) */ if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none') setDrawer(false); };     // v6.1 — 도구를 고르면 서랍을 닫아 바로 악보에 쓸 수 있게
 
     function renderSymPop() {
       var pop = $('.pv-sympop');
@@ -2391,7 +2851,7 @@
       if (!kind) return null;
       var hl = sel ? sel.t === 'hl' : t === 'hl', names = Object.assign({}, YA.COLOR_NAMES || {}, YA.MORE_NAMES || {});
       var m = { kind: kind, tool: t, names: names, locked: !!(sel && !sel.canModify), title: sel ? '선택한 필기' : (STYLE_TOOLS[t] || '스타일'),
-        colors: (t === 'white' && !sel) ? [] : hl ? YA.HL_COLORS : YA.PALETTE, moreColors: hl ? (YA.HL_COLORS_X || []) : (YA.PALETTE_X || []), color: sel && sel.c ? sel.c : S.curColor };
+        colors: (t === 'white' && !sel) ? [] : hl ? HLC : INK, moreColors: hl ? (YA.HL_COLORS_X || []) : (YA.PALETTE_X || []), color: sel && sel.c ? sel.c : S.curColor };
       if (kind === 'ink') {
         var k = sizeKey(), sv = slotSizes(k);
         m.slots = sv; m.slot = S.sizeIdx; m.width = sv[S.sizeIdx]; m.wRange = SZ_RANGE[k]; m.wPresets = W_PRESETS[k]; m.wNames = W_NAMES[k];
@@ -2409,7 +2869,7 @@
       var sel = styleSel();
       if (key === 'color') {
         if (sel) { an.editSelected({ c: v }); renderTools(); return; }
-        S.curColor = v; if (S.tool === 'hl') { an.setHlColor(v); S.hlSel = v; } else { an.setColor(v); if (S.tool === 'fbox') (S.toolCol = S.toolCol || {}).fbox = v; else S.penSel = v; }
+        S.colPicked = true; S.curColor = v; if (S.tool === 'hl') { an.setHlColor(v); S.hlSel = v; } else { an.setColor(v); if (S.tool === 'fbox') (S.toolCol = S.toolCol || {}).fbox = v; else S.penSel = v; }
         memoSave(); renderTools(); if (an.focusEditor) an.focusEditor(); return;
       }
       if (key === 'width') { var k = sizeKey(); if (!SZ_RANGE[k]) return; v = Math.max(SZ_RANGE[k][0], Math.min(SZ_RANGE[k][1], Math.round(v * 10000) / 10000)); slotSave(k, S.sizeIdx, v); an.setWidth(v); if (!live) renderTools(); else updStyleUi(); return; }
@@ -2457,7 +2917,7 @@
     }
     function showTab(id) {
       var t = P.tabs.filter(function (x) { return x.id === id; })[0]; if (!t) return;
-      S.tab = id; el.classList.add('pv-sideopen'); if (S.layout === 'computer') S.sideOn = true;
+      S.tab = id; el.classList.add('pv-sideopen'); if (S.layout === 'computer') ls('side', '1');
       Array.prototype.forEach.call(tabsEl.children, function (b) { b.classList.toggle('on', b.dataset.tab === id); b.setAttribute('aria-selected', b.dataset.tab === id ? 'true' : 'false'); });
       Array.prototype.forEach.call(panesEl.children, function (p) { p.style.display = p.dataset.pane === id ? '' : 'none'; });
       ensureTab(id);
@@ -2524,8 +2984,16 @@
       if (b.dataset.layout) { applyLayout(b.dataset.layout, true); return; }
       var a = b.dataset.a;
       if (a === 'more') { setMore(!el.classList.contains('pv-moreopen')); return; }
+      /* 2026-11 Ark — 위 막대 메시지 · 「⋯」 맨 위 목록 */
+      if (a === 'pentools') { setMore(false); setDrawer(false); setTools(el.classList.contains('pv-toolshide'), true); return; }
+      if (a === 'msg') { setMore(false); setDrawer(false); if (P.liveMsg) P.liveMsg.open(); else toast('메시지 창을 불러오지 못했습니다. 새로고침해 주세요.', true); return; }
+      if (a === 'ak-ws') { setMore(false); setDrawer(false); setWorship(true); if (S.worship && !S.wsFs) { S.wsFs = true; fsNative(true); } return; }
+      if (a === 'ak-click') { setMore(false); setDrawer(false); if (P.clickDock) P.clickDock.open(); else showTab('metro'); return; }
+      if (a === 'ak-rec') { setMore(false); setDrawer(false); if (P.liveRec) P.liveRec.open(); else toast('이 기기에서는 녹음을 쓸 수 없어요.', true); return; }
+      if (a === 'ak-usage') { setMore(false); setDrawer(false); if (P.liveUsage) P.liveUsage.open(); return; }
       if (a === 'drawer-close') setDrawer(false); else if (a === 'drawer-panel') { setDrawer(false); toggleSide(true); }
       else if (a === 'fixsheet') { setMore(false); setDrawer(false); openSheetFix(); }
+      else if (a === 'editsheet') { var ef = sheets[S.sheetIdx]; if (ef && opts.onSheetEdit) { try { opts.onSheetEdit(ef.id, S.page); } catch (er) { toast('편집 창을 열지 못했습니다.', true); } } }
       else if (a === 'prep') { setMore(false); setDrawer(false); prepareAll(); }
       else if (a === 'ws-on') { setMore(false); setDrawer(false); setWorship(true); }
       else if (a === 'ws-off') wsUnlockTap();
@@ -2562,10 +3030,8 @@
       var before = S.page + ':' + S.sheetIdx; dir > 0 ? nextPage(true) : prevPage(true);
       if (before === S.page + ':' + S.sheetIdx) return;                                           // 첫 페이지 · 마지막 페이지라 안 넘어감
       if (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      var bx = spreadOn() ? [box, box2] : [box];                                                // 두 페이지 보기는 두 장이 함께 미끄러짐
-      bx.forEach(function (b) { b.classList.remove('pv-slide-n', 'pv-slide-p'); }); void box.offsetWidth;
-      bx.forEach(function (b) { b.classList.add(dir > 0 ? 'pv-slide-n' : 'pv-slide-p'); });
-      clearTimeout(slideT); slideT = setTimeout(function () { bx.forEach(function (b) { b.classList.remove('pv-slide-n', 'pv-slide-p'); }); }, 320);
+      box.classList.remove('pv-slide-n', 'pv-slide-p'); void box.offsetWidth; box.classList.add(dir > 0 ? 'pv-slide-n' : 'pv-slide-p');
+      clearTimeout(slideT); slideT = setTimeout(function () { box.classList.remove('pv-slide-n', 'pv-slide-p'); }, 320);
     }
     /** 브라우저가 악보 칸을 스스로 밀지 않게 — 한 페이지가 화면에 다 들어오면(확대 전 · 가로로 넘치지 않음) 터치 스크롤을 아예 끕니다 (아이패드 고무줄 당김 방지) */
     function syncTouch() {
@@ -2986,10 +3452,7 @@
     })();
     /* 보이기 / 숨기기 (위 막대 ⏱ · 🎼 · 🥁) */
     var SHOWS = [['form', 'form', '송폼 · 곡 정보'], ['metro', 'metronome', '클릭']];        // v9.7 — 예배 타이머 단추 뺌
-    var SHOW_DEF = { timer: false, form: false, metro: false };
-    /* V880 — 라이브 악보는 열 때마다 "악보만" 보이게 시작합니다 (송폼 · 클릭 · 타이머 창은 꺼진 채).
-       쓰는 동안 「⋯」 › 떠 있는 창에서 켜면 그 화면을 닫을 때까지만 유지 (필기 도구 V838 과 같은 방식). */
-    if (!root.__YN_KEEP_FLOATS) ['form', 'metro', 'timer'].forEach(function (k) { ls('show.' + k, '0'); });   // __YN_KEEP_FLOATS 는 떠 있는 창을 시험하는 시험 전용            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 클릭 창은 꺼짐, 클릭은 송폼 창 안의 동그라미(축소형)만
+    var SHOW_DEF = { timer: false, form: true, metro: false };            // 저장된 값이 없을 때의 기본 (v11) — 타이머 · 클릭 창은 꺼짐, 클릭은 송폼 창 안의 동그라미(축소형)만
     /** 떠 있는 창이 지금 보이는지 (필기 도구 = 막대가 펴져 있는지 · 타이머 = 저장된 값) */
     function winOn(k) { if (k === 'tools') return !el.classList.contains('pv-toolshide'); if (k === 'timer') return ls('show.timer') !== '0'; return showOn(k); }
     /** ✕ — 창 하나를 닫음 (악보 · 필기 · 클릭 동작에는 영향 없음, 보이기만 끔) */
@@ -2998,7 +3461,7 @@
       if (k === 'tools') setTools(false, true); else { ls('show.' + k, '0'); paintShows(); }
       toast((FLNAME[k] || '') + ' 창을 닫았습니다 — 「⋯」 메뉴 › 떠 있는 창에서 다시 켤 수 있어요', false, 2800);
     }
-    function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; return SHOW_DEF[k] === true; }
+    function showOn(k) { var v = ls('show.' + k); if (v !== null) return v !== '0'; if (S.compact) return k === 'metro'; return SHOW_DEF[k] !== false; }     // V836 — 폰(좁은 화면)은 처음에 클릭 창만 떠 있음
     function paintShows() {
       SHOWS.forEach(function (s) {
         var on = winOn(s[0]); if (s[0] !== 'tools') el.classList.toggle('pv-hide-' + s[0], !on);
@@ -3054,7 +3517,7 @@
     function applyFormSize() {
       var v = formSize();
       formEl.style.width = v && v.w ? Math.round(v.w) + 'px' : ''; formEl.style.maxWidth = v && v.w ? 'none' : '';
-      formEl.style.setProperty('--pvfs', v && v.s ? String(v.s) : (opts.readOnly ? '1.5' : '1'));      // 방송팀 보기는 송폼을 처음부터 크게
+      formEl.style.setProperty('--pvfs', v && v.s ? String(v.s) : '1');
     }
     (function () {
       var rs = null;
@@ -3158,6 +3621,8 @@
       try { if (P.metroHeader) P.metroHeader($('.pv-metbtn')); } catch (e) { /* 위 막대 클릭 단추가 없어도 송폼 창 · 패널의 클릭은 그대로 */ }
       try { if (root.YNClickDock) root.YNClickDock.mount(P); } catch (e) { /* V1300 — 클릭 · BPM 컨트롤 바가 없어도 위 막대 · 패널의 클릭은 그대로 */ }
       try { if (root.YNLiveUsage) root.YNLiveUsage.mount(P); } catch (e) { /* V1310 — 사용 기록은 덤: 실패해도 라이브 악보는 그대로 */ }
+      try { if (root.YNLiveArk) root.YNLiveArk.mount(P); } catch (e) { /* 2026-11 Ark — 메시지 · 연습 녹음 · 곡 고르기 팝업 · 폰 아래 막대는 덤 */ }
+      P.on('page', pushAt); P.on('sheet', pushAt); P.on('song', pushAt);                     // 2026-11 — 「함께」 목록에 내가 보는 페이지 (1.5초 모아서)
       try { if (P.beatStrip) fsApi = P.beatStrip('form'); } catch (e) { fsApi = null; }      // V848 — 송폼 창: 저장 · 박 흐름 · 1234 · 1박 · ×2 · 숫자로 · 3·2·1
       applyFormSize(); paintShows(); paintForm();
       P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm); P.on('songedit', paintForm); P.on('songs', paintForm);   // V838 — 송폼을 고치면 떠 있는 송폼 창도 바로 바뀜
@@ -3169,16 +3634,6 @@
     P.on('close', function () { root.removeEventListener('resize', flResize); if (flRo) flRo.disconnect(); });
     /* 악보의 빈 곳을 톡 → 도구 접기 (이동 · 선택 모드에서) · 펜슬 전용 모드에서 손가락 톡 → 선택·이동 */
     var tapD = null, lpT = 0, lpFired = 0;
-    /* v6.10 — 애플 펜슬로 악보에 그냥 쓰면 바로 펜으로 그려집니다 (도구를 열어 펜을 고르지 않아도).
-       "이동"(손바닥) 도구일 때만 — 선택 · 글자 · 코드 등 일부러 고른 도구는 그대로 둡니다. 도구가 접혀 있어도 되고, 첫 획부터 이어서 그려집니다. */
-    stage.addEventListener('pointerdown', function (e) {
-      if (S.dead || opts.readOnly || S.worship || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
-      if (e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input,a,textarea')) return;
-      if (e.pointerType === 'pen' && e.button > 0 && e.button !== 5) return;
-      setTool('pen', false, true);
-      if (an.beginExternal) an.beginExternal(e);
-      if (!S.penAutoHint) { S.penAutoHint = true; toast('✏️ 펜슬로 바로 쓰면 펜으로 그려져요 — 손가락으로 화면을 옮기려면 도구에서 “이동”을 고르세요', false, 3400); }
-    }, true);
     stage.addEventListener('pointerdown', function (e) {
       tapD = (e.isPrimary && !(e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input'))) ? { x: e.clientX, y: e.clientY, t: Date.now(), sel: !!(an.selected && an.selected()), tool: S.tool, type: e.pointerType, id: e.pointerId } : null;
       clearTimeout(lpT); lpT = 0;
@@ -3195,6 +3650,16 @@
     stage.addEventListener('pointermove', function (e) { if (lpT && tapD && e.pointerId === tapD.id && Math.hypot(e.clientX - tapD.x, e.clientY - tapD.y) > 8) { clearTimeout(lpT); lpT = 0; } }, true);
     stage.addEventListener('pointercancel', function () { clearTimeout(lpT); lpT = 0; }, true);
     stage.addEventListener('contextmenu', function (e) { if (Date.now() - lpFired < 1200 || lpT) e.preventDefault(); }, true);     // 길게 누를 때 뜨는 브라우저 메뉴 막기
+    /* v8.15 — 애플 펜슬로 악보에 그냥 쓰면 바로 펜으로 그려집니다 (도구를 열어 펜을 고르지 않아도).
+       "이동"(손바닥) 도구일 때만 — 선택 · 글자 · 코드 등 일부러 고른 도구는 그대로 둡니다. 도구가 접혀 있어도 되고, 첫 획부터 이어서 그려집니다. */
+    stage.addEventListener('pointerdown', function (e) {
+      if (S.dead || S.worship || e.pointerType !== 'pen' || S.tool !== 'none' || !e.isPrimary) return;
+      if (e.target.closest && e.target.closest('.pv-float,.an-editor,.pv-sympop,.pv-toolsbtn,button,select,input,a,textarea')) return;
+      if (e.button > 0 && e.button !== 5) return;
+      setTool('pen', false, true);
+      if (an.beginExternal) an.beginExternal(e);
+      if (!S.penAutoHint) { S.penAutoHint = true; toast('✏️ 펜슬로 바로 쓰면 펜으로 그려져요 — 손가락으로 화면을 옮기려면 도구에서 “이동”을 고르세요', false, 3400); }
+    }, true);
     stage.addEventListener('pointerup', function (e) {
       clearTimeout(lpT); lpT = 0;
       if (Date.now() - lpFired < 1500) { lpFired = 0; try { var hz2 = P.ensureTab ? P.ensureTab('harmony') : null; if (hz2 && hz2.focusEditor) hz2.focusEditor(); } catch (x) { /* 무시 */ } }     // 손을 뗄 때 입력칸에 초점 (아이패드 키보드는 손을 뗀 순간에만 열림)
@@ -3213,7 +3678,7 @@
       if (S.fs || S.compact || closed) return;
       /* v6.9 — 예전에는 펜슬 전용 모드에서 손가락으로 톡 치면 어떤 도구든 "선택·이동"으로 바뀌어, 글자 · 코드를 놓을 수 없고 펜 · 형광펜도 풀렸습니다.
          이제 펜 · 형광펜은 도구를 그대로 유지하고(손가락은 화면 이동에만), 글자 · 코드 · 기호 · 송폼은 톡 치면 그 자리에 만들어집니다 (anno.js). */
-      /* v6.10 — 펜슬 전용 모드(이 기기에서 펜슬을 쓴 적이 있음)에서는 펜 · 형광펜 · 지우개 도구인 채로 악보 아무 곳이나 손가락으로 톡 쳐도 도구가 접힙니다 ("이동" 도구로 바꾸지 않아도) */
+      /* v8.15 — 펜슬 전용 모드(이 기기에서 펜슬을 쓴 적이 있음)에서는 펜 · 형광펜 · 지우개 도구인 채로 악보 아무 곳이나 손가락으로 톡 쳐도 도구가 접힙니다 ("이동" 도구로 바꾸지 않아도) */
       if (d.type === 'touch' && (d.tool === 'pen' || d.tool === 'hl' || d.tool === 'eraser') && an.fingerDraws && !an.fingerDraws() && S.tool === d.tool && !penNear()) {
         if (S.dockMore) { setDockMore(false, true); return; }
         if (!el.classList.contains('pv-toolshide')) { setTools(false, false); return; }
@@ -3253,6 +3718,7 @@
       on = !!on; if (on === !!S.worship) return;
       if (on) { S.wsTools = !el.classList.contains('pv-toolshide'); if (S.tool !== 'none') setTool('none', false, true); try { an.closeEditor && an.closeEditor(); } catch (e) {} try { an.deselect && an.deselect(); } catch (e) {} }
       S.worship = on; el.classList.toggle('pv-worship', on); wsBtn.hidden = !on; wsBtn.classList.remove('arm');
+      if (!on && S.wsFs) { S.wsFs = false; if (!S.fs) fsNative(false); }
       ls('worship', on ? today() : '');
       if (on) { setTools(false, false); requestWake(); }
       else if (S.wsTools) setTools(true, false);
@@ -3507,7 +3973,7 @@
     if (ls('worship') === today()) setTimeout(function () { if (!S.dead) setWorship(true, true); }, 0);       // 같은 날 다시 열면 예배 모드 그대로
     var api = {
       el: el, P: P, prepareAll: function () { return prepareAll(); }, setWorship: function (b) { setWorship(b, true); }, goPage: function (n) { goPage(n, true); }, next: function () { nextPage(true); }, prev: function () { prevPage(true); },
-      perf: function () { return { rPaintAt: S.rPaintAt || 0, turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
+      perf: function () { return { turns: S.turns.slice(), page: S.page, sheet: S.sheetIdx, pages: S.pages, drawn: !!S.drawnOk && !S.turnAt && !S.loadingTo && !S.navQ, cache: S.pcache.size, keys: Array.from(S.pcache.keys()), pre: Array.from(S.pre.keys()), cacheMB: Math.round(S.pcBytes / 1048576), spread: spreadOn() }; }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
         if (S.dead) return; S.dead = true;
         /* 닫기 — 정리 단계마다 따로 감싸서, 한 단계가 실패해도(드물게 패널 · 실시간 · PDF 정리 오류) 나머지 정리와 화면 닫기 · 콘티로 돌아가기는 꼭 합니다.
@@ -3540,6 +4006,8 @@
         } finally {
           try { el.remove(); } catch (e) {}
           try { doc.body.classList.remove('pv-lock'); } catch (e) {}
+          /* 아이폰 · 아이패드(Safari): 악보를 여는 동안 숨겨 둔(content-visibility) 뒤 화면이 닫은 뒤에도 다시 그려지지 않아 흰 화면만 남는 일이 있어, 한 번 강제로 다시 그림 */
+          try { Array.prototype.forEach.call(doc.querySelectorAll('body > .shell, body > footer'), function (n) { n.style.contentVisibility = 'visible'; void n.offsetHeight; }); var unpin = function () { Array.prototype.forEach.call(doc.querySelectorAll('body > .shell, body > footer'), function (n) { n.style.contentVisibility = ''; }); }; if (root.requestAnimationFrame) root.requestAnimationFrame(function () { root.requestAnimationFrame(unpin); }); else setTimeout(unpin, 50); } catch (e) {}
           current = null;
           try { opts.onClose && opts.onClose(); } catch (e) { if (root.console) root.console.warn('[practice onClose]', e); }
         }
@@ -3548,7 +4016,6 @@
     current = api;
     S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font); if (an.setFboxTag) an.setFboxTag(S.fboxTag);
     setCompact(calcCompact()); setNarrow(); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); loadCfg(); requestWake();
-    try { if (root.YNLiveMsg) root.YNLiveMsg.attach(P); } catch (e) { if (root.console) root.console.warn('[livemsg]', e); }   // 요청 메시지 — 방송팀에 보내기 · 받은 메시지 띄우기
     /* 예배 타이머 막대 (Feature 1 · timer.js) — 헤더 바로 아래에 붙어 전체 화면에서도 보입니다. timer.js 가 없거나 opts.timer === false 면 아무것도 하지 않음 */
     var timerBar = null;
     try {
@@ -3556,9 +4023,31 @@
         timerBar = root.YNTimer.mountViewer(el, { token: opts.token, room: S.room, io: opts.io, getPlan: function () { return { room: S.room, songs: songs.map(function (x) { return { t: x.title }; }) }; } });
       }
     } catch (e) { /* 타이머 막대가 없어도 세션 화면은 그대로 */ }
+    /* 2026-11 Ark — 「⋯ › 방송 모드 · 예배 타이머」: 위 막대 없이 큰 글씨 방송 모드만 엽니다 (막대는 보이지 않게 만들어 두고 같은 상태를 씀) */
+    function openBroadcast() {
+      if (!root.YNTimer || !S.room) { toast('이 화면에서는 예배 타이머를 쓸 수 없어요.', true); return; }
+      try {
+        if (!timerBar) {
+          timerBar = root.YNTimer.mountViewer(el, { token: opts.token, room: S.room, io: opts.io, getPlan: function () { return { room: S.room, songs: songs.map(function (x) { return { t: x.title }; }) }; } });
+          if (timerBar && timerBar.el) timerBar.el.classList.add('ak-tbhide');
+        }
+        var n = 0; (function tryOpen() { if (S.dead || !timerBar) return; if (timerBar.controller) timerBar.openPanel(); else if (++n < 20) setTimeout(tryOpen, 100); }());
+      } catch (e) { toast('예배 타이머를 열지 못했어요: ' + e.message, true); }
+    }
     try { setupFloats(); } catch (e) { /* 떠 있는 창을 못 만들어도 악보 · 필기는 그대로 */ }
-    var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
-    loadSheet(S.sheetIdx, Math.max(1, opts.startPage | 0) || 1, false);   // 라이브러리에서 곡별로 나눈 악보를 열면 그 곡 첫 페이지부터
+    /* v11 — 라이브 악보를 열 때는 늘 악보만: 오른쪽 패널 · 떠 있는 창(송폼 · 클릭 · 타이머) · 필기 도구 모두 닫힌 채로 시작.
+       열어 쓰는 동안 켠 것은 이번에만 보이고, 다음에 열면 다시 깨끗하게 시작합니다. */
+    if (!root.__YN_KEEP_TOOLS) try {                                   // __YN_KEEP_TOOLS = 옛 기본값으로 도는 시험 전용 (scripts/browser/e2e-lib.js)
+      ls('side', '0'); el.classList.remove('pv-sideopen');
+      ['form', 'metro', 'timer'].forEach(function (k) { ls('show.' + k, '0'); });
+      if (typeof paintShows === 'function') paintShows();
+      setTools(false, false);
+    } catch (e) { /* 처음 모양을 못 맞춰도 악보는 그대로 */ }
+    var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs);
+    if (g0 < 0 && startFirstSong && songs.length) g0 = 0;                                // 곡에 안 묶인 악보로 시작하면 1번 곡으로 (페이지에서 곡을 찾으면 그 곡으로 바뀜)
+    if (g0 >= 0) setSong(g0, true);
+    loadSheet(S.sheetIdx, Math.max(1, Math.round(+opts.startPage) || 1), false);
+    if (S.layout === 'computer' && ls('side') === '1' && P.tabs.length) showTab(P.tabs[0].id);   // (시험 전용 옛 기본값일 때만 열림)
     return api;
   }
 

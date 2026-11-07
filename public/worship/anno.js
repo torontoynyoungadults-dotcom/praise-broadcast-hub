@@ -55,7 +55,8 @@
     sans: '"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif',
     serif: '"Times New Roman","Noto Serif KR","Apple Myungjo","Batang",Georgia,serif',
     hand: '"Segoe Print","Bradley Hand","Noteworthy","Nanum Pen Script","Comic Sans MS","Apple SD Gothic Neo",cursive'
-  };
+  }
+  var HEADS = { 'n:hd': 1, 'n:ho': 1 };       // 음표 머리만 (화음 표시) — 찍은 뒤 선택하지 않고 계속 찍음;
   var GLYPH_FALLBACK = ',"Segoe UI Symbol","Apple Symbols","Noto Music","DejaVu Sans"';
   var GLYPHS = { quarter: '\u2669', eighth: '\u266a', sharp: '\u266f', flat: '\u266d' };     // ♩ ♪ ♯ ♭
   /** 웹폰트를 한 번만 불러오고, 다 받으면 바로 다시 그리도록 알려 줍니다 (캔버스는 글꼴이 늦게 오면 예전 모양 그대로라서) */
@@ -227,7 +228,6 @@
     var x0 = .12 * s, y0 = -.36 * s; ln(c, x0 + .04 * s, y0, x0 - .2 * s - (n - 1) * .08 * s, y0 + (.5 + n * .2) * s);
     for (var i = 0; i < n; i++) { var x = x0 - i * .08 * s, y = y0 + i * .24 * s; c.beginPath(); c.arc(x - .2 * s, y + .02 * s, .075 * s, 0, 7); c.fill(); c.beginPath(); c.moveTo(x - .2 * s, y + .08 * s); c.quadraticCurveTo(x - .05 * s, y + .1 * s, x + .04 * s, y); c.stroke(); }
   }
-  var HEADS = { 'n:hd': 1, 'n:ho': 1 };       // 음표 머리만 (화음 표시) — 찍은 뒤 선택하지 않고 계속 찍음
   var NOTE = {
     '1': function (c, s) { nHead(c, s * 1.25, 0, 0, true); },
     hd: function (c, s) { nHead(c, s, 0, 0, false); },
@@ -330,12 +330,17 @@
       c.bezierCurveTo(p1x + (p2x - p0x) / 6, p1y + (p2y - p0y) / 6, p2x - (p3x - p1x) / 6, p2y - (p3y - p1y) / 6, p2x, p2y);
     }
   }
+  /* 화면에 그릴 때만 색을 바꿔 보여 주기 (저장된 색은 그대로) — 내 노트의 어두운 유리 종이에서 검정 펜이 밝게 보이도록.
+     라이브 악보(흰 악보)는 설정하지 않으므로 그대로입니다. */
+  var DISP = { map: null, halo: 'rgba(255,255,255,.9)' };
+  function dispC(c) { if (!DISP.map) return c; try { return DISP.map(c) || c; } catch (e) { return c; } }
+  function setDisplay(o) { DISP.map = (o && typeof o.map === 'function') ? o.map : null; DISP.halo = (o && o.halo) || 'rgba(255,255,255,.9)'; }
   /** 항목 하나를 ctx 에 그림. W,H = 그릴 페이지의 픽셀 크기. o.alpha = 전체 투명도 */
   function drawItem(c, it, W, H, o) {
     o = o || {};
     c.save();
     try {
-      c.strokeStyle = c.fillStyle = it.c || '#ff5a1f'; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.strokeStyle = c.fillStyle = dispC(it.c || '#ff5a1f'); c.lineCap = 'round'; c.lineJoin = 'round';
       if (o.alpha != null) c.globalAlpha = o.alpha;
       if (it.t === 'pen') { c.lineWidth = Math.max(0.8, (it.w || 0.003) * W); strokePath(c, it.p || [], W, H); c.stroke(); }
       else if (it.t === 'hl') {
@@ -352,14 +357,14 @@
           c.save(); c.globalAlpha = a0; c.beginPath();
           if (c.roundRect) c.roundRect(pg.x, pg.y, pg.w, pg.h, rr0); else rrect(c, pg.x, pg.y, pg.w, pg.h, rr0);
           if (okHex(it.bg)) { c.fillStyle = it.bg; c.fill(); }
-          if (okHex(it.bd)) { c.lineWidth = Math.max(1.2, px * 0.08); c.strokeStyle = it.bd; c.stroke(); }
+          if (okHex(it.bd)) { c.lineWidth = Math.max(1.2, px * 0.08); c.strokeStyle = okHex(it.bg) ? it.bd : dispC(it.bd); c.stroke(); }
           c.restore();
         } else if (it.chord && it.s) {                                                     // 코드는 악보에 이미 있는 코드 위에 덮어 쓰므로, 밑에 흰 바탕을 깔아 원래 코드를 가립니다
           var cw = c.measureText(it.s).width, cp = Math.max(2, px * 0.14);
           c.save(); c.globalAlpha = a0; c.fillStyle = '#FFFFFF'; c.fillRect(-cp, -px * 0.92, cw + cp * 2, px * 1.2); c.restore();
         }
-        if (!okHex(it.bg)) { c.lineWidth = Math.max(2, px * 0.2); c.strokeStyle = 'rgba(255,255,255,.9)'; c.strokeText(it.s || '', 0, 0); }    // 바탕이 있으면 흰 테두리(번짐 방지)가 필요 없음
-        c.fillStyle = it.c || '#ff5a1f'; c.fillText(it.s || '', 0, 0);
+        if (!okHex(it.bg)) { c.lineWidth = Math.max(2, px * 0.2); c.strokeStyle = DISP.halo; c.strokeText(it.s || '', 0, 0); }    // 바탕이 있으면 흰 테두리(번짐 방지)가 필요 없음
+        c.fillStyle = okHex(it.bg) ? (it.c || '#ff5a1f') : dispC(it.c || '#ff5a1f'); c.fillText(it.s || '', 0, 0);      // 바탕 위 글자는 원래 색 그대로
       } else if (it.t === 'fbox') {                                                        // 송폼 라벨 — 글자를 네모 테두리 안에 (콜아웃 때는 깜빡)
         var lb = fboxLabel(it, W, H), fc = it.c || '#ff5a1f', rr = Math.max(3, lb.px * 0.16), fl = !!o.flash, bw = Math.max(1.6, lb.px * 0.1);
         if (fl) { var cx0 = lb.x + lb.w / 2, cy0 = lb.y + lb.h / 2; c.translate(cx0, cy0); c.scale(1.45, 1.45); c.translate(-cx0, -cy0); c.shadowColor = 'rgba(255,122,28,.95)'; c.shadowBlur = Math.max(14, lb.px * 0.9); }
@@ -635,7 +640,7 @@
         if (l.pg !== S.page || !l.p || l.p.length < 2) return;
         drawItem(ctx, { t: l.t, c: l.c, w: l.w, p: l.p }, S.W, S.H, { alpha: 0.85 });
         var lx = l.p[l.p.length - 2] * S.W, ly = l.p[l.p.length - 1] * S.H;
-        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var lb = hon(l.by || ''); var tw = ctx.measureText(lb).width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(lb, lx + 10, ly - 9); ctx.restore();
+        ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var tw = ctx.measureText(l.by || '').width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(l.by || '', lx + 10, ly - 9); ctx.restore();
       });
       if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(true); }, 1200);
       if (W8.on && inkCur()) wetDraw();                                                 // 다른 까닭으로 전체를 다시 그려도 긋는 획은 젖은 잉크 쪽에
@@ -1167,7 +1172,11 @@
         if (palm || (penOnly && !fingerOk)) return;
       }
       else if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (S.cur) { dropCur(); invalidate(); return; }                                                                   // 두 번째 손가락 = 그리기 취소 (확대 동작)
+      if (S.cur) {                                                                                                      // 두 번째 손가락 = 그리기 취소 (확대 동작)
+        var palmFirst = !!(S.cur.touch && (S.cur.kind === 'pen' || S.cur.kind === 'hl') && e.pointerType === 'pen');   // v9.15 — 손바닥이 먼저 닿아 획이 시작됐는데 펜슬이 닿음: 손의 획만 버리고 펜슬은 이어서 씀
+        dropCur(); invalidate();
+        if (!palmFirst) return;
+      }
       if (e.pointerType === 'pen' && penGesture(e)) { e.preventDefault(); return; }                                    // 펜 더블탭 · 옆 버튼 = 펜 ↔ 지우개
       var hadEd = !!S.editor;
       if (S.editor) { closeEditor(true); }
@@ -1608,11 +1617,13 @@
       drawPage: function (c, W, H, pg, vis, skip) { return drawPage(c, W, H, pg, vis, skip, 'export'); },
       state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, textBg: S.editor ? S.editor.bg : S.tbg, textBd: S.editor ? S.editor.bd : S.tbd, pw: S.pw, hw: S.hw, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, msel: S.msel ? mselCount() : 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
       redraw: redraw, closeEditor: function () { closeEditor(true); },
+      /** v9.14 — 화면에서 멀어진 페이지(내 노트 손글씨)의 임시 그림(젖은 잉크 · 저장 그림) 화소를 놓아 줌. 쓰는 중이면 하지 않음 */
+      release: function () { if (S.cur) return false; if (W8.on) wetEnd(); if (wet) { try { wet.width = wet.height = 0; } catch (e) { /* 무시 */ } } freeBase(); hlFree(); return true; },
       destroy: function () { S.dead = true; try { offLocalFont(); } catch (e) {} if (S.raf && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(S.raf); } catch (e) {} } S.raf = 0; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = 0; } freeBase(); S.live.clear(); closeEditor(false); try { cv.remove(); } catch (e) {} try { if (wet) { wet.width = wet.height = 0; wet.remove(); } } catch (e) {} try { if (hlc) { hlc.width = hlc.height = 0; hlc.remove(); } } catch (e) {} }
     };
     return api;
   }
 
-  return { create: create, newId: newId, simplify: simplify, limitPoints: limitPoints, drawItem: drawItem, hit: hit, symBox: symBox,
+  return { create: create, setDisplay: setDisplay, newId: newId, simplify: simplify, limitPoints: limitPoints, drawItem: drawItem, hit: hit, symBox: symBox,
     SYMBOLS: SYMBOLS, FBOX_TAGS: FBOX_TAGS, FBOX_NAMES: FBOX_NAMES, fboxLabel: fboxLabel, PALETTE: PALETTE, COLOR_NAMES: COLOR_NAMES, FONTS: FONTS, FONT_KEYS: FONT_KEYS, FONT_NAMES: FONT_NAMES, fontReady: fontReady, GLYPHS: GLYPHS, HL_COLORS: HL_COLORS, PALETTE_X: PALETTE_X, HL_COLORS_X: HL_COLORS_X, TEXT_BG_COLORS: TEXT_BG_COLORS, TEXT_BD_COLORS: TEXT_BD_COLORS, MORE_NAMES: MORE_NAMES, STRETCH: STRETCH, CHORD_KEYS: CHORD_KEYS };
 }));

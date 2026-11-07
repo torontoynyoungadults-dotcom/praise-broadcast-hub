@@ -88,7 +88,13 @@
     ppt: '<rect class="f" x="3" y="4.2" width="18" height="12" rx="2.4"/><path d="M12 16.2v3.6M8.2 19.8h7.6"/><path d="M7.4 13V10.6M11 13V8.4M14.6 13V9.8M18 13" stroke-width="1.5"/>',
     codi: '<path class="f" d="M9 4.6h6a1 1 0 0 1 1 1V7H8V5.6a1 1 0 0 1 1-1z"/><path d="M8 6H6.6A1.6 1.6 0 0 0 5 7.6v11.8A1.6 1.6 0 0 0 6.6 21h10.8a1.6 1.6 0 0 0 1.6-1.6V7.6A1.6 1.6 0 0 0 17.4 6H16"/><path d="M8.8 13.4l2.2 2.2 4.2-4.4"/>',
     pray: '<path class="f" d="M12 3.2c.9 3.2 5 5.6 5 10.2a5 5 0 0 1-10 0c0-2 .9-3.4 2-4.6.3 1.3.9 2 1.7 2.4C10.2 8 10.6 5.4 12 3.2z"/><path d="M10.2 14.4a2 2 0 0 0 3.6 0" stroke-width="1.3"/>',
-    play: '<rect class="f" x="3" y="5.2" width="18" height="13.6" rx="4.4"/><path class="k" d="M10.4 9.2l5 2.8-5 2.8z"/>'
+    play: '<rect class="f" x="3" y="5.2" width="18" height="13.6" rx="4.4"/><path class="k" d="M10.4 9.2l5 2.8-5 2.8z"/>',
+    /* 2026-11 Ark — 라이브 악보 위 막대 · 「⋯」 목록 */
+    msg: '<path d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.2V17.5h-1A1.5 1.5 0 0 1 3 16V7a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M7.5 10h9M7.5 13.2h5.5"/>',
+    ytv: '<rect x="3" y="6" width="18" height="12" rx="3.5"/><path class="k" d="M10.4 9.4l4.6 2.6-4.6 2.6z"/>',
+    rec: '<circle cx="12" cy="12" r="8.2"/><circle class="k" cx="12" cy="12" r="3.6"/>',
+    chart: '<path d="M4 4.5v15h16"/><path d="M8 16v-4.5M12 16V9M16 16v-6.5"/>',
+    guide: '<path d="M5.5 4.5h10.5a2 2 0 0 1 2 2v13H7.5a2 2 0 0 1-2-2z"/><path d="M5.5 17.5a2 2 0 0 1 2-2H18"/>'
   };
   function get(name, cls) {
     var body = P[name];

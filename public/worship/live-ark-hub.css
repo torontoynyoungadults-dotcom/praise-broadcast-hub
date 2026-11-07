@@ -1,0 +1,23 @@
+/* ============================================================
+   찬양방송팀 허브 — 라이브 악보 Ark(청년부 앱 live-ark.css) 위에 이 앱 색만 덮어씁니다.
+   · 동작 · 배치는 청년부 앱과 똑같고, 강조색만 허브 팔레트로:
+       어두운 화면 → 샴페인 골드 (#CFAE6E, 칸 위 글씨는 먹색)
+       밝은 화면   → 상록 #204B40 (켜짐) · 황동 #8A5F22 (시작/보내기)
+   · live-ark.css 다음에 불러옵니다 (routes/live.js). live-ark.css 안에 직접 적힌 주황 · 청록도 허브 색으로 바꿔 두었습니다
+   ============================================================ */
+html body .pv {
+  --ak-on: #CFAE6E; --ak-on-ink: #1A160E; --ak-on-soft: rgba(207, 174, 110, .15); --ak-on-edge: rgba(211, 182, 124, .45); --ak-on-text: #E3D0AB;
+  --ak-go: #CFAE6E; --ak-go-ink: #1A160E; --ak-go-soft: rgba(207, 174, 110, .15); --ak-go-text: #E3D0AB; --ak-go-edge: rgba(211, 182, 124, .45);
+  --ak-head: #E3D0AB;
+}
+html[data-theme="light"] body .pv {
+  --ak-on: #204B40; --ak-on-ink: #FBF8F1; --ak-on-soft: #EAF2EF; --ak-on-edge: rgba(32, 75, 64, .3); --ak-on-text: #204B40;
+  --ak-go: #8A5F22; --ak-go-ink: #FFFFFF; --ak-go-soft: #F6EEDF; --ak-go-text: #7A531C; --ak-go-edge: #E3CFA9;
+  --ak-head: #204B40;
+}
+
+/* 방송팀 보기 링크(읽기 전용) — 필기 도구는 감춤 */
+html body .pv.pv-ro.pv-ro .pv-toolsbtn, html body .pv.pv-ro.pv-ro .pv-tools, html body .pv.pv-ro.pv-ro .pv-tabbtn[data-tab="anno"], html body .pv.pv-ro.pv-ro .pv-pill[data-a="tools"] { display: none !important; }
+
+/* 키 저장 단추 — 청년부 앱은 주황, 허브는 강조색 */
+html body .pv:not(#_) .pv-keyctl .pv-kssave { background: var(--ak-go) !important; color: var(--ak-go-ink) !important; }

@@ -33,7 +33,7 @@ const guestDayLink = require('../lib/guestDayLink');
 const hubApi = require('../lib/hubApi');
 const { serviceAuth } = require('../lib/googleAuth');
 const r2 = require('../lib/r2');
-const { canonicalPosition } = require('../lib/positions');
+const { canonicalPosition, ALL_POSITIONS } = require('../lib/positions');
 
 const router = express.Router();
 const esc = pageShell.esc;
@@ -48,6 +48,7 @@ const LIVE_V = (() => {
 })();
 
 const ytForm = require('../lib/ytForm');
+const liveMsg = require('../lib/liveMsg');
 let rt = null;                           // server.js 가 realtime 을 붙인 뒤 넣어 줌
 function setRealtime(x) { rt = x; }
 
@@ -194,7 +195,8 @@ async function renderLive(req, res, o) {
   const boot = {
     token: o.day ? liveAuth.mintDay(team, d.room, o.day.token) : (o.ro ? liveAuth.mintView(team, d.room) : liveAuth.mint(o.member, team, o.isAdmin)), room: d.room, me: o.day ? '객원' : (o.ro ? '방송팀' : String(o.member['이름'] || '')), ro: !!o.ro, guest: !!o.day,
     pastors: Array.from(new Set(Array.from(pastors).concat(lineup.filter((x) => honorific.isLeadPos(x.pos)).map((x) => x.name)))),       // 그날 인도자 자리에 선 사람은 객원이어도 "OOO 목사"
-    lineup, sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
+    lineup, lineupPos: lineupByPos(lineup), roomLabel: ev ? String(ev['이름'] || '') : week.labelKo(date),
+    sheets: d.sheets, songs: d.songs, recs: d.recs, start: d.sheets.some((s) => s.id === start) ? start : d.sheets[0].id, back,
     startPage: d.sheets.some((s) => s.id === start) ? Math.max(1, Math.min(999, parseInt(req.query.page, 10) || 1)) : 1,   // 곡별로 나눈 악보 — 패키지의 그 곡 첫 페이지부터
   };
   const v = `?v=${LIVE_V}`;
@@ -227,6 +229,9 @@ ${early}<link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/live-glass.css${v}">
 <link rel="stylesheet" href="/worship/live-head.css${v}">
 <link rel="stylesheet" href="/worship/toolpop.css${v}">
+<link rel="stylesheet" href="/worship/live-ark.css${v}">
+<link rel="stylesheet" href="/worship/live-ark-hub.css${v}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" media="print" onload="this.media='all'">
 <style>
   html, body { min-height: 100%; }
   .lv-fallback { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; max-width: 520px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }
@@ -257,11 +262,12 @@ ${o.ro ? '' : `<script>window.__RT_PRE__ = ${JSON.stringify({ token: boot.token,
 <script defer src="/worship/anno.js${v}"></script>
 <script defer src="/worship/toolpop.js${v}"></script>
 <script defer src="/worship/mainstage.js${v}"></script>
+<script defer src="/worship/songpick.js${v}"></script>
 <script defer src="/worship/practice-panels.js${v}"></script>
-<script defer src="/worship/livemsg.js${v}"></script>
 <script defer src="/worship/claude-ui.js${v}"></script>
 <script defer src="/worship/clickdock.js${v}"></script>
 <script defer src="/worship/liveusage.js${v}"></script>
+<script defer src="/worship/liveark.js${v}"></script>
 <script defer src="/worship/practice.js${v}"></script>
 <script defer src="/js/offline.js${v}"></script>
 <script defer src="/js/live-boot.js${v}"></script>
@@ -271,6 +277,18 @@ ${pageShell.BUILD_HTML}
 }
 
 /** 이 예배의 편성 (포지션 · 이름) — 요청 메시지의 "싱어 이름" · 받는 사람 고르기에 씀 */
+/** 라이브 악보 Ark 의 「함께 · 오늘 함께하는 팀」 · 메시지 받는 곳 — church-app 과 같은 모양 [{ key, label, bcast, names }] (포지션 순서대로) */
+function lineupByPos(lineup) {
+  const BCAST = new Set(['음향', 'PPT', '방송총괄']);
+  const order = ALL_POSITIONS.concat(lineup.map((x) => x.pos).filter((p) => !ALL_POSITIONS.includes(p)));
+  const out = [];
+  order.forEach((pos) => {
+    const names = lineup.filter((x) => x.pos === pos).map((x) => x.name);
+    if (!names.length || out.some((o) => o.label === pos)) return;
+    out.push({ key: pos === '기도인도' ? 'pray' : pos, label: pos, bcast: BCAST.has(pos), names });
+  });
+  return out;
+}
 async function lineupOf(team, scope) {
   const rows = await sheetsDb.readAll('찬양편성');
   const out = [], seen = new Set();
@@ -697,6 +715,14 @@ const FNS = {
     });
   },
   async worshipSongsOf(u, room) { return { songs: await liveStore.songsOf(u.team, room) }; },
+  /** 2026-11 Ark — 라이브 악보 메시지 (찬양팀 전체 · 방송팀 · 나). 방송팀 앞 메시지는 방송팀 화면에도 요청 카드로 */
+  async liveMsgSend(u, room, msg) {
+    return liveMsg.send(u, room, msg, {
+      live: (r, item) => { if (rt) rt.broadcast(r, 'livemsg', item, u.team); },
+      stage: (r, m) => { if (rt && rt.stageMsg) rt.stageMsg(r, u.team, m); },
+    });
+  },
+  async liveMsgList(u, room) { return liveMsg.list(u, room); },
   /** v9.6 — 유튜브 송폼 태그 (팀 · 영상마다 · 팀원 누구나 저장) */
   async worshipYtFormGet(u, vid) { return ytForm.get(u.team, vid); },
   async worshipYtFormSave(u, vid, title, tags, baseAt) { return ytForm.save(u.team, u.name, vid, title, tags, baseAt); },
@@ -873,7 +899,7 @@ router.post('/api/:fn', async (req, res) => {
     const u = liveAuth.verify(args[0]);
     const rest = args.slice(1);
     if (u.ro) {                                           // 방송팀 보기 링크 — 그 예배의 악보 · 필기 · 곡 정보 읽기만
-      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1, worshipLiveSheets: 0, worshipYtFormGet: -1 };
+      const RO_OK = { worshipAnnoLoad: -1, worshipCfgLoad: 0, worshipSongsOf: 0, worshipHarmLoad: -1, worshipLiveSheets: 0, worshipYtFormGet: -1, liveMsgList: 0 };
       if (!own(RO_OK, fn)) throw new Error('방송팀 보기 링크는 읽기 전용입니다.');
       if (RO_OK[fn] >= 0 && String(rest[RO_OK[fn]] || '') !== u.room) throw new Error('이 링크로는 해당 예배의 라이브 악보만 볼 수 있습니다.');
     }

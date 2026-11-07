@@ -87,7 +87,7 @@
    * gender 'female': 여성 음성 우선. 'any': 성별 상관없음.
    */
   /* 기계음처럼 들리는 옛 음성 · 효과음 음성 — 다른 선택지가 있으면 고르지 않습니다 */
-  var ROBOT_RE = /\b(fred|albert|junior|ralph|kathy|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|organ|superstar|trinoids|whisper|wobble|zarvox|jester|espeak|compact|eddy|reed|rocko|sandy|shelley|flo|grandma|grandpa|bruce|princess)\b/i;
+  var ROBOT_RE = /\b(fred|albert|junior|ralph|kathy|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|organ|superstar|trinoids|whisper|wobble|zarvox|jester|espeak|compact)\b/i;
   /** 자연스러움 점수 — 신경망(Natural · Neural · Online) · 고음질(Premium · Enhanced · Siri) 음성이 높고, 기기 안 음성 · 기본 음성이 조금 유리 */
   function voiceScore(v) {
     var n = String((v && v.name) || ''), sc = 0;
@@ -342,7 +342,7 @@
     } catch (e) { silentUrl = null; }
     return silentUrl;
   }
-  /* v12.x — "유튜브 · 음악 앱과 같이 듣기" (이 기기에 기억 · yn.metro.mix)
+  /* 찬양방송팀 허브 — "유튜브 · 음악 앱과 같이 듣기" (이 기기에 기억 · yn.metro.mix)
      켜면 소리 없는 재생으로 소리 채널을 붙잡지 않고, 다른 앱 소리와 섞이는 'ambient' 로 둡니다.
      → 유튜브 앱을 뒤에서 틀어 둔 채 라이브 악보로 돌아와도 유튜브 볼륨이 줄지 않습니다.
      대신 iOS 무음(진동) 스위치가 켜져 있으면 클릭 · 콜아웃이 들리지 않으니, 스위치를 끄고 씁니다. */
@@ -354,18 +354,41 @@
     setMix: function (on) {
       Media.mix = !!on;
       try { localStorage.setItem(MIX_KEY, Media.mix ? '1' : '0'); } catch (e) { /* 저장이 막혀도 이번 화면에서는 동작 */ }
-      if (Media.mix) { Media.on = false; try { if (Media.el) Media.el.pause(); } catch (e) { /* 무시 */ } try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 무시 */ } Media.ambient(); }
-      else if (Media.hold) Media.start();
+      if (Media.mix) {
+        Media.on = false;
+        try { if (Media.el) { Media.el.pause(); Media.el.removeAttribute('src'); Media.el.load(); } } catch (e) { /* 무시 */ }
+        Media.el = null;
+        try { if (navigator.mediaSession) { navigator.mediaSession.playbackState = 'none'; navigator.mediaSession.metadata = null; } } catch (e) { /* 무시 */ }
+        Media.ambient();
+      } else if (Media.hold) Media.start();
       return Media.mix;
     },
+    /* v8.49 — 화면이 멈추거나(랙) 탭을 닫아도 아이패드가 "백그라운드 오디오 재생 중"으로 붙들고 있어 소리가 안 멎던 문제:
+       잠금 화면 · 제어 센터의 재생 위젯은 지금까지 이 소리 없는 더미 <audio> 만 멈췄을 뿐, 실제로 딸깍 소리를 내는
+       AudioContext 예약(Sched)은 전혀 건드리지 못해 계속 울렸습니다(기기를 꺼서 다시 켜야 했던 이유).
+       이제 "일시정지 · 정지" 버튼이 지금 돌고 있는 클릭의 진짜 stop() 을 부르도록 연결해, 앱 화면이 멈춰 있거나
+       닫혀 있어도 잠금 화면 · 제어 센터 · (기기에 따라) "Siri, 일시정지" 로 바로 끌 수 있게 합니다. */
+    activeStop: null,
+    wireActions: function () {
+      if (Media._wired || typeof navigator === 'undefined' || !navigator.mediaSession || !navigator.mediaSession.setActionHandler) return;
+      Media._wired = true;
+      var stopAll = function () {
+        try { Media.activeStop && Media.activeStop(); } catch (e) { /* 무시 */ }
+        try { Media.setHold(false); } catch (e) { /* 무시 */ }
+      };
+      ['pause', 'stop'].forEach(function (a) { try { navigator.mediaSession.setActionHandler(a, stopAll); } catch (e) { /* 이 동작을 지원하지 않는 브라우저 */ } });
+    },
     /** 사용자가 누른 순간에 부르세요. 이미 켜져 있으면 아무 일도 하지 않습니다 */
-    start: function () {
+    /** v9.9b — real=true 는 클릭이 실제로 도는 때만 (start · startIn · wake). 그 밖(악보를 열어 둔 동안 · 음성 큐 미리 듣기 · 소리 장치 깨우기)은
+     *  iOS 17+ 처럼 audioSession 을 지원하면 'playback' 으로만 바꿔 무음 스위치를 넘고, 소리 없는 <audio> 는 아예 재생하지 않습니다.
+     *  <audio> 를 한 번이라도 재생하면 iOS 가 잠금 화면에 재생 카드("라이브 악보" · 0:00/-0:01)를 남겨 두기 때문입니다. */
+    session: function () { try { return !!(navigator.audioSession && 'type' in navigator.audioSession); } catch (e) { return false; } },
+    start: function (real) {
       if (typeof window === 'undefined' || typeof document === 'undefined') return false;
       if (Media.mix) { Media.ambient(); return true; }                        // 같이 듣기 — 소리 채널을 붙잡지 않음
       try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { /* 지원하지 않는 브라우저 */ }
+      if (!real && Media.session() && !(Media.el && !Media.el.paused)) return true;
       try {
-        if (Media.el && !Media.el.getAttribute('src')) { var u2 = silentWavUrl(); if (!u2) return false; Media.el.src = u2; }   // 잠금 화면에서 치워 둔 뒤 다시 (같은 <audio> 라 누르지 않아도 재생됨)
-        Media.parked = false;
         if (!Media.el) {
           var url = silentWavUrl(); if (!url) return false;
           var a = document.createElement('audio');
@@ -377,8 +400,9 @@
       } catch (e) { Media.on = false; }
       try {
         if (navigator.mediaSession) {                                       // 잠금 화면 · 제어 센터에 "재생 중"으로 보여 백그라운드에서도 소리가 이어지게 합니다
-          if (typeof MediaMetadata !== 'undefined' && !Media.meta) { Media.meta = true; navigator.mediaSession.metadata = new MediaMetadata({ title: '클릭', artist: '세션 / 연습' }); }
+          if (typeof MediaMetadata !== 'undefined' && !navigator.mediaSession.metadata) { navigator.mediaSession.metadata = new MediaMetadata({ title: '클릭', artist: '세션 / 연습 — 일시정지로 바로 끌 수 있습니다' }); }
           navigator.mediaSession.playbackState = 'playing';
+          Media.wireActions();
         }
       } catch (e) { /* 무시 */ }
       return true;
@@ -388,43 +412,61 @@
     setHold: function (on) {
       Media.hold = !!on;
       if (on && Media.mix) { Media.ambient(); return true; }
-      if (on) { if (!Media.el || Media.el.paused) Media.start(); return !!(Media.el && !Media.el.paused); }
+      if (on) { if (Media.session()) { Media.start(); return true; } if (!Media.el || Media.el.paused) Media.start(); return !!(Media.el && !Media.el.paused); }
       Media.stop(true); return false;
     },
     stop: function (force) {
-      if (Media.hold && !force) return;                                   // 유지 중이면 멈추지 않음
+      if (Media.hold && !force && !Media.session()) return;                                   // 유지 중이면 멈추지 않음
       Media.on = false;
       try { if (Media.el) Media.el.pause(); } catch (e) { /* 무시 */ }
       try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 무시 */ }
-    },
-    /* 잠금 화면 · 다른 앱으로 가면 — 클릭이 실제로 돌고 있지 않으면 소리 없는 재생을 완전히 치워서
-       iOS 잠금 화면에 "클릭 · 세션 / 연습" 재생 카드가 뜨지 않고 평소 잠금 화면이 되게 합니다.
-       화면으로 돌아오면(hold 중이면) 같은 <audio> 로 다시 켭니다. 클릭이 돌고 있을 때는 박이 끊기지 않게 그대로 둡니다. */
-    runs: [], parked: false,
-    running: function () { for (var i = 0; i < Media.runs.length; i++) { try { if (Media.runs[i]()) return true; } catch (e) { /* 무시 */ } } return false; },
-    park: function () {
-      if (!Media.el || Media.running()) return;
-      Media.on = false; Media.parked = true; Media.meta = false;
-      try { Media.el.pause(); Media.el.removeAttribute('src'); Media.el.load(); } catch (e) { /* 무시 */ }
-      try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* 무시 */ }
-      try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch (e) { /* 무시 */ }
-    },
-    onVis: function () {
-      if (typeof document === 'undefined') return;
-      if (document.visibilityState === 'hidden') Media.park();
-      else if (Media.parked && Media.hold && !Media.mix) Media.start();
+      if (Media.session()) {                                              // v9.9b — 클릭을 멈추면 재생 카드도 내려놓습니다 (무음 스위치는 audioSession 이 계속 넘김)
+        try { if (Media.el) { Media.el.removeAttribute('src'); Media.el.load(); } } catch (e) { /* 무시 */ }
+        Media.el = null;
+        try { if (navigator.mediaSession) navigator.mediaSession.metadata = null; } catch (e) { /* 무시 */ }
+      }
     },
     release: function () {
       Media.hold = false; Media.stop(true);
       try { if (Media.el) { Media.el.removeAttribute('src'); Media.el.load(); } } catch (e) { /* 무시 */ }
       Media.el = null;
       if (silentUrl) { try { URL.revokeObjectURL(silentUrl); } catch (e) { /* 무시 */ } silentUrl = null; }
+    },
+    /* v9.9 — 잠금 화면에 "클릭" 재생 카드가 남던 문제: 악보를 보다가 화면을 잠그면, 클릭이 실제로 돌고 있지 않을 때는
+       소리 없는 재생을 완전히 내려놓아 잠금 화면이 평소 화면으로 돌아가게 합니다. (클릭이 돌고 있으면 그대로 — 백그라운드에서 소리가 이어지고 잠금 화면에서 끌 수 있게)
+       화면으로 돌아오면 유지(hold) 중이던 무음 재생을 다시 켭니다 (iOS 가 막으면 다음 터치에서). */
+    activeBusy: null,
+    parked: false,
+    busy: function () { try { return !!(Media.activeBusy && Media.activeBusy()); } catch (e) { return false; } },
+    park: function () {
+      if (Media.busy()) return;
+      Media.parked = Media.hold || Media.parked || Media.session();
+      Media.on = false;
+      try { if (Media.el) { Media.el.pause(); Media.el.removeAttribute('src'); Media.el.load(); } } catch (e) { /* 무시 */ }
+      Media.el = null;
+      try { if (navigator.mediaSession) { navigator.mediaSession.playbackState = 'none'; navigator.mediaSession.metadata = null; } } catch (e) { /* 무시 */ }
+      try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch (e) { /* 무시 */ }
+      try { Media.idleCtx && Media.idleCtx(false); } catch (e) { /* 무시 */ }
+    },
+    unpark: function () {
+      try { Media.idleCtx && Media.idleCtx(true); } catch (e) { /* 무시 */ }
+      if (!Media.parked) return;
+      if (!Media.hold) { Media.parked = false; return; }
+      Media.start();
+      var retry = function () {
+        document.removeEventListener('pointerup', retry, true); document.removeEventListener('click', retry, true);
+        if (Media.hold && (!Media.el || Media.el.paused)) Media.start();
+      };
+      setTimeout(function () {
+        if (Media.el && !Media.el.paused) { Media.parked = false; return; }
+        document.addEventListener('pointerup', retry, true); document.addEventListener('click', retry, true);
+        Media.parked = false;
+      }, 400);
     }
   };
-
   if (typeof document !== 'undefined' && document.addEventListener) {
-    document.addEventListener('visibilitychange', Media.onVis);
-    if (typeof window !== 'undefined' && window.addEventListener) { window.addEventListener('pagehide', function () { Media.park(); }); window.addEventListener('pageshow', Media.onVis); }
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') Media.park(); else Media.unpark(); });
+    if (typeof window !== 'undefined' && window.addEventListener) { window.addEventListener('pagehide', function () { Media.park(); }); window.addEventListener('pageshow', function () { Media.unpark(); }); }
   }
 
   /** V836 — 음성 선택값: 'mix'(기본 · 녹음 남성) · 'male' · 'female'(기기 여성 음성) · 'any' · 'live'(기기 음성 실시간 합성) · 'v:<녹음 목소리 id>' · 'rot:m'(남성 번갈아) · 'rot:mf'(남녀 번갈아) */
@@ -446,7 +488,6 @@
     var ctx = null, worker = null, timer = null, raf = 0, destroyed = false;
     var sched = new Sched({ now: function () { return ctx ? ctx.currentTime : 0; }, bpm: opt.bpm || 72, num: opt.num || 4, den: opt.den || 4 });
     var tapper = new TapTempo();
-    var isRunning = function () { return !destroyed && sched.running; }; Media.runs.push(isRunning);
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     /* v8.39 — 숫자로 세기 */
@@ -511,6 +552,7 @@
       Media.start();
       try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = new AC(); }
       try { ctx.onstatechange = onCtxState; } catch (e) { /* 무시 */ }
+      Media.activeBusy = isBusy; Media.idleCtx = function (on) { if (destroyed || !ctx || sched.running) return; try { if (on) { if (ctx.state !== 'running' && ctx.resume) { var r = ctx.resume(); if (r && r.catch) r.catch(function () {}); } } else if (ctx.state === 'running' && ctx.suspend) ctx.suspend(); } catch (e) { /* 무시 */ } };
       try {
         master = ctx.createGain(); master.gain.value = gainOf();
         if (ctx.createWaveShaper) {
@@ -537,30 +579,12 @@
     /** 전화 · 알림 · 화면 잠금으로 오디오가 멈춘("suspended" · iOS 는 "interrupted") 뒤 다시 살립니다 — 클릭이 돌고 있을 때만 */
     function wake() {
       if (destroyed || !ctx || !sched.running) return;
-      Media.start();
+      Media.start(true);
       if (ctx.state !== 'running' && ctx.resume) { try { var r = ctx.resume(); if (r && r.catch) r.catch(function () { /* 사용자가 다시 눌러야 하는 경우 */ }); } catch (e) { /* 무시 */ } }
     }
     function onCtxState() { if (ctx && ctx.state !== 'running' && sched.running) wake(); }
-    /* 잠금 화면 · 다른 앱: 클릭이 멈춰 있으면 소리 장치(AudioContext)도 잠재웁니다 — 깨어 있으면(prime) 소리가 없어도 iOS 가 "재생 중"으로 보고
-       잠금 화면에 재생 카드를 띄웁니다. 화면으로 돌아오면 다시 깨웁니다 (같은 장치라 누르지 않아도 됨). */
-    var napped = false;
-    function onVisible(ev) {
-      if (typeof document === 'undefined') return;
-      /* v12.x — 앱을 닫거나 다른 화면으로 떠날 때(pagehide)는 돌고 있어도 완전히 멈추고 소리 장치를 잠재웁니다.
-         (잠금 화면 · 다른 앱으로 잠깐 갈 때는 visibilitychange 만 오므로 클릭은 그대로 이어집니다) */
-      if (ev && ev.type === 'pagehide') {
-        if (sched.running || starting) stop();
-        if (ctx && ctx.state === 'running' && ctx.suspend) { napped = true; try { var sp0 = ctx.suspend(); if (sp0 && sp0.catch) sp0.catch(function () {}); } catch (e) { /* 무시 */ } }
-        return;
-      }
-      if (document.visibilityState === 'hidden') {
-        if (ctx && !sched.running && ctx.state === 'running' && ctx.suspend) { napped = true; try { var sp = ctx.suspend(); if (sp && sp.catch) sp.catch(function () {}); } catch (e) { /* 무시 */ } }
-        return;
-      }
-      if (napped) { napped = false; if (ctx && ctx.state !== 'running' && ctx.resume) { try { var r = ctx.resume(); if (r && r.catch) r.catch(function () {}); } catch (e) { /* 무시 */ } } }
-      wake();
-    }
-    if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.addEventListener) { window.addEventListener('pageshow', onVisible); window.addEventListener('pagehide', onVisible); } }
+    function onVisible() { if (typeof document !== 'undefined' && document.visibilityState === 'visible') wake(); }
+    if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pageshow', onVisible); }
     function applyGain() {
       if (master && ctx) { try { master.gain.setTargetAtTime(gainOf(), ctx.currentTime, 0.01); } catch (e) { master.gain.value = gainOf(); } }
     }
@@ -810,6 +834,12 @@
       if (!speechOk) return false;
       try {
         routeAudio(!!fromGesture);                       // 무음 스위치가 켜져 있어도 들리게 — speak() 바로 앞에서, 같은 동작 안에서
+        /* v9.9b — 기기 음성(합성)은 audioSession 만으로 무음 스위치를 넘지 못할 수 있어, 말하는 동안만 소리 없는 <audio> 를 잠깐 켭니다.
+           클릭이 멈춰 있으면 말이 끝난 뒤 내려놓습니다 (잠금 화면 재생 카드가 남지 않게) */
+        if (Media.session()) {
+          try { Media.start(true); } catch (e) { /* 무시 */ }
+          if (!sched.running) { clearTimeout(Media._spk); Media._spk = setTimeout(function () { if (!sched.running && !Media.busy()) Media.stop(); }, 6000); }
+        }
         var u = new SpeechSynthesisUtterance(text);
         u.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
         var v = pickVoice(lang, true); if (v) u.voice = v;
@@ -929,36 +959,25 @@
      *   · 처음 한 번만 resume 이 끝나길 기다립니다 (화면을 처음 누를 때 prime 이 미리 깨워 두므로 보통 해당 없음).
      */
     var starting = false;                                   // V842 — 소리 장치를 깨우는 중(시작을 눌렀지만 첫 박 전)
-    /* v12.x — 시작 번호: 소리 장치가 늦게 깨어나는 동안(아이폰은 몇 초 걸리기도 함) 멈춤을 누르면, 뒤늦게 깨어난 시작이
-       클릭을 다시 켜던 문제("꺼도 계속 나와")를 막습니다. 멈춤 · 새 시작마다 번호가 바뀌고, 옛 번호의 시작은 버립니다. */
-    var runGen = 0;
-    /* v12.x — 소리 없는 재생(미디어 채널)을 지금 막 켰으면 아이폰이 소리 경로를 바꾸는 0.3초쯤 동안 박이 사라집니다
-       ("켜면 나왔다가 몇 음 묵음"). 그럴 때만 첫 박을 그만큼 늦게 예약합니다. 이미 켜져 있으면 바로. */
-    var isIOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-    function mediaSettle() {
-      var wasOn = !!(Media.el && !Media.el.paused && Media.el.getAttribute('src'));
-      Media.start();
-      return (!wasOn && !Media.mix && isIOS) ? 0.35 : 0;
-    }
     function start(countInBars) {
       var c;
+      Media.activeStop = stop; Media.activeBusy = isBusy; Media.idleCtx = function (on) { if (destroyed || !ctx || sched.running) return; try { if (on) { if (ctx.state !== 'running' && ctx.resume) { var r = ctx.resume(); if (r && r.catch) r.catch(function () {}); } } else if (ctx.state === 'running' && ctx.suspend) ctx.suspend(); } catch (e) { /* 무시 */ } };          // v8.49 — 잠금 화면 · 제어 센터의 "일시정지"가 바로 이 클릭을 끄도록
       try { c = ensureCtx(); } catch (e) { notify('error', { message: e.message }); return { ok: false, error: e.message }; }
-      var gen = ++runGen;
       var go = function (delay) {
         starting = false;
-        if (destroyed || gen !== runGen) return;                       // 그 사이 멈춤(또는 새 시작)을 눌렀으면 버림
+        if (destroyed) return;
         if (c.state !== 'running') { notify('error', { message: HELP.blocked }); return; }
         sched.start(countInBars || 0, delay);
         pump(); startTimer();
         if (!raf) raf = requestAnimationFrame(frame);
         emitState();
-        /* 음성 합성 예열(warmup)은 여기서 하지 않습니다 — 아이폰은 음성 합성이 처음 켜질 때 소리 장치를 잠깐 다시 잡아 박이 몇 개 빠졌습니다. 화면을 누를 때(prime) 미리 합니다 */
+        warmup();                                                       // 음성 합성 예열은 첫 박을 예약한 뒤에 (박을 늦추지 않게)
       };
-      var settle = mediaSettle(); starting = true;
-      if (c.state === 'running') go(0.005 + settle);
+      Media.start(true); starting = true;
+      if (c.state === 'running') go(0.005);
       else {
         var r = c.resume ? c.resume() : null;
-        if (r && r.then) r.then(function () { go(0.02 + settle); }, function () { if (gen === runGen) { starting = false; notify('error', { message: HELP.blocked }); } }); else go(0.02 + settle);
+        if (r && r.then) r.then(function () { go(0.02); }, function () { notify('error', { message: HELP.blocked }); }); else go(0.02);
       }
       if (!speechOk) notify('info', { message: HELP.noSpeech });
       return { ok: true };
@@ -970,12 +989,13 @@
      */
     function startIn(inMs, countInBars) {
       var c;
+      Media.activeStop = stop; Media.activeBusy = isBusy; Media.idleCtx = function (on) { if (destroyed || !ctx || sched.running) return; try { if (on) { if (ctx.state !== 'running' && ctx.resume) { var r = ctx.resume(); if (r && r.catch) r.catch(function () {}); } } else if (ctx.state === 'running' && ctx.suspend) ctx.suspend(); } catch (e) { /* 무시 */ } };          // v8.49 — 잠금 화면 · 제어 센터의 "일시정지"가 바로 이 클릭을 끄도록
       try { c = ensureCtx(); } catch (e) { notify('error', { message: e.message }); return { ok: false, error: e.message }; }
       inMs = Number(inMs); if (!isFinite(inMs)) inMs = 0;
-      var gen = ++runGen;
       var go = function () {
-        if (destroyed || gen !== runGen) return;
+        if (destroyed) return;
         if (c.state !== 'running') { notify('error', { message: HELP.blocked }); return; }
+        warmup();
         // resume 가 끝난 시점에서 다시 계산하면 그 사이 지난 시간이 반영됩니다 — 기준은 호출 시각
         var anchor = c.currentTime + (inMs - (Date.now() - t0)) / 1000;
         sched.startAt(anchor, countInBars || 0);
@@ -984,7 +1004,7 @@
         emitState();
       };
       var t0 = Date.now();
-      mediaSettle();
+      Media.start(true);
       var r = c.resume ? c.resume() : null;
       if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
       if (!speechOk) notify('info', { message: HELP.noSpeech });
@@ -1002,10 +1022,9 @@
       pump(); emitState();
       return t;
     }
+    function isBusy() { return !destroyed && (sched.running || starting); }
     function stop() {
-      runGen++; starting = false;                                     // 아직 깨어나는 중인 시작도 취소
       sched.stop(); stopTimer(); q.length = 0;
-      try { if (ctx) cutScheduled(); } catch (e) { /* 무시 */ }          // 이미 예약해 둔 딸깍 · 음성도 바로 끔
       pending.forEach(function (p) { clearTimeout(p.timeout); });
       pending = [];
       pendingCount = false; countRemain = 0; countdownArmed = false; countdownActive = false;      // v8.39
@@ -1116,6 +1135,7 @@
     return {
       start: start, stop: stop, toggle: function (n) { return sched.running ? (stop(), { ok: true }) : start(n); },
       cue: cue, cancelCues: cancelCues,
+      mix: function () { return !!Media.mix; }, setMix: function (on) { try { return Media.setMix(on); } catch (e) { return false; } },
       setSpeak: function (on) { cfg.speak = !!on; store('speak', cfg.speak); if (!on) cancelCues(); else emitState(); },
       setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); cfg.first = sched.marks[0] === 1 || sched.marks[0] === 2; emitState(); },
       setClickVolume: function (v) { set('click', clamp(v, 0, 1)); applyGain(); },
@@ -1127,9 +1147,7 @@
       startIn: startIn,
       /** 사용자가 화면을 누른 순간에 소리 장치를 미리 깨워 둡니다 (아이폰 · 크롬은 눌러야 소리가 나옵니다) — 원격 시작에 필요 */
       hold: function (on) { try { return Media.setHold(on); } catch (e) { return false; } },
-      /** 유튜브 · 음악 앱과 같이 듣기 (다른 앱 소리를 줄이지 않음 · 대신 무음 스위치를 끄고 씀) */
-      mix: function () { return !!Media.mix; }, setMix: function (on) { try { return Media.setMix(on); } catch (e) { return false; } },
-      prime: function () { try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); warmClick(); if (!sched.running) warmup(); return true; } catch (e) { return false; } },
+      prime: function () { try { var c = ensureCtx(); if (c.resume && c.state !== 'running') c.resume(); warmClick(); return true; } catch (e) { return false; } },
       /** 오디오가 깨어 있어 누르는 즉시 시작할 수 있는지 */
       ready: function () { return !!(ctx && ctx.state === 'running'); }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 2)); applyVoiceGain(); },
       setMode: function (m) { set('mode', ['downbeat', 'lead', 'now'].indexOf(m) === -1 ? 'lead' : m); },
@@ -1173,9 +1191,9 @@
       state: state, sched: sched, ctx: function () { return ctx; }, help: HELP,
       destroy: function () {
         destroyed = true; stop();
-        Media.runs = Media.runs.filter(function (f) { return f !== isRunning; });
+        if (Media.activeStop === stop) { Media.activeStop = null; Media.activeBusy = null; }         // v8.49 — 이 인스턴스가 더는 잠금 화면 "일시정지"를 받지 않게
         if (raf) cancelAnimationFrame(raf);
-        if (typeof document !== 'undefined' && document.removeEventListener) { document.removeEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.removeEventListener) { window.removeEventListener('pageshow', onVisible); window.removeEventListener('pagehide', onVisible); } }
+        if (typeof document !== 'undefined' && document.removeEventListener) { document.removeEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('pageshow', onVisible); }
         Media.release();
         try { if (ctx) ctx.onstatechange = null; if (master) master.disconnect(); if (limiter) limiter.disconnect(); } catch (e) { /* 무시 */ }
         if (ctx && ctx.close) { try { ctx.close(); } catch (e) { /* 무시 */ } }

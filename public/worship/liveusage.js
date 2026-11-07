@@ -128,13 +128,53 @@
   }
 
   var RANGES = [['5w', '최근 5주', 34], ['3m', '3개월', 91], ['1y', '1년', 364]];
+  /* 2026-11 Ark — 요약 카드 네 개 (열어 본 사람 · 총 사용 시간 · 가장 많이 연 요일 · 주일 예배) */
+  var WDN = ['주일', '월', '화', '수', '목', '금', '토'];
+  function wdOf(d) { var p = String(d).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).getDay(); }
+  function hrs(sec) { var hh = sec / 3600; return hh >= 10 ? Math.round(hh) + '시간' : hh >= 1 ? (Math.round(hh * 10) / 10) + '시간' : Math.round(sec / 60) + '분'; }
+  function cards(rows) {
+    var people = {}, kinds = {}, total = 0, wd = [0, 0, 0, 0, 0, 0, 0], wdSec = [0, 0, 0, 0, 0, 0, 0], wdPeople = [{}, {}, {}, {}, {}, {}, {}], sun = {}, sunSec = 0, sunPeople = 0;
+    rows.forEach(function (r) {
+      var k = (r.email || r.name).toLowerCase(), w = wdOf(r.d); people[k] = 1; kinds[k] = r.kind || '팀원'; total += r.sec;
+      wd[w] += r.n || 1; wdSec[w] += r.sec; wdPeople[w][k + '|' + r.d] = 1;
+      if (w === 0) { sun[r.d] = (sun[r.d] || {}); sun[r.d][k] = 1; sunSec += r.sec; }
+    });
+    var n = Object.keys(people).length, guests = Object.keys(kinds).filter(function (k) { return kinds[k] === '객원'; }).length;
+    var best = 0; wd.forEach(function (v, i) { if (v > wd[best]) best = i; });
+    var bestPairs = Object.keys(wdPeople[best]).length, sunDays = Object.keys(sun).length;
+    Object.keys(sun).forEach(function (d) { sunPeople += Object.keys(sun[d]).length; });
+    function c(cls, lb, v, sub) { return '<div class="lu-card' + cls + '"><span>' + lb + '</span><b>' + v + '</b><small>' + sub + '</small></div>'; }
+    return '<div class="lu-cards">' +
+      c(' k', '열어 본 사람', n + '명', '팀원 ' + (n - guests) + (guests ? ' · 객원 ' + guests : '')) +
+      c('', '총 사용 시간', hrs(total), n ? '1인 평균 ' + hrs(total / n) : '–') +
+      c('', '가장 많이 연 날', total ? WDN[best] + (best === 6 ? ' 연습' : best === 0 ? ' 예배' : '') : '–', bestPairs ? '평균 ' + Math.round(wdSec[best] / bestPairs / 60) + '분' : '–') +
+      c('', '주일 예배', sunDays ? Math.round(sunPeople / sunDays) + '명' : '–', sunPeople ? '평균 ' + Math.round(sunSec / sunPeople / 60) + '분' : '주일 기록 없음') + '</div>';
+  }
+  /** 사람 × 날짜 표 — 칸 색이 진할수록 오래 봄 (분) */
+  function grid(rows) {
+    var days = {}, people = {}, order = [], cell = {}, tot = {};
+    rows.forEach(function (r) {
+      var k = (r.email || r.name).toLowerCase(); days[r.d] = 1;
+      if (!people[k]) { people[k] = { name: r.name, team: r.team }; order.push(k); }
+      cell[k + '|' + r.d] = (cell[k + '|' + r.d] || 0) + r.sec; tot[k] = (tot[k] || 0) + r.sec;
+    });
+    var ds = Object.keys(days).sort(function (a, b) { return b.localeCompare(a); }).slice(0, 12);
+    order.sort(function (a, b) { return tot[b] - tot[a]; });
+    var max = 1; Object.keys(cell).forEach(function (k) { if (cell[k] > max) max = cell[k]; });
+    function lv(sec) { if (!sec) return ''; var f = sec / max; return f > .8 ? 'l5' : f > .6 ? 'l4' : f > .4 ? 'l3' : f > .2 ? 'l2' : 'l1'; }
+    return '<div class="lu-hm"><table><thead><tr><th class="nm">팀원 · 분</th>' + ds.map(function (d) { var p = d.split('-'), w = wdOf(d); return '<th>' + (+p[1]) + '/' + (+p[2]) + '<small>' + WDN[w] + '</small></th>'; }).join('') + '<th class="nm" style="text-align:right">합계</th></tr></thead><tbody>' +
+      order.map(function (k) {
+        var pe = people[k];
+        return '<tr><td class="nm"><span class="ak-av">' + h(String(pe.name || '?').replace(/^\[[^\]]*\]\s*/, '').slice(0, 1) || '?') + '</span>' + h(pe.name) + '</td>' + ds.map(function (d) { var sec = cell[k + '|' + d] || 0; return '<td class="c ' + lv(sec) + '" title="' + h(pe.name + ' · ' + dayLabel(d) + ' · ' + mins(sec)) + '">' + (sec ? Math.max(1, Math.round(sec / 60)) : '') + '</td>'; }).join('') + '<td class="tot">' + Math.round(tot[k] / 60) + '분</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
   function openView(P, token, before) {
     css(); closeView();
-    var st = { by: 'day', range: '5w', data: null, err: '', open: {} };
+    var st = { by: 'grid', range: '5w', data: null, err: '', open: {} };                 // 2026-11 Ark — 처음은 「표」(사람 × 날짜)
     view = doc.createElement('div'); view.className = 'lu-back';
     view.innerHTML = '<section class="lu" role="dialog" aria-modal="true" aria-labelledby="luTitle">' +
-      '<header class="lu-hd"><div class="lu-t"><h3 id="luTitle">라이브 악보 사용 기록</h3><button type="button" class="lu-x" data-x="1" aria-label="닫기">' + (I('close') || '✕') + '</button></div>' +
-      '<div class="lu-ctl"><div class="lu-seg" role="group" aria-label="보기"><button type="button" data-by="day">날짜별</button><button type="button" data-by="person">사람별</button></div>' +
+      '<header class="lu-hd"><div class="lu-t"><h3 id="luTitle"><small>관리자만 · 1년 보관</small>라이브 악보 사용 기록</h3><button type="button" class="lu-x" data-x="1" aria-label="닫기">' + (I('close') || '✕') + '</button></div>' +
+      '<div class="lu-ctl"><div class="lu-seg" role="group" aria-label="보기"><button type="button" data-by="grid">표</button><button type="button" data-by="day">날짜별</button><button type="button" data-by="person">사람별</button></div>' +
       '<div class="lu-seg" role="group" aria-label="기간">' + RANGES.map(function (r) { return '<button type="button" data-rg="' + r[0] + '">' + r[1] + '</button>'; }).join('') + '</div></div>' +
       '<div class="lu-sum"></div></header>' +
       '<div class="lu-bd"><p class="lu-msg">불러오는 중…</p></div>' +
@@ -170,8 +210,9 @@
       var rows = (st.data && st.data.rows) || [];
       var people = {}, total = 0, dayset = {};
       rows.forEach(function (r) { people[(r.email || r.name).toLowerCase()] = 1; total += r.sec; dayset[r.d] = 1; });
-      sum.innerHTML = '<div><b>' + Object.keys(people).length + '명</b>본 사람</div><div><b>' + Object.keys(dayset).length + '일</b>사용한 날</div><div><b>' + mins(total).replace('1분 미만', '0분') + '</b>모두 합친 시간</div>';
+      sum.innerHTML = cards(rows);
       if (!rows.length) { bd.innerHTML = '<p class="lu-msg">이 기간에 라이브 악보를 본 기록이 없어요. 기록은 이 기능을 올린 뒤부터 쌓여요.</p>'; return; }
+      if (st.by === 'grid') { bd.innerHTML = grid(rows); return; }
       var groups = {}, order = [];
       rows.forEach(function (r) {
         var k = st.by === 'day' ? r.d : (r.email || r.name).toLowerCase();

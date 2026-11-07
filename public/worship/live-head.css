@@ -73,7 +73,7 @@ html body .pv .pv-top .pv-metbtn { display: inline-flex; align-items: center; ju
 html body .pv .pv-top .pv-metbtn .yi { width: 20px; height: 20px; flex: none; }
 html body .pv .pv-metbtn .pv-metbpm { font-size: 12.5px; font-weight: 800; letter-spacing: -.02em; color: var(--lg-sub, #A9ABB6); }
 html body .pv .pv-metbpm:empty { display: none; }
-html body .pv .pv-top .pv-metbtn.on { background: var(--lg-a-grad, linear-gradient(135deg, #D9C08D, #CFAE6E)) !important; color: var(--lg-a-ink, #1A0E05) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lg-a-glow, 0 8px 24px -6px rgba(201, 165, 94, .55)) !important; }
+html body .pv .pv-top .pv-metbtn.on { background: var(--lg-a-grad, linear-gradient(135deg, #D9C08D, #CFAE6E)) !important; color: var(--lg-a-ink, #1A0E05) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lg-a-glow, 0 8px 24px -6px rgba(255, 122, 40, .55)) !important; }
 html body .pv .pv-top .pv-metbtn.on .pv-metbpm { color: inherit; }
 html body .pv .pv-top .pv-metbtn.on.b { transform: scale(1.06); }
 html body .pv .pv-top .pv-metbtn.on.b0 { box-shadow: 0 0 0 3px rgba(207, 174, 110, .35), 0 0 18px rgba(207, 174, 110, .7) !important; }
@@ -203,12 +203,26 @@ html body .pv .pv-help:empty { display: none; }
 html body .pv .pv-yt.pv-yt-sel { outline: 2px solid var(--lg-a-text, #E3D0AB); outline-offset: -2px; }       /* 선택된 유튜브 창 — ← → 가 영상 이동 */
 
 
+/* v9.17 — 곡 칸과 악보 칸을 하나로: 곡이 있으면 악보 칸은 숨기고 곡 칸(곡 + 연결된 악보)이 알약 전체를 씁니다 */
+html body .pv:not(.pv-nosong) .pv-sheetwrap:not(.pv-psw), html body .pv:not(.pv-nosong) .pv-drawer .pv-sheetwrap:not(.pv-psw) { display: none !important; }
+html body .pv.pv-nosong .pv-psw { display: none !important; }
+/* v9.18 — 찬양방송팀 허브와 같은 알약: 왼쪽 곡 제목(굵게) | 오른쪽 ♫ 이 페이지의 곡 (자동 · 1. 제목) */
+html body .pv:not(.pv-nosong) .pv-top .pv-songpill > .pv-songsel { flex: 1 1 0; max-width: none; min-width: 110px; font-size: 15px; }
+html body .pv:not(.pv-nosong):not(.pv-compact):not(.pv-tight) .pv-top .pv-songpill .pv-psw { flex: 1 1 0; min-width: 120px; }
+.pv-lk-list { display: grid; gap: 10px; margin-top: 4px; }
+.pv-lk-row { display: grid; gap: 4px; }
+.pv-lk-t { font-size: 13.5px; font-weight: 800; }
+.pv-lk-c { display: flex; gap: 6px; min-width: 0; }
+.pv-lk-c .pv-lk-sel { flex: 1 1 auto; min-width: 0; height: 40px; }
+.pv-lk-pg { flex: 0 0 64px; width: 64px; height: 40px; border-radius: 10px; border: 1px solid var(--g-line2, rgba(255,255,255,.2)); background: transparent; color: inherit; text-align: center; font-size: 14px; }
+.pv-lk-pg:disabled { opacity: .4; }
+
 /* ---------- 키 −1 / +1 (코드 전조) — 위 막대 · 전체 화면 막대 · 폰 메뉴 서랍. 예배 모드에서도 씀 ---------- */
 html body .pv .pv-keyctl { display: inline-flex; align-items: center; gap: 4px; background: transparent !important; border: 0 !important; padding: 0; flex: none; }
 html body .pv .pv-keyctl .pv-b, html body .pv .pv-fsbar .pv-ksbtn { min-width: 40px; height: 38px; padding: 0 8px; border-radius: 12px; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--lg-ctl, rgba(255, 255, 255, .06)) !important; border: 1px solid var(--lg-ctl-edge, rgba(255, 255, 255, .08)) !important; touch-action: manipulation; }
 html body .pv .pv-keyctl .pv-b:disabled, html body .pv .pv-fsbar .pv-ksbtn:disabled { opacity: .35; }
 html body .pv .pv-keyctl .pv-kslbl { min-width: 64px; white-space: nowrap; font-size: 13px; }
-html body .pv .pv-kslbl.on { color: #FFB066 !important; border-color: rgba(255, 138, 42, .7) !important; background: rgba(255, 138, 42, .14) !important; }
+html body .pv .pv-kslbl.on { color: var(--lg-a-text, #E3D0AB) !important; border-color: rgba(207, 174, 110, .7) !important; background: rgba(207, 174, 110, .16) !important; }
 html body .pv .pv-fsbar .pv-fsks { display: inline-block; min-width: 58px; text-align: center; font-weight: 800; font-size: 13px; white-space: nowrap; }
 html[data-theme="light"] body .pv .pv-kslbl.on { color: #0E7C86 !important; border-color: rgba(14, 124, 134, .6) !important; background: rgba(14, 124, 134, .1) !important; }
 html body .pv .pv-drawer .pv-keyctl { display: flex; gap: 6px; padding: 4px 0 8px; }

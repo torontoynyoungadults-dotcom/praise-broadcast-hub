@@ -308,7 +308,7 @@
         c.font = FONT;
         var vis = [], CAPO = capoAt(pg), dS = S.semis - CAPO, dF = CAPO ? false : S.flats;          // V871 — 카포를 쓰면 "모양" 코드로
         rowsSorted.forEach(function (cd, i) {
-          var user = cd.src === 'user'; if (dS === 0 && !user) return;
+          var user = cd.src === 'user'; if (dS === 0 && !((user && !cd.ai) || cd.fixed)) return;      // 2026-11 — 분석만 한 코드는 원래 키에서 덮어 그리지 않음 (AI 가 넣은 코드도) · 직접 넣거나 고친 코드만
           var x = cd.x * W, y = cd.y * Hh, w = cd.w * W, hh = cd.h * Hh, pad = Math.max(2, hh * 0.14);
           if (!user || cd.cover) { c.fillStyle = pd.paper || '#fff'; c.fillRect(x - pad, y - pad, w + pad * 2, hh + pad * 2);
             if (cd.cv) { var cp = Math.max(1.5, hh * 0.08); c.fillRect(cd.cv.x0 * W - cp, cd.cv.y0 * Hh - cp, (cd.cv.x1 - cd.cv.x0) * W + cp * 2, (cd.cv.y1 - cd.cv.y0) * Hh + cp * 2); } }     // V891 — 넓힌 덮개로 원래 글자를 끝까지     // 손으로 넣은 코드도 인쇄된 글자 자리를 찾았으면 덮음
@@ -470,6 +470,7 @@
       rafDraw = 0; if (S.dead) return;
       try { paintCapo(); } catch (e) { /* 카포 표시는 덤 */ }
       var w = box.clientWidth, hgt = box.clientHeight; if (!w || !hgt) return;
+      dpr = Math.min(3, root.devicePixelRatio || 1); if (w * hgt * dpr * dpr > 9e6) dpr = Math.max(0.2, Math.floor(Math.sqrt(9e6 / (w * hgt)) * 100) / 100);     // V865 — 크게 확대해도 iPad 캔버스 한도 안으로
       var pw = Math.round(w * dpr), ph = Math.round(hgt * dpr);
       if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
       cv.style.width = w + 'px'; cv.style.height = hgt + 'px';
@@ -1521,8 +1522,8 @@
       if (ed.target && S.semis) fixed = HC.formatChord(parsed, -S.semis, origFlats());                        // 바꾼 키로 입력했으면 원래 조 글자로 되돌려 저장
       if (cd) {
         var prevT = cd.text, prevP = cd.parsed, prevPre = cd.pre, prevPost = cd.post; if (prevT === fixed) return;
-        cd.text = fixed; cd.parsed = HC.parseChord(fixed); cd.pre = ''; cd.post = '';
-        pushUndo(function () { cd.text = prevT; cd.parsed = prevP; cd.pre = prevPre; cd.post = prevPost; });
+        var prevF = cd.fixed; cd.text = fixed; cd.parsed = HC.parseChord(fixed); cd.pre = ''; cd.post = ''; cd.fixed = 1;      // 2026-11 — 직접 고친 코드는 원래 키에서도 보임
+        pushUndo(function () { cd.text = prevT; cd.parsed = prevP; cd.pre = prevPre; cd.post = prevPost; if (prevF) cd.fixed = prevF; else delete cd.fixed; });
       } else {
         var W = cv.clientWidth, Hh = cv.clientHeight, fs = median((pd.chords || []).map(function (c) { return c.fs || c.h; })) || 0.014, ms = measurer(), wpx = ms(fixed) / 20 * fs * Hh, n;
         if (ed.snap) n = { id: uid(), text: fixed, pre: '', post: '', x: ed.snap.x, y: ed.snap.y, w: ed.snap.w, h: ed.snap.h, fs: Math.min(fs * 1.6, Math.max(fs * 0.6, ed.snap.h)), src: 'user', cover: true };

@@ -515,7 +515,8 @@
       if (cur.num !== st.num || cur.den !== st.den) m.setSig(st.num, st.den);
       m.setMarks(st.marks);
       /* V842 — 다른 사람 기기에서는 절대 소리를 내지 않습니다: 팀 클릭 상태가 와도 BPM · 박자 · 강세 숫자만 맞추고 시작/멈춤은 각자 */
-      if (V842_SILENT) { lastAnchor = 0; remoteWait = false; if (mUi) mUi.sync(); return; }
+      /* 2026-11 — 「팀 클릭 같이 받기」를 이 기기에서 직접 켠 경우(P.followMetro)에만 시작/멈춤도 따라갑니다 (위에서 꺼져 있으면 이미 돌아감) */
+      if (V842_SILENT && !P.followMetro()) { lastAnchor = 0; remoteWait = false; if (mUi) mUi.sync(); return; }
       if (!st.playing || !st.startAt) { lastAnchor = 0; remoteWait = false; if (m.state().running) m.stop(); if (mUi) mUi.sync(); return; }
       if (m.state().running && lastAnchor === st.startAt) { if (mUi) mUi.sync(); return; }     // 강세만 바뀜 — 박은 그대로
       lastAnchor = st.startAt; remoteWait = true; remoteBlocked = false;
@@ -650,12 +651,18 @@
 
     /* ------------------------------------------------------------ 필기 */
     tabs.push({ id: 'anno', icon: 'pen', label: '필기', build: function (host) {
+      /* 2026-11 Ark — 시안 「필기」: 보이는 필기(내 · 팀) · 필기 모두 숨기기 · 필기 기록(이 악보) · 필기 포함 PDF · 내 필기 지우기 — 그 아래는 예전 설정 그대로 */
       host.innerHTML =
+        '<div class="pv-sec ak-annovis"><h4>보이는 필기</h4><div class="ak-vchips">' +
+          '<label class="ak-vchip"><input type="checkbox" data-vis="mine" checked>내 필기</label><label class="ak-vchip"><input type="checkbox" data-vis="team" checked>팀 필기</label></div>' +
+          '<label class="pv-chk"><span>필기 모두 숨기기<small>악보만 깨끗하게 보기</small></span><input type="checkbox" data-o="hideall"></label></div>' +
+        '<div class="pv-sec ak-annolog"><h4>필기 기록 <small data-role="logcnt"></small></h4><div class="ak-alog" data-role="alog"></div>' +
+          '<div class="pv-row"><button class="pv-btn2" data-a="apdf">' + I('download') + '필기 포함 PDF</button><button class="pv-btn2 warn" data-a="mine">내 필기 지우기</button></div></div>' +
         '<div class="pv-sec"><h4>누가 볼 수 있나요</h4><label class="pv-chk"><input type="checkbox" data-o="mineonly"> ' + I('lock') + '나만 보기</label>' +
           '</div>' +
         '<div class="pv-sec"><h4>필기가 붙는 곳</h4><div class="pv-radio" data-g="scope"><button data-v="song">' + I('pin') + '이 곡에 계속</button><button data-v="date">' + I('calendar') + '이 날짜(콘티)만</button></div>' +
           '</div>' +
-        '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
+        '<div class="pv-sec"><h4>펜 · 형광펜</h4>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
           '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 · 형광펜을 화면에 0.9초 대고 있으면 지우개 — 그대로 문지르면 지우고 떼면 원래대로, 바뀐 뒤 바로 떼면 지우개가 남아 다음에 지우고 떼면 원래 펜으로 · 형광펜 줄 끝에서 0.9초 멈추면 반듯하게</label>' +
@@ -680,7 +687,30 @@
         host.querySelector('[data-role="save"]').innerHTML = t.map(function (x) { return '<div>' + h(x) + '</div>'; }).join('');
         host.querySelector('[data-o="pen"]').value = P.penMode(); host.querySelector('[data-o="pentap"]').checked = P.penTap(); host.querySelector('[data-o="eraseback"]').checked = P.eraseBack ? P.eraseBack() : true;
         host.querySelector('[data-o="lefty"]').checked = P.hand() === 'left'; host.querySelector('[data-o="mineonly"]').checked = P.getLayer() === 'mine';
+        paintVis(); paintLog();
       }
+      function paintVis() { Array.prototype.forEach.call(host.querySelectorAll('.ak-vchip'), function (l) { l.classList.toggle('on', !!l.querySelector('input').checked); }); }
+      var AKIND = { pen: '펜', hl: '형광펜', text: '글자', sym: '기호', fbox: '송폼 라벨' };
+      function paintLog() {
+        var a = an(), box = host.querySelector('[data-role="alog"]'), cnt = host.querySelector('[data-role="logcnt"]'); if (!box || !a || !a.items) return;
+        var names = (root.YNAnno && root.YNAnno.COLOR_NAMES) || {}, me = a.whoami ? a.whoami().me : '', groups = {}, order = [], total = 0;
+        ['team', 'mine'].forEach(function (ly) { (a.items(ly) || []).forEach(function (it) {
+          total++;
+          var k = it.t === 'text' || it.t === 'fbox' ? ly + '|' + it.id : ly + '|' + (it.by || '') + '|' + it.t + '|' + (it.t === 'pen' || it.t === 'hl' ? it.c : '');
+          var g = groups[k]; if (!g) { g = groups[k] = { ly: ly, it: it, n: 0, ts: 0, pg: it.pg, id: it.id }; order.push(k); }
+          g.n++; if ((+it.ts || 0) >= g.ts) { g.ts = +it.ts || 0; g.pg = it.pg; g.id = it.id; }
+        }); });
+        order.sort(function (x, y) { return groups[y].ts - groups[x].ts; });
+        if (cnt) cnt.textContent = total ? '이 악보 · ' + total + '건' : '';
+        box.innerHTML = order.length ? order.slice(0, 12).map(function (k) {
+          var g = groups[k], it = g.it, what = AKIND[it.t] || it.t;
+          if (it.t === 'text') what += ' 「' + String(it.s || '').slice(0, 12) + '」'; else if (it.t === 'fbox') what += ' ' + (it.k || '');
+          else { var cn = names[String(it.c || '').toLowerCase()]; if (cn && (it.t === 'pen' || it.t === 'hl')) what += ' · ' + cn.replace(/\s*\(.*\)$/, ''); what += ' · ' + g.n + '개'; }
+          var who = it.by || '알 수 없음';
+          return '<button type="button" class="ak-alrow" data-flash="' + h(g.id) + '" data-pg="' + (g.pg || 1) + '"><span class="ak-av">' + h(who === me ? '나' : who.slice(0, 1)) + '</span><span class="ak-alt"><b>' + h(what) + '</b><small>' + h(who) + ' · ' + (g.pg || 1) + '페이지 · ' + h(a.ago ? a.ago(g.ts) : '') + '</small></span><span class="ak-altag">' + (g.ly === 'mine' ? '나만' : '팀') + '</span></button>';
+        }).join('') : '<p class="pv-help">아직 이 악보에 필기가 없어요. 「도구 열기」로 펜 · 형광펜 · 글자를 써 보세요.</p>';
+      }
+      var alT = 0; P.on('annochange', function () { if (host.offsetParent) { clearTimeout(alT); alT = setTimeout(paintLog, 300); } }); P.on('sheet', function () { setTimeout(paintLog, 300); });
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
         var g = b.parentNode && b.parentNode.dataset && b.parentNode.dataset.g;
@@ -689,11 +719,13 @@
         if (a === 'mine') { var n = an().clearPage(P.getLayer(), false); P.toast(n ? n + '개를 지웠습니다.' : '지울 내 필기가 없습니다.'); }
         else if (a === 'all') { if (root.confirm('현재 페이지의 모든 사람의 필기를 지울까요? (내 것뿐 아니라 팀 필기 전체)')) { var n2 = an().clearPage(P.getLayer(), true); P.toast(n2 ? n2 + '개를 지웠습니다.' : '지울 필기가 없습니다.'); } }
         else if (a === 'save') { P.saveNow(); P.toast('저장을 요청했습니다.'); setTimeout(paint, 900); }
-        else if (a === 'png') P.exportPng(); else if (a === 'pdf') P.exportPdf(false); else if (a === 'print') P.exportPdf(true);
+        else if (b.dataset.flash) { var ap = an(), pg0 = +b.dataset.pg; if (pg0 && pg0 !== P.page()) P.goPage(pg0); setTimeout(function () { try { if (ap.flashItem) ap.flashItem(b.dataset.flash); } catch (x) { /* 덤 */ } }, pg0 && pg0 !== P.page() ? 450 : 0); return; }
+        else if (a === 'png') P.exportPng(); else if (a === 'apdf') P.exportPdf(false); else if (a === 'print') P.exportPdf(true);
         paint();
       });
       host.addEventListener('change', function (e) {
-        var t = e.target; if (t.dataset.vis) an().setVisible(t.dataset.vis, t.checked);
+        var t = e.target; if (t.dataset.vis) { an().setVisible(t.dataset.vis, t.checked); var ha = host.querySelector('[data-o="hideall"]'); if (ha) ha.checked = !host.querySelector('[data-vis="mine"]').checked && !host.querySelector('[data-vis="team"]').checked; paintVis(); }
+        else if (t.dataset.o === 'hideall') { ['mine', 'team'].forEach(function (ly) { var c = host.querySelector('[data-vis="' + ly + '"]'); c.checked = !t.checked; an().setVisible(ly, !t.checked); }); paintVis(); }
         else if (t.dataset.o === 'straight') an().setStraight(t.checked);
         else if (t.dataset.o === 'pen') P.setPenModePref(t.value);
         else if (t.dataset.o === 'pentap') P.setPenTap(t.checked);
@@ -846,16 +878,23 @@
       var m = metro(); if (!need('클릭', m, host)) return;
       var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['rep', '반복 · 콜아웃'], ['dyn', '다이내믹'], ['in', '들어가기']];
       host.innerHTML =
-        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmwrap pv-mline"><div class="pv-bpmrow"><button type="button" class="pv-big pv-mgo" data-a="toggle" data-role="toggle" aria-label="시작" title="시작 / 멈춤 (Space)">▶</button><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
-          '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div></div>' +
-          '<div class="pv-row"><label class="pv-chk">박자 <select data-o="sig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
-          '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
-          '<div class="pv-row"><button class="pv-btn2" data-a="reanchor">1박 다시 맞추기</button><button class="pv-btn2" data-a="count4">숫자로 세기</button><button class="pv-btn2" data-a="sub" aria-pressed="false">×2 쪼개기</button><button class="pv-btn2" data-a="savebpm">이 곡 BPM 저장</button></div>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="countall"> 딸깍 대신 숫자로 세기 <small>(One · Two · Three · Four 를 계속)</small></label>' +
-          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> ' + I('bulb') + '전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
-          '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
-          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ' + I('timer') + '악보 화면 위에 클릭 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
-          '<div class="pv-msg2" data-role="msg"></div></div>' +
+        /* 2026-11 Ark — 시안 「클릭」: −5 −1 [BPM] +1 +5 · 강세 박 · 큰 「클릭 시작」 · 탭 템포 · 이 곡 BPM 저장 · 팀 클릭에 보내기 · 박 흐름 */
+        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmwrap pv-mline ak-bpm5"><div class="pv-bpmrow">' +
+            '<button type="button" class="pv-btn2 sq" data-a="b-" aria-label="BPM 1 내리기">−1</button>' +
+            '<input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM">' +
+            '<button type="button" class="pv-btn2 sq" data-a="b+" aria-label="BPM 1 올리기">+1</button>' +
+            '<div class="pv-dots ak-dots" data-role="dots" role="group" aria-label="박 — 누를 때마다 보통 → 강세 → 소리 끔"></div></div>' +
+          '<div class="pv-msg2" data-role="msg"></div>' +
+          '<div class="ak-goline"><button type="button" class="pv-big pv-mgo ak-mgo" data-a="toggle" data-role="toggle" aria-label="시작" title="시작 / 멈춤 (Space)">▶ 클릭 시작</button><button type="button" class="pv-btn2" data-a="tap">탭 템포</button></div>' +
+          '<div class="ak-goline2"><button type="button" class="pv-btn2" data-a="savebpm">이 곡 BPM으로 저장</button><button type="button" class="pv-btn2 ak-teamclick" data-a="teamclick" aria-pressed="false">' + I('together') + '팀 클릭에 보내기</button></div></div></div>' +
+        '<div class="pv-sec ak-beatflow"><h4>박 흐름</h4>' +
+          '<div class="pv-row ak-flow"><label class="ak-selchip">박자 <select data-o="sig" aria-label="박자"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
+          '<label class="ak-selchip">시작 전 <select data-o="count" aria-label="시작 전"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label>' +
+          '<button class="pv-btn2" data-a="reanchor">1박 다시 맞추기</button><button class="pv-btn2" data-a="sub" aria-pressed="false">2박 쪼개기</button><button class="pv-btn2" data-a="count4">숫자로 세기</button></div>' +
+          '<label class="pv-chk"><span>딸깍 대신 One · Two · Three · Four<small>숫자로 계속 세기</small></span><input type="checkbox" data-o="countall"></label>' +
+          '<label class="pv-chk pv-flashchk"><span>전체 화면 깜빡임<small>박마다 화면이 번쩍</small></span><input type="checkbox" data-o="flash"></label>' +
+          '<label class="pv-chk pv-flashchk pv-flashall"><span>모든 박에서 깜빡임<small>끄면 마디 첫 박에만</small></span><input type="checkbox" data-o="flashall" checked></label>' +
+          '<label class="pv-chk pv-flashchk"><span>악보 화면 위에 클릭 시작 버튼<small>패널을 열지 않고도 시작 · 멈춤</small></span><input type="checkbox" data-o="mq" checked></label></div>' +
         '<div class="pv-sec pv-clicksec"><h4>딸깍 소리 · EQ</h4>' +
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="sine">사인파 (주파수 직접)</option><option value="tempo">Tempo App</option><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="soft">부드러운 톤</option><option value="stick">스틱</option><option value="hihat">하이햇</option><option value="cowbell">카우벨</option><option value="drum">드럼 (툭)</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-freqrow" data-role="freqrow"><label class="pv-rng">주파수 <input type="range" min="200" max="4000" step="10" data-o="freq" aria-label="사인파 주파수"><output data-role="freqout"></output></label>' +
@@ -951,7 +990,8 @@
         var st = m.state(), c = st.cfg;
         fillVoices();
         if (doc.activeElement !== bpmIn) bpmIn.value = Math.round(st.bpm);
-        toggleB.textContent = st.running ? '■' : '▶'; toggleB.setAttribute('aria-label', st.running ? '멈춤' : '시작'); toggleB.classList.toggle('on', st.running);
+        toggleB.innerHTML = st.running ? '■ 클릭 멈춤 <small>Space</small>' : '▶ 클릭 시작 <small>Space</small>'; toggleB.setAttribute('aria-label', st.running ? '멈춤' : '시작'); toggleB.classList.toggle('on', st.running);
+        var tcB = q('[data-a="teamclick"]'); if (tcB) { var tcOn = !!(rt0() && rt0().isClicker && P.followMetro()); tcB.classList.toggle('on', tcOn); tcB.setAttribute('aria-pressed', tcOn ? 'true' : 'false'); tcB.lastChild.textContent = tcOn ? '팀 클릭에 보내는 중' : '팀 클릭에 보내기'; tcB.disabled = !(rt0() && rt0().online); }
         var sigv = st.num + '/' + st.den, ss = q('[data-o="sig"]'); if (ss.value !== sigv) ss.value = sigv;
         if (dotsEl.children.length !== st.num) drawDots(st.num, st.marks); else paintMarks(st.marks);
         q('[data-o="flash"]').checked = !!c.flash; q('[data-o="flashall"]').checked = c.flashAll !== false; q('[data-o="mq"]').checked = quick.on();
@@ -960,7 +1000,7 @@
         q('[data-role="clickout"]').textContent = '×' + (Math.round(st.gain * 10) / 10);
         var mode = ctl(), rt = P.rt(), note = q('[data-role="syncnote"]'), lock = mode === 'locked';
         host.classList.toggle('pv-locked', lock);
-        ['[data-a="b-"]', '[data-a="b+"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
+        ['[data-a="b-"]', '[data-a="b+"]', '[data-a="b-5"]', '[data-a="b+5"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
         Array.prototype.forEach.call(dotsEl.children, function (d) { d.disabled = lock; });
         if (mode === 'send') note.innerHTML = I('metronome') + '<b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 클릭에 전달됩니다.';
         else if (lock) note.innerHTML = I('metronome') + '<b>' + h((root.YNHon ? root.YNHon.say(rt.clicker) : rt.clicker + ' 님이')) + '</b> 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. (직접 쓰려면 위 "함께" 탭에서 클릭 컨트롤을 넘겨받으세요)';
@@ -1001,6 +1041,8 @@
         var a = b.dataset.a; if (!a) return;
         if (a === 'toggle') { var r2 = act('toggle'); if (r2 && r2.ok === false && !r2.locked) say(r2.error, true); else say(''); }
         else if (a === 'b-') act('bpm', Math.max(30, Math.round(m.state().bpm) - 1)); else if (a === 'b+') act('bpm', Math.min(300, Math.round(m.state().bpm) + 1));
+        else if (a === 'b-5') act('bpm', Math.max(30, Math.round(m.state().bpm) - 5)); else if (a === 'b+5') act('bpm', Math.min(300, Math.round(m.state().bpm) + 5));
+        else if (a === 'teamclick') teamClick();
         else if (a === 'tap') { var t = act('tap'); if (t && t.bpm) say('탭 템포 ≈ ' + Math.round(t.bpm) + ' BPM'); else if (t && !t.locked) say('계속 눌러 박자를 알려주세요.'); }
         /* v8.39 — 둘 다 이 기기만의 설정(강세 표시 · 세는 소리)이라 클릭 컨트롤 잠금과 무관하게 바로 씁니다 */
         else if (a === 'reanchor') { var rr = m.markNow(); say(rr != null ? '지금 박을 1박으로 다시 맞췄습니다.' : '먼저 클릭을 시작하세요.', rr == null); }
@@ -1016,7 +1058,17 @@
       /* V848 — 연주 중에 바꾼 BPM 은 저장하지 않습니다 ("저장" 단추를 누를 때만). 다른 곡에 갔다 오면 저장된 BPM 으로 */
       function rememberBpm() { syncAllStrips(); }
       onBpmUser = rememberBpm;
-      host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
+      host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="b-5"],[data-a="b+5"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
+      /* 2026-11 Ark — 「팀 클릭에 보내기」: 클릭 컨트롤을 맡고 내 시작 · 멈춤 · BPM 을 팀에 보냄 (「함께 › 팀 클릭 같이 받기」를 켠 기기만 따라 울림). 다시 누르면 내려놓기 */
+      function rt0() { return P.rt && P.rt(); }
+      function teamClick() {
+        var rt = rt0(); if (!rt || !rt.online) { P.toast('실시간으로 연결되어야 팀 클릭에 보낼 수 있어요.', true); return; }
+        if (rt.isClicker && P.followMetro()) { P.releaseClick(); P.setFollowMetro(false); P.toast('팀 클릭 보내기를 멈췄어요', false, 1600); setTimeout(sync, 300); return; }
+        P.claimClick(!!rt.clicker && !rt.isClicker && root.confirm((root.YNHon ? root.YNHon.say(rt.clicker) : rt.clicker + ' 님이') + ' 클릭 컨트롤이에요. 넘겨받을까요?')).then(function () {
+          if (!P.followMetro()) P.setFollowMetro(true);
+          P.toast('지금부터 내 클릭을 팀에 보내요 (「팀 클릭 같이 받기」를 켠 분만 따라 울려요)', false, 2600); sync();
+        }, function () { sync(); });
+      }
       /* 곡별 클릭 설정(박자 · 강세 · 시작 전 마디 · BPM)을 팀과 함께 저장 · 실시간 공유 — 저장은 P.cfgSet (나만 보기 · 권한은 거기서 처리) */
       /* 700ms 뒤로 미뤄 둔 저장은 "그 때" 곡(saveKey)을 기억했다가 그 키로 저장합니다 — 곡을 바로 넘기거나 패널을 닫아도 엉뚱한 곡에 저장되거나 사라지지 않게.
          flushMetroSave() 는 미뤄 둔 저장을 지금 바로 보냅니다 (곡 전환 · 닫기 · 송폼 탭의 "저장" 단추에서 부름). 보냈으면 true */
@@ -1153,6 +1205,18 @@
     function paintPianoBtns() { var on = !!(piano && !piano.el.classList.contains('pv-piano-off')); pianoBtns.forEach(function (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.innerHTML = I('piano_small') + (on ? '피아노 닫기' : '피아노 보기 (떠 있는 창)'); }); }
     P.piano = pianoWin;
     tabs.push({ id: 'harmony', icon: 'harmony', label: '화음 · 시작음', short: '화음', build: function (host) {
+      /* 2026-11 Ark — 시안 「화음」 맨 위: 조 바꾸기 카드 (원래 조 → 바꾼 조 · 반음 − / + · 팀에 저장) — 위 막대 키 단추와 같은 동작(practice.js ks-*) */
+      var kc = doc.createElement('div'); kc.className = 'pv-sec ak-keysec';
+      kc.innerHTML = '<h4>조 바꾸기 <small>저장하면 팀 모두 바뀐 코드로 봐요</small></h4><div class="ak-keycards"><div class="ak-kc"><small>원래 조</small><b data-k="orig">–</b></div><span class="ak-karrow" aria-hidden="true">→</span><div class="ak-kc to"><small>지금 조</small><b class="pv-kslbl">Key</b></div></div>' +
+        '<div class="pv-row ak-krow"><button type="button" class="pv-btn2" data-a="ks-down">반음 −</button><button type="button" class="pv-btn2" data-a="ks-up">반음 +</button><button type="button" class="pv-btn2 go" data-a="ks-save" hidden>팀에 저장</button></div>';
+      host.appendChild(kc);
+      function paintKc() {
+        var sg = P.song(), o = kc.querySelector('[data-k="orig"]'), top = P.el.querySelector('.pv-keyctl .pv-kslbl'), now = kc.querySelector('.pv-kslbl');
+        o.textContent = sg && sg.key ? String(sg.key).trim() : '–'; if (top && top.textContent) now.textContent = top.textContent;      // 위 막대 키 글자와 같게 (처음 열 때도)
+        kc.querySelector('.ak-kc.to').classList.toggle('on', !!(P.keyShift && P.keyShift()));
+      }
+      paintKc(); P.on('song', paintKc); P.on('keyshift', paintKc); P.on('songs', paintKc);
+      kc.addEventListener('click', function () { setTimeout(paintKc, 50); });
       var sec = doc.createElement('div'); sec.className = 'pv-sec pv-pianosec';
       sec.innerHTML = '<h4>시작음 <small>곡의 Key · 첫 음 확인</small></h4><button type="button" class="pv-btn2 primary pv-pianobtn" aria-pressed="false"></button>' +
         '<p class="pv-help">피아노가 악보 위 작은 창으로 뜹니다 — ⋮⋮ 를 끌어 옮기고, ✕ 로 닫습니다.</p>';
@@ -1272,24 +1336,56 @@
       var host = doc.createElement('div'), logHost = doc.createElement('div'); logHost.className = 'pv-logpart';
       host0.appendChild(host); host0.appendChild(logHost);
       var logApi = null; try { logApi = logPart.build(logHost) || null; } catch (e) { logApi = null; }
+      /* 2026-11 Ark — 시안 「함께」: 연결 카드 · 따라가기(인도자 따라가기 / 내가 넘기기) · 팀 클릭 같이 받기 · 콜아웃 받기 · 오늘 함께하는 팀 */
+      var seen = {};                                                       // 이번에 본 사람 → 마지막으로 접속해 있던 시각 (「연결 끊김 · 2분 전」)
+      function agoMin(t) { var m = Math.round((Date.now() - t) / 60000); return m < 1 ? '방금' : m < 60 ? m + '분 전' : Math.round(m / 60) + '시간 전'; }
+      function roster(rt, on) {
+        var peers = on ? rt.peers : [], byName = {}, now = Date.now(), rows = [], used = {};
+        peers.forEach(function (p) { byName[p.name] = p; seen[p.name] = now; });
+        function stat(name) {
+          var p = byName[name];
+          if (p) {
+            var bits = [];
+            if (p.lead) bits.push('페이지 컨트롤'); else if (p.click) bits.push('클릭 컨트롤');
+            else if (rt && rt.leader && p.follow && p.follow.page !== false) bits.push('따라가는 중'); else if (p.follow && p.follow.page === false) bits.push('혼자 보기');
+            if (p.at && p.at.pg) bits.push(p.at.pg + '/' + (p.at.n || '?') + '쪽');
+            return { on: true, sub: bits.join(' · ') || '접속 중' };
+          }
+          if (seen[name]) return { on: false, sub: '연결 끊김 · ' + agoMin(seen[name]) };
+          return { on: false, sub: '아직 안 들어옴', none: true };
+        }
+        (P.opts.lineup || []).forEach(function (pos) {
+          if (pos.key === 'pray') return;
+          (pos.names || []).forEach(function (n) { if (!n || used[n + '|' + pos.key]) return; used[n + '|' + pos.key] = 1; used[n] = 1; var s2 = stat(n); rows.push({ av: String(pos.label || n).slice(0, 1), t: n, sub: pos.label + ' · ' + s2.sub, on: s2.on, none: s2.none }); });
+        });
+        Object.keys(byName).concat(Object.keys(seen)).forEach(function (n) { if (used[n]) return; used[n] = 1; var s2 = stat(n); rows.push({ av: String(n).slice(0, 1), t: n, sub: s2.sub, on: s2.on, none: s2.none }); });
+        rows.sort(function (a2, b2) { return (b2.on ? 1 : 0) - (a2.on ? 1 : 0); });
+        return rows.length ? rows.map(function (r) { return '<div class="ak-rrow' + (r.on ? ' on' : '') + (r.none ? ' none' : '') + '"><span class="ak-av">' + h(r.av) + '</span><div><b>' + h(r.t) + '</b><small>' + h(r.sub) + '</small></div><i class="ak-dot" aria-label="' + (r.on ? '접속 중' : '접속 안 함') + '"></i></div>'; }).join('')
+          : '<p class="pv-help">' + (on ? '아직 편성된 사람이 없어요.' : '실시간으로 연결되면 접속한 사람이 보여요.') + '</p>';
+      }
       function paint() {
         var rt = P.rt(), st = rt ? rt.state : 'unavailable', on = st === 'online', lead = on ? rt.leader : null, mine = on && rt.isLeader;
         var clk = on ? rt.clicker : null, cmine = on && rt.isClicker, manual = P.manual(), fp = P.follow(), fm = P.followMetro();
-        var html = '<div class="pv-sec"><h4>연결</h4><div class="pv-conninfo ' + st + '">' +
-          ({ online: '● 실시간 연결됨 — ' + rt.peers.length + '명 접속 중', connecting: '○ 연결하는 중…', offline: '○ 연결이 끊겼습니다. 자동으로 다시 연결합니다.', unavailable: '○ 실시간 기능을 쓸 수 없어 혼자 보기로 동작합니다.', denied: '✕ 이 예배에 접속할 권한이 없습니다.', idle: '○ 준비 중' }[st] || st) + '</div>' +
+        var html = '<div class="pv-sec"><div class="pv-conninfo ak-conn ' + st + '"><i></i><span>' +
+          ({ online: '팀과 실시간 연결됨', connecting: '연결하는 중…', offline: '연결이 끊겼어요 — 자동으로 다시 연결해요', unavailable: '실시간 기능 없이 혼자 보기', denied: '이 예배에 접속할 권한이 없어요', idle: '준비 중' }[st] || st) + '</span>' +
+          (on ? '<b>' + rt.peers.length + '명 접속 중</b>' : '') + '</div>' +
           (rt && rt.error && !on ? '<div class="pv-help">' + h(rt.error) + '</div>' : '') + '</div>';
         if (on) {
-          html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) {
-            return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? YI('page') + ' ' : '') + (p.click ? YI('metronome') + ' ' : '') + h(p.name) +
-              (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + (p.follow && p.follow.page === false ? ' <small class="pv-pf">· 페이지 따로</small>' : '') + '</li>'; }).join('') + '</ul></div>';
-          html += '<div class="pv-sec"><h4>' + I('page') + '페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 페이지 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
-            (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
           html += '<div class="pv-sec pv-follows"><h4>따라가기</h4>' +
-            '<label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>🔒 혼자 보기 — 남의 정보 안 받기</b></label>' +
-            '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 페이지가 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 페이지 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
-            (!fp && lead && !mine ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
-            '<p class="pv-help">클릭은 기기마다 따로 씁니다 (팀과 맞추지 않음).</p></div>';
-          html += '<div class="pv-sec"><h4>큐(음성 안내)</h4><label class="pv-chk"><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '> 컨트롤일 때 큐를 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '> 컨트롤의 큐 받기</label></div>';
+            '<div class="pv-radio ak-two" role="radiogroup" aria-label="따라가기"><button type="button" role="radio" data-a="m-off" aria-checked="' + !manual + '" class="' + (manual ? '' : 'on') + '">' + (mine ? '팀에 보내기' : '인도자 따라가기') + '<small>' + (mine ? '내가 넘기면 팀도' : '곡 · 페이지 자동') + '</small></button>' +
+              '<button type="button" role="radio" data-a="m-on" aria-checked="' + manual + '" class="' + (manual ? 'on' : '') + '">내가 넘기기<small>혼자 보기</small></button></div>' +
+            (!fp && lead && !mine ? '<div class="pv-row" style="margin-top:8px"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
+            '<label class="pv-chk"><span>팀 클릭 같이 받기<small>' + (cmine ? '내가 클릭 컨트롤 — 내 클릭을 팀에 보내요' : clk ? h(root.YNHon ? root.YNHon.say(clk) : clk + ' 님이') + ' 시작하면 내 클릭도 시작' : '클릭 컨트롤이 시작하면 내 클릭도 시작') + '</small></span><input type="checkbox" data-a="followm"' + (fm ? ' checked' : '') + '></label>' +
+            '<label class="pv-chk"><span>콜아웃 받기<small>Repeat Chorus · Key Up 등</small></span><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '></label></div>';
+        }
+        html += '<div class="pv-sec"><h4>오늘 함께하는 팀 <small>' + h(P.opts.roomLabel ? '예배콘티 · ' + P.opts.roomLabel : '예배콘티') + '</small></h4><div class="ak-roster">' + roster(rt, on) + '</div></div>';
+        if (on) {
+          html += '<div class="pv-sec"><h4>페이지 · 클릭 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤이에요. 내가 넘기는 악보 · 페이지를 따라가기를 켠 사람들이 그대로 따라와요.' : lead ? h(lead) + ' 님이 페이지 컨트롤이에요.' : '아직 페이지 컨트롤이 없어요.') +
+            ' ' + (cmine ? '클릭 컨트롤도 나예요.' : clk ? h(root.YNHon ? root.YNHon.say(clk) : clk + ' 님이') + ' 클릭 컨트롤이에요.' : '') + '</p><div class="pv-row">' +
+            (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">내가 페이지 컨트롤 하기</button>') +
+              (cmine ? '<button class="pv-btn2" data-a="crelease">클릭 컨트롤 내려놓기</button>' : clk ? '<button class="pv-btn2" data-a="cforce">클릭 컨트롤 넘겨받기</button>' : '<button class="pv-btn2" data-a="cclaim">내가 클릭 컨트롤 하기</button>')
+              : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있어요.</span>') + '</div>' +
+            '<label class="pv-chk"><span>컨트롤일 때 콜아웃을 팀에 보내기</span><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '></label></div>';
         }
         host.innerHTML = html;
       }
@@ -1299,6 +1395,7 @@
         else if (a === 'release') P.release(); else if (a === 'now') P.followNow();
         else if (a === 'cclaim') P.claimClick(false).catch(function () {}); else if (a === 'cforce') { if (root.confirm('지금 클릭 컨트롤을 넘겨받을까요?')) P.claimClick(true).catch(function () {}); }
         else if (a === 'crelease') P.releaseClick();
+        else if (a === 'm-on') P.setManual(true); else if (a === 'm-off') P.setManual(false);
       });
       host.addEventListener('change', function (e) {
         var t = e.target, a = t.dataset && t.dataset.a;

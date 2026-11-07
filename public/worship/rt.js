@@ -49,7 +49,7 @@
     return p.sock;
   }
 
-  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer', 'msg', 'msg:ack', 'msg:clear'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'lead', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer', 'livemsg', 'msg', 'msg:ack', 'msg:clear'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {
@@ -75,7 +75,7 @@
         if (!ioFn) { setState('unavailable', '실시간 도구(socket.io)를 불러오지 못했습니다'); return api; }
         if (S.socket) return api;
         S.closed = false; setState('connecting');
-        var sock = opt.url ? null : adopt(opt.token, ioFn), adopted = !!sock;            // v9.9 — 미리 연결해 둔 것이 있으면 그대로 (핸드셰이크를 다시 안 함)
+        var sock = opt.url ? null : adopt(opt.token, ioFn), adopted = !!sock;            // v9.9 — 허브에서 미리 연결해 둔 것이 있으면 그대로 (핸드셰이크를 다시 안 함)
         if (!sock) {
           try { sock = ioFn(opt.url || undefined, SOCK_OPTS(opt)); }   // V857 — 웹소켓이 막힌 와이파이에서는 곧바로 HTTP 방식으로
           catch (e) { setState('unavailable', '연결을 시작하지 못했습니다: ' + e.message); return api; }
@@ -138,7 +138,7 @@
       /** V842 — 리드 상태(BPM · 박자 · 송폼 위치) 보내기 — 받는 쪽은 숫자 · 위치만 맞추고 소리는 내지 않음 */
       sendLead: function (st) { return api.call('lead', st || {}); },
       sendTimer: function (cmd) { return api.call('timer:cmd', cmd || {}); },
-      /** 요청 메시지 — { to:'bc'|'team'|이름, text, kind } · 확인 { id } */
+      /** 찬양방송팀 허브 — 방송팀 화면(/conti/stage)의 요청 메시지 · 확인 { id } */
       sendMsg: function (m) { return api.call('msg', m || {}); },
       ackMsg: function (id) { return api.call('msg:ack', { id: id }); },
       clearMsgs: function () { return api.call('msg:clear', {}); },
