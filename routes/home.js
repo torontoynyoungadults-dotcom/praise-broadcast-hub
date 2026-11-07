@@ -60,6 +60,7 @@ router.get('/', async (req, res) => {
     ].join('') : '';
     const tile = (href, title, sub, icon) => `<a class="hm-tile2" href="${href}${qs}">${ui.icon(icon)}<span><b>${esc(title)}</b><small>${esc(sub)}</small></span></a>`;
     const content = `
+  ${pageShell.hubNav('', team)}
   ${pageShell.hero({ barOnly: true })}
   <section class="hm-dark">
     <div class="hm-hi"><span>${esc(dateKo)}</span><h1>${esc(name)}님,<br>${esc(greet)}</h1></div>
@@ -67,14 +68,14 @@ router.get('/', async (req, res) => {
   </section>
   ${weekRows ? `<section class="hm-sec" aria-labelledby="hm-week-h"><div class="v13-sechead"><h2 class="ph-h2" id="hm-week-h">이번 주</h2></div><div class="hm-rows">${weekRows}</div></section>` : ''}
   <section class="hm-tiles" aria-label="자주 쓰는 것">
-    ${tile('/schedule', '스케줄표', hd && hd.counts ? `내 일정 ${hd.counts.mine} · 안 되는 날 ${hd.counts.off}` : '내가 서는 날 · 안 되는 날', 'calendar')}
+    ${tile('/schedule', '스케쥴', hd && hd.counts ? `내 일정 ${hd.counts.mine} · 안 되는 날 ${hd.counts.off}` : '내가 서는 날 · 안 되는 날', 'calendar')}
     ${tile('/schedule', '안 되는 날 알리기', '날짜만 누르면 끝', 'check')}
     ${tile('/library', '라이브러리', hd && hd.counts ? `${hd.counts.songs}곡 · 악보 · 녹음` : '곡 · 악보 · 녹음', 'book')}
-    ${tile('/events', '주일 외 찬양', hd && hd.counts && hd.counts.ev ? `${hd.counts.ev.name} ${mdS(hd.counts.ev.date)} · D-${hd.counts.ev.dday}` : '성탄절 · 특별 예배', 'cross')}
+    ${tile('/events', '주일 외', hd && hd.counts && hd.counts.ev ? `${hd.counts.ev.name} ${mdS(hd.counts.ev.date)} · D-${hd.counts.ev.dday}` : '성탄절 · 특별 예배', 'cross')}
   </section>
   ${hd && hd.news && hd.news.length ? `<section class="hm-sec" aria-labelledby="hm-new-h"><div class="v13-sechead"><h2 class="ph-h2" id="hm-new-h">팀 소식</h2></div>
     ${hd.news.map((n) => `<a class="hm-news" href="${esc(n.href)}"><span class="k${n.warn ? ' w' : ''}">${esc(n.k)}</span><span class="t">${esc(n.t)}</span><span class="s">${esc(n.s)}</span></a>`).join('')}</section>` : ''}
-  <a class="hm-cta2" href="/conti${qs}"><span><small>이번 주일${wk ? ' · ' + dot(wk.sun.date) : ''}</small>예배 콘티 보기</span>${ui.icon('next')}</a>`;
+  <a class="hm-cta2" href="/conti${qs}"><span><small>이번 주일${wk ? ' · ' + dot(wk.sun.date) : ''}</small>주일콘티 보기</span>${ui.icon('next')}</a>`;
     // TODO(redesign): 팀 소식(새 녹음 · 콘티 준비 · 미정 자리), 곡 들어보기 체크 기록, 안 되는 날 빠르게 알리기 화면
     return spa.send(req, res, content, { title: 'YN 3부찬양팀 허브' });
   }

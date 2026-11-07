@@ -1,75 +1,85 @@
 /**
- * V13 스케줄표 — 시안(Schedule / ScheduleTable / ScheduleCalendar)대로 그리기.
- * hubport.js 의 schedTab 을 감싸서: 위 "내 일정"(흑녹), 보기 탭 카드 · 표 · 달력, 기간 · 사람 강조, "미정 자리 있는 날만",
- * 카드 = 한 줄 요약(누르면 펼쳐서 편성 칸 — 칸을 누르면 배정), 달력 = 한 달 격자, 아래 변경 기록 · PDF · 엑셀.
- * 데이터 · 서버 함수 · 배정(stCell) · 자세히(stDay) · 안 되는 날(stOffCard) 은 그대로 씁니다.
+ * V13 스케쥴 — 시안(Schedule 카드 / ScheduleTable 표 / ScheduleCalendar 달력)대로 그리기.
+ * hubport.js 의 schedTab 을 감쌉니다. 위 "내 일정"(흑녹), 보기 탭, 카드 = 한 줄 요약(누르면 포지션 아이콘 칸 · 칸을 누르면 배정),
+ * 표 = 날짜 고정 · 내 악기부터 · 내 자리 표시, 달력 = 한 달 격자 + 고른 날 자세히. 아래 변경 기록 · PDF · 엑셀.
+ * 데이터 · 서버 함수 · 배정(stCell) · 자세히(stDay) · 안 되는 날(stOffCard · offTap) 은 그대로 씁니다.
  */
 (function () {
   if (typeof schedTab !== 'function' || window.__v13sched) return;
   window.__v13sched = true;
   var orig = schedTab;
-  var SH = { 인도자: '인도', 남성싱어: '남싱', 여성싱어: '여싱', 어쿠기타: '어쿠' };
+  var SH = { 인도자: '인도', 남성싱어: '남싱', 여성싱어: '여싱', 어쿠기타: '어쿠', 방송총괄: '방송총괄' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  var CARD_ORDER = ['피아노', '신디', '드럼', '베이스', '일렉', '어쿠기타', '남성싱어', '여성싱어', '음향', 'PPT', '방송총괄'];
+  var GROUP_OF = { 인도자: '싱어', 남성싱어: '싱어', 여성싱어: '싱어', 피아노: '세션', 신디: '세션', 드럼: '세션', 베이스: '세션', 일렉: '세션', 어쿠기타: '세션', 음향: '방송', PPT: '방송', 방송총괄: '방송' };
+  var KIND_COLS = { sing: ['인도자', '남성싱어', '여성싱어'], keys: ['피아노', '신디'], drum: ['드럼'], bass: ['베이스'], egt: ['일렉'], agt: ['어쿠기타'] };
+  var ICONS = (window.__HUB__ && window.__HUB__.icons13) || {};
+  var TIMES = (window.__HUB__ && window.__HUB__.times) || {};
   try { ST.onlyTbd = localStorage.getItem('ph.st.onlyTbd') === '1'; } catch (e) { ST.onlyTbd = false; }
-  try { var v0 = localStorage.getItem('ph.st.view13'); if (v0) ST.view = v0; else ST.view = 'card'; } catch (e) { ST.view = 'card'; }
+  try { ST.view = localStorage.getItem('ph.st.view13') || 'card'; } catch (e) { ST.view = 'card'; }
   if (ST.view !== 'card' && ST.view !== 'table' && ST.view !== 'cal') ST.view = 'card';
+  try { ST.order13 = localStorage.getItem('ph.st.order13') || 'mine'; } catch (e) { ST.order13 = 'mine'; }
 
   function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function dot(d) { var p = String(d).split('-'); return p[1] + '.' + p[2]; }
+  function posMap() { var m = {}; (D.positions || []).forEach(function (p) { m[p.key] = p; }); return m; }
   function cols() { var c = []; stGroups().forEach(function (g) { c = c.concat(g[1]); }); return c; }
-  function lab(p) { return SH[p.key] || p.label; }
+  function lab(p) { var k = typeof p === 'string' ? p : p.key; return SH[k] || (typeof p === 'string' ? p : p.label); }
   function mine(r) { return cols().filter(function (p) { return (r.slots[p.key] || []).indexOf(D.who) !== -1; }); }
   function tbd(r) { return cols().filter(function (p) { return !(r.slots[p.key] || []).length; }); }
   function lead(r) { var n = (r.slots['인도자'] || [])[0]; return n ? shortName(n, '인도자') : ''; }
-  function pracTxt(r) { var p = r.practice; return !p || p.none ? (p && p.none ? '연습 없음' : '연습 미정') : (p.unset || !p.date ? '연습 미정' : '연습 ' + md(p.date) + (p.date < today() ? ' 마침' : '')); }
+  function pracTxt(r, done) { var p = r.practice; if (!p) return '연습 미정'; if (p.none) return '연습 없음'; if (p.unset || !p.date) return '연습 미정'; return '연습 ' + md(p.date) + (done && p.date < today() ? ' 마침' : ''); }
+  function times() { var a = []; if (TIMES.rehearsal) a.push('리허설 ' + TIMES.rehearsal); if (TIMES.worship) a.push('예배 ' + TIMES.worship); return a.join(' · '); }
   function offOf(key) { return (ST.mine || []).filter(function (x) { return x.date === key; })[0] || null; }
-  function dday(d) { var a = dt(d), b = dt(today()); var n = Math.round((a - b) / 864e5); return n === 0 ? 'D-day' : n > 0 ? 'D-' + n : ''; }
+  function dday(d) { var n = Math.round((dt(d) - dt(today())) / 864e5); return n === 0 ? 'D-day' : n > 0 ? 'D-' + n : ''; }
   function q(s) { return esc(jsq(s)); }
+  function ic(k) { return ICONS[k] ? '<svg class="pi13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" aria-hidden="true">' + ICONS[k] + '</svg>' : ''; }
+  function names(r, k, full) { return (r.slots[k] || []).map(function (n) { return full ? dispName(n) : shortName(n, k); }); }
 
   window.st13View = function (v) { ST.view = v; try { localStorage.setItem('ph.st.view13', v); } catch (e) {} render(); };
   window.st13Tbd = function (on) { ST.onlyTbd = !!on; try { localStorage.setItem('ph.st.onlyTbd', on ? '1' : '0'); } catch (e) {} render(); };
+  window.st13Order = function (v) { ST.order13 = v; try { localStorage.setItem('ph.st.order13', v); } catch (e) {} render(); };
   window.st13Open = function (key) { ST.open13 = ST.open13 === key ? '' : key; render(); };
+  window.st13Pick = function (key) { ST.calSel = key; render(); var e = document.getElementById('s13-calsel'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
   window.st13Cal = function (d) { ST.calMon = (ST.calMon || today().slice(0, 7)); var p = ST.calMon.split('-'); var x = new Date(Number(p[0]), Number(p[1]) - 1 + d, 1); ST.calMon = x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2); render(); };
 
-  function shownRows() {
-    var rows = stShown();
-    if (ST.onlyTbd) rows = rows.filter(function (r) { return tbd(r).length; });
-    return rows;
+  function shownRows() { var rows = stShown(); if (ST.onlyTbd) rows = rows.filter(function (r) { return tbd(r).length; }); return rows; }
+
+  /* 보기 탭 — 카드는 밝은 바탕, 표 · 달력은 흑녹 띠 안 */
+  function tabs(dark) {
+    return '<div class="s13-tabs' + (dark ? ' dark' : '') + '" role="tablist" aria-label="보기">' + [['card', '카드'], ['table', '표'], ['cal', '달력']].map(function (v) {
+      return '<button type="button" role="tab" aria-selected="' + (ST.view === v[0]) + '" class="' + (ST.view === v[0] ? 'on' : '') + '" onclick="st13View(\'' + v[0] + '\')">' + v[1] + '</button>';
+    }).join('') + '</div>';
   }
 
   /* 위 — 내 일정 (흑녹) */
   function topMine() {
-    if (!D.who) return '';
-    var t = today();
-    var up = (ST.rows || []).filter(function (r) { return r.date >= t && mine(r).length; }).slice(0, 4);
-    var offs = (ST.mine || []).filter(function (x) { return (x.day || x.date) >= t; });
-    var items = up.length ? up.map(function (r) {
-      var p = r.practice;
-      return '<button type="button" class="s13-mi" onclick="st13Open(\'' + q(r.key) + '\');setTimeout(function(){var e=document.getElementById(\'s13-' + q(r.key) + '\');if(e)e.scrollIntoView({block:\'center\'});},30)">' +
-        '<span class="d">' + dot(r.date) + '</span><span class="m"><b>' + esc(mine(r).map(lab).join(' · ')) + (r.event ? ' · ' + esc(r.event.name) : '') + '</b><small>' + esc(pracTxt(r)) + '</small></span><span class="n">' + dday(r.date) + '</span></button>';
-    }).join('') : '<p class="s13-none">앞으로 서는 날이 없어요</p>';
-    return '<section class="s13-top" aria-labelledby="s13-mine-h"><h1 id="s13-mine-h">내 일정</h1><div class="s13-mis">' + items + '</div>' +
-      '<div class="s13-offs"><span class="k">안 되는 날</span>' + (offs.length ? offs.slice(0, 8).map(function (x) { return '<span class="c">' + esc(md(x.day || x.date)) + '</span>'; }).join('') : '<span class="z">없음</span>') +
-      '<button type="button" class="s13-fix" onclick="offToggle()" aria-expanded="' + (!!ST.offOpen) + '">' + (ST.offOpen ? '접기' : (offs.length ? '고치기' : '날짜 고르기')) + '</button></div>' +
-      (ST.offOpen ? '<div class="s13-offcard">' + stOffCard() + '</div>' : '') +
-      '<div class="s13-cal2"><button type="button" data-mysched data-team="' + esc(HUB.team || '') + '">내 일정 캘린더에 넣기</button><a href="/cal/google/connect?team=' + encodeURIComponent(HUB.team || '') + '">구글 캘린더 연동</a></div></section>';
+    var t = today(), html = '';
+    if (D.who) {
+      var up = (ST.rows || []).filter(function (r) { return r.date >= t && mine(r).length; }).slice(0, 4);
+      var offs = (ST.mine || []).filter(function (x) { return (x.day || x.date) >= t; });
+      html = '<h1 id="s13-mine-h">내 일정</h1><div class="s13-mis">' + (up.length ? up.map(function (r) {
+        return '<button type="button" class="s13-mi" onclick="st13View(\'card\');ST.open13=\'' + q(r.key) + '\';render();setTimeout(function(){var e=document.getElementById(\'s13-' + q(r.key) + '\');if(e)e.scrollIntoView({block:\'center\'});},30)">' +
+          '<span class="d">' + dot(r.date) + '</span><span class="m"><b>' + esc(mine(r).map(lab).join(' · ')) + (r.event ? ' · ' + esc(r.event.name) : '') + '</b><small>' + esc(pracTxt(r, true) + (r.event ? '' : ' · ' + times())) + '</small></span><span class="n">' + dday(r.date) + '</span></button>';
+      }).join('') : '<p class="s13-none">앞으로 서는 날이 없어요</p>') + '</div>' +
+        '<div class="s13-offs"><span class="k">안 되는 날</span>' + (offs.length ? offs.slice(0, 8).map(function (x) { return '<span class="c">' + esc(md(x.day || x.date)) + '</span>'; }).join('') : '<span class="z">없음</span>') +
+        '<button type="button" class="s13-fix" onclick="offToggle()" aria-expanded="' + (!!ST.offOpen) + '">' + (ST.offOpen ? '접기' : (offs.length ? '고치기' : '날짜 고르기')) + '</button></div>' +
+        (ST.offOpen ? '<div class="s13-offcard">' + stOffCard() + '</div>' : '') +
+        '<div class="s13-cal2"><button type="button" data-mysched data-team="' + esc(HUB.team || '') + '">내 일정 캘린더 구독</button><a href="/cal/google/connect?team=' + encodeURIComponent(HUB.team || '') + '">구글 캘린더 연동</a></div>';
+    }
+    return '<section class="s13-top" aria-labelledby="s13-mine-h">' + html + (ST.view !== 'card' ? tabs(true) : '') + '</section>';
   }
 
-  function tools() {
-    var people = (D.members || []).map(function (m) { return m.name; });
-    return '<div class="s13-tabs" role="tablist" aria-label="보기">' + [['card', '카드'], ['table', '표'], ['cal', '달력']].map(function (v) {
-      return '<button type="button" role="tab" aria-selected="' + (ST.view === v[0]) + '" class="' + (ST.view === v[0] ? 'on' : '') + '" onclick="st13View(\'' + v[0] + '\')">' + v[1] + '</button>';
-    }).join('') + '</div>' +
-      '<div class="s13-filt"><label><span>기간</span><select onchange="stRange(this.value)">' + ST_RANGES.map(function (x) { return '<option value="' + x[0] + '"' + (ST.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label><span>사람 강조</span><select onchange="ST.hl=this.value;render();"><option value="">없음</option>' + people.map(function (n) { return '<option value="' + esc(n) + '"' + (n === ST.hl ? ' selected' : '') + '>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'; }).join('') + '</select></label></div>' +
-      '<div class="s13-chks"><label><input type="checkbox"' + (ST.onlyTbd ? ' checked' : '') + ' onchange="st13Tbd(this.checked)"> 미정 자리 있는 날만 보기</label>' +
-      (D.who ? '<label><input type="checkbox"' + (ST.onlyMine ? ' checked' : '') + ' onchange="stOnlyMine(this.checked)"> 내가 서는 날만</label>' : '') + '</div>';
-  }
+  function rangeSel() { return '<label><span>기간</span><select onchange="stRange(this.value)">' + ST_RANGES.map(function (x) { return '<option value="' + x[0] + '"' + (ST.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>'; }
 
-  /* 카드 — 한 줄 요약, 펼친 날은 편성 칸 */
+  /* 카드 */
   function cards() {
-    var rows = shownRows(), t = today();
-    if (!rows.length) return '<p class="s13-empty">이 기간에 보여 줄 날이 없어요.</p>';
+    var people = (D.members || []).map(function (m) { return m.name; });
+    var top = tabs(false) + '<div class="s13-filt">' + rangeSel() +
+      '<label><span>사람 강조</span><select onchange="ST.hl=this.value;render();"><option value="">없음</option>' + people.map(function (n) { return '<option value="' + esc(n) + '"' + (n === ST.hl ? ' selected' : '') + '>' + esc(dispName(n)) + (n === D.who ? ' (나)' : '') + '</option>'; }).join('') + '</select></label></div>' +
+      '<label class="s13-chk"><input type="checkbox"' + (ST.onlyTbd ? ' checked' : '') + ' onchange="st13Tbd(this.checked)"><span>미정 자리 있는 날만 보기</span></label>';
+    var rows = shownRows(), t = today(), pm = posMap();
+    if (!rows.length) return top + '<p class="s13-empty">이 기간에 보여 줄 날이 없어요.</p>';
     if (ST.open13 === undefined) { var f = rows.filter(function (r) { return r.date >= t && mine(r).length; })[0] || rows.filter(function (r) { return r.date >= t; })[0]; ST.open13 = f ? f.key : ''; }
     var out = '', last = '';
     rows.forEach(function (r) {
@@ -78,52 +88,101 @@
       var my = mine(r), mo2 = offOf(r.key), td = tbd(r), open = ST.open13 === r.key;
       var tag = my.length ? '<span class="tag on">나 ' + esc(my.map(lab).join(' · ')) + '</span>' : mo2 ? '<span class="tag">' + esc(stMineTag(mo2, r)) + '</span>' : '';
       var wd = r.event ? DOW[dt(r.date).getDay()] + ' · ' + esc(r.event.name) : '주일';
-      var sub = [pracTxt(r), td.length ? '미정 ' + td.map(lab).join(' · ') : ''].filter(Boolean).join(' · ');
+      var sub = (open && my.length && !r.event) ? [pracTxt(r), times()].filter(Boolean).join(' · ')
+        : [pracTxt(r), td.length ? '미정 ' + td.map(lab).join(' · ') : ''].filter(Boolean).join(' · ');
       var head = '<button type="button" class="s13-rh" onclick="st13Open(\'' + q(r.key) + '\')" aria-expanded="' + open + '"><span class="d"><b>' + dot(r.date) + '</b><small>' + wd + '</small></span>' +
         '<span class="m"><span>' + (lead(r) ? '인도 ' + esc(lead(r)) : '<em>인도 미정</em>') + '</span><small>' + esc(sub) + '</small></span>' + tag + '</button>';
       if (!open) { out += '<div class="s13-row' + (r.event ? ' ev' : '') + (r.date < t ? ' past' : '') + '" id="s13-' + esc(r.key) + '">' + head + '</div>'; return; }
       var off = offMap(r.off), edit = D.canEdit && !ST.pick;
-      var cells = cols().map(function (p) {
-        var names = r.slots[p.key] || [], me = names.indexOf(D.who) !== -1;
-        return '<div class="c' + (me ? ' me' : '') + (names.length ? '' : ' tbd') + (names.length > 2 ? ' w2' : '') + (edit ? ' ed' : '') + '"' + (edit ? ' role="button" tabindex="0" onclick="stCell(\'' + q(r.key) + '\',\'' + q(p.key) + '\')"' : '') + '>' +
-          '<dt>' + esc(lab(p)) + '</dt><dd>' + (names.length ? names.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl ? ' hl' : '') + '">' + esc(shortName(n, p.key)) + '</span>'; }).join(' · ') : '미정') + '</dd></div>';
+      var keys = CARD_ORDER.filter(function (k) { return pm[k]; }).concat((D.positions || []).map(function (p) { return p.key; }).filter(function (k) { return k !== '인도자' && CARD_ORDER.indexOf(k) < 0; }));
+      var cells = keys.map(function (k) {
+        var ns = r.slots[k] || [], me = ns.indexOf(D.who) !== -1;
+        return '<div class="c' + (me ? ' me' : '') + (ns.length ? '' : ' tbd') + (k === '여성싱어' ? ' w2' : '') + (edit ? ' ed' : '') + '"' + (edit ? ' role="button" tabindex="0" onclick="stCell(\'' + q(r.key) + '\',\'' + q(k) + '\')"' : '') + '>' +
+          '<dt>' + ic(k) + esc(lab(k)) + '</dt><dd>' + (ns.length ? ns.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl ? ' hl' : '') + '">' + esc(shortName(n, k)) + '</span>'; }).join(' · ') : '미정') + '</dd></div>';
       }).join('');
-      out += '<article class="s13-row open' + (r.event ? ' ev' : '') + '" id="s13-' + esc(r.key) + '">' + head +
-        '<dl class="s13-grid">' + cells + '</dl>' +
+      out += '<article class="s13-row open' + (r.event ? ' ev' : '') + '" id="s13-' + esc(r.key) + '">' + head + '<dl class="s13-grid">' + cells + '</dl>' +
         '<div class="s13-foot"><span>' + (r.off.length ? '안 되는 사람 · ' + r.off.map(function (x) { return esc(shortName(x.name)); }).join(' · ') : '안 되는 사람 없음') + '</span>' +
         (D.canEdit ? '<button type="button" onclick="stPractice(\'' + q(r.key) + '\')">연습일</button>' : '') +
-        '<button type="button" onclick="stDay(\'' + q(r.key) + '\')">자세히</button><button type="button" onclick="goWeek(\'' + q(r.key) + '\')">콘티 보기</button></div></article>';
+        '<button type="button" class="u" onclick="goWeek(\'' + q(r.key) + '\')">콘티 보기</button></div></article>';
     });
-    return '<div class="s13-cards">' + out + (last ? '</section>' : '') + '</div>';
+    return top + '<div class="s13-cards">' + out + (last ? '</section>' : '') + '</div>';
   }
 
-  /* 달력 — 한 달 격자 */
+  /* 표 */
+  function myCols() {
+    var kind = typeof stViewerKind === 'function' ? stViewerKind() : '', s = {};
+    (KIND_COLS[kind] || []).forEach(function (k) { s[k] = 1; });
+    (ST.rows || []).forEach(function (r) { mine(r).forEach(function (p) { s[p.key] = 1; }); });
+    return s;
+  }
+  function table() {
+    var groups = ST.order13 === 'mine' && typeof stViewGroups === 'function' ? stViewGroups() : stGroups();
+    var mc = myCols();
+    if (ST.order13 === 'mine') groups = groups.map(function (g) { var a = g[1].slice(); a.sort(function (x, y) { return (mc[y.key] ? 1 : 0) - (mc[x.key] ? 1 : 0); }); return [g[0], a]; });
+    var cs = []; groups.forEach(function (g) { cs = cs.concat(g[1]); });
+    var top = '<div class="s13-filt">' + rangeSel() + '<label><span>칸 순서</span><select onchange="st13Order(this.value)"><option value="mine"' + (ST.order13 === 'mine' ? ' selected' : '') + '>내 악기부터</option><option value="base"' + (ST.order13 !== 'mine' ? ' selected' : '') + '>기본 순서</option></select></label></div>' +
+      '<p class="s13-hint2">옆으로 밀면 ' + groups.slice(1).map(function (g) { return g[0]; }).concat(['안 되는 사람']).join(' · ') + '이 나와요. 날짜 칸은 고정돼요.</p>';
+    var rows = shownRows(), t = today(), edit = D.canEdit && !ST.pick;
+    if (!rows.length) return top + '<p class="s13-empty">보여 줄 날이 없어요.</p>';
+    var h1 = '<tr><th class="dc" rowspan="2">날짜</th>' + groups.map(function (g) { return '<th class="g" colspan="' + g[1].length + '">' + esc(g[0]) + '</th>'; }).join('') + '<th class="g offh" rowspan="2">안 되는 사람</th></tr>';
+    var h2 = '<tr>' + cs.map(function (p) { return '<th class="' + (mc[p.key] ? 'my' : '') + '">' + esc(lab(p)) + '</th>'; }).join('') + '</tr>';
+    var body = rows.map(function (r) {
+      var my = mine(r).length, off = offMap(r.off);
+      return '<tr class="' + (r.date < t ? 'past' : '') + '"><th class="dc' + (my ? ' mine' : '') + '" scope="row" onclick="stDay(\'' + q(r.key) + '\')"><b>' + dot(r.date) + '</b><small>' + esc(r.event ? r.event.name : pracTxt(r)) + '</small></th>' +
+        cs.map(function (p) {
+          var ns = r.slots[p.key] || [], me = ns.indexOf(D.who) !== -1;
+          return '<td class="' + (me ? 'me' : '') + (ns.length ? '' : ' tbd') + (edit ? ' ed' : '') + '"' + (edit ? ' onclick="stCell(\'' + q(r.key) + '\',\'' + q(p.key) + '\')"' : '') + '>' +
+            (ns.length ? ns.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl && !me ? ' hl' : '') + '">' + esc(shortName(n, p.key)) + '</span>'; }).join('') : '미정') + '</td>';
+        }).join('') +
+        '<td class="offc">' + r.off.map(function (x) { return '<span>' + esc(shortName(x.name)) + '</span>'; }).join('') + '</td></tr>';
+    }).join('');
+    return top + '<div class="s13-tw"><table class="s13-t"><thead>' + h1 + h2 + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="s13-lg"><span><i class="a"></i> 내 자리</span><span><i class="m"></i> 내가 서는 날</span><span class="t">미정 · 아직 정해지지 않은 자리</span></p>' +
+      '<p class="s13-hint">아이패드 · 컴퓨터에서는 옆으로 밀지 않아도 모든 칸이 한 번에 보여요.' + (D.canEdit ? ' 칸을 눌러 바로 배정할 수 있어요.' : '') + '</p>';
+  }
+
+  /* 달력 */
+  function calSel(r) {
+    if (!r) return '';
+    var my = mine(r), mo = offOf(r.key), pm = posMap();
+    var line = function (k, arr) { return arr.length ? '<div class="r"><span class="k">' + k + '</span><span class="v">' + arr.join(' · ') + '</span></div>' : ''; };
+    var grp = function (g, withLab) { return CARD_ORDER.concat(['인도자']).filter(function (k) { return GROUP_OF[k] === g && pm[k] && k !== '인도자'; }).map(function (k) { var ns = names(r, k); return ns.length ? (withLab ? esc(lab(k)) + ' ' : '') + esc(ns.join(' · ')) : (withLab ? '<em>' + esc(lab(k)) + ' 미정</em>' : ''); }).filter(Boolean); };
+    var title = my.length ? esc(my.map(lab).join(' · ')) + '로 섬겨요' : mo ? '안 된다고 알렸어요' : '섬기지 않는 날이에요';
+    var sub = [r.event ? '' : times(), pracTxt(r, true)].filter(Boolean).join(' · ');
+    return '<article class="s13-sel" id="s13-calsel"><div class="h"><div class="d"><small>' + (r.event ? esc(r.event.name) : '주일') + '</small><b>' + dot(r.date) + '</b></div><div class="t"><b>' + title + '</b><small>' + esc(sub) + '</small></div></div>' +
+      '<div class="b">' + line('인도', names(r, '인도자', true).map(esc).length ? names(r, '인도자', true).map(esc) : ['<em>미정</em>']) +
+        line('싱어', [].concat(names(r, '남성싱어'), names(r, '여성싱어')).map(esc)) + line('세션', grp('세션', true)) + line('방송', grp('방송', true)) +
+        '<div class="acts"><button type="button" onclick="goWeek(\'' + q(r.key) + '\')">콘티 보기</button>' +
+        (D.who ? '<button type="button" onclick="offTap(\'' + q(r.key) + '\')">' + (mo ? '안 되는 날 취소' : '이 날 안 된다고 알리기') + '</button>' : '') + '</div><p class="msg" id="offCardMsg"></p></div></article>';
+  }
   function cal() {
     var t = today();
     ST.calMon = ST.calMon || t.slice(0, 7);
     var p = ST.calMon.split('-'), y = Number(p[0]), m = Number(p[1]) - 1;
     var first = new Date(y, m, 1), start = new Date(y, m, 1 - first.getDay());
     var by = {}; (ST.rows || []).forEach(function (r) { (by[r.date] = by[r.date] || []).push(r); });
-    var prac = {}; (ST.rows || []).forEach(function (r) { var pp = r.practice; if (pp && pp.date && !pp.none && !pp.unset) { (prac[pp.date] = prac[pp.date] || []).push(r); } });
+    var prac = {}; (ST.rows || []).forEach(function (r) { var pp = r.practice; if (pp && pp.date && !pp.none && !pp.unset) (prac[pp.date] = prac[pp.date] || []).push(r); });
+    if (!ST.calSel) { var f = (ST.rows || []).filter(function (r) { return r.date >= t && mine(r).length; })[0] || (ST.rows || []).filter(function (r) { return r.date >= t; })[0]; ST.calSel = f ? f.key : ''; }
     var cells = '';
     for (var i = 0; i < 42; i++) {
       var d = new Date(start); d.setDate(start.getDate() + i);
       if (i >= 35 && d.getMonth() !== m) break;
       var ds = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
       var other = d.getMonth() !== m, rs = by[ds] || [], pr = prac[ds] || [];
-      var meOn = rs.some(function (r) { return mine(r).length; }), meOff = rs.some(function (r) { return offOf(r.key); });
+      var meOn = rs.some(function (r) { return mine(r).length; });
       var inner = '<b>' + d.getDate() + '</b>' + (ds === t ? '<small>오늘</small>' : '') +
-        rs.map(function (r) { var my = mine(r), td = tbd(r); return '<small>' + (r.event ? esc(String(r.event.name).slice(0, 5)) : '주일') + '</small>' + (my.length ? '<small class="me">' + esc(my.map(lab).join('·')) + '</small>' : offOf(r.key) ? '<small class="off">불가</small>' : td.length ? '<small class="tbd">미정 ' + td.length + '</small>' : ''); }).join('') +
+        rs.map(function (r) { var my = mine(r); return '<small>' + (r.event ? esc(String(r.event.name).slice(0, 5)) : '주일') + '</small>' + (my.length ? '<small class="me">' + esc(my.map(lab).join('·')) + '</small>' : offOf(r.key) ? '<small class="off">나 불가</small>' : ''); }).join('') +
         (pr.length ? '<small class="pr">연습</small>' : '');
-      var key = rs[0] ? rs[0].key : (pr[0] ? pr[0].key : '');
-      cells += key ? '<button type="button" class="dc' + (other ? ' o' : '') + (meOn ? ' on' : '') + (meOff ? ' offd' : '') + (ds === t ? ' today' : '') + '" onclick="' + (rs[0] ? 'stDay' : 'stDay') + '(\'' + q(key) + '\')">' + inner + '</button>'
-        : '<span class="dc' + (other ? ' o' : '') + (ds === t ? ' today' : '') + '">' + inner + '</span>';
+      var key = rs[0] ? rs[0].key : '';
+      var cls = 'dc' + (other ? ' o' : '') + (meOn ? ' on' : '') + (ds === t ? ' today' : '') + (key && key === ST.calSel ? ' sel' : '') + (ds < t ? ' past' : '');
+      cells += key ? '<button type="button" class="' + cls + '" onclick="st13Pick(\'' + q(key) + '\')" aria-pressed="' + (key === ST.calSel) + '">' + inner + '</button>'
+        : pr.length ? '<button type="button" class="' + cls + '" onclick="st13Pick(\'' + q(pr[0].key) + '\')">' + inner + '</button>' : '<span class="' + cls + '">' + inner + '</span>';
     }
     return '<section class="s13-calv"><div class="s13-calh"><button type="button" onclick="st13Cal(-1)" aria-label="이전 달">‹</button><span><b>' + (m + 1) + '</b><small>' + y + '</small></span><button type="button" onclick="st13Cal(1)" aria-label="다음 달">›</button></div>' +
       '<div class="s13-dow">' + DOW.map(function (w, i) { return '<span' + (i === 0 || i === 5 ? ' class="k"' : '') + '>' + w + '</span>'; }).join('') + '</div>' +
       '<div class="s13-days">' + cells + '</div>' +
-      '<p class="s13-lg"><span><i class="a"></i> 내가 서는 날</span><span><i class="b"></i> 연습</span><span><i class="c"></i> 미정 자리</span></p>' +
-      '<p class="s13-hint">기간 밖의 달은 비어 보여요 — 위 기간을 넓혀 보세요.</p></section>';
+      '<p class="s13-lg"><span><i class="a"></i> 내가 서는 날</span><span><i class="b"></i> 연습</span><span><i class="c"></i> 오늘</span></p>' +
+      calSel(stRow(ST.calSel)) + '</section>';
   }
 
   function bottom() {
@@ -135,16 +194,7 @@
 
   window.schedTab = schedTab = function () {
     if (!ST.rows) return orig();
-    var body;
-    if (ST.view === 'table') {
-      var keep = ST.onlyMine, rowsKeep = ST.rows;
-      if (ST.onlyTbd) ST.rows = ST.rows.filter(function (r) { return tbd(r).length; });
-      var h = orig(); ST.rows = rowsKeep; ST.onlyMine = keep;
-      var a = h.indexOf('<div class="stwrap">'), b = h.indexOf('</table></div>', a);
-      body = a >= 0 && b > a ? h.slice(a, b + 14) : '<p class="s13-empty">보여 줄 날이 없어요.</p>';
-      var bar = h.indexOf('<div class="stbar">');
-      if (bar >= 0) body = h.slice(bar, h.indexOf('</div></div>', bar) + 12) + body;
-    } else body = ST.view === 'cal' ? cal() : cards();
-    return '<div class="s13">' + topMine() + '<div class="s13-main">' + tools() + body + '<p class="msg" id="stMsg"></p>' + bottom() + '</div></div>';
+    var body = ST.view === 'table' ? table() : ST.view === 'cal' ? cal() : cards();
+    return '<div class="s13 v-' + ST.view + '">' + topMine() + '<div class="s13-main">' + body + '<p class="msg" id="stMsg"></p>' + bottom() + '</div></div>';
   };
 })();

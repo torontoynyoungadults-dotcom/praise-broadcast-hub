@@ -2376,7 +2376,7 @@ router.get('/conti/listen', requireTeam, async (req, res) => {
   const all = [].concat(w.conti, w.final, w.closing);
   const songs = all.map((x) => ({ id: String(x['ID'] || ''), k: String(x['제목'] || '제목 없음'), key: String(x['Key'] || '').replace(/\s*-+>\s*/g, ' → '), bpm: String(x['BPM'] || '') }));
   const dd = new Date(date + 'T12:00:00');
-  const head = scope.event ? `${eventRow['이름']} · ${Number(date.slice(5, 7))}.${date.slice(8, 10)}` : `예배 콘티 · ${date.slice(5, 7)}.${date.slice(8, 10)}`;
+  const head = scope.event ? `${eventRow['이름']} · ${Number(date.slice(5, 7))}.${date.slice(8, 10)}` : `주일콘티 · ${date.slice(5, 7)}.${date.slice(8, 10)}`;
   const tabs = KINDS.map(([k, f]) => { const n = w.recs.filter(f).length; return `<a class="${k === kind ? 'on' : ''}" href="${q({ kind: k })}" aria-current="${k === kind ? 'page' : 'false'}">${k === '참고' ? '참고 음원' : k}${n ? ` · ${n}` : ''}</a>`; }).join('');
   let body;
   if (!cur) {
