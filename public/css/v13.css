@@ -1617,3 +1617,16 @@ html[data-theme] body .a13-form .a13-sfb .fb-seq { order: 0; }
 body .a13-form .cn-chip.name { display: none; }
 body .a13-form .cn-mention.a13-names .cn-chip.name { display: inline-flex; }
 body .a13-bar { bottom: 84px; }
+
+/* ===== 넓은 화면 — 스케쥴 · 라이브러리 흑녹 띠는 페이지 폭(최대 1160) 가득, 안의 내용은 가운데 760 ===== */
+@media (min-width: 900px) {
+  html body .yn .s13 .s13-top, html body .yn .l13-top, html body .yn .l13-tabs {
+    margin-left: calc(50% - min(50vw, 580px)) !important; margin-right: calc(50% - min(50vw, 580px)) !important;
+    padding-left: max(16px, calc(min(50vw, 580px) - 380px)) !important; padding-right: max(16px, calc(min(50vw, 580px) - 380px)) !important;
+    box-sizing: border-box; max-width: none !important; width: auto !important;
+  }
+  html body .yn .l13-top > *, html body .yn .s13 .s13-top > * { max-width: 760px; margin-left: auto !important; margin-right: auto !important; }
+  html body .yn .l13-tabs > * { flex: 1 1 0 !important; }
+  html body .yn .s13 .s13-tw { overflow-x: auto !important; max-width: 760px; margin-left: auto; margin-right: auto; }
+}
+html, body { overflow-x: clip; }
