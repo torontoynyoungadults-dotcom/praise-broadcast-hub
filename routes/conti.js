@@ -466,6 +466,7 @@ function contiToolbox({ team, scope, date, eventRow, w, kakao, stage }) {
   const yt = ytPlayAllHtml(w, team);
   if (stage) return `<div class="v13-livebar">${liveBtn}<a class="v13-livebar-rec" href="#cn-recs" aria-label="녹음 듣기" title="녹음">${ui.icon('headphones')}</a></div>
     <div class="v13-tools">${pkgBtn}${yt}${offBtn}</div>
+    <!--v13-pline-->
     <details class="v13-more"><summary>더 보기 · 방송팀 화면 · 카톡 요약</summary><div class="cn-toolrow">${stageBtn}${kakaoBtn}</div>${w.conti.length && kakao ? `<details class="cn-kakaopv" data-cn-kakaopv><summary>카톡에 붙여 넣을 글 미리보기</summary><textarea readonly rows="12" data-cn-kakaotxt aria-label="카카오톡 콘티 요약">${esc(kakao)}</textarea></details>` : ''}</details>
     <div class="cn-offpanel" data-cn-offpanel hidden></div>
     <p class="ph-msg cn-toolmsg" data-cn-toolmsg role="status"></p>`;
@@ -1008,9 +1009,8 @@ router.get('/conti', requireTeam, async (req, res) => {
   ${changeCard(chg, team)}
   ${(() => {
     const switcher = teamContext.teamSwitcher(ctx, { keep: scope.event ? { event: scope.event } : { date } });
-    return `<div class="ph-card cn-toolcard">${switcher}${contiToolbox({ team, scope, date, eventRow, w, kakao, stage: true })}</div>`;
+    return `<div class="ph-card cn-toolcard">${switcher}${contiToolbox({ team, scope, date, eventRow, w, kakao, stage: true }).replace('<!--v13-pline-->', practice)}</div>`;
   })()}
-  ${practice}
 
 
   <div class="ph-card top-accent">
@@ -1397,7 +1397,6 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
           <div class="pc-tlinks"><a class="cn-mini" href="${contiHref}">예배 콘티에서 열기 ${ui.icon('next')}</a></div>
         </div>
         <div class="cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
-        <!--v13-pline-->
         ${people.length ? `<div class="pc-people">${coming.map(chip).join('')}${away.length ? `<span class="pc-awaylab">연습 불참</span>${away.map(chip).join('')}` : ''}</div>` : '<p class="ph-sub">아직 편성이 없어요.</p>'}
         ${songsHtml}
         ${(() => {

@@ -371,3 +371,8 @@ body { background: var(--bg); }
 .ph-wrap:has(.v13-bigdate) .ph-card.top-accent::before { display: none !important; }
 .ph-wrap:has(.v13-bigdate) .cn-song { padding: 18px 0 !important; border-bottom: 1px solid #DDD6C8 !important; background: transparent !important; border-top: 0 !important; border-left: 0 !important; border-right: 0 !important; box-shadow: none !important; }
 .ph-wrap:has(.v13-bigdate) #cn-recs .ph-list, .ph-wrap:has(.v13-bigdate) .pc-recs .ph-list { background: #FBF9F4; }
+.ph-wrap .ph-hero-baronly + .ph-hubnav { top: 0 !important; }
+.v13-tools + .v13-pline, .v13-tools + .practice-card { margin: 8px 0 0 !important; }
+.v13-tools .cn-yplay, .v13-tools .cn-ybig { border: 0 !important; outline: 0; box-shadow: none !important; background: transparent; }
+.v13-tools .cn-yplay { background: #FBF9F4 !important; }
+.v13-more { margin: 0 !important; }
