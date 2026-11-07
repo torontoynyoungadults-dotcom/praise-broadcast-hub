@@ -32,6 +32,16 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
+/** V13 — 관리 화면은 팀원 누구나 (팀원관리 · 자동 안내 · 찬양팀은 관리자만) */
+async function requireMember(req, res, next) {
+  if (!req.session) return res.redirect('/');
+  const member = await sheetsDb.findOne('회원', '이메일', req.session.email);
+  if (!member || require('../lib/guestAccess').isGuest(member)) return res.redirect('/');
+  req.member = member;
+  req.isAdm = String(member['관리자여부']).toUpperCase() === 'TRUE';
+  next();
+}
+
 function teamRow(t) {
   const active = String(t['활성여부']).toUpperCase() !== 'FALSE';
   return `<div class="ph-list-item">
@@ -44,7 +54,7 @@ function teamRow(t) {
   </div>`;
 }
 
-router.get('/admin', requireAdmin, async (req, res) => {
+router.get('/admin', requireMember, async (req, res) => {
   const [teams, tagline] = await Promise.all([
     sheetsDb.readAll('찬양팀'),
     sheetsDb.getSetting('태그라인', '소망이 넘치는 교회'),
@@ -176,11 +186,11 @@ router.get('/admin', requireAdmin, async (req, res) => {
 
   ${(() => { const tq = ((activeTeams[0] && activeTeams[0]['팀명']) || '') ? '?team=' + encodeURIComponent((activeTeams[0] && activeTeams[0]['팀명']) || '') : ''; const row = (href, t, sub) => `<a class="ad13-row" href="${href}"><span><b>${t}</b><small>${sub}</small></span><i>›</i></a>`;
     return `<section class="ad13-sec" id="ad13-team"><div class="v13-sechead"><h2 class="ph-h2">팀원</h2></div><div class="ad13-rows">
-      ${row('/roster' + tq, '팀원 관리', '포지션 · 관리자 권한 · 초대')}${row('/sound' + tq, '마이크 · 인이어 · P16', '싱어별 마이크 라인 · 인이어 번호')}${row('/conti' + tq + '#cn-guest', '객원 공유 링크', '로그인 없이 그날 콘티만 — 객원이 서는 날 예배 콘티에서')}</div></section>
+      ${req.isAdm ? row('/roster' + tq, '팀원 관리', '포지션 · 관리자 권한 · 초대') : ''}${row('/sound' + tq, '마이크 · 인이어 · P16', '싱어별 마이크 라인 · 인이어 번호')}${row('/conti' + tq + '#cn-guest', '객원 공유 링크', '로그인 없이 그날 콘티만 — 객원이 서는 날 예배 콘티에서')}</div></section>
     <section class="ad13-sec"><div class="v13-sechead"><h2 class="ph-h2">일정 도구</h2></div><div class="ad13-rows">
       ${row('/schedule/import' + tq, '스케줄 엑셀 올리기', '여러 주 편성을 한 번에')}${row('/schedule/generate' + tq, '연습 일정 미리 만들기', '2주 규칙 · 금요찬양기도회 제외')}${row('/events' + tq, '주일 외 예배 추가', '성탄절 · 송구영신 등')}${row('/schedule/history' + tq, '스케줄 변경 기록', '누가 · 언제 · 무엇을')}</div></section>`; })()}
 
-  ${remCard}
+  ${req.isAdm ? remCard : ''}
 
   <div class="ph-card top-accent">
     <h2 class="ph-h2">허브 바닥글 태그라인</h2>
@@ -190,7 +200,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
     </form>
   </div>
 
-  <div class="ph-card">
+  ${req.isAdm ? `  <div class="ph-card">
     <h2 class="ph-h2">찬양팀</h2>
     <div class="ph-list">${teams.length ? teams.map(teamRow).join('') : '<p class="ph-sub">아직 찬양팀이 없어요.</p>'}</div>
     <details class="ph-add">
@@ -201,6 +211,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
       </form>
     </details>
   </div>
+` : ''}
 
   <div class="ph-card" id="ad13-time">
     <h2 class="ph-h2">예배 · 연습 시간</h2>
@@ -280,14 +291,14 @@ router.all('/cron/practice-reminder', async (req, res) => {
   res.json({ ok: true, ran: r.ran, why: r.why || '', teams: (r.teams || []).map((t) => ({ kind: t.kind, team: t.team, ran: t.ran, why: t.why, people: t.people, pushed: t.pushed, mailed: t.mailed, failed: t.failed })) });
 });
 
-router.post('/admin/guest-link', requireAdmin, async (req, res) => {
+router.post('/admin/guest-link', requireMember, async (req, res) => {
   const team = String((req.body || {}).team || '').trim();
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
   if (t) { try { await guestLink.regenerate(team); } catch (e) { console.error('[방송팀 링크 저장 실패]', e.message); } }
   spa.redirect(req, res, '/admin');
 });
 
-router.post('/admin/times', requireAdmin, async (req, res) => {
+router.post('/admin/times', requireMember, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
@@ -295,7 +306,7 @@ router.post('/admin/times', requireAdmin, async (req, res) => {
   spa.redirect(req, res, '/admin');
 });
 
-router.post('/admin/closing-hymn', requireAdmin, async (req, res) => {
+router.post('/admin/closing-hymn', requireMember, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
@@ -324,7 +335,7 @@ async function headerizeClosingHymnFiles(req, team) {
 
 /** 폐회송 기본 악보 올리기 — 파일 · 링크 · 웹에서 찾은 이미지 모두 가능 (콘티의 "이 곡 악보 올리기"와 같은 방식).
  *  저장해 두면 매주 자동으로 만들어지는 폐회송 곡에 그대로 복사돼 붙습니다 (routes/conti.js 의 ensureClosingHymn). */
-router.post('/admin/closing-hymn/sheet', requireAdmin, upload.array('파일', 12), async (req, res) => {
+router.post('/admin/closing-hymn/sheet', requireMember, upload.array('파일', 12), async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const t = team ? await sheetsDb.findOne('찬양팀', '팀명', team) : null;
@@ -348,7 +359,7 @@ router.post('/admin/closing-hymn/sheet', requireAdmin, upload.array('파일', 12
   spa.redirect(req, res, '/admin');
 });
 
-router.post('/admin/closing-hymn/sheet/delete', requireAdmin, async (req, res) => {
+router.post('/admin/closing-hymn/sheet/delete', requireMember, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   if (team) { try { await closingHymn.removeSheet(team, b.idx); } catch (e) { console.error('[폐회송 악보 삭제 실패]', e.message); } }
@@ -356,7 +367,7 @@ router.post('/admin/closing-hymn/sheet/delete', requireAdmin, async (req, res) =
 });
 
 /** 인쇄용 PDF 구글 드라이브 폴더 저장 — 링크에서 폴더 ID 를 꺼내 실제로 열어 보고(쓰기 권한 포함) 저장. 비우면 해제 */
-router.post('/admin/pkg-drive', requireAdmin, async (req, res) => {
+router.post('/admin/pkg-drive', requireMember, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const back = (q) => spa.redirect(req, res, '/admin?pd=' + encodeURIComponent(team) + q + '#pkg-drive');
@@ -372,7 +383,7 @@ router.post('/admin/pkg-drive', requireAdmin, async (req, res) => {
   } catch (e) { back('&pde=' + encodeURIComponent(e.message || '저장하지 못했어요.')); }
 });
 
-router.post('/admin/tagline', requireAdmin, async (req, res) => {
+router.post('/admin/tagline', requireMember, async (req, res) => {
   const value = String((req.body || {})['태그라인'] || '').trim();
   const existing = await sheetsDb.findWhere('설정', (r) => r['키'] === '태그라인');
   const row = { '키': '태그라인', '값': value, '설명': '허브 바닥글에 보이는 한 줄 문구' };
