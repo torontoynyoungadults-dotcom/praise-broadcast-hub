@@ -1267,3 +1267,18 @@ body.rpf-on .v13-livebar { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .yn .l13-up { background: #FBF9F4; padding: 12px; }
 html[data-theme="light"] .yn .l13-q input[type="search"], .yn .l13-q input#rpQ { background: #17241F !important; background-color: #17241F !important; color: #ECE6D9 !important; border: 1px solid #2C3A33 !important; box-shadow: none !important; border-radius: 0 !important; }
 .yn .l13-repo #rpList, .yn .l13-repo #rpDock { margin: 0 !important; padding: 0 !important; }
+/* 날짜별 */
+.yn .l13-arch { padding-bottom: 40px; }
+.yn .l13-filters input[type="search"] { border: 0 !important; background: transparent !important; font-size: 14px !important; padding: 0 !important; min-height: 24px !important; box-shadow: none !important; border-radius: 0 !important; width: 100%; }
+.yn .a13-mon { display: flex; flex-direction: column; margin-bottom: 18px; }
+.yn .a13-mon h2 { margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px; }
+.yn .a13-mon h2 span { font-family: 'Bodoni Moda', serif; font-size: 26px; font-weight: 400; }
+.yn .a13-mon h2 small { font-size: 12px; color: #5C6660; }
+.yn .a13-mon h2 i { flex: 1; height: 1px; background: #C6A664; align-self: center; }
+.yn .a13 { background: transparent; }
+.yn .a13-d { border-right: 1px solid #ECE6DA; padding-right: 6px; }
+/* 통계 — 판넬 평평하게, 시안 색 */
+.yn .ss-card, .yn #body .panel { background: #FBF9F4 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+.yn #body .seg { border-radius: 0 !important; background: transparent !important; gap: 2px; }
+.yn #body .seg button { border-radius: 0 !important; border: 1px solid #D6CFBF !important; background: transparent !important; color: #17201C !important; box-shadow: none !important; }
+.yn #body .seg button.on { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16 !important; }

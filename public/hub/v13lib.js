@@ -100,4 +100,43 @@
         '</div></article>';
     };
   }
+
+  /* 날짜별 — 시안(LibraryArchive): 거르기 칩 · 달마다 머리 · 한 줄 콘티 */
+  if (typeof archiveTab === 'function' && typeof arDays === 'function') {
+    var origArch = archiveTab, origDays = arDays;
+    AR.f13 = AR.f13 || 'all';
+    window.arDays = arDays = function () {
+      var ds = origDays();
+      if (AR.view !== 'date' && AR.view) return ds;
+      if (AR.f13 === 'rec') return ds.filter(function (d) { return (d.recs || []).length; });
+      if (AR.f13 === 'file') return ds.filter(function (d) { return d.files.length; });
+      if (AR.f13 === 'ev') return ds.filter(function (d) { return !!d.event; });
+      return ds;
+    };
+    window.archiveTab = archiveTab = function () {
+      if (!AR.data || (AR.view && AR.view !== 'date')) return origArch();
+      var chip = function (k, label) { return '<button type="button" class="l13-chip' + (AR.f13 === k ? ' on' : '') + '" aria-pressed="' + (AR.f13 === k) + '" onclick="AR.f13=\'' + k + '\';AR.more=30;render();">' + label + '</button>'; };
+      return '<div class="l13-repo l13-arch"><div class="l13-chips">' + chip('all', '전부') + chip('rec', '녹음 있는 날') + chip('file', '악보 있는 날') + chip('ev', '주일 외 예배') + '</div>' +
+        '<div class="l13-filters"><label><span>기간</span><select onchange="AR.range=this.value;AR.more=30;render();">' + AR_RANGES.map(function (r) { return '<option value="' + r[0] + '"' + (AR.range === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label>' +
+          '<label><span>곡 찾기</span><input type="search" value="' + esc(AR.q || '') + '" placeholder="곡 · 팀 · 파일 이름" oninput="AR.q=this.value;AR.more=30;arRedraw();"></label></div>' +
+        '<div id="arBody">' + arBody() + '</div>' +
+        '<button type="button" class="l13-more" onclick="arExport()">엑셀로 내려받기</button><p class="msg" id="arMsg"></p></div>';
+    };
+    var origBody = arBody;
+    window.arBody = arBody = function () {
+      if (AR.view && AR.view !== 'date') return origBody();
+      var days = arDays(); if (!days.length) return '<p class="l13-empty">찾는 기록이 없어요.</p>';
+      var today = AR.data.today;
+      var up = days.filter(function (d) { return d.date > today; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+      var past = days.filter(function (d) { return d.date <= today; });
+      var list = up.concat(AR.range === 'up' ? [] : past.slice(0, AR.more || 30)), out = '', last = '';
+      list.forEach(function (d) {
+        var mo = d.date.slice(0, 7);
+        if (mo !== last) { if (last) out += '</section>'; last = mo; out += '<section class="a13-mon" aria-label="' + mo.slice(0, 4) + '년 ' + Number(mo.slice(5)) + '월"><h2><span>' + Number(mo.slice(5)) + '월</span>' + (mo.slice(0, 4) !== today.slice(0, 4) ? '<small>' + mo.slice(0, 4) + '</small>' : '') + '<i></i></h2>'; }
+        out += arCard(d);
+      });
+      if (last) out += '</section>';
+      return out + (past.length > (AR.more || 30) && AR.range !== 'up' ? '<button type="button" class="l13-more" onclick="AR.more=(AR.more||30)+20;arRedraw();">더 보기 · ' + (past.length - (AR.more || 30)) + '번 남음</button>' : '');
+    };
+  }
 })();
