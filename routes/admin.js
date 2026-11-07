@@ -174,7 +174,12 @@ router.get('/admin', requireMember, async (req, res) => {
   }
   // 보낸 기록 — 팀별 최근 안내 (자동 · 지금 보내기 · 콘티 올라옴 · 시험)
   const logs = [];
-  for (const t of activeTeams) (await reminder.sendLog(t['팀명']).catch(() => [])).forEach((e) => logs.push(Object.assign({ team: t['팀명'] }, e)));
+  for (const t of activeTeams) {
+    const cur = await reminder.sendLog(t['팀명']).catch(() => []);
+    const first = cur.length ? cur[cur.length - 1].at : '';
+    const past = cur.length >= 30 ? [] : await reminder.pastLog(t['팀명'], first).catch(() => []);
+    cur.concat(past).forEach((e) => logs.push(Object.assign({ team: t['팀명'] }, e)));
+  }
   logs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
   const when = (iso) => { const d = new Date(iso); if (isNaN(d)) return ''; const f = new Intl.DateTimeFormat('ko-KR', { timeZone: 'America/Toronto', month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', minute: '2-digit' }); return f.format(d); };
   const logHtml = logs.length ? `<div class="rm13-log">
@@ -185,7 +190,7 @@ router.get('/admin', requireMember, async (req, res) => {
         return `<li><details><summary>
           <span class="rm13-when">${esc(when(e.at))}</span>
           <span class="rm13-what"><b>${esc(e.kind === 'test' ? '시험 메일' : K.label)}</b><small>${esc(e.team)} · ${esc(e.by || '')}</small></span>
-          <span class="rm13-cnt">${e.via !== 'mail' && e.kind !== 'test' ? `<i title="폰 알림">알림 ${Number(e.pushed) || 0}</i>` : ''}${e.via !== 'push' ? `<i title="이메일">메일 ${Number(e.mailed) || 0}</i>` : ''}${e.failed ? `<i class="bad">실패 ${Number(e.failed)}</i>` : ''}<em>/ ${to.length}명</em></span>
+          <span class="rm13-cnt">${e.old ? '<i title="기록을 만들기 전 — 이메일은 알 수 없어요">이전</i>' : ''}${e.via !== 'mail' && e.kind !== 'test' ? `<i title="폰 알림">알림 ${Number(e.pushed) || 0}</i>` : ''}${e.via !== 'push' ? `<i title="이메일">메일 ${Number(e.mailed) || 0}</i>` : ''}${e.failed ? `<i class="bad">실패 ${Number(e.failed)}</i>` : ''}<em>/ ${to.length}명</em></span>
         </summary>
         ${e.subject ? `<p class="rm13-subj">${esc(e.subject)}</p>` : ''}
         ${to.length ? `<div class="rm13-to">${to.map((x) => `<span class="${x.m === -1 ? 'bad' : ''}">${esc(x.n)}<small>${[x.p ? '알림' : '', x.m === 1 ? '메일' : x.m === -1 ? '메일 실패' : ''].filter(Boolean).join(' · ') || '못 받음'}</small></span>`).join('')}</div>` : ''}
