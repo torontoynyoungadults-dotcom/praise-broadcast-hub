@@ -376,3 +376,35 @@ body { background: var(--bg); }
 .v13-tools .cn-yplay, .v13-tools .cn-ybig { border: 0 !important; outline: 0; box-shadow: none !important; background: transparent; }
 .v13-tools .cn-yplay { background: #FBF9F4 !important; }
 .v13-more { margin: 0 !important; }
+
+/* 곡 카드 — 시안: [번호 34] [제목 · 원곡팀] [KEY/BPM 세로 78] */
+.ph-wrap .cn-song .cn-shead { display: grid !important; grid-template-columns: 34px minmax(0, 1fr) 78px; gap: 12px; align-items: start; flex-wrap: nowrap; }
+.ph-wrap .cn-song .cn-shead .cn-no { grid-column: 1; }
+.ph-wrap .cn-song .cn-shead .cn-tb { grid-column: 2; min-width: 0; padding-top: 2px; }
+.ph-wrap .cn-song .cn-shead .cn-info { grid-column: 3; grid-row: 1; margin: 0 !important; width: 78px; display: flex !important; flex-direction: column !important; gap: 0 !important; border: 1px solid #C9BE9F; background: #FBF9F4; flex-wrap: nowrap !important; }
+.ph-wrap .cn-song .cn-shead .cn-grip { grid-column: 3; grid-row: 2; justify-self: end; }
+.ph-wrap .cn-song .cn-info .cn-cell { border: 0 !important; margin: 0 !important; min-width: 0 !important; width: auto !important; border-radius: 0 !important; box-shadow: none !important; }
+.ph-wrap .cn-song .cn-info .cn-cell.key { display: flex !important; flex-direction: column !important; align-items: center; padding: 6px 0 5px !important; background: transparent !important; gap: 0 !important; }
+.ph-wrap .cn-song .cn-info .cn-cell.key i { font-style: normal; font-size: 10px !important; color: #5C6660 !important; letter-spacing: 0.06em; }
+.ph-wrap .cn-song .cn-info .cn-cell.key b { font-family: 'Bodoni Moda', serif !important; font-size: 21px !important; font-weight: 600 !important; line-height: 1.1; color: #17201C !important; }
+.ph-wrap .cn-song .cn-info .cn-cell.bpm { display: flex !important; flex-direction: row !important; align-items: center; justify-content: center; gap: 5px !important; padding: 6px 0 !important; background: #0F1A16 !important; color: #ECE6D9 !important; }
+.ph-wrap .cn-song .cn-info .cn-cell.bpm i { display: none !important; }
+.ph-wrap .cn-song .cn-info .cn-cell.bpm .cn-metro { width: 13px !important; height: 13px !important; color: #C6A664 !important; stroke: #C6A664; }
+.ph-wrap .cn-song .cn-info .cn-cell.bpm b { font-family: 'Bodoni Moda', serif !important; font-size: 16px !important; font-weight: 400 !important; color: #ECE6D9 !important; }
+.ph-wrap .cn-song .cn-info .cn-ytlink { display: flex !important; align-items: center; justify-content: center; gap: 4px; padding: 5px 0 !important; border-top: 1px solid #DDD6C8 !important; background: #FBF9F4 !important; color: #6E5A2E !important; font-size: 11px; text-decoration: none; min-height: 28px; }
+.ph-wrap .cn-song .cn-info .cn-ytlink::after { content: '유튜브'; }
+.ph-wrap .cn-song .cn-info .cn-ytlink svg { width: 13px; height: 13px; }
+.ph-wrap .cn-song .cn-sec-form, .ph-wrap .cn-song .ph-songsheets, .ph-wrap .cn-song .cn-sec-ref { margin-left: 0 !important; }
+.ph-wrap .cn-song .cn-sec-form .cn-lab { display: none !important; }
+/* 아래 줄 — 글자 링크처럼 */
+.ph-wrap .cn-song .cn-acts { display: flex !important; gap: 18px !important; align-items: center; }
+.ph-wrap .cn-song .cn-svbtn, .ph-wrap .cn-song .cn-edit > summary { all: unset; cursor: pointer; display: inline-flex !important; align-items: center; gap: 4px; min-height: 32px; font-size: 13px !important; color: #6E5A2E !important; text-decoration: underline; text-underline-offset: 3px; }
+.ph-wrap .cn-song .cn-svbtn svg, .ph-wrap .cn-song .cn-edit > summary svg { display: none !important; }
+.ph-wrap .cn-song .cn-svbtn b { font-weight: 400; font-size: 12px; text-decoration: none; }
+.ph-wrap .cn-song .cn-edit > summary::after { content: '수정'; }
+.ph-wrap .cn-song .cn-edit > summary { font-size: 0 !important; }
+.ph-wrap .cn-song .cn-edit > summary::after { font-size: 13px; }
+.ph-wrap .cn-song .cn-edit { margin-left: auto; }
+.ph-wrap .cn-song .cn-sec-ref { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ph-wrap .cn-song .cn-sec-ref .cn-lab { font-size: 12px !important; color: #5C6660 !important; }
+.ph-wrap .cn-song .cn-sec-ref .cn-lab small, .ph-wrap .cn-song .cn-sec-ref .cn-lab em { display: none; }
