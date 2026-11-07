@@ -84,7 +84,7 @@ function generatePracticeDates(startStr, months, biweekly, skipLastFriday) {
 router.get('/schedule', requireTeam, async (req, res) => {
   const team = req.ctx.current;
   await hubPage.send(req, res, {
-    nav: 'schedule', tab: 'sched', title: `${team} 스케줄표`,
+    nav: 'schedule', tab: 'sched', title: `${team} 스케쥴`,
     hero: { barOnly: true },
   });
 });

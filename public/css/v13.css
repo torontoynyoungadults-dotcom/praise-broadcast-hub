@@ -1069,3 +1069,7 @@ body { background: var(--bg); }
 .yn .s13 .s13-sel .acts button { all: unset; box-sizing: border-box; cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: center; font-size: 14px; text-align: center; padding: 0 6px; border: 1px solid #D6CFBF; color: #17201C; background: #FFFFFF; }
 .yn .s13 .s13-sel .acts button:first-child { background: #0F1A16; color: #ECE6D9; border-color: #0F1A16; }
 .yn .s13.v-card .s13-main > .s13-tabs { margin-bottom: 0; }
+.yn .s13 .s13-rh { grid-template-columns: 70px minmax(0, 1fr) auto !important; }
+.yn .s13 .s13-rh .d b { white-space: nowrap; }
+.yn .s13 .s13-foot button:not(.u) { all: unset; cursor: pointer; font-size: 12px !important; color: #6E5A2E !important; padding: 8px 0 !important; }
+.yn .s13 .s13-grid dt { font-weight: 400 !important; }
