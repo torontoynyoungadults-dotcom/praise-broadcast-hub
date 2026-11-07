@@ -1469,3 +1469,14 @@ html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters
 .ph-wrap:has(.v13-ptitle) .ph-btn.pri { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16 !important; }
 .ph-wrap:has(.v13-ptitle) input:not([type="checkbox"]):not([type="radio"]), .ph-wrap:has(.v13-ptitle) select, .ph-wrap:has(.v13-ptitle) textarea { border-radius: 0 !important; border: 1px solid #D6CFBF !important; background: #FFFFFF !important; box-shadow: none !important; }
 .ph-wrap:has(.v13-ptitle) .ph-admintabs { display: none !important; }
+
+/* ===== 메뉴 · 머리 바 — 넓은 화면에서 양 끝에 붙지 않게: 가운데 960px, 칸마다 같은 너비로 가운데 정렬 ===== */
+@media (min-width: 640px) {
+  .ph-hubnav .ph-hubnav-in { display: flex !important; justify-content: center !important; gap: 0 !important; }
+  .ph-hubnav .ph-hubtab { flex: 1 1 0 !important; text-align: center !important; justify-content: center !important; padding-left: 8px !important; padding-right: 8px !important; }
+}
+@media (min-width: 900px) {
+  .ph-hubnav .ph-hubnav-in { max-width: 880px !important; margin: 0 auto !important; }
+  .ph-hero .ph-bar { max-width: 960px; margin: 0 auto !important; box-sizing: border-box; }
+}
+@media (max-width: 639px) { .ph-hubnav .ph-hubnav-in { padding: 0 4px; } }
