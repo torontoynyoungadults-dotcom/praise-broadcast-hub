@@ -173,8 +173,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
   const content = `
   ${pageShell.hubNav('admin', '')}
   ${pageShell.hero({ barOnly: true })}
-  <section class="ad13-top"><h1>관리</h1><p>관리자에게만 보이는 화면이에요</p>
-    <nav class="ad13-nav" aria-label="관리 바로가기"><a href="#ad13-team">팀원</a><a href="#ad13-time">일정</a><a href="#practice-mail">자동 안내</a><a href="#ad13-conti">콘티</a><a href="#ad13-link">연결</a></nav></section>
+
   ${(() => { const tq = ((activeTeams[0] && activeTeams[0]['팀명']) || '') ? '?team=' + encodeURIComponent((activeTeams[0] && activeTeams[0]['팀명']) || '') : ''; const row = (href, t, sub) => `<a class="ad13-row" href="${href}"><span><b>${t}</b><small>${sub}</small></span><i>›</i></a>`;
     return `<section class="ad13-sec" id="ad13-team"><div class="v13-sechead"><h2 class="ph-h2">팀원</h2></div><div class="ad13-rows">
       ${row('/roster' + tq, '팀원 관리', '포지션 · 관리자 권한 · 초대')}${row('/sound' + tq, '마이크 · 인이어 · P16', '싱어별 마이크 라인 · 인이어 번호')}${row('/conti' + tq + '#cn-guest', '객원 공유 링크', '로그인 없이 그날 콘티만 — 객원이 서는 날 예배 콘티에서')}</div></section>

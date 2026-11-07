@@ -320,7 +320,6 @@ function planOpts(q) {
 }
 router.get('/schedule/generate', requireTeam, async (req, res) => {
   const team = req.ctx.current;
-  if (!req.ctx.isAdmin) return spa.redirect(req, res, `/schedule?team=${encodeURIComponent(team)}`);
   const o = planOpts(req.query), p = practicePlan.plan(o);
   const ts = await timeSettings.get(team);
   const qs = (x) => { const u = new URLSearchParams({ team, year: String(p.year), every: String(p.every), last: p.skipLast ? '1' : '0', hol: p.skipHol ? '1' : '0', start: p.start }); Object.keys(x || {}).forEach((k) => u.set(k, x[k])); return `/schedule/generate?${u.toString()}`; };
@@ -340,7 +339,7 @@ router.get('/schedule/generate', requireTeam, async (req, res) => {
   const content = `
   ${pageShell.hero({ barOnly: true })}
   <section class="g13-top">
-    <a class="g13-back" href="/schedule?team=${encodeURIComponent(team)}">‹ 스케줄표 · 관리자</a>
+    <a class="g13-back" href="/schedule?team=${encodeURIComponent(team)}">‹ 스케쥴</a>
     <h1>연습 일정<br>미리 만들기</h1>
     <div class="g13-year"><a href="${qs({ year: String(p.year - 1), start: '' })}" aria-label="${p.year - 1}년">‹</a><span>${p.year}</span><a href="${qs({ year: String(p.year + 1), start: '' })}" aria-label="${p.year + 1}년">›</a></div>
     <div class="g13-cnt"><div><b>${p.counts.all}</b><small>연습 자리</small></div><div><b>${p.counts.ok}</b><small>날짜 확정</small></div><div class="t"><b>${p.counts.tbd}</b><small>미정</small></div></div>
@@ -366,7 +365,6 @@ router.get('/schedule/generate', requireTeam, async (req, res) => {
 });
 router.post('/schedule/generate', requireTeam, async (req, res) => {
   const team = req.ctx.current;
-  if (!req.ctx.isAdmin) return res.status(403).send('관리자만');
   const p = practicePlan.plan(planOpts(req.body || {}));
   const ts = await timeSettings.get(team), note = timeSettings.practiceNote(ts);
   const all = (await sheetsDb.readAll('연습일정', { fresh: true })).filter((r) => r['팀ID'] === team);

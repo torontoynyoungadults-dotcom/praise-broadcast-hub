@@ -1117,3 +1117,11 @@ body:has(.ph-me[open]) .v13-livebar, body:has(.ph-me[open]) .hm-cta2, body:has(.
 /* 섬기는 이 — 방송 줄을 뺐으니 마지막 줄 테두리 정리 */
 .lu-card .ph-poscell:nth-child(n+4):nth-child(-n+9) { border-bottom: 0; }
 @media (min-width: 900px) { .ph-hubnav .ph-hubnav-in { max-width: 960px; margin: 0 auto; } .ph-bar { max-width: none; } }
+/* 스케쥴 · 라이브러리 흑녹 띠 — .yn .shell 의 안쪽 여백(16px)만큼 더 넓혀 위 머리와 맞춤 */
+@media (min-width: 900px) {
+  .yn .s13 .s13-top, .yn .l13-top, .yn .l13-tabs { margin-left: calc(-28px - var(--v13-shellpad, 16px)) !important; margin-right: calc(-28px - var(--v13-shellpad, 16px)) !important; padding-left: calc(28px + 16px); padding-right: calc(28px + 16px); }
+}
+.yn .s13 .s13-cal2 > button[data-mysched] { background: transparent !important; color: #E2CC97 !important; border: 1px solid rgba(198,166,100,0.45) !important; box-shadow: none !important; border-radius: 0 !important; font-weight: 400 !important; }
+.ph-wrap:has(.ad13-sec) .ph-card { background: #FBF9F4 !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; margin-bottom: 24px !important; }
+.ph-wrap:has(.ad13-sec) .ph-admintabs { display: none !important; }
+#ph-tabbody > .ad13-sec:first-of-type { margin-top: 22px; }
