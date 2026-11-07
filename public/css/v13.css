@@ -1715,3 +1715,19 @@ html body .yn .yc-sh:has(.pk13) .yc-x { color: #E2CC97 !important; font-size: 22
 html body .yn .pk13-h, html body .yn .pk13-h p { text-align: left !important; }
 html body .yn .pk13-h::after { display: none !important; }
 html body .ls13 video.ls13-video { box-sizing: border-box; width: 100% !important; max-width: 100% !important; height: auto !important; max-height: min(56vh, 520px) !important; aspect-ratio: auto; object-fit: contain; margin: 14px 0 18px; }
+
+/* ---- 스케쥴 표 — 칸 선 · 줄 바탕 · 가운데 정렬 · 빈칸 빗금 (V13 제안) ---- */
+html body .yn .s13-t { border-collapse: collapse !important; }
+html body .yn .s13-t thead th { border: 1px solid #2C3A33 !important; text-align: center !important; }
+html body .yn .s13-t thead th.dc { text-align: left !important; }
+html body .yn .s13-t tbody td { border: 1px solid #DDD6C8 !important; text-align: center !important; vertical-align: middle !important; }
+html body .yn .s13-t tbody td > span { display: block; text-align: center !important; line-height: 1.5; }
+html body .yn .s13-t tbody th.dc { vertical-align: middle !important; border: 1px solid #DDD6C8 !important; border-right-color: #C9BFA8 !important; }
+html body .yn .s13-t tbody tr:nth-child(even) td:not(.me):not(.tbd) { background-color: #F7F3EA !important; }
+html body .yn .s13-t tbody td.tbd { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(198,166,100,.14) 6px 7px) !important; }
+html body .yn .s13-t tbody tr:nth-child(even) td.tbd { background-color: #F7F3EA !important; }
+html body .yn .s13-t tbody td.me { outline: 2px solid #C6A664; outline-offset: -2px; }
+html body .yn .s13-t tbody td.ed:hover:not(.me) { background-color: #E6DCC2 !important; }
+html body .yn .s13-t tbody td.offc { text-align: left !important; vertical-align: middle !important; }
+html body .yn .s13-t tbody td.offc > span { display: inline; text-align: left !important; }
+html body .yn .s13-t tbody td.offc > span + span::before { content: ' · '; color: #8E9A94; }
