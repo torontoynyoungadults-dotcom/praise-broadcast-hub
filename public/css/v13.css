@@ -478,3 +478,56 @@ body { background: var(--bg); }
 .hm-cta2 .yi { color: #C6A664; width: 18px; height: 18px; }
 .ph-wrap:has(.hm-cta2) { padding-bottom: 120px !important; }
 .ph-hero-baronly + .hm-dark { margin-top: 0; }
+
+/* ===== 예배 콘티 아래쪽 — 시안(Final) 그대로 ===== */
+/* 말씀 후 */
+.v13-after .v13-sechead { padding-bottom: 4px; }
+.v13-arow { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 14px 0; border-bottom: 1px solid #DDD6C8; }
+.v13-arow .l { font-size: 13px; color: #5C6660; }
+.v13-arow .m { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.v13-arow .m b { font-family: 'MaruBuri', serif; font-size: 16px; font-weight: 600; line-height: 1.4; color: #17201C; }
+.v13-arow .m small { font-size: 12px; color: #5C6660; }
+.v13-arow .m small.none { font-size: 14px; color: #8A4A12; }
+.v13-arow .k { display: flex; flex-direction: column; align-items: flex-end; }
+.v13-arow .k b { font-family: 'Bodoni Moda', serif; font-size: 20px; font-weight: 600; color: #17201C; }
+.v13-arow .k small { font-size: 11px; color: #5C6660; }
+.v13-after-edit { margin-top: 6px !important; }
+.v13-after-edit > .ph-card { margin: 8px 0 18px !important; }
+.v13-after-edit > .ph-card .ph-h2 { font-size: 16px !important; }
+.v13-after-edit > .ph-card .ph-h2::after { display: none !important; }
+
+/* 섬기는 이 — 6칸 격자: 인도·싱어 한 줄 전체, 세션 2열, 방송 3칸 한 줄 */
+.lu-card .lu-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+.lu-card .ph-poscell { grid-column: span 3 !important; }
+.lu-card .ph-poscell:nth-child(-n+3) { grid-column: 1 / -1 !important; }
+.lu-card .ph-poscell:nth-child(n+4):nth-child(even) { border-left: 0 !important; }
+.lu-card .ph-poscell:nth-child(n+4):nth-child(-n+9):nth-child(odd) { border-left: 1px solid #ECE6DA !important; }
+.lu-card .ph-poscell:nth-child(n+10) { grid-column: span 2 !important; border-left: 0 !important; border-top: 1px solid #DDD6C8 !important; background: #F5F1E8 !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-possummary { display: flex !important; align-items: baseline; gap: 5px; padding: 12px 0 12px 14px !important; flex-wrap: wrap; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-poslabel { font-size: 12px !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-chipname { font-size: 14px !important; }
+.lu-card .ph-poscell:nth-child(n+10) .lu-io { display: none !important; }
+.lu-card .ph-poscell:nth-child(n+10) .ph-posnames { flex-direction: row !important; gap: 4px; flex-wrap: wrap; }
+.lu-card .ph-poscell:nth-child(n+4) .ph-possummary { grid-template-columns: 52px minmax(0, 1fr) !important; }
+.lu-card .ph-poscell:nth-child(2), .lu-card .ph-poscell:nth-child(3) { background: #FBF9F4 !important; }
+.lu-card .ph-poscell:nth-child(2) .ph-possummary, .lu-card .ph-poscell:nth-child(3) .ph-possummary { padding: 12px 14px !important; }
+.lu-card .ph-namechip.guest .ph-chipname::after { content: none !important; }
+.lu-card .ph-poscell[open] { grid-column: 1 / -1 !important; }
+.lu-guests { margin: 0; padding: 0 14px 12px; background: #F5F1E8; font-size: 12px; color: #6E5A2E; }
+.lu-card .lu { display: flex; flex-direction: column; }
+
+/* 녹음 3칸 */
+.v13-rcs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin-top: 10px; }
+.v13-rc { all: unset; cursor: pointer; min-height: 56px; background: #FBF9F4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; }
+.v13-rc b { font-size: 14px; font-weight: 500; color: #17201C; }
+.v13-rc small { font-size: 12px; color: #5C6660; }
+.v13-rc[aria-expanded="true"] { background: #E6DCC2; }
+.v13-rc:focus-visible { outline: 2px solid #C6A664; outline-offset: -2px; }
+.v13-rp { background: #FBF9F4; padding: 10px 14px; margin-top: 2px; }
+#cn-recs > .ph-sub, #cn-recs .ph-add { margin-top: 10px !important; font-size: 12px !important; }
+
+/* 나눔 */
+.v13-share .ph-inlineform { display: flex !important; gap: 2px !important; margin-top: 10px; }
+.v13-share .ph-inlineform input[type="text"] { flex: 1; min-height: 46px; border: 1px solid #D6CFBF !important; background: #FBF9F4 !important; padding: 0 12px; font-size: 14px; border-radius: 0 !important; }
+.v13-share .ph-inlineform .ph-btn { min-height: 46px; padding: 0 18px; border: 0 !important; background: #0F1A16 !important; color: #E2CC97 !important; font-size: 14px; border-radius: 0 !important; }
+.v13-share .ph-list:has(> .ph-sub:only-child) .ph-sub { font-size: 14px; color: #5C6660; margin: 0; }

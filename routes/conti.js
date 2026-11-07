@@ -131,7 +131,7 @@ function lineupCell(scope, team, posKey, names, roster, infoMap, snd) {
   const lead = honorific.isLeadPos(posKey);       // 인도자 칸에 들어간 이름은 누구든(객원 포함) "OOO 목사"
   const isP = (n) => lead || honorific.isPastorRoles((infoMap[n] || {}).역할);       // 목회자: 칩에는 "윤 목사", 그 밖에는 "윤정환 목사"
   const shortOf = shortNames.shortFn(Object.keys(infoMap).filter((n) => !honorific.isPastorRoles((infoMap[n] || {}).역할)));       // 같은 이름이면 조희 · 김희 처럼 성을 붙임
-  const chipName = (n) => (isP(n) ? honorific.withTitle(n) : shortOf(n));       // 목회자 · 인도자는 항상 "윤정환 목사"(줄이지 않음)
+  const chipName = (n) => (isP(n) ? honorific.withTitle(n) : n);       // V13 — 시안처럼 이름 전체       // 목회자 · 인도자는 항상 "윤정환 목사"(줄이지 않음)
   const chip = (n) => `<span class="ph-namechip${roster.indexOf(n.이름) === -1 ? ' guest' : ''}${isP(n.이름) ? ' pastor' : ''}" title="${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'md', { noBadge: true })}<span class="ph-chipname">${esc(chipName(n.이름))}</span>${ioBadges(soundSetup.partsFor(snd, posKey, n.이름))}</span>`;
   const chips = names.length ? names.map(chip).join('') : '<span class="ph-namechip none"><span class="ph-dash">—</span></span>';
   const assignedRows = names.map((n) => `<div class="ph-assignedrow">${avatar.avatarHtml(n.이름, infoMap[n.이름] || {}, 'sm', { noBadge: true })}<span>${esc(isP(n.이름) ? honorific.withTitle(n.이름) : n.이름)}</span>
@@ -141,7 +141,7 @@ function lineupCell(scope, team, posKey, names, roster, infoMap, snd) {
       </form></div>`).join('');
   return `<details class="ph-poscell">
     <summary class="ph-possummary">
-      <span class="ph-pos-head"><span class="ph-posicon">${positionIconSvg(posKey)}</span><span class="ph-poslabel">${esc(posKey)}</span></span>
+      <span class="ph-pos-head"><span class="ph-posicon">${positionIconSvg(posKey)}</span><span class="ph-poslabel">${esc(({ 인도자: '인도', 어쿠기타: '어쿠' })[posKey] || posKey)}</span></span>
       <span class="ph-posnames">${chips}</span>
     </summary>
     <div class="ph-posbody">
@@ -177,6 +177,7 @@ async function lineupCard(team, scope, byPos, roster, infoMap, eventName, isAdmi
     <div class="lu${scope.event ? ' ev' : ''}">
       <div class="lu-head">${head}<span class="lu-hint">칸을 누르면 바로 배정해요</span></div>
       <div class="lu-grid">${cells}</div>
+      ${(() => { const g = Object.keys(infoMap).filter((n) => infoMap[n].객원 && Object.values(byPos).some((l) => (l || []).some((x) => x.이름 === n))); return g.length ? `<p class="lu-guests">객원 · ${esc(g.join(', '))}</p>` : ''; })()}
     </div>
     <p class="ph-sub" style="margin-top:10px;">${[`<a href="/sound?team=${encodeURIComponent(team)}">마이크 · 인이어 번호 →</a>`, isAdmin ? `<a href="/roster?team=${encodeURIComponent(team)}">팀원관리 →</a>` : '', scope.event ? '' : `<a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 여러 주 한눈에 보기 →</a>`].filter(Boolean).join(' · ')}</p>
   </div>`;
@@ -989,6 +990,18 @@ router.get('/conti', requireTeam, async (req, res) => {
   const dDays = Math.round((new Date(date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000);
   const dTxt = dDays === 0 ? '오늘' : dDays > 0 ? `D-${dDays}` : '지난 주일';
   const cq = (d) => `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(d)}`;
+  // V13 — 말씀 후(설교 후 찬양 · 폐회송) 한 섹션 — 줄: 라벨 | 제목 · 원곡팀 · 송폼 | 키 (♩ BPM)
+  const afterRows = (() => {
+    const keyTxt = (x) => esc(String(x['Key'] || '').replace(/\s*-+>\s*/g, '→'));
+    const formLine = (x) => String(x['송폼'] || '').split(/[\s,]+/).filter(Boolean).join(' › ');
+    const lastC = w.conti[w.conti.length - 1];
+    const same = (x) => lastC && String(lastC['제목'] || '').trim() && String(lastC['제목'] || '').trim() === String(x['제목'] || '').trim();
+    const row = (label, x) => (x
+      ? `<div class="v13-arow"><span class="l">${label}</span><span class="m"><b>${esc(x['제목'] || '(제목 없음)')}</b><small>${same(x) ? '콘티 마지막 곡과 같아요' : esc([x['팀'], formLine(x)].filter(Boolean).join(' · '))}</small></span><span class="k"><b>${keyTxt(x)}</b>${x['BPM'] ? `<small>♩ ${esc(x['BPM'])}</small>` : ''}</span></div>`
+      : `<div class="v13-arow"><span class="l">${label}</span><span class="m"><small class="none">미정</small></span><span class="k"></span></div>`);
+    return row('설교 후 찬양', w.final[0]) + w.final.slice(1).map((x) => row('', x)).join('')
+      + row('폐회송', w.closing[0]) + w.closing.slice(1).map((x) => row('', x)).join('');
+  })();
   const bigDate = `<section class="v13-bigdate" aria-label="${esc(week.labelKo(date))}">
     <span class="v13-bd-k">주일 3부 예배 · ${dTxt}</span>
     <div class="v13-bd-row"><a class="v13-bd-nav" href="${cq(week.shiftWeek(date, -1))}" aria-label="이전 주일">${ui.icon('prev')}</a><span class="v13-bd-d">${date.slice(5, 7)}<i>.</i>${date.slice(8, 10)}</span><a class="v13-bd-nav" href="${cq(week.shiftWeek(date, 1))}" aria-label="다음 주일">${ui.icon('next')}</a></div>
@@ -1024,6 +1037,9 @@ router.get('/conti', requireTeam, async (req, res) => {
     ${songForm('콘티', team, scope, roster, byPos, hist)}
   </div>
 
+  <section class="ph-card v13-after"><div class="v13-sechead"><h2 class="ph-h2">말씀 후</h2></div>
+    ${afterRows}
+    <details class="v13-more v13-after-edit"><summary>말씀 후 곡 올리기 · 고치기</summary>
   <div class="ph-card">
     <h2 class="ph-h2">설교 후 찬양</h2>
     <div class="cn-songs">${w.final.length ? w.final.map((s) => songCard(s, Object.assign({ index: 1, kind: '결단' }, songCtx))).join('') : '<p class="ph-sub">아직 없어요. 한 곡만 올릴 수 있어요.</p>'}</div>
@@ -1037,20 +1053,26 @@ router.get('/conti', requireTeam, async (req, res) => {
     ${w.closing.length ? '' : songForm('폐회송', team, scope, roster, byPos, null)}
   </div>
 
+    </details>
+  </section>
+
   ${lineup}
   ${guestDay}
 
   ${packageSheetsCard(team, scope, w.sheets, true, w.conti.concat(w.final).concat(w.closing).map((r) => ({ id: r['ID'], title: String(r['제목'] || '제목 없음'), kind: r['구분'] })))}
 
   <div class="ph-card" id="cn-recs">
-    <h2 class="ph-h2">녹음</h2>
+    <div class="v13-sechead"><h2 class="ph-h2">녹음</h2></div>
+    ${(() => {
+      const pr = w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고'), wr = w.recs.filter((r) => r['구분'] === '예배'), rf = w.recs.filter((r) => r['구분'] === '참고');
+      const cell = (i, t, sub) => `<button type="button" class="v13-rc" data-v13-rc="${i}" aria-expanded="false"><b>${t}</b><small>${sub}</small></button>`;
+      return `<div class="v13-rcs">${cell(0, '연습', pr.length ? pr.length + '개' : '아직 없음')}${cell(1, '예배', wr.length ? wr.length + '개' : '예배 후')}${cell(2, '참고 음원', rf.length ? rf.length + '곡' : '아직 없음')}</div>`;
+    })()}
+    <div class="v13-rp" data-v13-rp="0" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="v13-rp" data-v13-rp="1" hidden><div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div></div>
+    <div class="v13-rp" data-v13-rp="2" hidden><p class="ph-sub">곡 MP3 — 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</p><div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div></div>
+    <script>(function(){var b=document.querySelectorAll('[data-v13-rc]');b.forEach(function(x){x.addEventListener('click',function(){var i=x.getAttribute('data-v13-rc'),open=x.getAttribute('aria-expanded')!=='true';b.forEach(function(y){y.setAttribute('aria-expanded',String(open&&y===x));});document.querySelectorAll('[data-v13-rp]').forEach(function(p){p.hidden=!(open&&p.getAttribute('data-v13-rp')===i);});});});function h(){if(location.hash==='#cn-recs'){var f=document.querySelector('[data-v13-rc="0"]');if(f&&f.getAttribute('aria-expanded')!=='true')f.click();}}h();window.addEventListener('hashchange',h);})();</script>
     ${nasOpenUrl() ? `<p class="ph-sub" style="margin:-4px 0 10px;"><a class="ph-li-link" href="${esc(nasOpenUrl())}" target="_blank" rel="noopener">NAS 열기 ↗</a> — 옛 녹음 · 영상은 NAS 화면에서 직접 찾아 들어요 (앱 대역폭을 쓰지 않아요).${nasLoginHint() && req.ctx && req.ctx.isAdmin && !guestAccess.isGuest(req.ctx.member) ? `<br><span class="ph-sub">${esc(nasLoginHint())}</span>` : ''}</p>` : ''}
-    <h3 class="ph-h3">연습 녹음</h3>
-    <div class="ph-list">${w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').length ? w.recs.filter((r) => r['구분'] !== '예배' && r['구분'] !== '참고').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
-    <h3 class="ph-h3">예배 녹음</h3>
-    <div class="ph-list">${w.recs.filter((r) => r['구분'] === '예배').length ? w.recs.filter((r) => r['구분'] === '예배').map((r) => recItem(r, true, markSongs)).join('') : '<p class="ph-sub">아직 없어요.</p>'}</div>
-    <h3 class="ph-h3">참고 음원 <span class="ph-sub" style="font-weight:500">— 곡 MP3 · 라이브 악보에서 유튜브 옆 「참고 음원」 으로, 바꾼 키로 들려줘요</span></h3>
-    <div class="ph-list">${w.recs.filter((r) => r['구분'] === '참고').length ? w.recs.filter((r) => r['구분'] === '참고').map((r) => recItem(r, true, null)).join('') : '<p class="ph-sub">아직 없어요. 제목을 콘티 곡 이름과 같게 올려 주세요 (비워 두면 파일 이름).</p>'}</div>
     <details class="ph-add">
       <summary>+ 녹음 올리기</summary>
       <form method="post" action="/conti/recordings" enctype="multipart/form-data" class="ph-inlineform" data-rec-form>
@@ -1065,12 +1087,12 @@ router.get('/conti', requireTeam, async (req, res) => {
     </details>
   </div>
 
-  <div class="ph-card">
-    <h2 class="ph-h2">댓글</h2>
+  <div class="ph-card v13-share">
+    <div class="v13-sechead"><h2 class="ph-h2">나눔</h2></div>
     <div class="ph-list">${w.comments.length ? w.comments.map(commentItem).join('') : '<p class="ph-sub">아직 댓글이 없어요.</p>'}</div>
     <form method="post" action="/conti/comments" class="ph-inlineform">
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
-      <input type="text" name="내용" placeholder="댓글을 남겨보세요" required>
+      <input type="text" name="내용" placeholder="팀에게 남길 말" required>
       <button class="ph-btn" type="submit">등록</button>
     </form>
   </div>
