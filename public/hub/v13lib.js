@@ -202,4 +202,46 @@
       try { if (window.YNPlayer && YNPlayer.mark) YNPlayer.mark(); } catch (e) {}
     };
   }
+
+  /* 곡 · 악보 — 펼친 곡 (테마): 요약 칩 · 악보 줄 · 지난 콘티 기록 줄 */
+  if (typeof rpDetail === 'function') {
+    var origDet = rpDetail;
+    var cleanNote = function (t) { return String(t || '').split(/\s*·\s*|\n/).filter(function (x) { return x && !/^헤더\|/.test(x) && !/^\{.*\}$/.test(x); }).join(' · '); };
+    var dotD = function (d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); return m ? '<b>' + m[2] + '.' + m[3] + '</b><small>' + m[1] + '</small>' : '<b>행사</b>'; };
+    window.rpDetail = rpDetail = function (s) {
+      if (RP.editSong === s.id || (RP.editSheet && s.sheets.some(function (x) { return x.id === RP.editSheet; }))) return origDet(s);
+      var chips = function (o, f) { var ks = Object.keys(o || {}).sort(function (a, b) { return o[b] - o[a]; }); return ks.map(function (k) { return '<span class="c"><b>' + esc(f ? f(k) : k) + '</b><i>×' + o[k] + '</i></span>'; }).join(''); };
+      var h = '<div class="rp-det l13-det">';
+      h += '<div class="l13-sum">' + (Object.keys(s.keys || {}).length ? '<div class="g"><span class="k">Key</span><div class="cs key">' + chips(s.keys, function (k) { return String(k).replace(/\s*-+>\s*/g, '→'); }) + '</div></div>' : '') +
+        (Object.keys(s.leaders || {}).length ? '<div class="g"><span class="k">인도</span><div class="cs">' + chips(s.leaders, leadTitle) + '</div></div>' : '') +
+        (s.theme ? '<div class="g"><span class="k">주제</span><div class="cs">' + String(s.theme).split(/\s*,\s*/).map(function (t) { return '<span class="c"><b>' + esc(t) + '</b></span>'; }).join('') + '</div></div>' : '') +
+        (s.memo ? '<p class="memo">' + rpNl(s.memo) + '</p>' : '') +
+        (D.canEdit ? '<button type="button" class="l13-tl" onclick="rpEditSong(this)">원곡팀 · 주제 · 메모 고치기</button>' : '') + '</div>';
+      if (s.sheets.length) {
+        h += '<div class="l13-sub"><span>악보</span><em>' + s.sheets.length + '</em><i></i></div><div class="l13-shs">' + s.sheets.map(function (x) {
+          var meta = [x.key && 'Key ' + x.key, x.bpm && x.bpm + ' BPM', x.date && rpDay(x.date), x.leader && leadList(x.leader), x.range ? x.range + '쪽' : (x.pages && x.pages + '쪽'), cleanNote(x.note)].filter(Boolean).map(esc).join(' · ');
+          return '<div class="l13-sh" data-sid="' + esc(x.id) + '">' + sheetLink(x, 'repo', AIC.file + '<span class="n"><b>' + esc(x.name || x.title) + '</b>' + (meta ? '<small>' + meta + '</small>' : '') + '</span>', 'l13-shl') +
+            '<span class="a">' + (x.live ? '<a class="pdf" href="' + esc(x.href || x.url) + '" target="_blank" rel="noopener">PDF ↗</a>' : '') + (D.canEdit ? '<button type="button" class="l13-tl" onclick="rpEditSheet(this)">고치기</button>' : '') + '</span></div>';
+        }).join('') + '</div>';
+      } else h += '<p class="l13-empty">올려 둔 악보가 없어요.</p>';
+      if (s.history.length) {
+        var hs = RP.histAll && RP.histAll[s.id] ? s.history : s.history.slice(0, 8);
+        h += '<div class="l13-sub"><span>지난 콘티</span><em>' + s.uses + '회</em><i></i></div><div class="l13-hist">' + hs.map(function (x) {
+          var lead = x.leader || (x.leaders || []).join(', '), solo = (x.solo || []).map(function (y) { return (y.name || '') + (y.part ? '(' + y.part + ')' : ''); }).join(', ');
+          var form = x.form ? String(x.form).split(/\s*[-,>›]\s*/).filter(Boolean).join(' › ') : '';
+          var attrs = typeof ldOpen === 'function' ? ldBtnAttrs(x.wk || x.date, s.title) : '';
+          return '<div class="r"><button type="button" class="d"' + attrs + ' title="그날 자세히">' + dotD(x.date) + '</button>' +
+            '<span class="m"><span class="t">' + [x.key && '<i class="key">' + esc(String(x.key).replace(/\s*-+>\s*/g, '→')) + '</i>', x.bpm && esc(x.bpm) + ' BPM', lead && '인도 ' + esc(typeof leadList === 'function' ? leadList(lead) : lead), x.kind === '결단' && '설교 후', solo && '솔로 ' + esc(solo)].filter(Boolean).join(' · ') + '</span>' +
+              (form ? '<small>' + esc(form) + '</small>' : '') + (x.note ? '<small class="nt">' + esc(cleanNote(x.note)) + '</small>' : '') + '</span>' +
+            (x.link ? '<a class="yt" target="_blank" rel="noopener noreferrer" href="' + esc(x.link) + '" aria-label="링크 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></a>' : '<span></span>') + '</div>';
+        }).join('') + '</div>' + (s.history.length > hs.length ? '<button type="button" class="l13-more" onclick="RP.histAll=RP.histAll||{};RP.histAll[\'' + esc(jsq(s.id)) + '\']=1;rpRedraw();">기록 더 보기 · ' + (s.history.length - hs.length) + '</button>' : '');
+      }
+      return h + '</div>';
+    };
+  }
+  /* 통계 곡 자세히 — 같은 숫자 칸 두 개는 하나로 */
+  if (window.YNStats && YNStats.song) {
+    var oSong = YNStats.song;
+    YNStats.song = function (o) { if (o && o.tiles && o.tiles.length === 2 && String(o.tiles[0][1]) === String(o.tiles[1][1])) o.tiles = [o.tiles[0]]; return oSong(o); };
+  }
 })();
