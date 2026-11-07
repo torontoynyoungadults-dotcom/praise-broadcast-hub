@@ -44,4 +44,25 @@
       return h + '</div>';
     };
   }
+
+  if (typeof arCard === 'function') {
+    window.arCard = arCard = function (d) {
+      var dd = dt(d.date), k = esc(jsq(d.key));
+      var songs = d.songs.map(function (s) { return '<span class="s">' + esc(s.title) + (s.key ? ' <i>' + esc(String(s.key).replace(/\s*-+>\s*/g, '→')) + '</i>' : '') + '</span>'; }).join('');
+      var hasClose = d.songs.some(function (s) { return s.kind === '폐회송'; });
+      var sub = [d.event ? esc(d.event.name || '') : '', d.lead.length ? '인도 ' + esc(d.lead.map(function (n) { return typeof dispSlot === 'function' ? dispSlot(n, '인도자') : n; }).join(', ')) : '', hasClose ? '폐회송 포함' : ''].filter(Boolean).join(' · ');
+      var recs = d.recs || [];
+      return '<article class="a13">' +
+        '<button type="button" class="a13-d" onclick="goWeek(\'' + k + '\')" aria-label="' + esc(d.date) + ' 콘티 열기"><b>' + dd.getDate() + '</b><small>' + (d.event ? WD[dd.getDay()] : '주일') + '</small></button>' +
+        '<div class="a13-b">' + (songs ? '<div class="a13-songs">' + songs + '</div>' : '<p class="a13-none">' + (d.files.length ? '콘티 없이 악보만 있어요' : '콘티 없음') + '</p>') +
+          (sub ? '<p class="a13-sub">' + sub + '</p>' : '') +
+          '<p class="a13-links">' + (recs.length ? '<button type="button" onclick="this.closest(\'.a13\').classList.toggle(\'recs\')">녹음 ' + recs.length + '</button>' : '') +
+            (d.files.length ? '<button type="button" onclick="this.closest(\'.a13\').classList.toggle(\'files\')">악보 ' + d.files.length + '</button>' : '') +
+            (typeof ldOpen === 'function' ? '<button type="button"' + ldBtnAttrs(d.key, '') + '>자세히</button>' : '') +
+            '<button type="button" onclick="goWeek(\'' + k + '\')">열기</button></p>' +
+          (d.files.length ? '<div class="a13-files afiles">' + d.files.map(fileChip).join('') + '</div>' : '') +
+          (recs.length ? '<div class="a13-recs arrecs">' + recs.map(function (r) { return recCard(r, d.key, true); }).join('') + '</div>' : '') +
+        '</div></article>';
+    };
+  }
 })();

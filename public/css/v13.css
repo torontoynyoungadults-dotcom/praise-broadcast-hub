@@ -780,3 +780,19 @@ body { background: var(--bg); }
 .yn .panel.rp-dock.on select { border-radius: 0 !important; }
 .yn .panel.rp-dock.on .btn { background: #C6A664 !important; color: #0F1A16 !important; border: 0 !important; border-radius: 0 !important; }
 .yn .l13-song .lpick i { border-radius: 0 !important; }
+/* 날짜별 */
+.yn .a13 { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-bottom: 1px solid #DDD6C8; }
+.yn .a13-d { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 2px; }
+.yn .a13-d b { font-family: 'Bodoni Moda', serif; font-size: 30px; line-height: 1; font-weight: 400; color: #17201C; }
+.yn .a13-d small { font-size: 11px; color: #5C6660; margin-top: 4px; }
+.yn .a13-b { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.yn .a13-songs { display: flex; flex-direction: column; gap: 2px; }
+.yn .a13-songs .s { font-family: 'MaruBuri', serif; font-size: 15px; font-weight: 600; line-height: 1.45; color: #17201C; }
+.yn .a13-songs i { font-style: normal; font-family: 'Bodoni Moda', serif; font-size: 14px; color: #6E5A2E; margin-left: 4px; }
+.yn .a13-none { margin: 0; font-size: 13px; color: #5C6660; }
+.yn .a13-sub { margin: 0; font-size: 12px; color: #5C6660; }
+.yn .a13-links { margin: 4px 0 0; display: flex; gap: 14px; flex-wrap: wrap; }
+.yn .a13-links button { all: unset; cursor: pointer; font-size: 12px; color: #6E5A2E; text-decoration: underline; text-underline-offset: 3px; padding: 4px 0; }
+.yn .a13-files, .yn .a13-recs { display: none !important; margin-top: 6px; }
+.yn .a13.files .a13-files, .yn .a13.recs .a13-recs { display: flex !important; flex-direction: column; gap: 4px; }
+.yn .archive-filters, .yn .panel.arctl { background: transparent !important; border: 0 !important; padding: 0 !important; }
