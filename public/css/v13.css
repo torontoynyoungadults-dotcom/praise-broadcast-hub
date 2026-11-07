@@ -1480,3 +1480,4 @@ html[data-theme="light"] .yn .l13-filters input[type="search"], .yn .l13-filters
   .ph-hero .ph-bar { max-width: 960px; margin: 0 auto !important; box-sizing: border-box; }
 }
 @media (max-width: 639px) { .ph-hubnav .ph-hubnav-in { padding: 0 4px; } }
+@media (min-width: 900px) { .ph-hero .ph-bar { width: 100% !important; } }
