@@ -1116,3 +1116,4 @@ body:has(.ph-me[open]) .v13-livebar, body:has(.ph-me[open]) .hm-cta2, body:has(.
 }
 /* 섬기는 이 — 방송 줄을 뺐으니 마지막 줄 테두리 정리 */
 .lu-card .ph-poscell:nth-child(n+4):nth-child(-n+9) { border-bottom: 0; }
+@media (min-width: 900px) { .ph-hubnav .ph-hubnav-in { max-width: 960px; margin: 0 auto; } .ph-bar { max-width: none; } }
