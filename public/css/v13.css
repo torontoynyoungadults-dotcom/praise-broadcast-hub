@@ -537,3 +537,121 @@ body { background: var(--bg); }
 .lu-card .ph-poscell:nth-child(n+10) .ph-possummary { flex-wrap: nowrap !important; padding: 12px 4px 12px 14px !important; white-space: nowrap; }
 .lu-card .ph-poscell:nth-child(n+10) .ph-posnames { flex-wrap: nowrap !important; }
 .lu-card .ph-poscell:nth-child(n+10) .ph-namechip.none .ph-dash::after { font-size: 14px; }
+
+/* ===== 스케줄표 — 시안(Schedule · Table · Calendar) ===== */
+.yn .s13 { font-family: 'Pretendard', system-ui, sans-serif; color: #17201C; }
+.yn .s13 button { font: inherit; border-radius: 0 !important; cursor: pointer; }
+.s13-top { background: #0F1A16; color: #ECE6D9; margin: 0 -16px; padding: 24px 16px 26px; }
+@media (min-width: 900px) { .s13-top { margin: 0 -28px; padding-left: 28px; padding-right: 28px; } }
+.s13-top h1 { margin: 0 0 14px; font-family: 'MaruBuri', serif; font-size: 24px; font-weight: 700; color: #ECE6D9; }
+.s13-mis { display: flex; flex-direction: column; gap: 2px; }
+.s13-mi { all: unset; cursor: pointer; display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; background: #22332C; color: #ECE6D9; }
+.s13-mi .d { font-family: 'Bodoni Moda', serif; font-size: 24px; }
+.s13-mi .m { display: flex; flex-direction: column; gap: 2px; }
+.s13-mi .m b { font-size: 14px; color: #E2CC97; font-weight: 500; }
+.s13-mi .m small { font-size: 12px; color: #A9B4AE; }
+.s13-mi .n { font-family: 'Bodoni Moda', serif; font-size: 16px; color: #C6A664; }
+.s13-none { margin: 0; font-size: 14px; color: #A9B4AE; }
+.s13-offs { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.s13-offs .k { font-size: 12px; color: #A9B4AE; margin-right: 2px; }
+.s13-offs .c { font-size: 12px; padding: 6px 9px; border: 1px solid #2C3A33; color: #D9D2C3; }
+.s13-offs .z { font-size: 12px; color: #8E9A94; }
+.s13-fix { margin-left: auto; min-height: 36px; padding: 0 12px; border: 1px solid #C6A664 !important; background: transparent !important; color: #E2CC97 !important; font-size: 12px !important; }
+.s13-offcard { margin-top: 10px; }
+.s13-offcard .offcard { margin: 0 !important; background: #FBF9F4 !important; border-radius: 0 !important; }
+.s13-offcard .offc-tog { display: none !important; }
+.s13-cal2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; margin-top: 14px; }
+.s13-cal2 > * { all: unset; cursor: pointer; min-height: 44px; border: 1px solid rgba(198,166,100,0.45); color: #E2CC97; display: flex; align-items: center; justify-content: center; font-size: 12px; text-align: center; }
+.s13-main { display: flex; flex-direction: column; gap: 16px; padding: 22px 0 32px; }
+.s13-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.s13-tabs button { min-height: 44px; border: 0 !important; background: #FBF9F4 !important; color: #17201C !important; font-size: 13px !important; }
+.s13-tabs button.on { background: #0F1A16 !important; color: #E2CC97 !important; }
+.s13-filt { display: flex; gap: 2px; }
+.s13-filt label { flex: 1; display: flex; flex-direction: column; gap: 2px; background: #FBF9F4; padding: 8px 12px; min-width: 0; }
+.s13-filt label span { font-size: 10px; color: #5C6660; }
+.s13-filt select { border: 0 !important; background: transparent !important; font: inherit; font-size: 14px; padding: 0 !important; min-height: 24px; box-shadow: none !important; width: 100%; color: #17201C; }
+.s13-chks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: -6px; }
+.s13-chks label { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 13px; }
+.s13-chks input { width: 18px; height: 18px; accent-color: #0F1A16; }
+.s13-empty { font-size: 14px; color: #5C6660; }
+.s13-cards { display: flex; flex-direction: column; gap: 20px; }
+.s13-mon { display: flex; flex-direction: column; gap: 2px; }
+.s13-mon h2 { margin: 0 0 8px; display: flex; align-items: baseline; gap: 10px; }
+.s13-mon h2 span { font-family: 'Bodoni Moda', serif; font-size: 28px; font-weight: 400; }
+.s13-mon h2 small { font-size: 13px; color: #5C6660; }
+.s13-mon h2 i { flex: 1; height: 1px; background: #C6A664; align-self: center; }
+.s13-row { background: #FBF9F4; }
+.s13-row.ev { background: #F2ECDD; }
+.s13-row.past { opacity: 0.7; }
+.s13-row.open { background: #FFFFFF; border: 1px solid #C6A664; opacity: 1; }
+.s13-rh { all: unset; cursor: pointer; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; }
+.s13-row.open .s13-rh { padding: 14px; }
+.s13-rh .d { display: flex; flex-direction: column; }
+.s13-rh .d b { font-family: 'Bodoni Moda', serif; font-size: 22px; line-height: 1; font-weight: 400; }
+.s13-row.open .s13-rh .d b { font-weight: 600; }
+.s13-rh .d small { font-size: 10px; color: #5C6660; }
+.s13-row.ev .s13-rh .d small { color: #6E5A2E; }
+.s13-rh .m { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.s13-rh .m > span { font-size: 13px; }
+.s13-rh .m em { font-style: normal; color: #8A4A12; }
+.s13-rh .m small { font-size: 11px; color: #5C6660; }
+.s13-rh .tag { font-size: 11px; padding: 4px 7px; border: 1px solid #D6CFBF; color: #5C6660; white-space: nowrap; }
+.s13-rh .tag.on { background: #0F1A16; color: #E2CC97; border-color: #0F1A16; }
+.s13-grid { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #ECE6DA; font-size: 13px; }
+.s13-grid .c { padding: 10px 12px; border-right: 1px solid #ECE6DA; border-bottom: 1px solid #ECE6DA; min-width: 0; }
+.s13-grid .c:nth-child(3n) { border-right: 0; }
+.s13-grid .c.w2 { grid-column: span 2; }
+.s13-grid .c.ed { cursor: pointer; }
+.s13-grid .c.ed:hover { background: #F5F1E8; }
+.s13-grid dt { font-size: 10px; color: #5C6660; }
+.s13-grid dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.s13-grid .c.me { background: #E6DCC2; }
+.s13-grid .c.me dt { color: #6E5A2E; }
+.s13-grid .c.me dd { font-weight: 500; }
+.s13-grid .c.tbd dt, .s13-grid .c.tbd dd { color: #8A4A12; }
+.s13-grid dd .off { text-decoration: line-through; color: #8A4A12; }
+.s13-grid dd .hl { font-weight: 600; }
+.s13-foot { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #F5F1E8; font-size: 12px; color: #5C6660; flex-wrap: wrap; }
+.s13-foot > span { flex: 1; min-width: 140px; }
+.s13-foot button { all: unset; cursor: pointer; font-size: 12px; color: #6E5A2E; padding: 8px 0; }
+.s13-calv { display: flex; flex-direction: column; }
+.s13-calh { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
+.s13-calh button { width: 44px; height: 44px; border: 1px solid #D6CFBF !important; background: transparent !important; font-size: 18px !important; color: #17201C; }
+.s13-calh span { display: flex; align-items: baseline; gap: 8px; }
+.s13-calh b { font-family: 'Bodoni Moda', serif; font-size: 34px; line-height: 1; font-weight: 400; }
+.s13-calh small { font-size: 14px; color: #5C6660; }
+.s13-dow, .s13-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.s13-dow { font-size: 11px; color: #5C6660; text-align: center; padding-bottom: 6px; }
+.s13-dow .k { color: #6E5A2E; font-weight: 500; }
+.s13-days .dc { all: unset; box-sizing: border-box; min-height: 66px; background: #FBF9F4; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow: hidden; }
+.s13-days button.dc { cursor: pointer; }
+.s13-days .dc b { font-family: 'Bodoni Moda', serif; font-size: 16px; font-weight: 400; }
+.s13-days .dc small { font-size: 9px; color: #5C6660; line-height: 1.2; }
+.s13-days .dc small.me { color: #E2CC97; }
+.s13-days .dc small.off { color: #8A4A12; }
+.s13-days .dc small.tbd { color: #8A4A12; }
+.s13-days .dc small.pr { padding: 2px 3px; border: 1px solid #C9BE9F; color: #6E5A2E; align-self: flex-start; }
+.s13-days .dc.o { background: transparent; color: #B3B9B5; }
+.s13-days .dc.today { border: 1px solid #0F1A16; }
+.s13-days .dc.on { background: #0F1A16; color: #ECE6D9; }
+.s13-days .dc.on b { color: #E2CC97; }
+.s13-days .dc.on small { color: #A9B4AE; }
+.s13-lg { display: flex; gap: 14px; flex-wrap: wrap; padding-top: 10px; font-size: 12px; color: #5C6660; margin: 0; }
+.s13-lg i { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; }
+.s13-lg i.a { background: #0F1A16; } .s13-lg i.b { border: 1px solid #C9BE9F; } .s13-lg i.c { background: #8A4A12; }
+.s13-hint { font-size: 11px; color: #8E9A94; margin: 6px 0 0; }
+.s13-bot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.s13-bot > * { all: unset; cursor: pointer; min-height: 48px; background: #FBF9F4; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #17201C; text-align: center; }
+.s13-bot > span { cursor: default; }
+.s13-gen { display: flex; align-items: center; justify-content: space-between; min-height: 58px; padding: 0 16px; background: #0F1A16; color: #ECE6D9 !important; text-decoration: none; }
+.s13-gen span { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.s13-gen small { font-size: 11px; color: #C6A664; }
+.s13-gen i { color: #C6A664; font-style: normal; font-size: 18px; }
+/* 표 보기 — 시안 색 */
+.s13 .stwrap { border: 0 !important; border-radius: 0 !important; background: #FBF9F4 !important; }
+.s13 table.st th { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #22302A !important; font-weight: 500 !important; }
+.s13 table.st td { border-color: #ECE6DA !important; }
+.s13 table.st .tn.none { color: #8A4A12 !important; }
+.s13 table.st .tn.none::after { content: '미정'; font-size: 10px; }
+.s13 table.st .tn.none { font-size: 0 !important; }
+.s13 table.st .mrow td { background: #EFEBE3 !important; font-family: 'Bodoni Moda', serif; font-size: 16px; }
