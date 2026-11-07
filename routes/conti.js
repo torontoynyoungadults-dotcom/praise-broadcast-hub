@@ -283,7 +283,7 @@ function youtubeFieldHtml(current) {
 function atTagsHtml(roster, byPos) {
   byPos = byPos || {};
   const slotsForJs = {};
-  const posChips = ALL_POSITIONS.map((p) => {
+  const posChips = ALL_POSITIONS.filter((p) => !['음향', 'PPT', '방송총괄'].includes(p)).map((p) => {
     const who = (byPos[p] || []).map((n) => n.이름 || n).filter(Boolean);
     slotsForJs[p] = who;
     return `<button type="button" class="cn-chip${who.length ? '' : ' off'}" data-attag="@${esc(p)}" title="${esc(who.length ? who.join(', ') : '이번 주 배정 없음')}">@${esc(p)}</button>`;

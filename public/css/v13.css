@@ -1614,3 +1614,6 @@ html[data-theme] body .a13-form .a13-sfb .fb-bars { order: 1; }
 html[data-theme] body .a13-form .a13-sfb .fb-custom { order: 4; }
 html[data-theme] body .a13-form .a13-sfb .fb-hint { order: 5; }
 html[data-theme] body .a13-form .a13-sfb .fb-seq { order: 0; }
+body .a13-form .cn-chip.name { display: none; }
+body .a13-form .cn-mention.a13-names .cn-chip.name { display: inline-flex; }
+body .a13-bar { bottom: 84px; }
