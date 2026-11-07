@@ -287,7 +287,7 @@
         '<button type="button" class="pv-b pv-msgbtn" data-a="msg" aria-haspopup="dialog" aria-label="찬양팀에 메시지 보내기" title="메시지 보내기 — 모니터 요청 · 자주 쓰는 말">' + I('msg') + '<span class="pv-msgn" aria-hidden="true"></span></button>' +
         '<button type="button" class="pv-b pv-wsbtn" data-a="ws-off" hidden aria-label="예배 모드 켜짐 — 두 번 눌러 끄기" title="예배 모드 — 두 번 누르면 꺼집니다">' + I('lock') + '<span class="pv-tx"> 예배 모드</span></button>' +
         '<button type="button" class="pv-b pv-metbtn" style="display:none" aria-pressed="false" aria-label="클릭 켜기" title="클릭 켜기 / 끄기 (Space)">' + I('metronome') + '<span class="pv-metbpm"></span></button>' +
-        '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−1</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-kssave" data-a="ks-save" hidden title="이 키를 팀 모두의 악보에 저장" aria-label="바꾼 키를 팀에 저장">저장</button></div>' +
+        '<div class="pv-grp pv-keyctl" role="group" aria-label="키 바꾸기 — 악보 코드를 반음씩 옮김"><button type="button" class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기 (코드 −1)" aria-label="키 반음 내리기">−</button><button type="button" class="pv-b pv-kslbl" data-a="ks-reset" title="지금 키 — 두 번 누르면 원래 키로" aria-label="지금 키">Key</button><button type="button" class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기 (코드 +1)" aria-label="키 반음 올리기">+</button><button type="button" class="pv-b pv-kssave" data-a="ks-save" hidden title="이 키를 팀 모두의 악보에 저장" aria-label="바꾼 키를 팀에 저장">저장</button></div>' +
         '<div class="pv-grp pv-hx"><button type="button" class="pv-b pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">' + (I('ytv') || YT_ICON) + '<span class="pv-mt">YouTube 참고 영상</span></button><button type="button" class="pv-b pv-refbtn" style="display:none" title="이 곡의 참고 음원 — 지금 악보 키로 바꿔 재생" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + '<span class="pv-mt">참고 음원</span></button>' +
           '<button type="button" class="pv-b pv-spreadtop" data-a="spread" aria-pressed="false" aria-label="두 페이지 나란히 보기" title="두 페이지 나란히 보기">' + I('spread') + '</button>' +      // 2026-11 — 두 페이지 보기를 위 막대에 바로
           '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false" aria-label="전체 화면">' + I('fullscreen') + '<span class="pv-mt">전체 화면</span></button></div>' +
@@ -328,7 +328,7 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
-      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−1</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+1</button><button type="button" class="pv-b pv-fsmcbtn" aria-pressed="true" title="클릭 창 숨기기">' + I('metronome') + ' 클릭</button><button type="button" class="pv-b pv-fsx pv-fsytb" style="display:none" title="YouTube 참고 영상" aria-label="YouTube 참고 영상">' + YT_ICON + ' YouTube</button><button type="button" class="pv-b pv-fsx pv-fsrefb" style="display:none" title="참고 음원 (지금 키로)" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + ' 참고 음원</button><button type="button" class="pv-b pv-fsx pv-fsformb" aria-pressed="false" title="송폼 창 보이기">' + I('form') + ' 송폼</button><button type="button" class="pv-b pv-fsspread" data-a="spread" style="display:none" aria-pressed="false" title="두 페이지 보기">' + I('spread') + ' 두 페이지</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">' + I('close') + ' 나가기</button><button class="pv-b" data-a="prev" title="이전 페이지" aria-label="이전 페이지">' + I('prev') + '</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 페이지" aria-label="다음 페이지">' + I('next') + '</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b pv-ksbtn" data-a="ks-down" title="키 반음 내리기" aria-label="키 반음 내리기">−</button><span class="pv-kslbl pv-fsks">Key</span><button class="pv-b pv-ksbtn" data-a="ks-up" title="키 반음 올리기" aria-label="키 반음 올리기">+</button><button type="button" class="pv-b pv-fsmcbtn" aria-pressed="true" title="클릭 창 숨기기">' + I('metronome') + ' 클릭</button><button type="button" class="pv-b pv-fsx pv-fsytb" style="display:none" title="YouTube 참고 영상" aria-label="YouTube 참고 영상">' + YT_ICON + ' YouTube</button><button type="button" class="pv-b pv-fsx pv-fsrefb" style="display:none" title="참고 음원 (지금 키로)" aria-label="참고 음원 재생 (지금 키로)">' + I('headphones') + ' 참고 음원</button><button type="button" class="pv-b pv-fsx pv-fsformb" aria-pressed="false" title="송폼 창 보이기">' + I('form') + ' 송폼</button><button type="button" class="pv-b pv-fsspread" data-a="spread" style="display:none" aria-pressed="false" title="두 페이지 보기">' + I('spread') + ' 두 페이지</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">' + I('pen') + ' 도구</button><button class="pv-b" data-a="fs-panel" title="클릭 · 송폼 패널">' + I('panel') + ' 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>' + I('sliders') + '메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">' + I('close') + '</button></div>' +
@@ -539,6 +539,7 @@
         holders.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
         if (S.layout === 'computer' && ls('side') === '1') el.classList.add('pv-sideopen');
       }
+      if (typeof ksSavePlace === 'function') ksSavePlace();
     }
     function autoFit() {                                              // 폰을 옆으로 눕히면 한 페이지가 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
       if (S.fitUser) return; var f = (S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'width' : 'page';   // 기본은 "한 페이지 맞춤" (Step 2.11) — 폰을 눕힌 낮은 화면만 가로 폭 맞춤
@@ -2013,12 +2014,14 @@
        유튜브 카드 · 키 바꿔 듣기 카드(audio-shift.js)가 같은 값을 씁니다. ensureTab: 탭을 화면에 띄우지 않고 (처음 한 번만) 만들어 둡니다. */
     function ksName() { var s = songs[S.songIdx]; return 'ks.' + (s ? normName(s.title) : '_'); }
     P.keyShift = function () { var v = parseInt(ls(ksName()), 10); return isFinite(v) ? clamp(v, -6, 6) : 0; };
-    P.setKeyShift = function (n) {
+    P.setKeyShift = function (n, later) {
       n = Math.round(+n); n = isFinite(n) ? clamp(n, -6, 6) : 0;
       if (n === P.keyShift()) return n;
       ls(ksName(), String(n));
-      if (n !== 0) P.ensureTab('harmony');
-      P.emit('keyshift', n, songs[S.songIdx] || null); return n;
+      clearTimeout(S.ksEmitT); S.ksEmitT = 0;
+      var fire = function () { S.ksEmitT = 0; if (S.dead) return; var v = P.keyShift(); if (v !== 0) P.ensureTab('harmony'); P.emit('keyshift', v, songs[S.songIdx] || null); };
+      if (later) S.ksEmitT = setTimeout(fire, later); else fire();      // + / − 를 연달아 누르면 숫자만 바로 바꾸고, 코드 다시 그리기는 손을 멈춘 뒤 한 번
+      return n;
     };
     P.ensureTab = function (id) { return ensureTab(id); };
     P.closeYt = function () { closeYt(); };
@@ -2047,16 +2050,31 @@
       var sg0 = songs[S.songIdx], tk = teamKs(sg0), dirty = !!sg0 && canTeam() && !!S.room && n !== tk;      // V890 — 팀 키와 다르면 「저장」
       el.querySelectorAll('[data-a="ks-save"]').forEach(function (b) { b.hidden = !dirty; b.textContent = n === 0 && tk ? '원래 키로 저장' : '저장'; });
       el.querySelectorAll('.pv-kslbl').forEach(function (b) { b.title = tk ? '팀 저장 키 ' + ksKeyOf(sg0, tk) + ' — 두 번 누르면 원래 키로' : '지금 키 — 두 번 누르면 원래 키로'; });
+      ksSavePlace();
     }
+    /** 위 막대의 「저장」은 자리를 차지하지 않게 키 묶음 바로 아래에 띄움 (나타나도 다른 단추가 밀리지 않아 + / − 를 연달아 누를 수 있음).
+     *  폰(서랍)에서는 키 묶음 안 제자리. */
+    function ksSavePlace() {
+      try {
+        var k = $('.pv-keyctl'), b = S.ksSaveBtn || (S.ksSaveBtn = el.querySelector('.pv-keyctl .pv-kssave'));
+        if (!k || !b) return;
+        var inTop = !!(k.closest && k.closest('.pv-top'));
+        if (inTop && b.parentNode !== el) { el.appendChild(b); b.classList.add('pv-ksfloat'); }
+        else if (!inTop && b.parentNode !== k) { k.appendChild(b); b.classList.remove('pv-ksfloat'); b.style.left = b.style.top = ''; }
+        if (inTop && !b.hidden) { var r = k.getBoundingClientRect(), er = el.getBoundingClientRect(); b.style.top = Math.round(r.bottom - er.top + 6) + 'px'; b.style.left = Math.round(r.left - er.left + r.width / 2) + 'px'; }
+      } catch (e) { /* 자리 잡기는 덤 */ }
+    }
+    root.addEventListener('resize', function () { if (!S.dead && S.ksSaveBtn && !S.ksSaveBtn.hidden) setTimeout(ksSavePlace, 80); });
     function ksStep(d) {
       var n0 = P.keyShift(), n = n0;
-      try { n = P.setKeyShift(n0 + d); } catch (e) { if (root.console) root.console.warn('[keyshift]', e); }
+      try { n = P.setKeyShift(n0 + d, 260); } catch (e) { if (root.console) root.console.warn('[keyshift]', e); }
       paintKs();
       if (n === n0) { toast(d > 0 ? '+6 반음까지 올릴 수 있어요' : '−6 반음까지 내릴 수 있어요'); return; }
-      toast(n === 0 ? '원래 키로 — 악보 코드 그대로' : '코드 ' + ksText() + ' 로 바꿔 그립니다', false, 1600);
+      clearTimeout(S.ksToastT);                                            // 연달아 누르는 동안은 알림 없이 숫자만 — 멈춘 뒤 한 번
+      S.ksToastT = setTimeout(function () { if (!S.dead) toast(P.keyShift() === 0 ? '원래 키로 — 악보 코드 그대로' : '코드 ' + ksText() + ' 로 바꿔 그립니다', false, 1600); }, 450);
     }
     function ksReset() {
-      if (!P.keyShift()) { toast('지금 원래 키입니다 — −1 / +1 로 키를 바꿀 수 있어요'); return; }
+      if (!P.keyShift()) { toast('지금 원래 키입니다 — − / + 로 키를 바꿀 수 있어요'); return; }
       var now = Date.now();
       if (!(S.ksArm && now - S.ksArm < 2500)) { S.ksArm = now; toast('한 번 더 누르면 원래 키로 돌아갑니다', false, 2400); return; }
       S.ksArm = 0; ksStep(-P.keyShift());

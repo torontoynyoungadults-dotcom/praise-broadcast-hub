@@ -20,4 +20,4 @@ html[data-theme="light"] body .pv {
 html body .pv.pv-ro.pv-ro .pv-toolsbtn, html body .pv.pv-ro.pv-ro .pv-tools, html body .pv.pv-ro.pv-ro .pv-tabbtn[data-tab="anno"], html body .pv.pv-ro.pv-ro .pv-pill[data-a="tools"] { display: none !important; }
 
 /* 키 저장 단추 — 청년부 앱은 주황, 허브는 강조색 */
-html body .pv:not(#_) .pv-keyctl .pv-kssave { background: var(--ak-go) !important; color: var(--ak-go-ink) !important; }
+html body .pv:not(#_) .pv-kssave { background: var(--ak-go) !important; color: var(--ak-go-ink) !important; }

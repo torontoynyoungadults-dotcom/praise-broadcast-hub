@@ -239,3 +239,13 @@ html body .pv .pv-refbtn { display: inline-flex; align-items: center; gap: 6px; 
 html body .pv .pv-refbtn svg { width: 18px; height: 18px; flex: none; }
 html body .pv.pv-narrow .pv-refbtn .pv-mt { display: none; }
 html body .pv.pv-narrow .pv-refbtn { margin-left: 0; padding: 0 10px; }
+
+/* ---------- 2026-11 — 키 − / + : 눌러도 막대가 움직이지 않게 (연달아 빠르게 누를 수 있도록)
+   · − / + 는 크기 고정 · 가운데 키 글자 칸도 폭 고정 (G → Bb (+3) 로 바뀌어도 그대로)
+   · 「저장」은 자리를 차지하지 않고 키 묶음 바로 아래에 떠서 나타남 ---------- */
+html body .pv .pv-top .pv-keyctl { position: relative; flex: none !important; }
+html body .pv .pv-top .pv-keyctl .pv-ksbtn, html body .pv .pv-fsbar .pv-ksbtn { width: 44px; min-width: 44px !important; max-width: 44px; padding: 0 !important; font-size: 22px !important; font-weight: 700; line-height: 1; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+html body .pv .pv-top .pv-keyctl .pv-kslbl { width: 88px; min-width: 88px !important; max-width: 88px; padding: 0 4px !important; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+html body .pv .pv-kssave.pv-ksfloat { position: absolute; transform: translateX(-50%); z-index: 60; height: 34px; min-width: 0 !important; padding: 0 16px !important; border-radius: 10px !important; border: 0 !important; font-size: 13.5px; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .45) !important; white-space: nowrap; background: var(--ak-go, #E8692F) !important; color: var(--ak-go-ink, #fff) !important; }
+html body .pv .pv-kssave.pv-ksfloat[hidden], html body .pv.pv-fs .pv-kssave.pv-ksfloat, html body .pv.pv-compact .pv-kssave.pv-ksfloat { display: none !important; }
+html body .pv .ak-quick [data-a="ks-down"], html body .pv .ak-quick [data-a="ks-up"] { font-size: 22px; font-weight: 700; touch-action: manipulation; }

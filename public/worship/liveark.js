@@ -271,7 +271,7 @@
     var conn = doc.createElement('button'); conn.type = 'button'; conn.className = 'pv-b ak-pconn'; conn.setAttribute('aria-label', '함께 — 실시간 연결'); conn.innerHTML = '<i></i>';
     var pb = top && top.querySelector('.pv-panelbtn'); if (top) top.insertBefore(conn, pb || null);
     var quick = doc.createElement('div'); quick.className = 'ak-quick'; quick.setAttribute('role', 'group'); quick.setAttribute('aria-label', '키 · 영상 · 메시지');
-    quick.innerHTML = '<button type="button" data-a="ks-down" aria-label="키 반음 내리기">−1</button><button type="button" class="ak-qkey" data-a="ks-reset" aria-label="지금 키">Key</button><button type="button" data-a="ks-up" aria-label="키 반음 올리기">+1</button><button type="button" class="ak-qyt" aria-label="유튜브 참고 영상">' + I('ytv') + '</button><button type="button" data-a="msg" aria-label="메시지 보내기">' + I('msg') + '</button>';
+    quick.innerHTML = '<button type="button" data-a="ks-down" aria-label="키 반음 내리기">−</button><button type="button" class="ak-qkey" data-a="ks-reset" aria-label="지금 키">Key</button><button type="button" data-a="ks-up" aria-label="키 반음 올리기">+</button><button type="button" class="ak-qyt" aria-label="유튜브 참고 영상">' + I('ytv') + '</button><button type="button" data-a="msg" aria-label="메시지 보내기">' + I('msg') + '</button>';
     var side = el.querySelector('.pv-side'); if (side) side.appendChild(quick);
     function metro() { try { return P.metroState ? P.metroState() : null; } catch (e) { return null; } }
     function sync() {
