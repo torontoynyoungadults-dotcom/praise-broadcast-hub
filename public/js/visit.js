@@ -45,5 +45,5 @@
   window.addEventListener('popstate', function () { setTimeout(check, 0); });
   document.addEventListener('ph:content-updated', function () { setTimeout(check, 0); });
   setInterval(check, 2000);
-  setInterval(function () { if (cur && cur.t && (Date.now() - cur.t) / 1000 + cur.acc > 300) { send(); if (document.visibilityState === 'visible') cur.t = Date.now(); } }, 60000);
+  setInterval(function () { if (cur && cur.t && (Date.now() - cur.t) / 1000 + cur.acc > 30) { send(); if (document.visibilityState === 'visible') cur.t = Date.now(); } }, 60000);
 })();
