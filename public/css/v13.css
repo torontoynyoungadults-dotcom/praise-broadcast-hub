@@ -977,3 +977,4 @@ body { background: var(--bg); }
 .v13-addwrap[data-v13-add] > details[open] { background: #F5F1E8 !important; }
 .v13-addwrap[data-v13-add] > details > summary .yi { width: 16px; height: 16px; color: #9C7F45; }
 .v13-addwrap[data-v13-add] > details > :not(summary) { padding: 0 14px 14px; }
+.lu-card .ph-namechip .ph-avatar .ph-avatar-txt { display: inline !important; }
