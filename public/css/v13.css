@@ -1809,3 +1809,42 @@ html body .cn-ftags .cn-ft.cn-fs-pc  { background: #ECEADF; border-color: #D2CDB
 html body .cn-ftags .cn-ft.cn-fs-c   { background: #F2E7CF; border-color: #DCC698; color: #553F14; }
 html body .cn-ftags .cn-ft.cn-fs-b   { background: #E3E8EF; border-color: #C3CCD9; color: #222C40; }
 html body .cn-ftags .cn-ft.cn-fs-tag { background: #EFE6EA; border-color: #D8C7CE; color: #4A2A36; }
+
+/* ===== 나의 스케쥴 (캘린더 넣기 · 구독) — V13 ===== */
+html body .msd-back { background: rgba(10,16,14,.55); }
+html body .msd { background: #FFFFFF !important; border-radius: 0 !important; box-shadow: 0 24px 60px rgba(10,16,14,.35) !important; border: 0 !important; font-family: 'Pretendard', system-ui, sans-serif; color: #17201C; }
+html body .msd-top { background: #0F1A16; color: #ECE6D9; border-bottom: 0 !important; padding: 22px 22px 18px !important; }
+html body .msd-top h2 { font-family: 'MaruBuri', serif !important; font-weight: 700 !important; font-size: 22px !important; letter-spacing: 0 !important; color: #ECE6D9 !important; }
+html body .msd-top > .msd-sub { background: transparent !important; border: 0 !important; padding: 0 !important; margin: 8px 0 0 !important; color: #A9B4AE !important; font-size: 13px !important; border-radius: 0 !important; }
+html body .msd-x { border-radius: 0 !important; background: transparent !important; border: 1px solid rgba(198,166,100,.45) !important; color: #E2CC97 !important; width: 40px !important; height: 40px !important; }
+html body .msd-bar { background: #F6F6F4 !important; border-bottom: 1px solid #E4E3DF !important; padding: 12px 22px !important; }
+html body .msd-all { font-weight: 600 !important; color: #17201C !important; }
+html body .msd-cnt { color: #5C6660 !important; font-size: 12px !important; }
+html body .msd-box { border-radius: 0 !important; border: 1px solid #BDB9AE !important; background: #FFFFFF !important; width: 22px !important; height: 22px !important; }
+html body .msd-it.on .msd-box, html body .msd-all.on .msd-box, html body .msd-step.done .msd-box { background: #0F1A16 !important; border-color: #0F1A16 !important; }
+html body .msd-box svg { stroke: #E2CC97 !important; }
+html body .msd-list { padding: 0 10px 8px !important; }
+html body .msd-mon { font-family: 'Bodoni Moda', serif; font-weight: 400 !important; font-size: 15px !important; letter-spacing: 0 !important; color: #6E5A2E !important; padding: 16px 12px 6px !important; display: flex; align-items: center; gap: 10px; }
+html body .msd-mon::after { content: ''; flex: 1; height: 1px; background: #E4E3DF; }
+html body .msd-it { border-radius: 0 !important; min-height: 62px !important; border-bottom: 1px solid #EEEDEA !important; background: transparent !important; }
+html body .msd-it:hover { background: #F6F6F4 !important; }
+html body .msd-it.on { background: transparent !important; }
+html body .msd-date b { font-family: 'Bodoni Moda', serif !important; font-weight: 400 !important; font-size: 26px !important; line-height: 1 !important; color: #17201C !important; }
+html body .msd-date i { font-size: 11px !important; font-weight: 400 !important; color: #5C6660 !important; }
+html body .msd-k { border-radius: 0 !important; font-weight: 500 !important; font-size: 11.5px !important; padding: 4px 9px !important; background: #F3F3F1 !important; color: #5C6660 !important; border: 1px solid #E4E3DF; }
+html body .msd-k.sun { background: #0F1A16 !important; color: #E2CC97 !important; border-color: #0F1A16; }
+html body .msd-tx b { font-weight: 600 !important; font-size: 15px !important; }
+html body .msd-tx small { color: #5C6660 !important; }
+html body .msd-done { border-radius: 0 !important; background: #F3F3F1 !important; color: #6E5A2E !important; }
+html body .msd-foot { border-top: 1px solid #E4E3DF !important; padding: 16px 22px 20px !important; gap: 8px !important; }
+html body .msd-btn { border-radius: 0 !important; border: 1px solid #DEDDD8 !important; background: #FFFFFF !important; color: #17201C !important; font-weight: 500 !important; min-height: 50px !important; box-shadow: none !important; }
+html body .msd-btn:hover { border-color: #0F1A16 !important; background: #F6F6F4 !important; }
+html body .msd-btn.pri { background: #0F1A16 !important; border-color: #0F1A16 !important; color: #ECE6D9 !important; letter-spacing: .03em; }
+html body .msd-btn.pri:hover { background: #22332C !important; }
+html body .msd-btn.sm { min-height: 42px !important; font-size: 13px !important; }
+html body .msd-note { color: #5C6660 !important; }
+html body .msd-foot .msd-sub { background: #F6F6F4 !important; border: 0 !important; border-radius: 0 !important; padding: 16px !important; margin-top: 6px !important; }
+html body .msd-foot .msd-sub > b { font-family: 'MaruBuri', serif; font-weight: 700 !important; font-size: 15px !important; color: #17201C; }
+html body .msd-subbtns { gap: 2px !important; }
+html body .msd-step { border-radius: 0 !important; background: #F6F6F4 !important; border: 0 !important; }
+html body .msd-step em { color: #6E5A2E !important; }
