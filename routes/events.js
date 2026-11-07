@@ -88,22 +88,49 @@ router.get('/events', requireTeam, async (req, res) => {
       </form>
     </details>` : '';
 
-  const hero = pageShell.hero({ eyebrow: `${team} · 주일 외 찬양`, title: '주일 외 찬양', sub: '주일이 아닌 예배입니다. 주일과 똑같이 편성·콘티·악보를 준비합니다.' });
-
+  // V13 — 시안(Events): 위 흑녹 제목, 다가오는 예배는 카드(요일 · 날짜 · 이름 · 연습 · D-day · 편성/미정/콘티 곡 · 서는 사람), 지난 예배는 한 줄
+  const [assignAll, songsAll, pracAll] = await Promise.all([sheetsDb.readAll('찬양편성'), sheetsDb.readAll('찬양콘티'), sheetsDb.readAll('연습일정')]);
+  const prac = require('../lib/practice');
+  const { POSITION_ROWS, canonicalPosition } = require('../lib/positions');
+  const POS = [].concat(...POSITION_ROWS);
+  const SH = { 인도자: '인도', 남성싱어: '남싱', 여성싱어: '여싱', 어쿠기타: '어쿠' };
+  const pracRows = pracAll.filter((r) => r['팀ID'] === team);
+  const DOWF = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const dot = (d) => `${d.slice(5, 7)}.${d.slice(8, 10)}`;
+  const md = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const card = (ev) => {
+    const id = ev['ID'], d = ev['날짜'], dd = new Date(d + 'T12:00:00');
+    const A = assignAll.filter((r) => r['팀ID'] === team && r['행사ID'] === id);
+    const byP = {}; A.forEach((r) => { const p = canonicalPosition(String(r['포지션'] || '').trim()); (byP[p] = byP[p] || []).push(String(r['이름'] || '').trim()); });
+    const filled = POS.filter((p) => (byP[p] || []).length), empty = POS.filter((p) => !(byP[p] || []).length);
+    const nSongs = songsAll.filter((r) => r['팀ID'] === team && r['행사ID'] === id && r['구분'] !== '폐회송').length;
+    const p = prac.practiceFor('ev-' + id, d, pracRows, '');
+    const pTxt = p.none ? '연습 없음' : p.unset || !p.date ? '연습 미정' : `연습 ${md(p.date)} ${'일월화수목금토'[new Date(p.date + 'T12:00:00').getDay()]}`;
+    const dday = Math.round((dd - new Date(today + 'T12:00:00')) / 86400000);
+    const href = `/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(id)}`;
+    return `<article class="e13" aria-label="${esc(ev['이름'])}">
+      <div class="e13-h"><div class="e13-d"><small>${DOWF[dd.getDay()]}</small><b>${dot(d)}</b></div>
+        <div class="e13-n"><b>${esc(ev['이름'])}</b><small>${esc(pTxt)}${tsub(ev)}</small></div><span class="e13-dd">${dday === 0 ? 'D-day' : 'D-' + dday}</span></div>
+      <div class="e13-b">
+        <div class="e13-cnt"><div><b>${filled.length}</b>편성됨</div><div class="t"><b>${empty.length}</b>미정</div><div><b>${nSongs}</b>콘티 곡</div></div>
+        <p class="e13-who">${filled.map((k) => `${esc(SH[k] || k)} ${esc(byP[k].join(' · '))}`).join(' · ') || '아직 편성이 없어요'}${empty.length ? `<br><span>${esc(empty.map((k) => SH[k] || k).join(' · '))} 미정</span>` : ''}</p>
+        <div class="e13-acts"><a href="${href}">콘티 열기</a><a href="/schedule?team=${encodeURIComponent(team)}">스케줄표에서 편성</a></div>
+        ${ctx.isAdmin ? eventItem(ev, team, true).replace(/^[\s\S]*?(<details class="ph-row-edit">)/, '<div class="e13-edit">$1').replace(/<\/div>\s*$/, '</div>') : ''}
+      </div></article>`;
+  };
   const content = `
   ${pageShell.hubNav('events', team)}
-  ${hero}
-  <div class="ph-card">
-    ${teamContext.teamSwitcher(ctx, { keep: {} })}
-    <h2 class="ph-h2">다가오는 주일 외 찬양</h2>
-    <div class="ph-list">${upcoming.length ? upcoming.map((s) => eventItem(s, team, ctx.isAdmin)).join('') : '<p class="ph-sub">아직 등록된 날이 없어요. 성탄절·송구영신예배·특별새벽기도·부흥회·철야기도회 등을 추가해두면 그 날짜의 예배콘티로 바로 갈 수 있어요.</p>'}</div>
-    ${addForm}
-  </div>
-
-  ${past.length ? `<div class="ph-card">
-    <h2 class="ph-h2">지난 주일 외 찬양</h2>
-    <div class="ph-list">${past.map((s) => eventItem(s, team, ctx.isAdmin)).join('')}</div>
-  </div>` : ''}
+  ${pageShell.hero({ barOnly: true })}
+  <section class="e13-top"><h1>주일 외 찬양</h1><p>성탄절, 송구영신, 특별새벽기도회처럼 주일이 아닌 예배예요. 편성 · 콘티 · 악보 · 녹음은 주일과 똑같이 준비해요.</p></section>
+  ${teamContext.teamSwitcher(ctx, { keep: {} }) ? `<div class="ph-card">${teamContext.teamSwitcher(ctx, { keep: {} })}</div>` : ''}
+  <section class="e13-sec" aria-labelledby="e13-up"><div class="v13-sechead"><h2 class="ph-h2" id="e13-up">다가오는 예배</h2></div>
+    ${upcoming.length ? upcoming.map(card).join('') : '<p class="ph-sub">아직 등록된 날이 없어요. 성탄절 · 송구영신예배 · 특별새벽기도 · 부흥회 · 철야기도회 등을 추가해 두세요.</p>'}
+    ${addForm.replace('<details class="ph-add">', '<details class="ph-add e13-add">').replace('+ 주일 외 서는 날 추가 (성탄절 · 송구영신예배 등)', '+ 주일 외 예배 추가')}
+    ${ctx.isAdmin ? '<p class="e13-note">예배 이름 · 날짜를 넣으면 스케줄표에도 같은 날이 생겨요.</p>' : ''}
+  </section>
+  ${past.length ? `<section class="e13-sec" aria-labelledby="e13-past"><div class="v13-sechead"><h2 class="ph-h2" id="e13-past">지난 예배</h2><span class="e13-pc">${past.length}회</span></div>
+    <div class="e13-past">${past.slice().reverse().map((ev) => `<a href="/conti?team=${encodeURIComponent(team)}&event=${encodeURIComponent(ev['ID'])}"><span class="d">${dot(ev['날짜'])}</span><span class="n">${esc(ev['이름'])}</span><span class="y">${ev['날짜'].slice(0, 4)} · ${'일월화수목금토'[new Date(ev['날짜'] + 'T12:00:00').getDay()]}</span></a>`).join('')}</div>
+  </section>` : ''}
   `;
   spa.send(req, res, content, { title: `${team} 주일 외 찬양` });
 });
