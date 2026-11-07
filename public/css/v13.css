@@ -418,3 +418,13 @@ body { background: var(--bg); }
 .ph-wrap .cn-cardhead .ph-h2 { flex: 1; margin: 0 !important; display: flex; align-items: center; gap: 12px; }
 .ph-wrap .cn-cardhead [data-cn-reorder] { border: 0 !important; background: transparent !important; color: #6E5A2E !important; font-size: 13px !important; padding: 10px 0 10px 8px !important; box-shadow: none !important; }
 .ph-wrap .cn-cardhead [data-cn-reorder] svg { display: none; }
+/* 섬기는 이 — 마이크 · 인이어는 이름 오른쪽 작은 글씨 ("마이크 41 · 인이어 6") */
+.lu-card .ph-posnames { align-items: stretch !important; }
+.lu-card .ph-namechip { display: flex !important; width: 100%; flex-wrap: nowrap; }
+.lu-card .ph-namechip .lu-io { display: inline-flex !important; gap: 0 !important; margin-left: auto; flex-wrap: nowrap; }
+.lu-card .lu-b { all: unset; font-size: 12px !important; color: #5C6660 !important; white-space: nowrap; }
+.lu-card .lu-b svg, .lu-card .lu-b i { display: none !important; }
+.lu-card .lu-b b { font-weight: 400 !important; font-family: inherit !important; font-size: 12px !important; }
+.lu-card .lu-b.mic::before { content: '마이크 '; }
+.lu-card .lu-b.iem::before { content: '인이어 '; }
+.lu-card .lu-b + .lu-b::before { content: ' · 인이어 '; white-space: pre; }
