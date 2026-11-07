@@ -172,10 +172,30 @@ router.get('/admin', requireMember, async (req, res) => {
       </details>
     </div>`);
   }
+  // 보낸 기록 — 팀별 최근 안내 (자동 · 지금 보내기 · 콘티 올라옴 · 시험)
+  const logs = [];
+  for (const t of activeTeams) (await reminder.sendLog(t['팀명']).catch(() => [])).forEach((e) => logs.push(Object.assign({ team: t['팀명'] }, e)));
+  logs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const when = (iso) => { const d = new Date(iso); if (isNaN(d)) return ''; const f = new Intl.DateTimeFormat('ko-KR', { timeZone: 'America/Toronto', month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', minute: '2-digit' }); return f.format(d); };
+  const logHtml = logs.length ? `<div class="rm13-log">
+      <div class="v13-sechead"><h3 class="ph-h2" style="font-size:16px;">보낸 기록</h3><small>최근 ${Math.min(logs.length, 30)}번</small></div>
+      <ul class="rm13-list">${logs.slice(0, 30).map((e) => {
+        const K = reminder.KINDS[e.kind] || { label: e.kind === 'test' ? '시험 메일' : '안내' };
+        const to = Array.isArray(e.to) ? e.to : [];
+        return `<li><details><summary>
+          <span class="rm13-when">${esc(when(e.at))}</span>
+          <span class="rm13-what"><b>${esc(e.kind === 'test' ? '시험 메일' : K.label)}</b><small>${esc(e.team)} · ${esc(e.by || '')}</small></span>
+          <span class="rm13-cnt">${e.via !== 'mail' && e.kind !== 'test' ? `<i title="폰 알림">알림 ${Number(e.pushed) || 0}</i>` : ''}${e.via !== 'push' ? `<i title="이메일">메일 ${Number(e.mailed) || 0}</i>` : ''}${e.failed ? `<i class="bad">실패 ${Number(e.failed)}</i>` : ''}<em>/ ${to.length}명</em></span>
+        </summary>
+        ${e.subject ? `<p class="rm13-subj">${esc(e.subject)}</p>` : ''}
+        ${to.length ? `<div class="rm13-to">${to.map((x) => `<span class="${x.m === -1 ? 'bad' : ''}">${esc(x.n)}<small>${[x.p ? '알림' : '', x.m === 1 ? '메일' : x.m === -1 ? '메일 실패' : ''].filter(Boolean).join(' · ') || '못 받음'}</small></span>`).join('')}</div>` : ''}
+        </details></li>`; }).join('')}</ul></div>`
+    : '<div class="rm13-log"><div class="v13-sechead"><h3 class="ph-h2" style="font-size:16px;">보낸 기록</h3></div><p class="ph-sub" style="margin:0;">아직 기록이 없어요. 다음 안내부터 여기에 쌓여요.</p></div>';
   const remCard = `<div class="ph-card" id="practice-mail">
     <h2 class="ph-h2">자동 안내 (폰 알림 + 이메일)</h2>
     <p class="ph-sub">편성된 사람에게만 아침 9시 이후에 한 번씩 보내요. 보내는 이름은 "영락 3부찬양팀"처럼 팀 이름으로 나가요 (Render 의 MAIL_FROM 이 있어야 이름이 붙어요). 메일 보내기 ${mailer.configured() ? '준비됨' : '<b>설정 필요</b> — Render 환경변수 GMAIL_REFRESH_TOKEN (README "연습 안내 메일")'}</p>
     ${remRows.join('')}
+    ${logHtml}
     ${remMsg ? `<p class="ph-msg ${/실패|없/.test(remMsg) ? 'err' : 'ok'}">${esc(remMsg)}</p>` : ''}
   </div>`;
   const hero = pageShell.hero({ eyebrow: '관리자', title: '관리자 설정', sub: '찬양팀 · 시간 · 허브 문구를 관리합니다.' });
@@ -263,7 +283,7 @@ router.post('/admin/practice-mail/test', requireAdmin, async (req, res) => {
   try {
     const m = await reminder.preview(team, req.member, (req.body || {}).kind === 'sun' ? 'sun' : 'prac');
     if (!m) msg = '앞으로 4주 안에 정해진 연습이 없어서 보낼 메일이 없어요.';
-    else { await mailer.send({ to: String(req.member['이메일']), subject: '[시험] ' + m.subject, html: m.html, text: m.text, fromName: m.fromName }); msg = `${req.member['이메일']} 로 시험 메일을 보냈어요.`; }
+    else { await mailer.send({ to: String(req.member['이메일']), subject: '[시험] ' + m.subject, html: m.html, text: m.text, fromName: m.fromName }); msg = `${req.member['이메일']} 로 시험 메일을 보냈어요.`; await reminder.logSend(team, { kind: 'test', by: '시험 · ' + String(req.member['이름'] || ''), subject: '[시험] ' + m.subject, via: 'mail', pushed: 0, mailed: 1, failed: 0, to: [{ n: String(req.member['이름'] || ''), p: 0, m: 1 }] }); }
   } catch (e) { msg = '시험 메일 실패: ' + (e && e.message); }
   spa.redirect(req, res, '/admin?rm=' + encodeURIComponent(msg) + '#practice-mail');
 });

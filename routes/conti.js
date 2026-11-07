@@ -657,44 +657,80 @@ function sameAsHtml(team, scope, conti) {
   </form>`;
 }
 
+const ADD_IC = {
+  yt: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C6A664" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13"></rect><path d="M10 9.5v5l4.5-2.5z" fill="#C6A664"></path></svg>',
+  up: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#17201C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7.5 8.5L12 4l4.5 4.5M4.5 19.5h15"></path></svg>',
+  search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M20 20l-4.2-4.2"></path></svg>',
+  link: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>',
+  plus: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C6A664" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>',
+};
+/** 한 곡 올리기 폼 (디자인 "찬양 올리기") — pick=true 면 "어디에 넣을까요" (콘티 · 설교 후 찬양 · 폐회송) 를 고름 */
+function addOneForm(kind, team, scope, roster, byPos, pick) {
+  const uid = `new${kind === '결단' ? 'f' : kind === '폐회송' ? 'x' : 'c'}`;
+  const lbl = kind === '결단' ? '설교 후 찬양' : kind === '폐회송' ? '폐회송' : '콘티';
+  const sec = (t, extra) => `<div class="a13-sh"><h3>${t}</h3><span></span>${extra || ''}</div>`;
+  return `<form method="post" action="/conti/songs" enctype="multipart/form-data" class="a13-form">
+      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}
+      ${pick ? `<fieldset class="a13-kind"><legend>어디에 넣을까요</legend><div>
+        ${[['콘티', '콘티'], ['결단', '설교 후 찬양'], ['폐회송', '폐회송']].map(([v, t]) => `<label><input type="radio" name="구분" value="${v}"${v === kind ? ' checked' : ''}>${t}</label>`).join('')}
+      </div></fieldset>` : `<input type="hidden" name="구분" value="${kind}">`}
+      <div class="a13-title"><label for="a13t-${uid}">찬양 제목 <b>*</b></label>
+        <input id="a13t-${uid}" type="text" name="제목" placeholder="찬양 제목" required autocomplete="off">
+        <small>라이브러리에 있는 곡이면 Key · 송폼 · 악보가 자동으로 채워져요</small></div>
+      <div class="a13-meta">
+        <label><span>원곡팀</span><input type="text" name="팀" placeholder="예: 마커스"></label>
+        <label><span>Key</span><input class="num" type="text" name="Key" placeholder="G"></label>
+        <label><span>BPM</span><input class="num" type="text" name="BPM" inputmode="numeric" placeholder="72"></label>
+      </div>
+      <div class="a13-yt">${youtubeFieldHtml('')}
+        <small>찬양 제목만 있어도 찾아요 · 원곡팀을 넣으면 더 정확해져요 · 골라 두면 여기에 영상이 붙어요</small></div>
+      <section class="a13-sec">${sec('송폼')}
+        <input type="text" id="ph-sform-${esc(uid)}" name="송폼" class="ph-songform-value a13-sfin" value="" placeholder="송폼 직접 (예: V1-C-V2-C-B-C)">
+        <div class="ph-sfb a13-sfb" data-ph-sfb-host data-ph-sfb-input="ph-sform-${esc(uid)}"></div>
+      </section>
+      <section class="a13-sec">${sec('악보', '<em>선택</em>')}
+        <label class="a13-drop">${ADD_IC.up}<b>PDF · 사진 올리기</b><small data-a13-files>여러 장 가능 · 순서는 올린 뒤 바꿀 수 있어요</small>
+          <input type="file" name="파일" accept=".pdf,image/*" multiple onchange="var s=this.parentNode.querySelector('[data-a13-files]');if(s)s.textContent=this.files.length?Array.prototype.map.call(this.files,function(f){return f.name}).join(' · '):'여러 장 가능 · 순서는 올린 뒤 바꿀 수 있어요'"></label>
+        <div class="a13-two">
+          <button type="button" data-sheet-search data-pick="1">${ADD_IC.search}웹에서 악보 찾기</button>
+          <button type="button" onclick="var i=this.closest('.a13-sec').querySelector('.a13-link');i.hidden=!i.hidden;if(!i.hidden)i.focus()">${ADD_IC.link}링크로 넣기</button>
+          <span class="ss-picked" hidden></span>
+        </div>
+        <input class="a13-link" type="text" name="링크" placeholder="악보 링크 (파일 대신)" hidden>
+      </section>
+      <section class="a13-sec">${sec('설명')}
+        <textarea name="비고" rows="3" placeholder="간주 · 전조 · 반복 등" aria-label="설명"></textarea>
+        ${atTagsHtml(roster, byPos)}
+      </section>
+      <div class="a13-bar">
+        <button type="button" class="a13-cancel" onclick="var w=this.closest('[data-v13-add]');var b=w&&w.closest('.ph-card')&&w.closest('.ph-card').querySelector('.v13-addbtn');if(b)b.click();else{var d=this.closest('details');if(d)d.open=false}">취소</button>
+        <button type="submit" class="a13-go">${ADD_IC.plus}<span>${pick ? '콘티에 추가' : lbl + ' 넣기'}</span></button>
+      </div>
+    </form>`;
+}
+
 function songForm(kind, team, scope, roster, byPos, hist) {
   const label = kind === '결단' ? '설교 후 찬양' : kind === '폐회송' ? '폐회송' : '콘티';
-  const uid = `new${kind === '결단' ? 'f' : kind === '폐회송' ? 'x' : 'c'}`;
-  return `<div class="v13-addwrap"${kind === '콘티' ? ' data-v13-add hidden' : ''}>
-  ${kind === '콘티' ? '<p class="v13-addh">곡 올리기 — 하나 골라 주세요</p>' : ''}
-  ${kind === '콘티' && hist ? importHtml(team, scope, kind, hist) : ''}
-  <details class="ph-add">
-    <summary>+ ${label} 하나하나 올리기</summary>
-    <form method="post" action="/conti/songs" enctype="multipart/form-data" class="ph-inlineform">
+  if (kind !== '콘티') {
+    return `<div class="v13-addwrap"><details class="ph-add a13-mini"><summary>+ ${label} 올리기</summary>${addOneForm(kind, team, scope, roster, byPos, false)}</details></div>`;
+  }
+  const tab = (i, t, on) => `<button type="button" role="tab" aria-selected="${on}" onclick="var r=this.closest('.a13');r.querySelectorAll('[role=tab]').forEach(function(b,k){b.setAttribute('aria-selected',String(k===${i}))});r.querySelectorAll('[data-a13-p]').forEach(function(p,k){p.hidden=k!==${i}})">${t}</button>`;
+  return `<div class="v13-addwrap a13" data-v13-add hidden>
+  <header class="a13-head">
+    <h2>찬양 올리기</h2>
+    <div role="tablist" aria-label="올리는 방법" class="a13-tabs">${tab(0, '한 곡씩', true)}${tab(1, '한꺼번에', false)}${tab(2, '지난 콘티에서', false)}</div>
+  </header>
+  <div data-a13-p>${addOneForm(kind, team, scope, roster, byPos, true)}</div>
+  <div data-a13-p hidden>
+    <form method="post" action="/conti/songs/bulk" class="a13-form">
       <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="구분" value="${kind}">
-      <input type="text" name="제목" placeholder="곡 제목" required>
-      <div class="ph-inline3">
-        <input type="text" name="팀" placeholder="원곡팀 (예: 마커스)">
-        <input type="text" name="Key" placeholder="Key (예: G)">
-        <input type="text" name="BPM" placeholder="BPM" inputmode="numeric">
-      </div>
-      ${songFormBuilderHtml('', uid)}
-      <div class="ph-field"><label>유튜브</label>${youtubeFieldHtml('')}</div>
-      <label>설명</label>
-      <textarea name="비고" rows="3" placeholder="간주 · 전조 · 반복 등 — 세션을 부르려면 @일렉 · @피아노 · @홍길동"></textarea>
-      ${atTagsHtml(roster, byPos)}
-      <div class="ph-field cn-newsheet"><label>악보 (PDF · 사진, 여러 개 가능 · 선택)</label>
-        <input type="file" name="파일" accept=".pdf,image/*" multiple>
-        <input type="text" name="링크" placeholder="또는 악보 링크 (파일 대신)">
-        <button type="button" class="ph-btn" data-sheet-search data-pick="1">${ui.icon('search')} 웹에서 악보 찾기</button><span class="ss-picked" hidden></span></div>
-      <button class="ph-btn pri" type="submit">추가</button>
+      <div class="a13-title"><label>한 줄에 한 곡씩</label><small>제목 - 원곡팀 - Key 순서로 붙여넣으세요. 원곡팀 · Key 는 비워도 돼요.</small></div>
+      <textarea name="목록" rows="7" class="a13-bulk" placeholder="주님의 사랑 - 마커스 - G&#10;은혜 - - A"></textarea>
+      <div class="a13-bar"><button type="submit" class="a13-go">${ADD_IC.plus}<span>한 번에 추가</span></button></div>
     </form>
-  </details>
-  <details class="ph-add">
-    <summary>+ ${label} 한꺼번에 올리기</summary>
-    <form method="post" action="/conti/songs/bulk" class="ph-inlineform">
-      <input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="구분" value="${kind}">
-      <p class="ph-sub">한 줄에 한 곡씩, <b>제목 - 원곡팀 - Key</b> 순서로 붙여넣으세요. 원곡팀·Key는 생략해도 됩니다.</p>
-      <textarea name="목록" rows="5" placeholder="주님의 사랑 - 마커스 - G
-은혜 - - A" style="width:100%;padding:10px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:15px;font-family:inherit;"></textarea>
-      <button class="ph-btn pri" type="submit">한 번에 추가</button>
-    </form>
-  </details></div>`;
+  </div>
+  <div data-a13-p hidden class="a13-imp">${hist ? importHtml(team, scope, kind, hist).replace('<details class="ph-add cn-add cn-import" data-cn-import>', '<details class="ph-add cn-add cn-import" data-cn-import open>') : '<p class="ph-sub">아직 가져올 지난 콘티가 없어요.</p>'}</div>
+  </div>`;
 }
 
 function sheetItem(s, editable) {
