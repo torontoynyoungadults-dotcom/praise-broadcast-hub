@@ -96,14 +96,20 @@ router.get('/share/ios', async (req, res) => {
   const url = `${host}/share/rec?token=${tok}`;
   const step = (n, t, d) => `<li><b>${n}</b><div><h3>${t}</h3>${d}</div></li>`;
   const html = `${pageShell.hero({ barOnly: true })}<section class="sh13">
-    <p class="sh13-k">아이폰 · 한 번만 하면 돼요</p><h1>카톡에서 바로 녹음 올리기</h1>
+    <p class="sh13-k">아이폰 (iOS 27) · 한 번만 하면 돼요</p><h1>카톡에서 바로 녹음 올리기</h1>
     <p class="ph-sub">아이폰 "단축어" 앱으로 공유 메뉴에 <b>찬양팀에 녹음 올리기</b> 를 만들어요. 만든 뒤에는 카톡 녹음 파일 → 공유 → 찬양팀에 녹음 올리기 → 연습 / 예배 고르기 로 끝나요.</p>
     <div class="sh13-url"><span>내 개인 주소</span><code id="sh13u">${esc(url)}</code>
       <button type="button" class="a13-go" onclick="var t=document.getElementById('sh13u').textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){this.querySelector('span').textContent='복사했어요'}.bind(this)).catch(function(){prompt('길게 눌러 복사하세요',t)})"><span>주소 복사</span></button>
       <small>나만 쓰는 주소예요 — 다른 사람에게 보내지 마세요.</small></div>
+    <div class="sh13-ai"><span>iOS 27 — 설명으로 바로 만들기</span>
+      <p>단축어 앱 → <b>＋</b> → <b>단축어 설명하기</b> 에 아래 문장을 붙여넣으면 단축어가 만들어져요. 만든 뒤 ⓘ 에서 <b>공유 시트에서 보기</b> 가 켜져 있는지만 확인하세요.</p>
+      <code id="sh13d">이름은 "찬양팀에 녹음 올리기". 공유 시트에서 파일과 미디어를 받아. "어떤 녹음?" 메뉴로 연습, 예배, 참고 음원 중 하나를 고르게 해. 그 다음 ${esc(url)} 로 POST 요청을 보내는데, 요청 본문은 양식으로 하고 file 필드에 받은 파일, kind 필드에 고른 항목을 넣어. 마지막에 받은 결과를 보여줘.</code>
+      <button type="button" class="a13-go" onclick="var t=document.getElementById('sh13d').textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){this.querySelector('span').textContent='복사했어요'}.bind(this)).catch(function(){prompt('길게 눌러 복사하세요',t)})"><span>설명 문장 복사</span></button>
+    </div>
+    <p class="sh13-k" style="margin-top:18px">직접 만들기 (iOS 27 · 설명이 잘 안 될 때)</p>
     <ol class="sh13-steps">
       ${step(1, '단축어 앱 → 오른쪽 위 ＋', '<p>새 단축어를 만들고 이름을 <b>찬양팀에 녹음 올리기</b> 로 바꿔요.</p>')}
-      ${step(2, '공유 메뉴에 보이게', '<p>아래 ⓘ (단축어 정보) → <b>공유 시트에서 보기</b> 켜기 → 받는 것: <b>파일</b> · <b>미디어</b> 만 남기기.</p>')}
+      ${step(2, '공유 메뉴에 보이게', '<p>ⓘ (단축어 정보) → <b>공유 시트에서 보기</b> 켜기 → 받는 것: <b>파일</b> · <b>미디어</b> 만 남기기. (맨 위에 "공유 시트에서 … 입력 받기" 동작이 생겨요)</p>')}
       ${step(3, '"메뉴에서 선택" 추가', '<p>동작 검색에서 <b>메뉴에서 선택</b> → 묻는 말: <b>어떤 녹음?</b> · 항목: <b>연습</b>, <b>예배</b>, <b>참고 음원</b>.</p>')}
       ${step(4, '"URL 내용 가져오기" 추가', '<p>메뉴 <b>아래(끝 다음)</b>에 <b>URL 내용 가져오기</b> → URL 칸에 위 <b>내 개인 주소</b> 붙여넣기.</p><p>▸ 펼쳐서 방법: <b>POST</b> · 요청 본문: <b>양식</b></p><p>필드 추가 → <b>파일</b> · 키 <code>file</code> · 값: <b>단축어 입력</b></p><p>필드 추가 → <b>텍스트</b> · 키 <code>kind</code> · 값: <b>선택한 항목</b> (메뉴 결과)</p>')}
       ${step(5, '"결과 보기" 추가', '<p><b>결과 보기</b> → 값: <b>URL의 내용</b>. 올라가면 "올렸어요 ✓ 11/8 주일 · 연습 녹음" 이 떠요.</p>')}

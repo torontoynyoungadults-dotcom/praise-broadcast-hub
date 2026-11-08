@@ -1878,3 +1878,7 @@ body .r13-prog { position: relative; width: 100%; margin-top: 8px; height: 30px;
 body .r13-prog i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #0F1A16; transition: width .2s ease; }
 body .r13-prog span { position: relative; z-index: 1; display: flex; align-items: center; height: 100%; padding: 0 10px; font-size: 12px; color: #C6A664; mix-blend-mode: normal; }
 body .r13-bar { flex-wrap: wrap; }
+body .sh13-ai { display: flex; flex-direction: column; gap: 8px; padding: 16px; background: #F6F6F4; border: 1px solid #E4E3DF; }
+body .sh13-ai > span { font-size: 12px; color: #6E5A2E; font-weight: 600; }
+body .sh13-ai p { margin: 0; font-size: 13px; line-height: 1.6; color: #2F3A35; }
+body .sh13-ai code { display: block; background: #FFFFFF; border: 1px solid #E4E3DF; padding: 12px; font-size: 13px; line-height: 1.6; white-space: normal; word-break: break-all; color: #17201C; font-family: inherit; }
