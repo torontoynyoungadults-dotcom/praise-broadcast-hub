@@ -12,7 +12,8 @@
   function theme() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
   /** 단추로 직접 바꾼 것은 다음 전환 시각(아침 7시 / 저녁 7시)까지만 — 그 뒤에는 시간 자동으로 돌아감 (lib/themeBoot.js) */
   function applyTheme(t, auto) {
-    root.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    t = 'light';                                    // V13 — 허브 화면은 늘 밝은 화면 (저녁 7시 자동 어둡게 끔 · 라이브 악보는 따로)
+    root.setAttribute('data-theme', 'light');
     if (!auto) { if (window.PHThemeMode) window.PHThemeMode.setManual(theme()); else put(THEME_KEY, theme()); }
     var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#F4F2EC' : '#0D1110');
     paint();
