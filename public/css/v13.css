@@ -1882,3 +1882,4 @@ body .sh13-ai { display: flex; flex-direction: column; gap: 8px; padding: 16px; 
 body .sh13-ai > span { font-size: 12px; color: #6E5A2E; font-weight: 600; }
 body .sh13-ai p { margin: 0; font-size: 13px; line-height: 1.6; color: #2F3A35; }
 body .sh13-ai code { display: block; background: #FFFFFF; border: 1px solid #E4E3DF; padding: 12px; font-size: 13px; line-height: 1.6; white-space: normal; word-break: break-all; color: #17201C; font-family: inherit; }
+body .sh13-steps p.sh13-n { color: #6E5A2E; font-size: 12px; }
