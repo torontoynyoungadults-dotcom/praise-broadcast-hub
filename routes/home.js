@@ -6,6 +6,21 @@ const ui = require('../lib/uiIcons');
 
 const router = express.Router();
 
+/* 홈 인사말 — 요일마다 여러 개 중 하나를 골라 바꿔 보여 줌 (금 · 토 · 일은 더 많이) */
+const GREETINGS = {
+  0: ['은혜로운 주일 되세요', '기쁨으로 섬기는 주일 되세요', '함께 예배드려 감사해요', '찬양으로 영광 올려드려요', '주님 안에서 평안한 주일 되세요', '예배에 은혜가 넘치길 바라요', '마음 다해 찬양하는 하루 되세요', '오늘도 함께 서 주셔서 고마워요'],
+  1: ['새 한 주도 주님과 함께해요', '평안한 한 주 시작하세요', '이번 주도 은혜 안에 머물러요'],
+  2: ['평안한 화요일 보내세요', '오늘도 주님 안에서 힘내세요', '찬양 한 곡으로 하루를 열어요'],
+  3: ['한 주의 가운데, 힘내세요', '평안한 수요일 보내세요', '오늘도 주님이 함께하세요'],
+  4: ['주말이 가까워요, 힘내세요', '평안한 목요일 보내세요', '감사로 채우는 하루 되세요'],
+  5: ['한 주 수고 많으셨어요', '감사로 한 주를 마무리해요', '평안한 금요일 저녁 되세요', '쉼이 있는 주말 보내세요', '지켜 주신 은혜에 감사해요', '주님 안에서 편히 쉬어 가세요', '주일을 기대하며 한 주를 닫아요'],
+  6: ['내일 예배를 기대하며 쉬어요', '평안한 토요일 보내세요', '주일을 준비하는 복된 하루 되세요', '콘티 한 번 들어 보고 푹 쉬세요', '새 힘 얻는 쉼이 되길 바라요', '내일 주일, 기대하는 마음으로', '한 주의 피로 풀고 내일 만나요'],
+};
+function greeting(day) {
+  const list = GREETINGS[day] || GREETINGS[1];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 router.get('/', async (req, res) => {
   if (!req.session) {
     const err = req.query.err ? `<p class="ph-msg err">${pageShell.esc(req.query.err)}</p>` : '';
@@ -35,7 +50,7 @@ router.get('/', async (req, res) => {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' }));
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     const dateKo = `${now.getMonth() + 1}월 ${now.getDate()}일 ${now.getDay() === 0 ? '주일' : days[now.getDay()] + '요일'}`;
-    const greet = now.getDay() === 0 || now.getDay() === 6 ? '평안한 주말 보내세요' : '평안한 한 주 보내세요';
+    const greet = greeting(now.getDay());
     const qs = q || (team ? `?team=${encodeURIComponent(team)}` : '');
     const esc = pageShell.esc;
     let hd = null;

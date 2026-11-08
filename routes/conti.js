@@ -314,25 +314,22 @@ function noteHtml(text, tagSet) {
   return out.join('');
 }
 
-/** 송폼 → 칩 (눈에 잘 띄게 — V · C · B 색 구분, 한글 이름 · 반복 · 마디 수) */
-/** 송폼 — 글자 한 줄 (회색 칸 안) */
+/** 송폼 — 글자 한 줄 "Intro 4마디 › V1 › C ×2 › …" (길면 다음 줄로). 간주는 흐리게, 전조는 금색 글자 */
 function formChips(form) {
   const toks = form ? YNForm.parse(form) : [];
   if (!toks.length) return form ? `<p class="cn-ftext">${esc(form)}</p>` : '';
-  // 송폼은 글자로 한 줄 — "Intro (8마디) › V1 › C ×2 › Itld (4마디) › …" (길면 다음 줄로)
   const one = (t) => {
     if (t.k === 'KeyUp') return 'Key ↑';
     const code = t.k === 'C(Voice)' ? 'C (Voice)' : t.k;
     return code + (t.bars ? ` (${t.bars}마디)` : '') + (t.rep > 1 ? ` ×${t.rep}` : '');
   };
-  // V13 — 구간마다 태그: 노래(실선) · 간주(점선 + 마디) · 전조(흑녹). 읽는 사람용 글자(aria-label)는 예전 한 줄 그대로
   const INST = /^(intro|itld|interlude|inst|out|outro|end|ending)/i;
   const kind = (t) => (t.k === 'KeyUp' ? 'key' : INST.test(t.k) ? 'inst' : 'voc');
   const label = (t) => (t.k === 'KeyUp' ? 'Key ↑' : t.k === 'C(Voice)' ? 'C' : t.k);
-  const small = (t) => [t.k === 'C(Voice)' ? 'Voice' : '', t.bars ? String(t.bars) : '', t.rep > 1 ? `×${t.rep}` : ''].filter(Boolean).join(' ');
-  const sec = (k) => (/^V\d?$/.test(k) ? 'v' : /^PC\d?$/.test(k) ? 'pc' : /^C\d?$/.test(k) || k === 'C(Voice)' ? 'c' : /^B\d?$/.test(k) ? 'b' : /^(Tag|Vamp|Turn|Coda)$/i.test(k) ? 'tag' : 'etc');
+  const small = (t) => [t.k === 'C(Voice)' ? 'Voice' : '', t.bars ? `${t.bars}마디` : '', t.rep > 1 ? `×${t.rep}` : ''].filter(Boolean).join(' ');
   const flat = toks.map(one).join(' › ');
-  return `<p class="cn-ftext cn-ftags" aria-label="송폼 ${esc(flat)}">${toks.map((t) => `<span class="cn-ft cn-ft-${kind(t)} cn-fs-${sec(t.k)}" aria-hidden="true">${esc(label(t))}${small(t) ? `<small>${esc(small(t))}</small>` : ''}</span>`).join('')}</p>`;
+  const parts = toks.map((t) => `<span class="cn-fl cn-fl-${kind(t)}">${esc(label(t))}${small(t) ? ` <small>${esc(small(t))}</small>` : ''}</span>`);
+  return `<p class="cn-ftext cn-fline" aria-label="송폼 ${esc(flat)}"><span aria-hidden="true">${parts.join('<i class="cn-fl-sep"> › </i>')}</span></p>`;
 }
 
 /** 방송팀 보기용 큰 송폼 — 순서 번호 · 큼직한 글씨 · 색 구분. 순서(송폼)가 방송에서 가장 중요해서 한눈에 읽히게 */

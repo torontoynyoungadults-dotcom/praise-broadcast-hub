@@ -1,0 +1,82 @@
+/* Polish — 마지막 손질 레이어 (pageShell 이 모든 허브 화면에서 맨 마지막에 읽음 · 라이브 악보는 안 읽음)
+   unslop 진단(2026-11-08) 결과를 아홉 단계 순서로 정리. 이 파일만 빼면 이전 모습으로 돌아감.
+   방향: 저녁 예배당 — 흑녹 · 놋쇠 금 · 오선지. 금색은 날짜와 주요 버튼에만.
+   unslop by @heydamir (CC BY 4.0) */
+
+/* ---------- 2. 색 — 금색은 한두 곳에만, 그림자는 짧고 옅게 ---------- */
+html body .v13-livebar-rec { background: #22302A !important; color: #E2CC97 !important; }
+html body .v13-livebar,
+html body .hm-cta2 { box-shadow: 0 4px 12px rgba(15, 26, 22, 0.18) !important; }
+html body .ph-me-sheet { box-shadow: 0 -8px 24px rgba(15, 26, 22, 0.16) !important; }
+html body .hm-ck.ok i { background: transparent !important; color: #E2CC97 !important; }
+html body .yn .s13 .s13-genlink { background: transparent !important; border-color: #2C3A33 !important; }
+
+/* 유리(blur) 효과 빼기 — 배경은 원래 단색이라 모습은 같고 스크롤이 가벼워짐 */
+html body .ph-hubnav,
+html body .ph-hero-btn,
+html body .yn .l13-list > li.l13-song { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* ---------- 4. 송폼 — 화살표로 잇는 한 줄 (시그니처) ---------- */
+html body .cn-ftext.cn-fline { display: block !important; margin: 0 !important; padding: 0 !important; background: none !important; border: 0 !important; border-radius: 0 !important; font-size: 15px !important; font-weight: 500 !important; line-height: 1.7 !important; letter-spacing: 0 !important; color: #17201C !important; }
+html body .cn-fline .cn-fl { white-space: nowrap; }
+html body .cn-fline .cn-fl small { font-size: 12px; font-weight: 400; color: #6B716D; }
+html body .cn-fline .cn-fl-inst { color: #6B716D; font-weight: 400; }
+html body .cn-fline .cn-fl-key { color: #7A5F2A; }
+html body .cn-fline i.cn-fl-sep { font-style: normal !important; margin: 0 !important; color: #B7AC8E !important; font-weight: 400 !important; }
+
+/* ---------- 5. 글자 — 서체 상속 · 굵기 400~600 · 크기는 정수 11px 이상 ---------- */
+:where(.ph-wrap) :where(button, input, select, textarea) { font-family: inherit; }
+html body .ph-brand i { font-style: normal !important; font-family: 'Pretendard', sans-serif !important; font-size: 11px !important; letter-spacing: 0.02em; }
+
+html body .hm-hi h1,
+html body .hm-next-d,
+html body .ph-h2,
+html body .ph-hero-title,
+html body .ph-bar-me,
+html body .a13-sh > h3,
+html body .yn .s13-top > h1,
+html body .yn .l13-h > h1 { font-weight: 600 !important; }
+
+html body .ph-wstrip-jumplabel,
+html body .cn-cardhead .cn-mini,
+html body .cn-cell > i,
+html body .fb-chip > b,
+html body .fb-chip > em,
+html body .fb-chip > i,
+html body .fb-tools .fb-t,
+html body .fb-row .fb-btn,
+html body .fb-custom > span,
+html body .fb-custom .fb-t,
+html body .cn-chips-t,
+html body .ph-add > summary,
+html body .ph-hdrchk,
+html body .ph-namechip .ph-dash,
+html body .ph-sub .ph-li-link,
+html body .yn .s13-top small,
+html body .yn .s13-mon > h2 > small,
+html body .ph-assignedrow button { font-weight: 600 !important; }
+
+html body .ph-wrap .ph-wstrip .ph-wstrip-month,
+html body .ph-wrap .ph-wstrip .ph-wstrip-ratio,
+html body .ph-wrap .pc-strip .ph-wstrip-ratio,
+html body .yn .l13-hist .d small,
+html body .yn .s13-filt > label > span,
+html body .yn .d > small { font-size: 11px !important; }
+html body .ph-wrap .ph-wstrip .ph-wstrip-ratio { font-weight: 400 !important; line-height: 1.3 !important; }
+html body .ph-wrap .cn-song .cn-info .cn-cell.key i,
+html body .ph-wrap .cn-cell i { font-size: 11px !important; letter-spacing: 0.04em !important; }
+
+html body .ph-footer .tag,
+html body .cn-toolrow .ph-stagebtn,
+html body .ph-inlineform .ph-btn,
+html body .ph-add > .ph-btn,
+html body .ph-li-main .ph-li-link.strong { font-size: 16px !important; }
+html body .ph-field > label,
+html body .r13-kakao > b { font-size: 14px !important; }
+html body .fb-custom > span,
+html body .fb > .fb-hint,
+html body .cn-refup .cn-mini,
+html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label { font-size: 13px !important; }
+html body .fb-chip > em,
+html body .ph-hdrchk > small,
+html body .r13-kakao > small { font-size: 12px !important; }
