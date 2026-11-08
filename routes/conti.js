@@ -2253,7 +2253,7 @@ router.post('/conti/songs/import', requireTeam, async (req, res) => {
   backTo(req, res, team, scope);
 });
 
-/** 오프라인용 다운로드 계획 — 이 예배 앞뒤(지난주 ~ 앞으로 3주)의 콘티 · 라이브 악보 화면 주소와 악보 파일 번호, 미리 받을 도구 파일.
+/** 오프라인용 다운로드 계획 — 지금 보고 있는 예배 하나의 콘티 · 라이브 악보 화면 주소와 악보 파일 번호, 미리 받을 도구 파일.
  *  실제로 받는 일은 브라우저(public/js/offline.js)가 하고, 받은 것은 서비스워커(public/sw.js)가 인터넷 없이도 돌려줍니다. */
 router.get('/conti/offline-plan', requireTeam, async (req, res) => {
   res.set('Cache-Control', 'no-store');
@@ -2261,9 +2261,10 @@ router.get('/conti/offline-plan', requireTeam, async (req, res) => {
     const team = req.ctx.current;
     const base = week.normalizeDate(req.query.date);
     const evId = String(req.query.event || '').trim();
-    const dates = [-7, 0, 7, 14, 21].map((n) => week.shiftWeek(base, n / 7));
-    const evs = (await specialServices(team)).filter((e) => e['날짜'] >= dates[0] && e['날짜'] <= dates[dates.length - 1] || e['ID'] === evId);
-    const scopes = dates.map((d) => ({ event: '', date: d })).concat(evs.map((e) => ({ event: e['ID'], date: e['날짜'] })));
+    // 지금 보고 있는 예배 하나만 — 주일이면 그 주일, 특별예배 화면이면 그 예배 (앞뒤 주는 받지 않음)
+    const ev = evId ? (await specialServices(team)).find((e) => e['ID'] === evId) : null;
+    const dates = ev ? [] : [base];
+    const scopes = ev ? [{ event: ev['ID'], date: ev['날짜'] }] : [{ event: '', date: base }];
     const qs = (sc) => `team=${encodeURIComponent(team)}&` + (sc.event ? `event=${encodeURIComponent(sc.event)}` : `date=${encodeURIComponent(sc.date)}`);
     const pages = ['/'].concat(...scopes.map((sc) => [`/conti?${qs(sc)}`, `/conti/practice?${qs(sc)}`]));
     const sheetRows = (await sheetsDb.readAll('악보저장소')).filter((r) => r['팀ID'] === team && r['파일링크'] && scopes.some((sc) => inScope(r, sc)));

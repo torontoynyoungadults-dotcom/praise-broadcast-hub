@@ -295,7 +295,7 @@
           (rec.failed ? ' · 못 받은 것 ' + rec.failed + '개' : '') + '</p><p class="cn-offhint">인터넷이 끊겨도 콘티와 라이브 악보가 열려요. 라이브 악보를 열 때마다 빠진 것만 조용히 채워요.</p>' +
           '<div class="cn-offact"><button type="button" class="cn-mini pri" data-cn-offstart>다시 받기</button><button type="button" class="cn-mini" data-cn-offclear>받아 둔 것 지우기</button></div>';
       } else {
-        h = head + '<p class="cn-offhint">이 예배 앞뒤(지난주 ~ 3주 뒤)의 콘티 · 라이브 악보 화면과 악보 파일을 이 기기에 저장해요. 와이파이가 약한 예배당에서도 열려요. 와이파이에서 받는 걸 추천해요.</p>' +
+        h = head + '<p class="cn-offhint">지금 보고 있는 이 예배의 콘티 · 라이브 악보 화면과 악보 파일만 이 기기에 저장해요. 다른 주는 그 주 콘티에서 따로 받으면 돼요. 와이파이가 약한 예배당에서도 열려요. 와이파이에서 받는 걸 추천해요.</p>' +
           '<div class="cn-offact"><button type="button" class="cn-mini pri" data-cn-offstart>다운로드 시작</button></div>';
       }
     }

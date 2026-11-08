@@ -80,3 +80,17 @@ html body .ph-wrap .cn-song .cn-sec-ref .cn-refup label { font-size: 13px !impor
 html body .fb-chip > em,
 html body .ph-hdrchk > small,
 html body .r13-kakao > small { font-size: 12px !important; }
+
+/* ---------- 떠 있는 바 — 덜 거슬리게 (2026-11-08) ----------
+   주일콘티 "라이브 악보 시작" 바: 곡 올리기 · 수정 · 글 입력 중에는 숨김, 아래로 스크롤하면 내려가 숨고 위로 올리면 다시 나타남(js/floatbar.js)
+   홈 "주일콘티 보기": 떠 있지 않고 페이지 맨 아래 보통 버튼으로 */
+html body .v13-livebar { transition: transform 220ms cubic-bezier(0.2, 0, 0, 1), opacity 220ms cubic-bezier(0.2, 0, 0, 1); }
+html body.fb-away .v13-livebar { transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; }
+body:has([data-v13-add]:not([hidden])) .v13-livebar,
+body:has(.ph-add[open]:not(.cn-import)) .v13-livebar,
+body:has(.cn-edit[open]) .v13-livebar,
+body:has(.ph-wrap :is(textarea, select, input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"])):focus) .v13-livebar { display: none !important; }
+@media (prefers-reduced-motion: reduce) { html body .v13-livebar { transition: none; } }
+
+html body .hm-cta2 { position: static !important; margin: 24px 0 0 !important; max-width: none !important; box-shadow: none !important; }
+html body .ph-wrap:has(.hm-cta2) { padding-bottom: 32px !important; }
