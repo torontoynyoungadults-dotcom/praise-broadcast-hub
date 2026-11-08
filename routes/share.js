@@ -41,11 +41,17 @@ router.post('/share/rec', rec.big.single('file'), async (req, res) => {
   const pid = crypto.randomBytes(9).toString('base64url');
   PENDING.set(pid, { link, title, email, at: Date.now() });
   for (const [k, v] of PENDING) if (Date.now() - v.at > 3600 * 1000) PENDING.delete(k);
+  if (req.query.json) return res.json({ p: pid });
   res.redirect(303, '/share/rec?p=' + pid);
 });
 
 router.get('/share/rec', async (req, res) => {
   if (!req.session || !req.session.email) return res.redirect('/');
+  if (req.query.sw) {                              // 서비스워커가 보관한 공유 파일 → 이 화면이 (로그인된 채로) 올림
+    return spa.send(req, res, `${pageShell.hero({ barOnly: true })}<section class="sh13"><p class="sh13-k">카톡에서 받은 녹음</p><h1 id="sh13n">올리는 중…</h1>
+      <div class="r13-prog"><i id="sh13b"></i><span id="sh13s">0%</span></div>
+      <script>(function(){caches.open('share-tmp').then(function(c){return c.match('/share/rec/file').then(function(r){if(!r)throw new Error('파일을 찾지 못했어요. 카톡에서 다시 공유해 주세요.');var n=decodeURIComponent(r.headers.get('X-Name')||'녹음');document.getElementById('sh13n').textContent=n;return r.blob().then(function(b){var fd=new FormData();fd.append('file',new File([b],n,{type:b.type}));var x=new XMLHttpRequest();x.open('POST','/share/rec?json=1');x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded/e.total*100);document.getElementById('sh13b').style.width=p+'%';document.getElementById('sh13s').textContent=p<100?p+'% · '+Math.round(e.loaded/1048576)+' / '+Math.round(e.total/1048576)+'MB':'저장하는 중…';}};x.onload=function(){var j={};try{j=JSON.parse(x.responseText)}catch(e){}if(j.p){c.delete('/share/rec/file');location.replace('/share/rec?p='+j.p);}else document.getElementById('sh13s').textContent=x.responseText.slice(0,160)||'올리지 못했어요';};x.onerror=function(){document.getElementById('sh13s').textContent='인터넷이 끊겨 올리지 못했어요.'};x.send(fd);});});}).catch(function(e){document.getElementById('sh13s').textContent=e.message;});})();</script></section>`, { title: '녹음 올리기' });
+  }
   const p = PENDING.get(String(req.query.p || ''));
   if (!p || p.email !== req.session.email) {
     return spa.send(req, res, `${pageShell.hero({ barOnly: true })}<section class="sh13"><h1>카톡에서 녹음 올리기</h1>

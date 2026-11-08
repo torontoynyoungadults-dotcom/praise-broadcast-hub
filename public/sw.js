@@ -154,6 +154,17 @@ function sheetFetch(event) {
 
 self.addEventListener('fetch', function (event) {
   var req = event.request;
+  /* 카톡 등에서 "공유" → 이 앱 (site.webmanifest share_target) — 파일을 잠깐 보관하고 화면으로 넘김. 화면이 로그인된 채로 올림 */
+  if (req.method === 'POST' && new URL(req.url).pathname === '/share/rec' && new URL(req.url).search.indexOf('token=') === -1 && req.mode === 'navigate') {
+    event.respondWith(req.formData().then(function (fd) {
+      var f = fd.get('file');
+      if (!f || typeof f === 'string') return Response.redirect('/share/rec', 303);
+      return caches.open('share-tmp').then(function (c) {
+        return c.put('/share/rec/file', new Response(f, { headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Name': encodeURIComponent(f.name || '녹음') } }));
+      }).then(function () { return Response.redirect('/share/rec?sw=1', 303); });
+    }).catch(function () { return Response.redirect('/share/rec', 303); }));
+    return;
+  }
   if (req.method !== 'GET') return;
   var u; try { u = new URL(req.url); } catch (e) { return; }
   if (u.origin !== self.location.origin) return;
