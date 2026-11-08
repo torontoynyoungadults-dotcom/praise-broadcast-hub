@@ -103,7 +103,7 @@ router.get('/share/ios', async (req, res) => {
       <small>나만 쓰는 주소예요 — 다른 사람에게 보내지 마세요.</small></div>
     <div class="sh13-ai"><span>iOS 27 — 설명으로 바로 만들기</span>
       <p>단축어 앱 → <b>＋</b> → <b>단축어 설명하기</b> 에 아래 문장을 붙여넣으면 단축어가 만들어져요. 만든 뒤 ⓘ 에서 <b>공유 시트에서 보기</b> 가 켜져 있는지만 확인하세요.</p>
-      <code id="sh13d">이름은 "찬양팀에 녹음 올리기". 공유 시트에서 파일과 미디어를 받아. "어떤 녹음?" 메뉴로 연습, 예배, 참고 음원 중 하나를 고르게 해. 그 다음 ${esc(url)} 로 POST 요청을 보내는데, 요청 본문은 양식으로 하고 file 필드에 받은 파일, kind 필드에 고른 항목을 넣어. 마지막에 받은 결과를 보여줘.</code>
+      <code id="sh13d">이름은 "찬양팀에 녹음 올리기". 공유 시트에서 모든 유형(특히 파일)을 받아. "어떤 녹음?" 메뉴로 연습, 예배, 참고 음원 중 하나를 고르게 해. 그 다음 ${esc(url)} 로 POST 요청을 보내는데, 요청 본문은 양식으로 하고 file 필드에 받은 파일, kind 필드에 고른 항목을 넣어. 마지막에 받은 결과를 보여줘.</code>
       <button type="button" class="a13-go" onclick="var t=document.getElementById('sh13d').textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){this.querySelector('span').textContent='복사했어요'}.bind(this)).catch(function(){prompt('길게 눌러 복사하세요',t)})"><span>설명 문장 복사</span></button>
     </div>
     <p class="sh13-k" style="margin-top:18px">직접 만들기 (iOS 27 · 설명이 잘 안 될 때)</p>
@@ -114,6 +114,13 @@ router.get('/share/ios', async (req, res) => {
       ${step(4, '"URL 내용 가져오기" 추가', '<p>메뉴 <b>아래(끝 다음)</b>에 <b>URL 내용 가져오기</b> → URL 칸에 위 <b>내 개인 주소</b> 붙여넣기.</p><p>▸ 펼쳐서 방법: <b>POST</b> · 요청 본문: <b>양식</b></p><p>필드 추가 → <b>파일</b> · 키 <code>file</code> · 값: <b>단축어 입력</b></p><p>필드 추가 → <b>텍스트</b> · 키 <code>kind</code> · 값: <b>선택한 항목</b> (메뉴 결과)</p>')}
       ${step(5, '"결과 보기" 추가', '<p><b>결과 보기</b> → 값: <b>URL의 내용</b>. 올라가면 "올렸어요 ✓ 11/8 주일 · 연습 녹음" 이 떠요.</p>')}
     </ol>
+    <div class="sh13-ai sh13-fix"><span>공유에 단축어가 안 보이면</span>
+      <p>① 카톡에서 녹음 파일을 열고 <b>공유 아이콘(↑ 네모)</b> 또는 <b>저장/공유 → 다른 앱으로 공유</b> 를 눌러요. 카톡 친구 목록이 뜨는 "전달" 화면에는 단축어가 안 나와요.</p>
+      <p>② 아이폰 공유 화면 <b>아래 목록을 끝까지</b> 내리면 <b>찬양팀에 녹음 올리기</b> 가 있어요. 맨 아래 <b>동작 편집…</b> 에서 ＋ 를 눌러 즐겨찾기에 넣으면 위에 고정돼요.</p>
+      <p>③ 그래도 없으면 단축어 앱 → 그 단축어 <b>길게 누르기 → 세부사항(ⓘ)</b> → <b>공유 시트에서 보기</b> 가 켜져 있어야 해요.</p>
+      <p>④ 단축어를 열었을 때 맨 위 첫 줄이 <b>"공유 시트에서 ○○ 입력 받기"</b> 여야 해요. ○○ 를 눌러 <b>파일</b> 이 꼭 켜져 있는지 확인하세요 — 카톡 녹음은 "미디어"가 아니라 <b>"파일"</b> 로 넘어와요. 헷갈리면 <b>모든 유형</b> 으로 해 두면 확실해요.</p>
+      <p>⑤ 마이크로 바로 녹음한 <b>음성메시지</b>는 공유 화면이 안 뜰 수 있어요 — 길게 눌러 <b>저장</b> → 파일 앱에서 그 파일을 <b>공유 → 찬양팀에 녹음 올리기</b>.</p>
+    </div>
     <p class="ph-sub">연습 · 참고 음원은 <b>다가오는 주일</b>, 예배 녹음은 <b>지난 주일</b> 콘티에 들어가요. 다른 주일이면 콘티 화면의 녹음 목록에서 고칠 수 있어요.</p>
     <form method="post" action="/share/ios/reset" onsubmit="return confirm('새 주소를 만들면 예전 단축어는 안 돼요. 만들까요?')"><button type="submit" class="sh13-reset">주소 새로 만들기</button></form>
   </section>`;
