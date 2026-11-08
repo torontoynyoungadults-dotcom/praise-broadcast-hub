@@ -1,67 +1,85 @@
-"""앱 아이콘 만들기 — V12 테마 "Evergreen & Brass"(public/css/app.css 의 --hero-* · --accent 색)에 맞춘 그림.
-   상록 여명 하늘 + 샴페인 골드 해 · 퍼지는 소리(방송) 물결 + 십자가 + 아래 호숫가 언덕 (배너 그림과 같은 느낌)
+"""앱 아이콘 만들기 — V13 "흑녹 · 금" 테마 (A · 금 원).
+   흑녹 바탕 + 놋쇠 금 원 안의 흑녹 십자가 + 양옆으로 흐려지는 울림 세 겹 + 아래 언덕 위 금색 YN.
+   그라데이션 · 빛 번짐 없이 단색만. YN 글자는 마루부리(public/fonts/MaruBuri-Bold.woff2)에서 윤곽선으로 뽑아 넣어
+   글꼴이 없는 기기에서도 똑같이 보입니다.
 
-   실행:  pip install cairosvg pillow   →   python3 tools/gen-icons.py
+   실행:  pip install cairosvg pillow fonttools brotli   →   python3 tools/gen-icons.py
    만드는 것 (public/icons/): icon.svg · icon-favicon.svg · icon-maskable.svg · icon-apple.svg
                              icon-192.png · icon-512.png · icon-maskable-512.png · apple-touch-icon.png
                              favicon-32.png · favicon-48.png · favicon.ico
 """
 import io
-import math
 import os
 
 import cairosvg
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.ttLib import TTFont
 from PIL import Image
 
-OUT = os.path.join(os.path.dirname(__file__), '..', 'public', 'icons')
+ROOT = os.path.join(os.path.dirname(__file__), '..')
+OUT = os.path.join(ROOT, 'public', 'icons')
+FONT = os.path.join(ROOT, 'public', 'fonts', 'MaruBuri-Bold.woff2')
 
-# --- 테마 색 (app.css 어두운 화면 :root) ---
-SKY1, SKY2, SKY3 = '#0B1A17', '#14302A', '#3E4A33'   # --hero-sky-1..3
-SUN_HI, SUN, GOLD = '#F3E6C6', '#E9D3A4', '#D6B97F'  # 해 밝은 쪽 · --hero-sun · --accent
-EVERGREEN = '#1F4A3F'                                 # 밝은 화면 --accent (십자가)
-HILL1, HILL2 = '#10261F', '#0A1A15'                   # --hero-mtn-2 · --hero-mtn-3
+# --- V13 테마 색 (public/css/v13.css) ---
+INK = '#0F1A16'      # 흑녹
+HILL = '#17261F'     # 언덕 (흑녹보다 한 단계 밝게)
+GOLD = '#C6A664'     # 놋쇠 금
+GOLD_HI = '#E2CC97'  # 밝은 금 (YN)
+
+# 그림은 180 × 180 좌표로 그리고, viewBox 로 원하는 크기에 맞춥니다.
 
 
-def svg(rx, scale, small=False):
-    """rx: 모서리 둥글기(0 = 기기가 알아서 자름) · scale: 가운데 그림 크기 · small: 파비콘(가는 바깥 물결 생략)"""
-    arcs = [(138, 1), (182, .62)] + ([] if small else [(226, .3)])
-    paths = []
-    for r, op in arcs:
+def text_path(text, size, cx, baseline, tracking=0.0):
+    """글자를 SVG path 로 — 가운데 정렬 · 글자 사이 tracking(px)"""
+    font = TTFont(FONT)
+    cmap, gs = font.getBestCmap(), font.getGlyphSet()
+    upm = font['head'].unitsPerEm
+    k = size / upm
+    names = [cmap[ord(ch)] for ch in text]
+    widths = [gs[n].width * k for n in names]
+    total = sum(widths) + tracking * (len(names) - 1)
+    x = cx - total / 2
+    out = []
+    for n, w in zip(names, widths):
+        pen = SVGPathPen(gs)
+        gs[n].draw(TransformPen(pen, (k, 0, 0, -k, x, baseline)))
+        out.append(pen.getCommands())
+        x += w + tracking
+    return ' '.join(out)
 
-        a = math.radians(38)
-        dx, dy = r * math.cos(a), r * math.sin(a)
-        paths.append(f'<path d="M {256+dx:.2f} {256-dy:.2f} A {r} {r} 0 0 1 {256+dx:.2f} {256+dy:.2f}" opacity="{op}"/>')
-        paths.append(f'<path d="M {256-dx:.2f} {256-dy:.2f} A {r} {r} 0 0 0 {256-dx:.2f} {256+dy:.2f}" opacity="{op}"/>')
-    sw = 26 if small else 20
-    hills = '' if small else f'''
-    <path d="M0 446 C 96 428 176 440 256 436 S 420 424 512 440 V512 H0 Z" fill="{HILL1}"/>
-    <path d="M0 474 C 120 462 250 482 380 470 S 470 466 512 472 V512 H0 Z" fill="{HILL2}"/>
-    <g stroke="{SUN}" stroke-width="5" stroke-linecap="round" opacity=".42"><path d="M206 488 H306"/><path d="M228 498 H284"/></g>'''
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <!-- V12 "Evergreen &amp; Brass": 상록 여명 {SKY1} → {SKY2} → {SKY3} · 샴페인 골드 {GOLD} · 상록 {EVERGREEN} -->
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="{SKY1}"/><stop offset=".58" stop-color="{SKY2}"/><stop offset="1" stop-color="{SKY3}"/>
-    </linearGradient>
-    <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="{GOLD}" stop-opacity=".42"/><stop offset=".55" stop-color="{GOLD}" stop-opacity=".12"/><stop offset="1" stop-color="{GOLD}" stop-opacity="0"/></radialGradient>
-    <radialGradient id="sun" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="{SUN_HI}"/><stop offset=".6" stop-color="{SUN}"/><stop offset="1" stop-color="{GOLD}"/></radialGradient>
-    <linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <clipPath id="sh"><rect width="512" height="512" rx="{rx}"/></clipPath>
-  </defs>
+
+def arcs(cx, cy, rings, width):
+    """양옆 울림 — rings: [(반지름, 불투명도)] · 40° 위아래로 벌어진 호"""
+    cos, sin = 0.766, 0.643
+    out = []
+    for r, op in rings:
+        dx, dy = r * cos, r * sin
+        out.append(f'<path d="M{cx - dx:.1f} {cy - dy:.1f} A{r} {r} 0 0 0 {cx - dx:.1f} {cy + dy:.1f}" opacity="{op}"/>')
+        out.append(f'<path d="M{cx + dx:.1f} {cy - dy:.1f} A{r} {r} 0 0 1 {cx + dx:.1f} {cy + dy:.1f}" opacity="{op}"/>')
+    return f'<g fill="none" stroke="{GOLD}" stroke-width="{width}" stroke-linecap="round">{"".join(out)}</g>'
+
+
+def svg(rx, scale=1.0, small=False):
+    """rx: 모서리 둥글기(0 = 기기가 자름) · scale: 안전 영역용 축소(언덕 · 바탕은 그대로 꽉 채움) · small: 파비콘"""
+    if small:   # 아주 작은 크기 — 원 · 십자가 크게, 울림 한 겹, 글자 없음
+        body = (arcs(90, 90, [(54, 1)], 9)
+                + f'<circle cx="90" cy="90" r="38" fill="{GOLD}"/>'
+                + f'<rect x="84" y="64" width="12" height="52" fill="{INK}"/><rect x="69" y="78" width="42" height="12" fill="{INK}"/>')
+        hill = ''
+    else:
+        body = (arcs(90, 78, [(42, 1), (54, .6), (66, .32)], 3)
+                + f'<circle cx="90" cy="78" r="30" fill="{GOLD}"/>'
+                + f'<rect x="86" y="57" width="8" height="42" fill="{INK}"/><rect x="74" y="69" width="32" height="8" fill="{INK}"/>'
+                + f'<path d="{text_path("YN", 20, 90, 169, 2)}" fill="{GOLD_HI}"/>')
+        hill = f'<path d="M0 150 Q 90 128 180 150 L180 180 L0 180 Z" fill="{HILL}"/>'
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="512" height="512">
+  <!-- V13 "흑녹 · 금": 흑녹 {INK} · 언덕 {HILL} · 금 {GOLD} · 밝은 금 {GOLD_HI} -->
+  <defs><clipPath id="sh"><rect width="180" height="180" rx="{rx}"/></clipPath></defs>
   <g clip-path="url(#sh)">
-    <rect width="512" height="512" fill="url(#bg)"/>
-    <rect width="512" height="200" fill="url(#gl)"/>
-    <g transform="translate(256 256) scale({scale}) translate(-256 -256)">
-      <circle cx="256" cy="256" r="236" fill="url(#glow)"/>
-      <g fill="none" stroke="{GOLD}" stroke-width="{sw}" stroke-linecap="round">
-        {''.join(paths)}
-      </g>
-      <circle cx="256" cy="256" r="98" fill="url(#sun)"/>
-      <g fill="{EVERGREEN}">
-        <rect x="237" y="166" width="38" height="196" rx="10"/>
-        <rect x="199" y="212" width="114" height="38" rx="10"/>
-      </g>
-    </g>{hills}
+    <rect width="180" height="180" fill="{INK}"/>
+    {hill}
+    <g transform="translate(90 90) scale({scale}) translate(-90 -90)">{body}</g>
   </g>
 </svg>
 '''
@@ -73,17 +91,18 @@ def png(svg_text, size):
 
 
 def main():
-    icon = svg(112, .95)            # 둥근 모서리 — 브라우저 · 데스크톱
-    full = svg(0, .84)              # 꽉 찬 사각 — 안드로이드 maskable(안전 영역 80%) · iOS(기기가 둥글게 자름)
-    fav = svg(112, 1.0, small=True) # 아주 작은 크기용 — 굵은 선 · 장식 생략
-    files = {'icon.svg': icon, 'icon-favicon.svg': fav, 'icon-maskable.svg': full, 'icon-apple.svg': full}
+    icon = svg(40)                  # 둥근 모서리 — 브라우저 · 데스크톱
+    apple = svg(0)                  # 꽉 찬 사각 — iOS 가 알아서 둥글게 자름
+    mask = svg(0, .84)              # 안드로이드 maskable — 그림을 안전 영역(80%) 안으로
+    fav = svg(40, small=True)       # 아주 작은 크기용
+    files = {'icon.svg': icon, 'icon-favicon.svg': fav, 'icon-maskable.svg': mask, 'icon-apple.svg': apple}
     for name, text in files.items():
         with open(os.path.join(OUT, name), 'w', encoding='utf-8') as f:
             f.write(text)
     png(icon, 192).save(os.path.join(OUT, 'icon-192.png'), optimize=True)
     png(icon, 512).save(os.path.join(OUT, 'icon-512.png'), optimize=True)
-    png(full, 512).save(os.path.join(OUT, 'icon-maskable-512.png'), optimize=True)
-    png(full, 180).convert('RGB').save(os.path.join(OUT, 'apple-touch-icon.png'), optimize=True)
+    png(mask, 512).save(os.path.join(OUT, 'icon-maskable-512.png'), optimize=True)
+    png(apple, 180).convert('RGB').save(os.path.join(OUT, 'apple-touch-icon.png'), optimize=True)
     png(fav, 32).save(os.path.join(OUT, 'favicon-32.png'), optimize=True)
     png(fav, 48).save(os.path.join(OUT, 'favicon-48.png'), optimize=True)
     png(fav, 256).save(os.path.join(OUT, 'favicon.ico'), sizes=[(16, 16), (32, 32), (48, 48)])
