@@ -87,6 +87,7 @@ app.use(require('./routes/library'));
 app.use(require('./routes/sound'));   // /sound — 마이크 · 인이어 · P16 설정
 app.use(require('./routes/equipment'));
 app.use(require('./routes/drive'));   // /drive — 미디어팀 NAS(Synology) 파일 보기 · 재생 (lib/nas.js)
+app.use(require('./routes/share'));   // /share — 카톡에서 녹음 바로 올리기 (안드로이드 공유 · 아이폰 단축어)
 app.use(require('./routes/visit'));   // /visit — 페이지 방문 기록 (관리자만 봄)
 app.use(require('./routes/admin'));
 app.use(require('./routes/home'));

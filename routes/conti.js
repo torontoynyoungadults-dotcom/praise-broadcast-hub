@@ -50,6 +50,7 @@ const YTFORM_V = (() => { try { return String(Math.floor(require('fs').statSync(
 const guestLink = require('../lib/guestLink');
 const guestDayLink = require('../lib/guestDayLink');
 const timeSettings = require('../lib/timeSettings');
+const recIngest = require('../lib/recIngest');
 const closingHymn = require('../lib/closingHymn');
 const practiceView = require('../lib/practiceView');
 const notify = require('../lib/notify');
@@ -1367,8 +1368,8 @@ function recsAndShare(w, team, scope, markSongs, recId, opt) {
         <fieldset class="a13-kind"><legend>어떤 녹음인가요</legend><div>
           <label><input type="radio" name="구분" value="연습" checked>연습</label><label><input type="radio" name="구분" value="예배">예배</label><label><input type="radio" name="구분" value="참고">참고 음원</label>
         </div></fieldset>
-        <label class="a13-drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#17201C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><b>녹음 · 영상 파일 고르기</b><small data-a13-files>MP3 · M4A · WAV · MP4</small>
-          <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac" onchange="var s=this.parentNode.querySelector('[data-a13-files]');if(s)s.textContent=this.files.length?this.files[0].name:'MP3 · M4A · WAV · MP4'"></label>
+        <label class="a13-drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#17201C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><b>녹음 · 영상 파일 고르기</b><small data-a13-files>MP3 · M4A · WAV · MP4 · 영상도 (최대 800MB)</small>
+          <input type="file" name="파일" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.aac" onchange="var s=this.parentNode.querySelector('[data-a13-files]');if(s)s.textContent=this.files.length?this.files[0].name+' · '+Math.round(this.files[0].size/1048576)+'MB':'MP3 · M4A · WAV · MP4 · 영상도 (최대 800MB)'"></label>
         <div class="a13-title"><label>제목 <small style="display:inline;color:#5C6660;">비워 두면 파일 이름 · 링크 제목으로</small></label>
           <input type="text" name="제목" placeholder="예: 11/6 연습 전체" autocomplete="off"></div>
         <details class="r13-alt"><summary>파일 대신 링크로</summary>
@@ -1377,6 +1378,7 @@ function recsAndShare(w, team, scope, markSongs, recId, opt) {
         </details>
         <div class="a13-bar r13-bar"><button type="submit" class="a13-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C6A664" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4.5 19.5h15"/></svg><span>올리기</span></button></div>
       </form>
+      <a class="r13-kakao" href="/share/ios"><b>카톡에서 바로 올리기</b><small>안드로이드: 녹음 파일 → 공유 → YN찬양팀Hub · 아이폰: 단축어 한 번 만들기 ›</small></a>
     </details>
   </div>
 
@@ -2375,7 +2377,7 @@ async function linkFromR2Path(raw) {
   return '/audio/' + id;
 }
 
-router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate.afterUpload, async (req, res) => {
+router.post('/conti/recordings', requireTeam, recIngest.big.single('파일'), guestGate.afterUpload, async (req, res) => {   // 큰 녹음 · 영상도 (디스크로 받아 R2 로)
   const b = req.body || {};
   const team = String(b.team || '').trim();
   if (!team || !req.ctx.teams.includes(team)) return res.status(403).type('text').send('이 찬양팀의 음원을 올릴 권한이 없습니다.');
@@ -2387,7 +2389,7 @@ router.post('/conti/recordings', requireTeam, upload.single('파일'), guestGate
     try { link = await linkFromR2Path(r2Path); } catch (e) { console.error('[녹음 R2 경로 등록 실패]', e.message); return res.status(400).type('text').send(e.message); }
     if (!title) title = (r2Path.split('/').pop() || '').replace(/\.[A-Za-z0-9]{2,5}$/, '').replace(/_+/g, ' ').trim().slice(0, 80);
   }
-  try { if (req.file) link = await driveStore.uploadPublic('음원', req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); return res.status(503).type('text').send('비공개 음원 저장소가 준비되지 않았습니다. 관리자에게 R2 설정을 요청해주세요.'); }
+  try { if (req.file) link = await recIngest.store(req.file); } catch (e) { console.error('[녹음 업로드 실패]', e.message); return res.status(400).type('text').send(e.message || '녹음을 올리지 못했어요.'); }
   if (!link) return backTo(req, res, team, scope);
   if (!title) title = await autoRecTitle(req.file, String(b['링크'] || '').trim());
   await sheetsDb.appendRow('녹음', {

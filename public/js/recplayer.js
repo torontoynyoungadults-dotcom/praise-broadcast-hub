@@ -398,6 +398,23 @@
       link.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(lookup, 450); });
       link.addEventListener('change', lookup);
     }
+    /* 파일이 있으면 올라가는 정도(%)를 보여 주며 보냄 — 큰 예배 녹음 · 영상은 몇 분 걸릴 수 있어서 */
+    form.addEventListener('submit', function (e) {
+      var f = file && file.files && file.files[0]; if (!f || !window.FormData || !window.XMLHttpRequest) return;
+      e.preventDefault();
+      var go = form.querySelector('[type="submit"]'), bar = form.querySelector('.r13-prog');
+      if (!bar) { bar = document.createElement('div'); bar.className = 'r13-prog'; bar.innerHTML = '<i></i><span>올리는 중… 0%</span>'; (go && go.parentNode ? go.parentNode : form).appendChild(bar); }
+      if (go) go.disabled = true;
+      var x = new XMLHttpRequest();
+      x.open('POST', form.action);
+      x.upload.onprogress = function (ev) { if (!ev.lengthComputable) return; var pc = Math.round(ev.loaded / ev.total * 100); bar.querySelector('i').style.width = pc + '%'; bar.querySelector('span').textContent = pc < 100 ? '올리는 중… ' + pc + '% · ' + Math.round(ev.loaded / 1048576) + ' / ' + Math.round(ev.total / 1048576) + 'MB' : '저장하는 중…'; };
+      x.onload = function () {
+        if (x.status >= 200 && x.status < 400) { location.href = x.responseURL && x.responseURL.indexOf('/conti/recordings') === -1 ? x.responseURL : location.href; return; }
+        if (go) go.disabled = false; bar.querySelector('span').textContent = (x.responseText || '올리지 못했어요').slice(0, 160);
+      };
+      x.onerror = function () { if (go) go.disabled = false; bar.querySelector('span').textContent = '인터넷이 끊겨 올리지 못했어요. 다시 눌러 주세요.'; };
+      x.send(new FormData(form));
+    });
   }
 
   function boot(root) {
