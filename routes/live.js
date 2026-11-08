@@ -223,7 +223,7 @@ async function renderLive(req, res, o) {
 <link rel="manifest" href="/site.webmanifest">
 <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<script>${THEME_BOOT}</script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
 ${early}<link rel="stylesheet" href="/worship/live-base.css${v}">
 <link rel="stylesheet" href="/worship/hub.css${v}">
 <link rel="stylesheet" href="/worship/live-glass.css${v}">
@@ -347,7 +347,7 @@ async function renderStage(req, res, o) {
   const v = `?v=${LIVE_V}`;
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html>
-<html lang="ko" data-theme="dark">
+<html lang="ko" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

@@ -68,7 +68,7 @@
 
   function themeNow() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
   function themeSet(t) {
-    t = t === 'light' ? 'light' : 'dark';
+    t = 'light';                                     // 어두운 화면은 없앰 — 늘 밝게
     root.setAttribute('data-theme', t);
     try { if (window.PHThemeMode) window.PHThemeMode.setManual(t); else localStorage.setItem('ph.theme', t); } catch (e) { /* 저장이 막힌 브라우저 */ }   // 직접 고른 것은 다음 전환 시각까지만
     var m = doc.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'light' ? '#EDF4E9' : '#0A1311');

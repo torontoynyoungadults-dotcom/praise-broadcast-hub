@@ -1848,3 +1848,5 @@ html body .msd-foot .msd-sub > b { font-family: 'MaruBuri', serif; font-weight: 
 html body .msd-subbtns { gap: 2px !important; }
 html body .msd-step { border-radius: 0 !important; background: #F6F6F4 !important; border: 0 !important; }
 html body .msd-step em { color: #6E5A2E !important; }
+/* 어두운 화면 없앰 — 맨 위 해/달 단추 숨김 */
+html body .ph-themesw, html body [data-ph-act="theme"] { display: none !important; }

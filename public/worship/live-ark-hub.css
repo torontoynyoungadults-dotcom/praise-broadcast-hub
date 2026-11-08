@@ -21,3 +21,5 @@ html body .pv.pv-ro.pv-ro .pv-toolsbtn, html body .pv.pv-ro.pv-ro .pv-tools, htm
 
 /* 키 저장 단추 — 청년부 앱은 주황, 허브는 강조색 */
 html body .pv:not(#_) .pv-kssave { background: var(--ak-go) !important; color: var(--ak-go-ink) !important; }
+/* 어두운 화면 없앰 — 화면 모드 단추 숨김 */
+.pv .pv-themebtn, .pv [data-a="theme"] { display: none !important; }
