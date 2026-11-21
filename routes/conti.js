@@ -2628,6 +2628,7 @@ router.get('/conti/history', requireTeam, async (req, res) => {
     const day = histDay(i.at);
     const head = day !== lastDay ? `<li class="cn-h-day">${esc(day)}</li>` : ''; lastDay = day;
     const btn = !mayUndo ? '' : undone.has(i.id) ? '<span class="cn-h-done">되돌림</span>'
+      : (i.kind === '악보삭제' && !canUndo(i) && ctx.isAdmin) ? `<a class="cn-mini" href="${esc(histUrl(team, scope, { id: i.id }).replace('/conti/history?', '/conti/history/find?'))}">${ui.icon('search')} 지운 악보 찾기</a>`
       : canUndo(i) ? `<form method="post" action="/conti/history/undo" class="cn-h-undo" onsubmit="return confirm('이 변경을 되돌릴까요?')"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="id" value="${esc(i.id)}"><button type="submit" class="cn-mini">${ui.icon('prev')} 되돌리기</button></form>` : '';
     return `${head}<li class="cn-h-item"><div class="cn-h-meta"><span class="cn-h-t">${esc(histTime(i.at))}</span><span class="cn-h-by">${esc(honorific.forTeam(team, i.by))}</span></div><div class="cn-h-w">${histWhat(i)}</div>${btn}</li>`;
   }).join('');
@@ -2802,6 +2803,92 @@ router.post('/conti/songs/pull', requireTeam, async (req, res) => {
     }
   } catch (e) { console.error('[지난 콘티에서 항목 가져오기 실패]', e && e.message); }
   backTo(req, res, team, scope);
+});
+
+/* ================================================================ 예전에 지운 악보 되살리기 (관리자)
+ * 악보를 지우면 '악보저장소' 줄만 빠지고 파일은 R2 에 남아 있습니다. 이 기능 전의 「악보삭제」 기록엔 파일 주소가 없어서,
+ * 어떤 줄에서도 쓰지 않는 R2 악보 파일(= 지워진 악보 후보)을 지운 시각 이전에 올린 것부터 보여 주고, 골라서 그 곡에 다시 붙입니다. */
+const SHEET_ID_RE = /\/sheet\/([A-Za-z0-9_-]{10,})/g;
+async function usedSheetIds() {
+  const { SHEETS } = require('../lib/schema');
+  const used = new Set();
+  for (const tab of Object.keys(SHEETS)) {
+    let rows = [];
+    try { rows = await sheetsDb.readAll(tab); } catch (e) { continue; }
+    rows.forEach((r) => Object.values(r).forEach((v) => { if (typeof v === 'string' && v.indexOf('/sheet/') >= 0) { let m; SHEET_ID_RE.lastIndex = 0; while ((m = SHEET_ID_RE.exec(v))) used.add(m[1]); } }));
+  }
+  return used;
+}
+const orphanOk = (req) => !!(req.ctx && req.ctx.isAdmin);
+
+router.get('/conti/history/find', requireTeam, async (req, res) => {
+  const team = req.ctx.current;
+  const eventRow = await specialServiceById(team, String(req.query.event || '').trim());
+  const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
+  const scope = { event: eventRow ? eventRow['ID'] : '', date };
+  if (!orphanOk(req)) return spa.redirect(req, res, histUrl(team, scope, { msg: '지운 악보 찾기는 관리자만 할 수 있어요.' }));
+  const i = await contiLog.byId(team, req.query.id);
+  if (!i || i.kind !== '악보삭제') return spa.redirect(req, res, histUrl(team, scope, { msg: '기록을 찾지 못했어요.' }));
+  let cands = [], err = '';
+  try {
+    const r2 = require('../lib/r2');
+    if (!r2.enabled()) err = '악보 저장소(R2)가 설정되어 있지 않아요.';
+    else {
+      const [files, used] = await Promise.all([r2.listSheets(), usedSheetIds()]);
+      const limit = new Date(new Date(i.at).getTime() + 60000).toISOString();
+      cands = files.filter((f) => !used.has(f.id) && f.at && f.at <= limit).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
+    }
+  } catch (e) { console.error('[지운 악보 찾기]', e && e.message); err = '저장소를 읽지 못했어요.'; }
+  const kb = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
+  const list = cands.map((f) => `<li class="cn-h-item"><div class="cn-h-meta"><span class="cn-h-t">${esc(histDay(f.at))}</span><span>${esc(histTime(f.at))} · ${kb(f.size)}</span></div>
+      <div class="cn-h-w"><a href="/conti/history/orphan/${esc(f.id)}?team=${encodeURIComponent(team)}" target="_blank" rel="noopener">${ui.icon('search')} 열어 보기</a></div>
+      <form method="post" action="/conti/history/reattach" class="cn-h-undo" onsubmit="return confirm('이 파일을 「${esc(i.before || '악보').replace(/'/g, '')}」 으로 다시 붙일까요?')"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="id" value="${esc(i.id)}"><input type="hidden" name="file" value="${esc(f.id)}"><button type="submit" class="cn-mini">이걸로 되살리기</button></form></li>`).join('');
+  const content = `${pageShell.hubNav('conti', team)}
+  ${pageShell.hero({ eyebrow: `${team} · 변경기록`, title: '지운 악보 찾기', sub: week.labelKo(date) })}
+  <div class="ph-card cn-hist">
+    <p class="ph-sub"><a href="${esc(histUrl(team, scope))}">← 변경기록으로</a></p>
+    <p class="ph-sub"><b>${esc(i.song)}</b> · 악보 <b>${esc(i.before || '악보')}</b> — ${esc(honorific.forTeam(team, i.by))}님이 ${esc(histDay(i.at))} ${esc(histTime(i.at))}에 지웠어요.</p>
+    <p class="ph-sub">예전 기록이라 어떤 파일이었는지 남아 있지 않아요. 아래는 <b>지금 어디에도 쓰이지 않는 악보 파일</b> 중 지운 시각 전에 올라온 것이에요 (최근 것부터). 「열어 보기」로 확인하고 맞는 파일을 되살려 주세요.</p>
+    ${err ? `<p class="ph-msg">${esc(err)}</p>` : cands.length ? `<ul class="cn-h-list">${list}</ul>` : '<p class="ph-sub">후보 파일이 없어요.</p>'}
+  </div>
+  <style>.cn-h-list{list-style:none;margin:10px 0 0;padding:0}.cn-h-item{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)}.cn-h-meta{display:flex;flex-direction:column;font-size:12px;color:#6b6b6b}.cn-h-t{font-weight:600;color:#1b1b1b}.cn-h-undo{margin:0}@media (max-width:520px){.cn-h-item{grid-template-columns:1fr}}</style>`;
+  spa.send(req, res, content, { title: '지운 악보 찾기' });
+});
+
+/** 후보 파일 열어 보기 — 어떤 줄에도 없는 파일이라 /sheet/:id 로는 못 엶 (관리자만) */
+router.get('/conti/history/orphan/:file', requireTeam, async (req, res) => {
+  if (!orphanOk(req)) return res.status(403).send('관리자만 볼 수 있어요.');
+  const r2 = require('../lib/r2');
+  const id = String(req.params.file || '');
+  if (!r2.okId(id)) return res.status(404).send('not found');
+  try {
+    const meta = await r2.head(id);
+    if (!meta) return res.status(404).send('not found');
+    res.set('Cache-Control', 'private, no-store');
+    return res.redirect(302, await r2.signedUrl(id, { type: meta.type, seconds: 300 }));
+  } catch (e) { console.error('[지운 악보 미리보기]', e && e.message); res.status(500).send('열지 못했어요.'); }
+});
+
+router.post('/conti/history/reattach', requireTeam, async (req, res) => {
+  const b = req.body || {};
+  const team = String(b.team || '').trim();
+  const scope = scopeFrom(b);
+  const done = (msg) => spa.redirect(req, res, histUrl(team, scope, { msg }));
+  if (!orphanOk(req) || !req.ctx.teams.includes(team)) return done('지운 악보 되살리기는 관리자만 할 수 있어요.');
+  const i = await contiLog.byId(team, b.id);
+  const file = String(b.file || '');
+  const r2 = require('../lib/r2');
+  if (!i || i.kind !== '악보삭제' || !r2.okId(file)) return done('기록을 찾지 못했어요.');
+  try {
+    if (!(await r2.head(file))) return done('그 파일이 저장소에 없어요.');
+    const song = i.songId ? (await sheetsDb.readAll('찬양콘티', { fresh: true })).find((r) => r['팀ID'] === team && r['ID'] === i.songId && inScope(r, scope)) : null;
+    const fid = 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    await sheetsDb.appendRow('악보저장소', { 'ID': fid, '팀ID': team, ...scopeFields(scope), '제목': i.before || '악보', '파일링크': '/sheet/' + file,
+      '올린사람': req.ctx.member['이름'], '올린시각': new Date().toISOString(), '곡ID': song ? song['ID'] : '' });
+    await contiLog.log({ team, by: whoName(req), scope, kind: '악보추가', songId: song ? song['ID'] : '', song: song ? song['제목'] : '콘티 전체', field: '악보', before: '', after: i.before || '악보', data: { ids: [fid], undo: i.id, via: '지운 악보 찾기' } });
+    liveNotify(team, scope, 'saveSheets'); sheetHeaders.queue(team, scope, liveNotify);
+    return done(`「${i.before || '악보'}」 악보를 되살렸어요${song ? '' : ' (그 곡이 지금 콘티에 없어서 콘티 전체 악보로 붙였어요)'}.`);
+  } catch (e) { console.error('[지운 악보 되살리기 실패]', e && e.message); return done('되살리지 못했어요. 잠시 뒤 다시 해 주세요.'); }
 });
 
 module.exports = router;
