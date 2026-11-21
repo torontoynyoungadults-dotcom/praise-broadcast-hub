@@ -26,7 +26,7 @@
     var d = Math.round(h / 24); if (d < 8) return d + '일 전';
     var x = new Date(t); return (x.getMonth() + 1) + '/' + x.getDate();
   }
-  var KIND = { '콘티': '콘티', '스케줄': '스케줄', '직접': '공지' };
+  var KIND = { '콘티': '콘티', '스케줄': '스케줄', '직접': '공지', '변경': '콘티 변경' };
 
   /* ---------------------------------------------------------------- 기기 푸시 */
   function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }

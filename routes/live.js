@@ -20,6 +20,7 @@ const { THEME_BOOT } = require('../lib/themeBoot');
 const teamContext = require('../lib/teamContext');
 const week = require('../lib/weekUtil');
 const liveStore = require('../lib/liveStore');
+const contiLog = require('../lib/contiLog');
 const honorific = require('../lib/honorific');
 const nas = require('../lib/nas');
 const pageSpec = require('../lib/pageSpec');
@@ -754,6 +755,11 @@ const FNS = {
   async worshipSongPatch(u, room, kind, seq, patch, cid) {
     if (!u.canEdit) throw new Error('곡 정보는 팀장 · 인도자만 바꿀 수 있습니다.');
     const r = await liveStore.songPatch(u.team, room, kind, seq, patch);
+    // 라이브 악보에서 고친 것도 콘티 변경기록에 (예전엔 남지 않아서 송폼이 언제 · 누가 바꿨는지 알 수 없었어요)
+    try {
+      const { before, after, scope } = r.song; delete r.song.before; delete r.song.after; delete r.song.scope;
+      if (after['구분'] !== '폐회송') contiLog.log(contiLog.editEntries(u.team, u.name, scope, before, after, { data: { via: '라이브 악보' } })).catch(() => {});
+    } catch (e) { console.error('[라이브 곡 정보 기록 실패]', e && e.message); }
     if (rt) rt.broadcast(room, 'song', { kind: r.song.kind, seq: r.song.seq, patch: r.patch, by: u.name, cid: String(cid || '').slice(0, 40) }, u.team);
     sheetHeaders.queue(u.team, liveStore.scopeOfRoom(room), songsChanged);   // BPM · 송폼이 바뀌면 머리말 악보도 뒤에서 새로 (끝나면 열린 화면에 알림)
     return { ok: true, song: r.song, patch: r.patch, by: u.name };

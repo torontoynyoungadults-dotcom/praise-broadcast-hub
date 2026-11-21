@@ -1540,7 +1540,7 @@
       var s = songs[idx]; if (!s || !patch) { if (done) done(false); return; }
       var layer = cfgLayer(), fail = function (e) { toast((e && e.message) || '저장하지 못했습니다.', true); if (done) done(false); };
       if (layer === 'team' && s.seq && s.kind && opts.callServer && S.room) {
-        opts.callServer('worshipSongPatch', [opts.token, S.room, s.kind, s.seq, patch, S.cid], function (r) {
+        opts.callServer('worshipSongPatch', [opts.token, S.room, s.kind, s.seq, Object.assign({ _title: s.title }, patch), S.cid], function (r) {
           var k = ck('song', s.title); if (S.cfg.mine[k] !== undefined) { delete S.cfg.mine[k]; cfgSend('mine', 'song', s.title, null); }
           Object.assign(s, r && r.song ? { bpm: r.song.bpm, form: r.song.form, link: r.song.link } : patch); applySongCfg();
           if (patch.bpm) { var mc0 = cfgGet('metro', s.title); if (mc0 && mc0.bpm) cfgSet('metro', s.title, Object.assign({}, mc0, { bpm: +patch.bpm })); }         // 곡 BPM 을 새로 정하면 예전 클릭 BPM 도 맞춤

@@ -509,6 +509,45 @@
     }, true);
   }
 
+  /* ================================================================ 지난 콘티에서 송폼 · 유튜브 · 악보만 따로 가져오기
+     곡 "수정" 창 안 [data-cn-pull] — 열면 같은(비슷한) 제목의 지난 곡들을 /conti/songs/past.json 에서 받아, 항목마다 가져오기 버튼 (서버: POST /conti/songs/pull) */
+  function mountPull(root) {
+    $$('[data-cn-pull]:not([data-cn-pull-on])', root).forEach(function (box) {
+      box.setAttribute('data-cn-pull-on', '1');
+      var list = $('[data-cn-pulllist]', box), q = $('[data-cn-pullq]', box), tpl = $('template[data-cn-pullhidden]', box);
+      var hidden = tpl ? tpl.innerHTML : '', teamIn = tpl ? tpl.content.querySelector('input[name="team"]') : null;
+      var team = teamIn ? teamIn.value : '', self = box.getAttribute('data-id') || '', loaded = '', timer = 0;
+      function md(d) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ''); return m ? (+m[2]) + '/' + (+m[3]) + (m[1] !== String(new Date().getFullYear()) ? ' ' + m[1] : '') : d; }
+      function form(src, what, label, title) {
+        return '<form method="post" action="/conti/songs/pull" class="cn-pullf">' + hidden + '<input type="hidden" name="source" value="' + esc(src) + '"><input type="hidden" name="what" value="' + what + '">' +
+          '<button type="submit" class="cn-mini" title="' + esc(title || '') + '">' + esc(label) + '</button></form>';
+      }
+      function paint(items) {
+        if (!items.length) { list.innerHTML = '<p class="ph-sub">가져올 지난 곡이 없어요. 다른 제목으로 찾아보세요.</p>'; return; }
+        list.innerHTML = items.map(function (it) {
+          var info = [it.key && 'Key ' + it.key, it.bpm && 'BPM ' + it.bpm].filter(Boolean).join(' · ');
+          return '<div class="cn-pullitem"><div class="cn-pullhead"><b>' + esc(md(it.date)) + (it.ev ? ' ' + esc(it.ev) : '') + '</b> <span>' + esc(it.title) + '</span>' + (info ? ' <small>' + esc(info) + '</small>' : '') + '</div>' +
+            (it.form ? '<div class="cn-pullrow"><span class="cn-pullv">' + esc(it.form.split(/\s*-\s*/).join(' › ')) + '</span>' + form(it.id, 'form', '송폼 가져오기', it.form) + '</div>' : '') +
+            (it.yt ? '<div class="cn-pullrow"><span class="cn-pullv">' + esc(it.yt.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)) + '</span>' + form(it.id, 'yt', '유튜브 가져오기', it.yt) + '</div>' : '') +
+            (it.sheets.length ? '<div class="cn-pullrow"><span class="cn-pullv">' + esc(it.sheets.slice(0, 3).join(', ') + (it.sheets.length > 3 ? ' 외 ' + (it.sheets.length - 3) + '개' : '')) + '</span>' + form(it.id, 'sheets', '악보 ' + it.sheets.length + '개 가져오기', it.sheets.join(', ')) + '</div>' : '') +
+            '</div>';
+        }).join('');
+      }
+      function load() {
+        var term = (q && q.value || '').trim();
+        if (!term) { list.innerHTML = '<p class="ph-sub">곡 제목을 넣어 주세요.</p>'; return; }
+        if (term === loaded) return; loaded = term;
+        list.innerHTML = '<p class="ph-sub">불러오는 중…</p>';
+        getJson('/conti/songs/past.json?team=' + encodeURIComponent(team) + '&q=' + encodeURIComponent(term) + '&exclude=' + encodeURIComponent(self))
+          .then(function (d) { if (loaded === term) paint((d && d.items) || []); })
+          .catch(function () { list.innerHTML = '<p class="ph-sub">불러오지 못했어요.</p>'; loaded = ''; });
+      }
+      box.addEventListener('toggle', function () { if (box.open) load(); });
+      if (q) q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(load, 350); });
+      box.addEventListener('submit', function (e) { var b = e.target.querySelector('button'); if (b) { b.disabled = true; b.textContent = '가져오는 중…'; } });
+    });
+  }
+
   function mountAll() {
     bindDelegated();
     bindReorder();
@@ -520,6 +559,7 @@
     wireAtTagPreview(root);
     mountYtPlay(root);
     mountSplit(root);
+    mountPull(root);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountAll);
