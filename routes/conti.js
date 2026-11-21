@@ -1457,7 +1457,9 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       const { byPos, roster, infoMap: wInfo } = await weekAssignments(team, scope);
       const pinfo = await practiceInfo(team, scope, t.date);
       const tagSet = ALL_POSITIONS.concat(roster).sort((a, b) => b.length - a.length);
-      const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs), refs: w.recs.filter((r) => r['구분'] === '참고'), back: q(cur.date) };
+      const chg = await contiLog.changesSince(team, me, contiLog.keyOf(scope)).catch(() => ({ first: false, items: [] }));   // 주일 콘티와 같은 "바뀐 게 있어요" (보면 확인 처리)
+      const hHref = histUrl(team, scope, { back: q(cur.date) });
+      const songCtx = { editable: true, roster, byPos, sheets: w.sheets, tagSet, jumps: songJumps(w.recs), refs: w.recs.filter((r) => r['구분'] === '참고'), back: q(cur.date), changed: changedSongs(chg) };
       const hist = await historyFor(team, scope);
       // 이 연습에 오는 사람 — 편성된 사람 중 '연습 불참'(또는 둘 다 불참)이 아닌 사람
       const inT = (r) => (t.event ? r['행사ID'] === t.event : (!r['행사ID'] && r['날짜'] === t.date));
@@ -1480,9 +1482,10 @@ router.get('/practice-conti', requireTeam, async (req, res) => {
       tabInfo.push({ i: tIdx, name: practiceView.targetName(t), date: t.date, mine: (people.find((x) => x.name === me) || {}).pos || null, away: !!(people.find((x) => x.name === me && x.off)) });
       const lineupT = await lineupCard(team, scope, byPos, roster, wInfo, t.event ? t.name : '', ctx.isAdmin);
       cards.push(withBack(`<section class="pc-target" id="pc-t-${tIdx}" aria-label="${esc(practiceView.targetName(t))} 콘티"${tIdx === 0 ? '' : ' hidden'}>
+        ${changeCard(Object.assign({}, chg, { histHref: hHref }), team)}
         <div class="ph-card cn-toolcard">${contiToolbox({ team, scope, date: t.date, eventRow, w, kakao, stage: true })}</div>
         <div class="ph-card top-accent">
-          <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2><button type="button" class="v13-addbtn" aria-expanded="false" onclick="var w=this.closest('.ph-card').querySelector('[data-v13-add]');if(!w)return;w.hidden=!w.hidden;this.setAttribute('aria-expanded',String(!w.hidden));this.textContent=w.hidden?'+ 올리기':'닫기';if(!w.hidden)w.scrollIntoView({block:'nearest'})">+ 올리기</button></div>
+          <div class="cn-cardhead"><h2 class="ph-h2">찬양</h2><button type="button" class="v13-addbtn" aria-expanded="false" onclick="var w=this.closest('.ph-card').querySelector('[data-v13-add]');if(!w)return;w.hidden=!w.hidden;this.setAttribute('aria-expanded',String(!w.hidden));this.textContent=w.hidden?'+ 올리기':'닫기';if(!w.hidden)w.scrollIntoView({block:'nearest'})">+ 올리기</button><a class="cn-mini cn-histbtn" href="${esc(hHref)}" title="누가 · 언제 · 무엇을 바꿨는지 · 되돌리기">${ui.icon('clipboard')} 변경기록</a></div>
           <div class="cn-songs">${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 올라온 곡이 없어요.</p>'}</div>
           ${songForm('콘티', team, scope, roster, byPos, hist)}
         </div>
@@ -2590,6 +2593,8 @@ const HIST_TZ = 'America/Toronto';
 const histDay = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: HIST_TZ, year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }).format(d).replace('일요일', '주일').replace('(일)', '(주일)'); };
 const histTime = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: HIST_TZ, hour: 'numeric', minute: '2-digit' }).format(d); };
 const histUrl = (team, scope, extra) => { const qs = new URLSearchParams({ team }); if (scope.event) qs.set('event', scope.event); else qs.set('date', scope.date); Object.entries(extra || {}).forEach(([k, v]) => qs.set(k, v)); return '/conti/history?' + qs.toString(); };
+/** 연습 콘티에서 왔으면 그곳으로 돌아가게 — /practice-conti?… 만 받음 */
+const histBack = (v) => { const t = String(v || ''); return /^\/practice-conti\?[^\s<>"]*$/.test(t) ? t : ''; };
 const FIELD_COL = Object.fromEntries(contiLog.FIELDS.map(([col, label]) => [label, col]));
 const showForm = (v) => String(v || '').split(/\s*-\s*/).filter(Boolean).join(' › ');
 function histVal(field, v) {
@@ -2637,22 +2642,23 @@ router.get('/conti/history', requireTeam, async (req, res) => {
   const who = String(req.query.who || ''), what = String(req.query.what || '');
   const shown = items.filter((i) => (!who || i.by === who) && (!what || (what === '송폼' ? i.field === '송폼' : what === '악보' ? /^악보/.test(i.kind) : what === '곡' ? (i.kind === '추가' || i.kind === '삭제' || i.kind === '순서') : i.field === what)));
   const people = Array.from(new Set(items.map((i) => i.by).filter(Boolean)));
-  const chip = (k, v, label) => { const on = (k === 'who' ? who : what) === v; const extra = { who, what }; extra[k] = on ? '' : v; Object.keys(extra).forEach((x) => { if (!extra[x]) delete extra[x]; }); return `<a class="cn-h-chip${on ? ' on' : ''}" href="${esc(histUrl(team, scope, extra))}">${esc(label)}</a>`; };
+  const fromPrac = histBack(req.query.back);
+  const chip = (k, v, label) => { const on = (k === 'who' ? who : what) === v; const extra = { who, what, back: fromPrac }; extra[k] = on ? '' : v; Object.keys(extra).forEach((x) => { if (!extra[x]) delete extra[x]; }); return `<a class="cn-h-chip${on ? ' on' : ''}" href="${esc(histUrl(team, scope, extra))}">${esc(label)}</a>`; };
   let lastDay = '';
   const rows = shown.map((i) => {
     const day = histDay(i.at);
     const head = day !== lastDay ? `<li class="cn-h-day">${esc(day)}</li>` : ''; lastDay = day;
     const btn = !mayUndo ? '' : undone.has(i.id) ? '<span class="cn-h-done">되돌림</span>'
-      : (i.kind === '악보삭제' && !canUndo(i) && ctx.isAdmin) ? `<a class="cn-mini" href="${esc(histUrl(team, scope, { id: i.id }).replace('/conti/history?', '/conti/history/find?'))}">${ui.icon('search')} 지운 악보 찾기</a>`
-      : canUndo(i) ? `<form method="post" action="/conti/history/undo" class="cn-h-undo" onsubmit="return confirm('이 변경을 되돌릴까요?')"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="id" value="${esc(i.id)}"><button type="submit" class="cn-mini">${ui.icon('prev')} 되돌리기</button></form>` : '';
+      : (i.kind === '악보삭제' && !canUndo(i) && ctx.isAdmin) ? `<a class="cn-mini" href="${esc(histUrl(team, scope, Object.assign({ id: i.id }, fromPrac ? { back: fromPrac } : {})).replace('/conti/history?', '/conti/history/find?'))}">${ui.icon('search')} 지운 악보 찾기</a>`
+      : canUndo(i) ? `<form method="post" action="/conti/history/undo" class="cn-h-undo" onsubmit="return confirm('이 변경을 되돌릴까요?')"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="id" value="${esc(i.id)}">${fromPrac ? `<input type="hidden" name="back" value="${esc(fromPrac)}">` : ''}<button type="submit" class="cn-mini">${ui.icon('prev')} 되돌리기</button></form>` : '';
     return `${head}<li class="cn-h-item"><div class="cn-h-meta"><span class="cn-h-t">${esc(histTime(i.at))}</span><span class="cn-h-by">${esc(honorific.forTeam(team, i.by))}</span></div><div class="cn-h-w">${histWhat(i)}</div>${btn}</li>`;
   }).join('');
   const msg = String(req.query.msg || '');
-  const back = contiUrl(team, scope);
+  const back = fromPrac || contiUrl(team, scope);
   const content = `${pageShell.hubNav('conti', team)}
   ${pageShell.hero({ eyebrow: `${team} · ${eventRow ? esc(eventRow['이름']) : '예배콘티'}`, title: '변경기록', sub: week.labelKo(date) })}
   <div class="ph-card cn-hist">
-    <p class="ph-sub"><a href="${esc(back)}">← 이 콘티로 돌아가기</a></p>
+    <p class="ph-sub"><a href="${esc(back)}">← ${fromPrac ? '연습 콘티로' : '이 콘티로'} 돌아가기</a></p>
     ${msg ? `<p class="ph-msg" role="status">${esc(msg)}</p>` : ''}
     <p class="ph-sub">이 콘티에서 누가 · 언제 · 무엇을 바꿨는지 모두 남아 있어요. <b>되돌리기</b>를 누르면 그 변경 전으로 돌아가고, 되돌린 것도 기록에 남아요.</p>
     ${items.length ? `<div class="cn-h-filters"><span>항목</span>${chip('what', '송폼', '송폼')}${chip('what', '악보', '악보')}${chip('what', '곡', '곡 추가·삭제·순서')}${chip('what', 'Key', 'Key')}${chip('what', 'BPM', 'BPM')}${chip('what', '유튜브', '유튜브')}${chip('what', '설명', '설명')}</div>
@@ -2685,7 +2691,7 @@ router.post('/conti/history/undo', requireTeam, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
-  const done = (msg) => spa.redirect(req, res, histUrl(team, scope, { msg }));
+  const done = (msg) => spa.redirect(req, res, histUrl(team, scope, Object.assign({ msg }, histBack(b.back) ? { back: histBack(b.back) } : {})));
   if (!req.ctx.teams.includes(team) || guestAccess.isGuest(req.ctx.member)) return done('되돌릴 권한이 없어요.');
   const i = await contiLog.byId(team, b.id);
   if (!i || i.key !== contiLog.keyOf(scope)) return done('기록을 찾지 못했어요.');
