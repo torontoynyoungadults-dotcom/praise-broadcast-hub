@@ -84,6 +84,7 @@
   document.addEventListener('submit', function (e) {
     var form = e.target;
     if (!form || form.tagName !== 'FORM') return;
+    if (e.defaultPrevented) return;            // onsubmit="return confirm(...)" 에서 「취소」를 눌렀으면 보내지 않음 (예전엔 취소해도 지워졌어요)
     var url;
     try { url = new URL(form.getAttribute('action') || location.pathname, location.href); } catch (err) { return; }
     if (url.origin !== location.origin || !isSpaPath(url.pathname)) return;

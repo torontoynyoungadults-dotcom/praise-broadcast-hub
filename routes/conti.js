@@ -377,6 +377,8 @@ function sheetViewSrc(f) {
   if (spec) return liveStore.openHref(f['팀ID'], f['파일링크'], spec, f['제목']);
   return '/sheet/' + liveStore.sheetIdOf(f['팀ID'], f['파일링크']);
 }
+/** onsubmit="confirm('…')" 안에 넣을 이름 — 따옴표 · 줄바꿈 · 역슬래시를 빼고 HTML 로도 안전하게 */
+const jsq = (v) => esc(String(v == null ? '' : v).replace(/['"\\\r\n`]/g, ' ').slice(0, 80));
 const CHEV = '<svg class="cn-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 /** 곡 카드 아래 — [악보 보기 N] 단추 하나. 누르면 이 곡에 붙은 악보가 화면에 쭉 펼쳐지고(쪽마다 그림),
  *  악보마다 머리줄에 필기 · 자르기·헤더 · 순서 · 빼기. 악보가 없으면 "+ 이 곡 악보 올리기"만.
@@ -387,7 +389,7 @@ function songSheetsHtml(s, sheets, editable, extra, opts) {
   const files = mine.map((f, i) => {
     const pages = f['쪽'] || (splitOrigin(f) || {}).spec || '';
     const open = liveStore.openHref(f['팀ID'], f['파일링크'], f['쪽'], s['제목'] || f['제목']);
-    const del = editable ? `<form method="post" action="/conti/sheets/delete" class="cn-svdel" onsubmit="return confirm('이 악보를 지울까요?')">
+    const del = editable ? `<form method="post" action="/conti/sheets/delete" class="cn-svdel" onsubmit="return confirm('악보를 지울까요?\\n\\n「${jsq(f['제목'] || '악보')}」\\n\\n지운 악보는 변경기록에서 되돌릴 수 있어요.')">
       <input type="hidden" name="__row" value="${f.__row}"><input type="hidden" name="team" value="${esc(f['팀ID'])}">${rowHidden(f)}
       <button class="ph-row-del" type="submit" title="이 악보 빼기" aria-label="이 악보 빼기">${ui.icon('close')}</button></form>` : '';
     return `<div class="cn-sv" data-cn-sv data-src="${esc(sheetViewSrc(f))}" data-name="${esc(f['제목'] || '악보')}">
@@ -744,7 +746,7 @@ function sheetItem(s, editable) {
     <div class="ph-li-main"><a class="ph-li-link strong" href="${esc(s['파일링크'])}" target="_blank" rel="noopener">${ui.icon('page')} ${esc(s['제목'] || '악보')}</a>
       <div class="ph-li-sub">${esc(honorific.forTeam(s['팀ID'], s['올린사람'] || ''))}</div></div>
     ${editable ? annoLink(s) : ''}
-    ${editable ? `<form method="post" action="/conti/sheets/delete" onsubmit="return confirm('이 악보를 지울까요?')">
+    ${editable ? `<form method="post" action="/conti/sheets/delete" onsubmit="return confirm('악보를 지울까요?\\n\\n「${jsq(s['제목'] || '악보')}」\\n\\n지운 악보는 변경기록에서 되돌릴 수 있어요.')">
       <input type="hidden" name="__row" value="${s.__row}">
       <input type="hidden" name="team" value="${esc(s['팀ID'])}">${rowHidden(s)}
       <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
@@ -877,7 +879,7 @@ function recItem(r, editable, songs) {
     ${src ? `<button type="button" class="rp-playbtn" data-rp-pick title="재생" aria-label="${esc(title)} 재생"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>` : ''}
     <div class="ph-li-main">${src ? `<button type="button" class="rp-name" data-rp-pick>${esc(title)}</button>` : `<a class="ph-li-link strong" href="${esc(r['링크'])}" target="_blank" rel="noopener">${ui.icon('headphones')} ${esc(title)}</a>`}
       <div class="ph-li-sub">${esc(honorific.forTeam(r['팀ID'], r['올린사람'] || ''))}${recExtra(r, src)}</div>${chips}</div>
-    ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('이 녹음을 지울까요?')">
+    ${editable ? `<form method="post" action="/conti/recordings/delete" onsubmit="return confirm('녹음을 지울까요?\\n\\n「${jsq(title)}」\\n\\n지운 녹음은 변경기록에서 되돌릴 수 있어요.')">
       <input type="hidden" name="__row" value="${r.__row}">
       <input type="hidden" name="team" value="${esc(r['팀ID'])}">${rowHidden(r)}
       <button class="ph-row-del" type="submit" title="삭제" aria-label="삭제">${ui.icon('close')}</button>
@@ -2530,7 +2532,17 @@ router.post('/conti/recordings/marks', requireTeam, async (req, res) => {
 router.post('/conti/recordings/delete', requireTeam, async (req, res) => {
   const b = req.body || {};
   const row = Number(b.__row);
-  if (row) { try { await sheetsDb.deleteRow('녹음', row); } catch (e) { console.error('[녹음 삭제 실패]', e.message); } }
+  if (row) {
+    try {
+      const team0 = String(b.team || '').trim();
+      const gone = (await sheetsDb.readAll('녹음', { fresh: true })).find((r) => r.__row === row && r['팀ID'] === team0);
+      if (gone) {
+        await sheetsDb.deleteRow('녹음', row);                                    // 파일(R2)은 그대로 — 변경기록에서 되돌릴 수 있게
+        const sc = { event: String(gone['행사ID'] || ''), date: String(gone['날짜'] || '') };
+        await contiLog.log({ team: team0, by: whoName(req), scope: sc, kind: '녹음삭제', song: String(gone['구분'] || '녹음'), field: '녹음', before: String(gone['제목'] || '녹음'), after: '', data: { row: contiLog.strip(gone) } });
+      }
+    } catch (e) { console.error('[녹음 삭제 실패]', e.message); }
+  }
   backTo(req, res, b.team, scopeFrom(b));
 });
 
@@ -2597,6 +2609,8 @@ function histWhat(i) {
   if (i.kind === '악보추가') return `${song} · <span class="cn-chgk">악보</span> <b class="cn-in">${esc(i.after || '악보')}</b> 올림${undo}`;
   if (i.kind === '악보삭제') return `${song} · <span class="cn-chgk">악보</span> <s>${esc(i.before || '악보')}</s> 지움${undo}`;
   if (i.kind === '악보순서') return `${song} · <span class="cn-chgk">악보 순서</span> ${esc(i.before)} ${esc(i.after)}`;
+  if (i.kind === '녹음삭제') return `<span class="cn-chgk">${esc(i.song || '녹음')}</span> <s>${esc(i.before || '녹음')}</s> 지움${undo}`;
+  if (i.kind === '녹음추가') return `<span class="cn-chgk">${esc(i.song || '녹음')}</span> <b class="cn-in">${esc(i.after || '녹음')}</b> 다시 넣음${undo}`;
   return `${song} ${esc(i.kind)}`;
 }
 /** 되돌릴 수 있는 기록인지 — 예전(이 기능 전) 기록은 값이 잘려 있거나 데이터가 없어 일부만 */
@@ -2608,6 +2622,7 @@ function canUndo(i) {
   if (i.kind === '악보추가') return Array.isArray(d.ids) && d.ids.length > 0;
   if (i.kind === '악보삭제') return !!(d.row || (Array.isArray(d.rows) && d.rows.length));
   if (i.kind === '순서') return Array.isArray(d.before) && d.before.length > 0;
+  if (i.kind === '녹음삭제') return !!(d.row && d.row['ID']);
   return false;
 }
 
@@ -2722,6 +2737,13 @@ router.post('/conti/history/undo', requireTeam, async (req, res) => {
       await contiLog.log({ team, by, scope, kind: '악보추가', songId: i.songId, song: i.song, field: '악보', before: '', after: i.before, data: Object.assign({ ids: put.map((r) => String(r['ID'])) }, tag) });
       liveNotify(team, scope, 'saveSheets'); sheetHeaders.queue(team, scope, liveNotify);
       return done(`지웠던 악보 ${put.length}개를 다시 넣었어요.`);
+    }
+    if (i.kind === '녹음삭제') {
+      const have = (await sheetsDb.readAll('녹음', { fresh: true })).some((r) => r['팀ID'] === team && r['ID'] === d.row['ID']);
+      if (have) return done('그 녹음은 이미 있어요.');
+      await sheetsDb.appendRow('녹음', d.row);
+      await contiLog.log({ team, by, scope, kind: '녹음추가', song: i.song, field: '녹음', before: '', after: i.before, data: tag });
+      return done(`「${i.before || '녹음'}」 녹음을 다시 넣었어요.`);
     }
     if (i.kind === '순서') {
       const rows = (await sheetsDb.readAll('찬양콘티', { fresh: true })).filter((r) => r['팀ID'] === team && inScope(r, scope) && r['구분'] !== '결단' && r['구분'] !== '폐회송')
