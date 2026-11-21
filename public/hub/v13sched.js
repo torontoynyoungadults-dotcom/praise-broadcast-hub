@@ -99,8 +99,8 @@
       var keys = CARD_ORDER.filter(function (k) { return pm[k]; }).concat((D.positions || []).map(function (p) { return p.key; }).filter(function (k) { return k !== '인도자' && CARD_ORDER.indexOf(k) < 0; }));
       var cells = keys.map(function (k) {
         var ns = r.slots[k] || [], me = ns.indexOf(D.who) !== -1;
-        return '<div class="c' + (me ? ' me' : '') + (ns.length ? '' : ' tbd') + (k === '여성싱어' ? ' w2' : '') + (edit ? ' ed' : '') + '"' + (edit ? ' role="button" tabindex="0" onclick="stCell(\'' + q(r.key) + '\',\'' + q(k) + '\')"' : '') + '>' +
-          '<dt>' + ic(k) + esc(lab(k)) + '</dt><dd>' + (ns.length ? ns.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl ? ' hl' : '') + '">' + esc(shortName(n, k)) + '</span>'; }).join(' · ') : '미정') + '</dd></div>';
+        return '<div class="c' + (me ? ' me' : '') + (ns.length ? '' : ' tbd') + (k === '여성싱어' ? ' w2' : '') + (edit ? ' ed' : '') + '" data-mk="' + esc(r.key + '|' + k) + '"' + (edit ? ' role="button" tabindex="0" onclick="stCell(\'' + q(r.key) + '\',\'' + q(k) + '\')"' : '') + '>' +
+          '<dt>' + ic(k) + esc(lab(k)) + '</dt><dd>' + (ns.length ? ns.map(function (n) { return '<span data-mn="' + esc(n) + '" class="' + (off[n] ? 'off' : '') + (n === ST.hl ? ' hl' : '') + '">' + esc(shortName(n, k)) + '</span>'; }).join(' · ') : '미정') + '</dd></div>';
       }).join('');
       out += '<article class="s13-row open' + (r.event ? ' ev' : '') + '" id="s13-' + esc(r.key) + '">' + head + '<dl class="s13-grid">' + cells + '</dl>' +
         '<div class="s13-foot"><span>' + (r.off.length ? '안 되는 사람 · ' + r.off.map(function (x) { return esc(shortName(x.name)); }).join(' · ') : '안 되는 사람 없음') + '</span>' +
@@ -133,8 +133,8 @@
       return '<tr class="' + (r.date < t ? 'past' : '') + '"><th class="dc' + (my ? ' mine' : '') + '" scope="row" onclick="stDay(\'' + q(r.key) + '\')"><b>' + dot(r.date) + '</b><small>' + esc(r.event ? r.event.name : pracTxt(r)) + '</small></th>' +
         cs.map(function (p) {
           var ns = r.slots[p.key] || [], me = ns.indexOf(D.who) !== -1;
-          return '<td class="' + (me ? 'me' : '') + (ns.length ? '' : ' tbd') + (edit ? ' ed' : '') + '"' + (edit ? ' onclick="stCell(\'' + q(r.key) + '\',\'' + q(p.key) + '\')"' : '') + '>' +
-            (ns.length ? ns.map(function (n) { return '<span class="' + (off[n] ? 'off' : '') + (n === ST.hl && !me ? ' hl' : '') + '">' + esc(shortName(n, p.key)) + '</span>'; }).join('') : '') + '</td>';
+          return '<td class="' + (me ? 'me' : '') + (ns.length ? '' : ' tbd') + (edit ? ' ed' : '') + '" data-mk="' + esc(r.key + '|' + p.key) + '"' + (edit ? ' onclick="stCell(\'' + q(r.key) + '\',\'' + q(p.key) + '\')"' : '') + '>' +
+            (ns.length ? ns.map(function (n) { return '<span data-mn="' + esc(n) + '" class="' + (off[n] ? 'off' : '') + (n === ST.hl && !me ? ' hl' : '') + '">' + esc(shortName(n, p.key)) + '</span>'; }).join('') : '') + '</td>';
         }).join('') +
         '<td class="offc">' + r.off.map(function (x) { return '<span>' + esc(shortName(x.name)) + '</span>'; }).join('') + '</td></tr>';
     }).join('');

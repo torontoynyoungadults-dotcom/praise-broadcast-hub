@@ -1896,3 +1896,53 @@ body .sh13-steps p.sh13-n { color: #6E5A2E; font-size: 12px; }
 .cn-pullv{font-size:13px;color:#4a4a4a;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cn-pullf{margin:0;flex:none}
 .cn-histbtn{text-decoration:none}
+
+/* ================================================================ 소소한 움직임 (public/js/motion.js) — 0.3~0.6초, "동작 줄이기"면 없음 */
+/* 변경기록: 이전 값에 펜으로 긋는 줄 (글자 위 가로줄을 그리듯) */
+.cn-hist .cn-h-diff s,.cn-hist .cn-h-w > s{text-decoration:none;background:linear-gradient(#A32D2D,#A32D2D) no-repeat 0 58%/100% 1.6px;color:#8a8a8a}
+.cn-h-list.mo-go .cn-h-item{animation:mo-rise .38s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--mo-i,0) * 45ms)}
+@keyframes mo-rise{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.cn-h-list.mo-go .cn-h-diff s,.cn-h-list.mo-go .cn-h-w > s{animation:mo-strike .45s cubic-bezier(.6,.1,.3,1) both;animation-delay:calc(var(--mo-i,0) * 45ms + 260ms)}
+@keyframes mo-strike{from{background-size:0 1.6px;color:inherit}to{background-size:100% 1.6px}}
+.cn-h-list.mo-go .cn-h-a{animation:mo-pop .35s ease-out both;animation-delay:calc(var(--mo-i,0) * 45ms + 620ms)}
+@keyframes mo-pop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* 새 기록 — 형광펜이 쓱 칠해졌다가 옅게 남음 */
+.cn-h-item.is-new{position:relative;isolation:isolate}
+.cn-h-item.is-new::after{content:'';position:absolute;inset:0 -6px;z-index:-1;background:rgba(239,159,39,.20);transform-origin:0 50%;pointer-events:none;opacity:.45}
+.cn-h-list.mo-go .cn-h-item.is-new::after{animation:mo-hl 2.8s ease-out both;animation-delay:calc(var(--mo-i,0) * 45ms + 200ms)}
+@keyframes mo-hl{0%{transform:scaleX(0);opacity:1}18%{transform:scaleX(1);opacity:1}70%{opacity:1}100%{transform:scaleX(1);opacity:.45}}
+/* 되돌린 줄 — 그었던 줄이 거꾸로 풀리고 「되돌림」 도장 */
+.cn-h-list.mo-go .cn-h-item.mo-undid .cn-h-diff s,.cn-h-list.mo-go .cn-h-item.mo-undid .cn-h-w > s{animation:mo-unstrike .55s cubic-bezier(.6,.1,.3,1) .35s both}
+@keyframes mo-unstrike{from{background-size:100% 1.6px;background-position:100% 58%}to{background-size:0 1.6px;background-position:100% 58%;color:#1b1b1b}}
+.cn-h-done{display:inline-block;justify-self:start;align-self:center}
+.cn-h-item.mo-undid .cn-h-done{padding:2px 8px;border:2px solid #993C1D;color:#993C1D;font-weight:700;animation:mo-stamp .42s cubic-bezier(.3,1.6,.6,1) .8s both}
+@keyframes mo-stamp{from{opacity:0;transform:scale(2.2) rotate(-14deg)}to{opacity:1;transform:scale(1) rotate(-6deg)}}
+
+/* 콘티: 「새 곡」 도장 꾹 · 「수정」 톡 */
+.cn-newchip{display:inline-block;animation:mo-chip .4s cubic-bezier(.3,1.6,.6,1) .3s both}
+@keyframes mo-chip{from{opacity:0;transform:scale(1.8) rotate(-10deg)}to{opacity:1;transform:none}}
+/* 악보 · 녹음 지울 때 — 종이 구기듯 */
+.mo-crumple{animation:mo-crumple .45s cubic-bezier(.5,0,.8,.4) forwards;transform-origin:50% 40%;pointer-events:none}
+@keyframes mo-crumple{30%{transform:scale(.96,.9) skewX(-3deg) rotate(-1.5deg)}70%{transform:scale(.6,.5) skewX(4deg) rotate(4deg);opacity:.6}100%{transform:scale(.15) rotate(10deg);opacity:0}}
+.mo-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:9999;background:#FFFFFF;color:#0F1A16;border:1px solid #0F1A16;padding:10px 16px;font-size:14px;max-width:calc(100vw - 32px);animation:mo-rise2 .3s ease-out both}
+.mo-toast.out{animation:mo-fade .4s ease-in forwards}
+@keyframes mo-rise2{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes mo-fade{to{opacity:0;transform:translate(-50%,6px)}}
+
+/* 스케줄: 미정 → 이름이 손글씨처럼 왼쪽부터 써짐 */
+.mo-write{display:inline-block;animation:mo-write .7s steps(12,end) both}
+@keyframes mo-write{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+[data-mn]{display:inline-block}
+
+/* 홈: 다음 섬김 날짜 — 달력 한 장 넘기기 (motion.js 가 이전 날짜 · 새 날짜를 겹쳐 넣음) */
+.mo-flip{position:relative;display:inline-block;perspective:400px}
+.mo-flip .mo-old{position:absolute;left:0;top:0;white-space:nowrap;transform-origin:50% 100%;animation:mo-flipout .35s ease-in .3s forwards}
+.mo-flip .mo-new{display:inline-block;transform-origin:50% 0;animation:mo-flipin .5s cubic-bezier(.3,1.2,.5,1) .6s both}
+@keyframes mo-flipout{to{transform:rotateX(90deg);opacity:0}}
+@keyframes mo-flipin{from{transform:rotateX(-90deg);opacity:0}to{transform:none;opacity:1}}
+.hm-dday.mo-flip2{display:inline-block;animation:mo-flipin .5s cubic-bezier(.3,1.2,.5,1) .7s both;transform-origin:50% 0}
+
+@media (prefers-reduced-motion: reduce){
+  .cn-h-list.mo-go .cn-h-item,.cn-h-list.mo-go .cn-h-diff s,.cn-h-list.mo-go .cn-h-w > s,.cn-h-list.mo-go .cn-h-a,.cn-newchip,.mo-crumple,.mo-toast,.mo-write,.mo-flip .mo-old,.mo-flip .mo-new,.hm-dday.mo-flip2,.cn-h-item.mo-undid .cn-h-done,.cn-h-item.is-new::after{animation:none !important}
+  .mo-flip .mo-old{display:none}
+}

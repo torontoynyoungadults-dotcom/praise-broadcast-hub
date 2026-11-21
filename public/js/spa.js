@@ -90,6 +90,7 @@
     if (url.origin !== location.origin || !isSpaPath(url.pathname)) return;
     var method = (form.getAttribute('method') || 'get').toUpperCase();
     e.preventDefault();
+    form.__phSent = true;                      // public/js/motion.js — 실제로 보냈을 때만 지우기 움직임
     if (method === 'GET') {
       var qs = new URLSearchParams(new FormData(form));
       loadPartial(url.pathname + '?' + qs.toString(), true);

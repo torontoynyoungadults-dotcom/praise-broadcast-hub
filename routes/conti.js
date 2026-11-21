@@ -2637,6 +2637,8 @@ router.get('/conti/history', requireTeam, async (req, res) => {
   const date = eventRow ? eventRow['날짜'] : week.normalizeDate(req.query.date);
   const scope = { event: eventRow ? eventRow['ID'] : '', date };
   const items = await contiLog.list(team, contiLog.keyOf(scope)).catch(() => []);
+  // 내가 마지막으로 본 뒤 새로 생긴 기록 — 형광펜으로 (public/js/motion.js) · 여기서 봤으면 확인 처리
+  const fresh = new Set(((await contiLog.changesSince(team, String(ctx.member['이름'] || '').trim(), contiLog.keyOf(scope)).catch(() => null)) || { items: [] }).items.map((x) => x.id));
   const undone = new Set(items.map((i) => i.data && i.data.undo).filter(Boolean));
   const mayUndo = !guestAccess.isGuest(ctx.member);
   const who = String(req.query.who || ''), what = String(req.query.what || '');
@@ -2651,7 +2653,7 @@ router.get('/conti/history', requireTeam, async (req, res) => {
     const btn = !mayUndo ? '' : undone.has(i.id) ? '<span class="cn-h-done">되돌림</span>'
       : (i.kind === '악보삭제' && !canUndo(i) && ctx.isAdmin) ? `<a class="cn-mini" href="${esc(histUrl(team, scope, Object.assign({ id: i.id }, fromPrac ? { back: fromPrac } : {})).replace('/conti/history?', '/conti/history/find?'))}">${ui.icon('search')} 지운 악보 찾기</a>`
       : canUndo(i) ? `<form method="post" action="/conti/history/undo" class="cn-h-undo" onsubmit="return confirm('이 변경을 되돌릴까요?')"><input type="hidden" name="team" value="${esc(team)}">${scopeHidden(scope)}<input type="hidden" name="id" value="${esc(i.id)}">${fromPrac ? `<input type="hidden" name="back" value="${esc(fromPrac)}">` : ''}<button type="submit" class="cn-mini">${ui.icon('prev')} 되돌리기</button></form>` : '';
-    return `${head}<li class="cn-h-item"><div class="cn-h-meta"><span class="cn-h-t">${esc(histTime(i.at))}</span><span class="cn-h-by">${esc(honorific.forTeam(team, i.by))}</span></div><div class="cn-h-w">${histWhat(i)}</div>${btn}</li>`;
+    return `${head}<li class="cn-h-item${fresh.has(i.id) ? ' is-new' : ''}" data-hid="${esc(i.id)}"><div class="cn-h-meta"><span class="cn-h-t">${esc(histTime(i.at))}</span><span class="cn-h-by">${esc(honorific.forTeam(team, i.by))}</span></div><div class="cn-h-w">${histWhat(i)}</div>${btn}</li>`;
   }).join('');
   const msg = String(req.query.msg || '');
   const back = fromPrac || contiUrl(team, scope);
@@ -2691,12 +2693,13 @@ router.post('/conti/history/undo', requireTeam, async (req, res) => {
   const b = req.body || {};
   const team = String(b.team || '').trim();
   const scope = scopeFrom(b);
-  const done = (msg) => spa.redirect(req, res, histUrl(team, scope, Object.assign({ msg }, histBack(b.back) ? { back: histBack(b.back) } : {})));
+  let done = (msg) => spa.redirect(req, res, histUrl(team, scope, Object.assign({ msg }, histBack(b.back) ? { back: histBack(b.back) } : {})));
   if (!req.ctx.teams.includes(team) || guestAccess.isGuest(req.ctx.member)) return done('되돌릴 권한이 없어요.');
   const i = await contiLog.byId(team, b.id);
   if (!i || i.key !== contiLog.keyOf(scope)) return done('기록을 찾지 못했어요.');
   if (!canUndo(i)) return done('이 기록은 되돌릴 수 없어요 (예전 기록이라 값이 다 남아 있지 않아요).');
   const by = whoName(req), d = i.data || {}, tag = { undo: i.id };
+  done = (msg) => spa.redirect(req, res, histUrl(team, scope, Object.assign({ msg, undid: i.id }, histBack(b.back) ? { back: histBack(b.back) } : {})));   // 되돌린 줄에 도장 움직임
   const withUndo = (e) => (e ? Object.assign(e, { data: Object.assign({}, e.data || {}, tag) }) : e);
   try {
     if (i.kind === '수정') {
