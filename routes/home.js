@@ -21,21 +21,112 @@ function greeting(day) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+const GOOGLE_G = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+function landingHtml(err) {
+  const esc = pageShell.esc;
+  const item = (n, t, s) => `<li><span class="n">${n}</span><span><b>${t}</b><small>${s}</small></span></li>`;
+  return `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F1A16">
+<title>YN 3부 찬양팀</title>
+<link rel="manifest" href="/site.webmanifest">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" sizes="any">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preload" href="/fonts/MaruBuri-Bold.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:'MaruBuri';font-weight:700;font-display:swap;src:url('/fonts/MaruBuri-Bold.woff2') format('woff2')}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#FBFAF7}
+body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;color:#0F1A16;-webkit-font-smoothing:antialiased}
+.ln{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+.ln-h{background:#0F1A16;color:#F4EFE3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:calc(56px + env(safe-area-inset-top,0px)) 32px 40px;min-height:50vh;position:relative}
+.ln-eye{margin:0;position:absolute;top:calc(24px + env(safe-area-inset-top,0px));left:0;right:0;font-size:12px;letter-spacing:.08em;color:#E2CC97}
+.ln-mid{display:flex;flex-direction:column;align-items:center}
+.ln-h img{width:76px;height:76px;display:block}
+.ln-h h1{margin:26px 0 0;font-family:'MaruBuri',serif;font-weight:700;font-size:38px;line-height:1.2;letter-spacing:-.01em}
+.ln-h h1 br{display:none}
+.ln-rule{width:40px;height:1px;background:#C6A664;margin:20px 0}
+.ln-tag{margin:0;font-size:15px;line-height:1.6;color:#D9D3C4}
+.ln-addr{display:none}
+.ln-m{flex:1;display:flex;justify-content:center;padding:32px 28px calc(24px + env(safe-area-inset-bottom,0px))}
+.ln-in{width:100%;max-width:400px;display:flex;flex-direction:column;gap:24px}
+.ln-hd{display:none}
+.ln-g{display:flex;align-items:center;justify-content:center;gap:12px;height:54px;background:#fff;border:1px solid #0F1A16;color:#0F1A16;text-decoration:none;font-size:16px;font-weight:600;transition:background .15s}
+.ln-g:hover{background:#F3F1EA}.ln-g:active{transform:scale(.99)}
+.ln-g:focus-visible{outline:2px solid #C6A664;outline-offset:3px}
+.ln-err{margin:-8px 0 0;padding:10px 12px;border:1px solid #C9A9A0;background:#FBF1EE;color:#7A2E1E;font-size:13px;line-height:1.5}
+.ln-list{list-style:none;margin:0;padding:0;border-top:1px solid #E4E0D6}
+.ln-list li{display:flex;align-items:baseline;gap:14px;padding:13px 0;border-bottom:1px solid #E4E0D6}
+.ln-list .n{font-family:'MaruBuri',serif;font-size:13px;color:#9A7B3C;width:18px;flex:none}
+.ln-list b{display:block;font-size:15px;font-weight:600}
+.ln-list small{display:block;margin-top:2px;font-size:13px;color:#5C635F}
+.ln-foot{margin:auto 0 0;font-size:12px;line-height:1.6;color:#6B706C;text-align:center}
+@media (min-width:820px){
+  .ln{flex-direction:row}
+  .ln-h{flex:1 1 50%;min-height:100vh;align-items:flex-start;justify-content:space-between;text-align:left;padding:48px 56px}
+  .ln-eye{position:static;font-size:13px}
+  .ln-mid{display:flex;flex-direction:column;align-items:flex-start}
+  .ln-h img{width:88px;height:88px}
+  .ln-h h1{margin-top:32px;font-size:60px;line-height:1.15}
+  .ln-h h1 br{display:inline}
+  .ln-rule{width:48px;margin:28px 0}
+  .ln-tag{font-size:18px}
+  .ln-addr{display:block;margin:0;font-size:13px;color:#A9B3AD}
+  .ln-m{flex:1 1 50%;align-items:center;padding:56px 32px}
+  .ln-in{gap:28px}
+  .ln-hd{display:flex;flex-direction:column;gap:8px}
+  .ln-hd h2{margin:0;font-family:'MaruBuri',serif;font-weight:700;font-size:28px;line-height:1.3}
+  .ln-hd p{margin:0;font-size:15px;line-height:1.6;color:#5C635F}
+  .ln-g{height:56px}
+  .ln-foot{display:none}
+}
+@media (prefers-reduced-motion:no-preference){
+  .ln-h img,.ln-h h1,.ln-rule,.ln-tag{animation:ln-up .6s cubic-bezier(.2,.8,.3,1) both}
+  .ln-h h1{animation-delay:.08s}.ln-rule{animation-delay:.16s}.ln-tag{animation-delay:.22s}
+  .ln-rule{transform-origin:left center}
+  @keyframes ln-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+<div class="ln">
+  <header class="ln-h">
+    <p class="ln-eye">토론토영락교회 · 청년1부</p>
+    <div class="ln-mid">
+      <img src="/icons/mark.svg" alt="">
+      <h1>YN 3부<br> 찬양팀</h1>
+      <div class="ln-rule" aria-hidden="true"></div>
+      <p class="ln-tag">콘티 · 악보 · 일정을 한곳에서</p>
+    </div>
+    <p class="ln-addr">650 McNicoll Ave · 토론토영락교회 본당</p>
+  </header>
+  <main class="ln-m">
+    <div class="ln-in">
+      <div class="ln-hd"><h2>로그인</h2><p>팀원으로 등록된 Google 계정으로 들어와 주세요.</p></div>
+      <a class="ln-g" href="/auth/google">${GOOGLE_G}Google 계정으로 로그인</a>
+      ${err ? `<p class="ln-err" role="alert">${esc(err)}</p>` : ''}
+      <ul class="ln-list">
+        ${item('01', '주일 콘티 · 연습 콘티', '곡 순서 · 송폼 · 유튜브 · 녹음')}
+        ${item('02', '라이브 악보', '키 바꾸기 · 클릭 · 필기, 아이패드로')}
+        ${item('03', '나의 섬김 일정', '연습 · 주일 편성 알림과 캘린더')}
+      </ul>
+      <p class="ln-foot">팀원으로 등록된 Google 계정만 들어올 수 있어요<br>650 McNicoll Ave · 토론토영락교회 본당</p>
+    </div>
+  </main>
+</div>
+</body>
+</html>`;
+}
+
 router.get('/', async (req, res) => {
   if (!req.session) {
-    const err = req.query.err ? `<p class="ph-msg err">${pageShell.esc(req.query.err)}</p>` : '';
-    const hero = pageShell.hero({
-      eyebrow: '토론토영락교회',
-      title: 'YN 3부찬양팀 허브',
-      sub: '구글 계정으로 로그인하면 소속 찬양팀의 콘티 · 공지 · 스케줄 · 라이브러리를 볼 수 있어요.',
-    });
-    const content = `
-    ${hero}
-    <div class="ph-card">
-      <a class="ph-btn pri" href="/auth/google">Google로 로그인</a>
-      ${err}
-    </div>`;
-    return res.type('html').send(await pageShell.render(content, { title: 'YN 3부찬양팀 허브' }));
+    // 로그인 전 첫 화면 — 디자인 캔버스 「YN 3부 찬양팀 — 로그인 전 랜딩」 그대로 (휴대폰: 위아래 · 태블릿/PC: 좌우)
+    res.set('Cache-Control', 'no-store');
+    return res.type('html').send(landingHtml(String(req.query.err || '')));
   }
 
   const ctx = await teamContext.resolve(req);
