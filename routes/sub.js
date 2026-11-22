@@ -32,16 +32,16 @@ router.get('/sub', requireTeam, async (req, res) => {
   const card = (x, right, sub2) => `<div class="sub-row">${when(x)}<span class="sub-t"><b>${esc(x.pos)}</b><small>${sub2}</small></span>${right}</div>`;
   const stateTxt = (x) => x.state === '요청' ? '답을 기다리는 중' : x.state === '수락' ? `${esc(x.to)}님이 설게요 · 관리자 확인 중` : x.state === '완료' ? `${esc(x.to)}님으로 바뀌었어요` : esc(x.state);
   const sec = (title, list, empty) => `<section class="ph-card sub-sec"><h2 class="ph-h2">${title}</h2>${list.length ? `<div class="sub-list">${list.join('')}</div>` : `<p class="ph-sub">${empty}</p>`}</section>`;
-  const msg = { ok: '고마워요! 관리자가 확인하면 편성에 반영돼요.', done: '편성에 반영했어요.', cancel: '부탁을 취소했어요.' }[String(req.query.m || '')] || '';
+  const msg = { ok: '고마워요! 편성에 바로 반영했어요.', done: '편성에 반영했어요.', cancel: '부탁을 취소했어요.' }[String(req.query.m || '')] || '';
   const errMsg = String(req.query.err || '').slice(0, 120);
   const content = `
   ${pageShell.hubNav('schedule', team)}
   ${pageShell.hero({ eyebrow: `${team} · 스케줄`, title: '대신 서 줄 사람 찾기', sub: '서는 날이 안 되면 스케줄의 "내가 안 되는 날"에서 부탁을 올려요' })}
   ${msg ? `<p class="ph-msg ok">${esc(msg)}</p>` : ''}${errMsg ? `<p class="ph-msg err">${esc(errMsg)}</p>` : ''}
   ${u.admin && b.pending.length ? sec('편성에 반영하기', b.pending.map((x) => card(x, form('approve', x.id, '편성 바꾸기', 'pri'), `${esc(x.from)} → <b>${esc(x.to)}</b>`)), '') : ''}
-  ${sec('나에게 온 부탁', b.forMe.map((x) => card(x, form('accept', x.id, '제가 설게요', 'pri'), `${esc(x.from)}님이 어려워요${x.why && x.why !== '개인 사정' ? ' · ' + esc(x.why) : ''}`)), '지금은 없어요.')}
+  ${sec('나에게 온 부탁', b.forMe.map((x) => card(x, form('accept', x.id, '제가 설게요', 'pri', '이 날 대신 서면 편성이 바로 바뀌어요. 설게요?'), `${esc(x.from)}님이 어려워요${x.why && x.why !== '개인 사정' ? ' · ' + esc(x.why) : ''}`)), '지금은 없어요.')}
   ${sec('내가 한 부탁', b.mine.map((x) => card(x, x.state === '완료' ? '' : form('cancel', x.id, '취소', '', '이 부탁을 취소할까요?'), stateTxt(x))), '없어요. 스케줄에서 서는 날을 "안 되는 날"로 누르면 부탁을 올릴 수 있어요.')}
-  ${b.taken.length ? sec('내가 대신 서기로 한 날', b.taken.map((x) => card(x, '', x.state === '완료' ? `${esc(x.from)}님 대신 · 편성 반영됨` : `${esc(x.from)}님 대신 · 관리자 확인 중`)), '') : ''}
+  ${b.taken.length ? sec('내가 대신 서기로 한 날', b.taken.map((x) => card(x, '', x.state === '완료' ? `${esc(x.from)}님 대신 · 편성 반영됨` : `${esc(x.from)}님 대신`)), '') : ''}
   <p class="sub-back"><a href="/schedule?team=${encodeURIComponent(team)}">‹ 스케줄로</a></p>`;
   spa.send(req, res, content, { title: '대신 서 줄 사람 찾기' });
 });
