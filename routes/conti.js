@@ -2337,6 +2337,14 @@ router.post('/conti/ytform', requireTeam, async (req, res) => {
   } catch (e) { if (!e.user) console.error('[송폼 태그]', e); res.json({ ok: false, error: e.user ? e.message : '저장하지 못했어요.' }); }
 });
 
+/** 곡 들어보기 — 유튜브 이어 듣기에서 들은 곡(영상 ID)을 적어 둠 → 홈 "다음 섬김" 카드의 "곡 들어보기 3/4" (lib/listenLog.js) */
+router.post('/conti/listened', requireTeam, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const b = req.body || {};
+  try { res.json({ ok: true, n: await require('../lib/listenLog').mark(req.ctx.current, String(req.ctx.member['이름'] || ''), b.vids || b.vid) }); }
+  catch (e) { console.error('[곡 들어보기 기록]', e && e.message); res.json({ ok: false }); }
+});
+
 router.get('/conti/youtube/info', requireTeam, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try { res.json((await youtube.info(req.query.url)) || {}); } catch (e) { res.json({}); }

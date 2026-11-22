@@ -455,6 +455,18 @@ body { background: var(--bg); }
 .hm-yt { background: #C6A664; color: #0F1A16 !important; font-weight: 500; }
 .hm-yt .yi { width: 16px; height: 16px; }
 .hm-ct { border: 1px solid #2C3A33; color: #ECE6D9 !important; }
+/* 내 자리 — 마이크 · 인이어 번호 + 곡 순서 · Key (· 세션은 BPM) */
+.hm-mine { border-top: 1px solid #22302A; padding: 12px 18px 14px; display: flex; flex-direction: column; gap: 10px; }
+.hm-gears { display: flex; flex-wrap: wrap; gap: 6px; }
+.hm-gear { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid rgba(198,166,100,0.5); font-size: 13px; color: #ECE6D9; }
+.hm-gear b { font-weight: 500; color: #E2CC97; }
+.hm-songs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hm-songs li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 18px; gap: 10px; align-items: center; padding: 7px 0; font-size: 14px; }
+.hm-songs li + li { border-top: 1px solid #22302A; }
+.hm-songs .n { font-size: 11px; color: #C6A664; }
+.hm-songs .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ECE6D9; }
+.hm-songs .m { font-size: 12px; color: #A9B4AE; white-space: nowrap; }
+.hm-songs i { font-style: normal; font-size: 12px; color: #E2CC97; text-align: center; }
 .hm-sec { margin-bottom: 28px; }
 .hm-rows { display: flex; flex-direction: column; gap: 2px; }
 .hm-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px; background: #FFFFFF; text-decoration: none; color: #17201C !important; }

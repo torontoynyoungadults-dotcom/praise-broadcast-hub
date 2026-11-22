@@ -613,6 +613,20 @@
           });
         });
       }
+      /* 곡 들어보기 기록 — 한 곡을 45초 넘게 듣거나 끝까지 들으면 "들음" (홈 "다음 섬김" 카드의 곡 들어보기 3/4) */
+      var sent = {};
+      function heard(vids) {
+        vids = vids.filter(function (v) { return v && !sent[v]; }); if (!vids.length) return;
+        vids.forEach(function (v) { sent[v] = 1; });
+        try { fetch('/conti/listened?team=' + encodeURIComponent(team), { method: 'POST', credentials: 'same-origin', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vids: vids }) }).catch(function () {}); } catch (e) { /* 기록은 덤 */ }
+      }
+      var ext = box.querySelector('a.cn-ybig[href*="watch_videos"]');
+      if (ext) ext.addEventListener('click', function () { heard(items.map(function (x) { return x.id; })); });   // 유튜브 앱으로 재생목록을 열면 그 곡들 모두
+      var tick = setInterval(function () {
+        if (!document.body.contains(box)) return clearInterval(tick);
+        if (!player || !player.getCurrentTime || !items[cur] || sent[items[cur].id]) return;
+        try { if (player.getPlayerState && player.getPlayerState() === 1 && +player.getCurrentTime() >= 45) heard([items[cur].id]); } catch (e) {}
+      }, 5000);
       function label(it) { return ((it.k === '설교 후' || it.k === '폐회송') ? it.k + ' · ' : '') + it.t; }
       function paint() {
         var now = panel.querySelector('[data-cn-ynow]'); if (now) now.textContent = label(items[cur]);
@@ -641,7 +655,7 @@
             videoId: items[cur].id, width: '100%', height: '100%',
             playerVars: { playsinline: 1, rel: 0, autoplay: 1 },
             events: {
-              onStateChange: function (e) { if (e.data === 0) next(); },          // 한 곡이 끝나면 다음 곡
+              onStateChange: function (e) { if (e.data === 0) { if (items[cur]) heard([items[cur].id]); next(); } },          // 한 곡이 끝나면 다음 곡
               onError: function () { bad[cur] = true; paint(); msg.hidden = false; msg.textContent = '"' + items[cur].t + '" 은(는) 유튜브에서 이 화면 재생을 막아 두었어요 — 다음 곡으로 넘어가요.'; next(); },
             },
           });

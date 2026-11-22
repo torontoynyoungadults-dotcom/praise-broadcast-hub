@@ -152,9 +152,23 @@ router.get('/', async (req, res) => {
     const tq = (d) => `/conti?team=${encodeURIComponent(team)}&date=${encodeURIComponent(d)}`;
     const nx = hd && hd.next;
     const chk = (ok, label) => `<span class="hm-ck${ok ? ' ok' : ''}"><i aria-hidden="true">${ok ? '✓' : ''}</i>${esc(label)}</span>`;
+    /* 내 자리 — 포지션에 맞춰: 싱어는 마이크 · 인이어 번호, 세션은 마이크 번호 + 곡마다 BPM, 모두 곡 순서 · Key (들은 곡은 ✓) */
+    const mineBlock = (n) => {
+      const gear = (n.gear || []).map((g) => `<span class="hm-gear"><b>${esc(g.pos)}</b>${g.parts.map((x) => `${x.k === 'iem' ? '인이어' : '마이크'} ${esc(x.v)}`).join(' · ')}</span>`).join('');
+      const songs = (n.songs || []);
+      if (!gear && !songs.length) return '';
+      let k = 0;
+      const li = songs.map((x) => {
+        const no = x.kind === '결단' ? '설교 후' : x.kind === '폐회송' ? '폐회송' : String(++k);
+        const meta = [x.key, n.session && x.bpm ? x.bpm + ' BPM' : ''].filter(Boolean).join(' · ');
+        return `<li${x.heard ? ' class="ok"' : ''}><span class="n">${esc(no)}</span><span class="t">${esc(x.t)}</span><span class="m">${esc(meta)}</span><i aria-label="${x.heard ? '들음' : '아직 안 들음'}">${x.heard ? '✓' : ''}</i></li>`;
+      }).join('');
+      return `<div class="hm-mine" aria-label="내 자리 준비">${gear ? `<div class="hm-gears">${gear}</div>` : ''}${li ? `<ol class="hm-songs">${li}</ol>` : ''}</div>`;
+    };
     const nextBlock = nx ? `<section class="hm-next" aria-labelledby="hm-next-h">
       <div class="hm-next-top"><div><h2 id="hm-next-h">다음 섬김</h2><b class="hm-next-d">${mdK(nx.date)} 주일</b><span class="hm-next-s"><b>${esc(nx.pos.join(' · '))}</b>${nx.rehearsal ? ` · 리허설 ${nx.rehearsal}` : ''}${nx.worship ? ` · 예배 ${nx.worship}` : ''}</span></div><span class="hm-dday">${nx.dday === 0 ? 'D-day' : 'D-' + nx.dday}</span></div>
-      <div class="hm-cks" aria-label="준비 상황">${chk(nx.nConti > 0, nx.nConti ? `콘티 ${nx.nConti}곡` : '콘티 준비 중')}${chk(nx.nSheets > 0, nx.nSheets ? `악보 ${nx.nSheets}` : '악보 아직')}${chk(nx.pracDone, nx.prac ? `연습 ${mdS(nx.prac)}` : '연습 미정')}${chk(false, '곡 들어보기')}</div>
+      <div class="hm-cks" aria-label="준비 상황">${chk(nx.nConti > 0, nx.nConti ? `콘티 ${nx.nConti}곡` : '콘티 준비 중')}${chk(nx.nSheets > 0, nx.nSheets ? `악보 ${nx.nSheets}` : '악보 아직')}${chk(nx.pracDone, nx.prac ? `연습 ${mdS(nx.prac)}` : '연습 미정')}${chk(nx.nYt > 0 && nx.nHeard >= nx.nYt, nx.nYt ? `곡 들어보기 ${nx.nHeard}/${nx.nYt}` : '유튜브 아직')}</div>
+      ${mineBlock(nx)}
       <div class="hm-next-btns"><a class="hm-yt" href="${tq(nx.date)}#yt">${ui.icon('play')} 유튜브 이어 듣기</a><a class="hm-ct" href="${tq(nx.date)}">${mdS(nx.date)} 콘티 보기</a></div>
     </section>` : `<section class="hm-next hm-next-none"><div class="hm-next-top"><div><h2>다음 섬김</h2><span class="hm-next-s">앞으로 8주 안에 서는 주일이 없어요</span></div></div></section>`;
     const row = (k, d, t, sub, tag, on, href) => `<${href ? `a href="${href}"` : 'div'} class="hm-row"><span class="hm-rd"><small>${esc(k)}</small><b>${dot(d)}</b></span><span class="hm-rt"><span>${esc(t)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="hm-tag${on ? ' on' : ''}">${esc(tag)}</span></${href ? 'a' : 'div'}>`;
@@ -164,7 +178,7 @@ router.get('/', async (req, res) => {
       row('주일', wk.sun.date, wk.sun.on ? `${wk.sun.pos.join(' · ')}로 섬기는 주일이에요` : '섬기는 주일이 아니에요', wk.sun.sub, wk.sun.on ? wk.sun.pos.join(' · ') : '쉼', wk.sun.on, tq(wk.sun.date)),
       wk.nextP ? row('다음 연습', wk.nextP.date, wk.nextP.text, wk.nextP.sub, wk.nextP.pos.join(' · '), true, `/practice-conti?team=${encodeURIComponent(team)}&pd=${encodeURIComponent(wk.nextP.date)}`) : '',
     ].join('') : '';
-    const tile = (href, title, sub, icon) => `<a class="hm-tile2" href="${href}${qs}">${ui.icon(icon)}<span><b>${esc(title)}</b><small>${esc(sub)}</small></span></a>`;
+    const tile = (href, title, sub, icon, extra) => `<a class="hm-tile2" href="${href}${qs}${extra ? (qs ? '&' : '?') + extra : ''}">${ui.icon(icon)}<span><b>${esc(title)}</b><small>${esc(sub)}</small></span></a>`;
     const content = `
   ${pageShell.hubNav('', team)}
   ${pageShell.hero({ barOnly: true })}
@@ -175,7 +189,7 @@ router.get('/', async (req, res) => {
   ${weekRows ? `<section class="hm-sec" aria-labelledby="hm-week-h"><div class="v13-sechead"><h2 class="ph-h2" id="hm-week-h">이번 주</h2></div><div class="hm-rows">${weekRows}</div></section>` : ''}
   <section class="hm-tiles" aria-label="자주 쓰는 것">
     ${tile('/schedule', '스케쥴', hd && hd.counts ? `내 일정 ${hd.counts.mine} · 안 되는 날 ${hd.counts.off}` : '내가 서는 날 · 안 되는 날', 'calendar')}
-    ${tile('/schedule', '안 되는 날 알리기', '날짜만 누르면 끝', 'check')}
+    ${tile('/schedule', '안 되는 날 알리기', hd && hd.counts && hd.counts.off ? `${hd.counts.off}일 표시됨 · 누르면 바로 고치기` : '날짜만 누르면 끝', 'check', 'off=1')}
     ${tile('/library', '라이브러리', hd && hd.counts ? `${hd.counts.songs}곡 · 악보 · 녹음` : '곡 · 악보 · 녹음', 'book')}
     ${tile('/events', '주일 외', hd && hd.counts && hd.counts.ev ? `${hd.counts.ev.name} ${mdS(hd.counts.ev.date)} · D-${hd.counts.ev.dday}` : '성탄절 · 특별 예배', 'cross')}
   </section>

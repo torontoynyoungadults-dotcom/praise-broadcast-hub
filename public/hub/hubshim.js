@@ -644,6 +644,19 @@ function calGOff() {
     setTimeout(function () { if (!CAL.data && !CAL.busy) calLoad(); }, 0);
   } catch (e) { /* 그대로 */ }
 })();
+(function () {                                                          // 홈 "안 되는 날 알리기" (?off=1) — 날짜 고르는 칸을 펼친 채로 열고 그 자리로 스크롤
+  try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('off') !== '1') return;
+    ST.offOpen = true;
+    q.delete('off'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
+    var n = 0, t = setInterval(function () {
+      var el = document.querySelector('.s13-offcard, .offcard.open');
+      if (el && el.querySelector('.offd')) { clearInterval(t); el.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+      if (++n > 60) clearInterval(t);                                     // 12초 안에 못 찾으면 그만
+    }, 200);
+  } catch (e) { /* 그대로 */ }
+})();
 function schedTab() {
   if (!ST.rows) {
     return '<div class="panel"><p class="hint" style="margin-top:0;">' +
