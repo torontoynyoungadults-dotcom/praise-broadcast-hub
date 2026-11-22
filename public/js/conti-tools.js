@@ -564,6 +564,15 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountAll);
   else mountAll();
+  if (!window.__cnPlayAtBound) {                               // 곡 줄 "▶ 듣기" — 화면이 바뀌어도(spa) 한 번만 붙임
+    window.__cnPlayAtBound = true;
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-cn-playat]') : null; if (!b) return;
+      var scope = (b.closest && b.closest('.pc-target')) || document, box = scope.querySelector('[data-cn-yplay-on]') || document.querySelector('[data-cn-yplay-on]');
+      if (box && box._playAt && box._playAt(b.getAttribute('data-cn-playat'))) { e.preventDefault(); return; }
+      window.open('https://youtu.be/' + encodeURIComponent(b.getAttribute('data-cn-playat')), '_blank', 'noopener');   // 플레이어가 없는 화면이면 유튜브로
+    });
+  }
   /* ---------- 4) 유튜브 이어 듣기 — 이 예배의 곡들을 콘티 순서대로 한 플레이어에서 이어 재생 ---------- */
   var ytApi = null;                                           // YouTube IFrame API 는 한 번만 불러옴
   function loadYtApi(cb) {
@@ -660,6 +669,20 @@
             },
           });
         });
+      }
+      /* 곡 줄의 "▶ 듣기" — 플레이어를 펼치고 그 곡부터 재생 */
+      box._playAt = function (vid) {
+        var i = -1; items.forEach(function (it, k) { if (i < 0 && it.id === vid) i = k; });
+        if (i < 0) return false;
+        delete bad[i];
+        if (panel.hidden) { panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+        if (!built) { cur = i; build(); } else play(i);
+        try { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { box.scrollIntoView(); }
+        return true;
+      };
+      if (location.hash === '#yt' && window.__cnYtHash !== location.href) {       // 홈 "유튜브 이어 듣기" (…#yt) — 플레이어를 펼친 채로, 그 자리로
+        window.__cnYtHash = location.href;
+        setTimeout(function () { if (panel.hidden) btn.click(); try { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 150);
       }
       btn.addEventListener('click', function () {
         var open = panel.hidden;

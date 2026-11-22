@@ -12,7 +12,7 @@
     var app = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
     return os + (app ? ' · 홈 화면 앱' : br ? ' · ' + br : '');
   }
-  var NAMES = [[/^\/$/, '홈'], [/^\/conti\/listen/, '녹음 듣기'], [/^\/conti/, '주일콘티'], [/^\/practice-conti/, '연습콘티'], [/^\/schedule\/generate/, '연습 일정 만들기'], [/^\/schedule/, '스케쥴'], [/^\/events/, '주일 외'], [/^\/library/, '라이브러리'], [/^\/roster/, '팀원관리'], [/^\/sound/, '마이크 · 인이어'], [/^\/admin/, '관리'], [/^\/profile/, '프로필'], [/^\/guide/, '사용설명서']];
+  var NAMES = [[/^\/$/, '홈'], [/^\/conti\/listen/, '녹음 듣기'], [/^\/conti/, '주일콘티'], [/^\/practice-conti/, '연습콘티'], [/^\/schedule\/generate/, '연습 일정 만들기'], [/^\/schedule/, '스케줄'], [/^\/events/, '주일 외'], [/^\/library/, '라이브러리'], [/^\/roster/, '팀원관리'], [/^\/sound/, '마이크 · 인이어'], [/^\/admin/, '관리'], [/^\/profile/, '프로필'], [/^\/guide/, '사용설명서']];
   var LIB = { repo: '곡 · 악보', date: '날짜별', file: '악보 파일', files: '악보 파일', rec: '녹음', recs: '녹음', stats: '통계' };
   function pageName() {
     var p = location.pathname, n = '';

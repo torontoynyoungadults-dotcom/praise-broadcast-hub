@@ -90,3 +90,45 @@
     }
   });
 })();
+
+/* 새 버전 안내 — 앱을 켜 둔 채로 새 버전이 올라오면 화면 아래에 "새 버전 · 눌러서 적용" (새로고침 단추를 찾지 않아도 되게).
+ * 지금 화면의 빌드(맨 아래 구석 #phBuild) 와 서버(/version.json) 를 앱으로 돌아올 때마다(5분에 한 번까지) 비교. 라이브 악보 화면에서는 예배 중이라 띄우지 않음. */
+(function () {
+  if (window.__phVerBound) return; window.__phVerBound = true;
+  var el = document.getElementById('phBuild'); if (!el) return;
+  var mine = String(el.textContent || '').replace(/^#/, '').split(' · ')[0].trim();
+  if (!mine || mine === 'dev') return;
+  if (/\/conti\/(practice|stage)/.test(location.pathname)) return;
+  var last = 0, shown = false;
+  function show() {
+    if (shown) return; shown = true;
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'ph-newver'; b.setAttribute('role', 'status');
+    b.innerHTML = '<span>새 버전이 나왔어요</span><b>눌러서 적용</b>';
+    b.addEventListener('click', function () { location.reload(); });
+    document.body.appendChild(b);
+  }
+  function check() {
+    if (shown || document.hidden || Date.now() - last < 5 * 60 * 1000) return;
+    last = Date.now();
+    fetch((window.PH_BASE || '') + '/version.json', { cache: 'no-store', credentials: 'same-origin' }).then(function (r) { return r.json(); })
+      .then(function (j) { if (j && j.b && j.b !== 'dev' && j.b !== mine) show(); }).catch(function () {});
+  }
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('focus', check);
+  setTimeout(check, 60 * 1000);
+})();
+
+/* 홈 첫 안내 — 처음 한 번만 (이 기기에서 "알겠어요" · "닫기" 를 누르면 다시 안 보임) */
+(function () {
+  var KEY = 'ph.intro.v1';
+  function seen() { try { return !!localStorage.getItem(KEY); } catch (e) { return true; } }
+  function paint() { var b = document.querySelector('[data-hm-intro]'); if (b && !seen()) b.hidden = false; }
+  document.addEventListener('click', function (e) {
+    var c = e.target.closest ? e.target.closest('[data-hm-intro-close], [data-hm-intro] a') : null; if (!c) return;
+    try { localStorage.setItem(KEY, '1'); } catch (x) {}
+    if (c.hasAttribute('data-hm-intro-close')) { var b = document.querySelector('[data-hm-intro]'); if (b) b.hidden = true; }
+  });
+  document.addEventListener('ph:content-updated', paint);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint); else paint();
+})();

@@ -541,11 +541,13 @@ function songCard(s, { editable, roster, byPos, sheets, tagSet, index, kind, big
   const keyCell = s['Key'] ? `<span class="cn-cell key"><i>KEY</i><b>${esc(String(s['Key']).replace(/\s*-+>\s*/g, '→'))}</b></span>` : '';
   const bpmCell = bpm ? `<span class="cn-cell bpm"><i>BPM</i><svg class="cn-metro" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l3.5 18h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 15l5-9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>${esc(bpm)}</b></span>` : '';
   const ytBtn = yt ? `<a class="cn-cell cn-ytlink yt" href="${esc(yt)}" target="_blank" rel="noopener" title="유튜브 영상" aria-label="유튜브 영상">${YT_MARK}</a>` : '';
-  const info = keyCell + bpmCell;                                              // V13 — 위 오른쪽은 Key · BPM 만, 유튜브 · 녹음은 아래 줄로
+  const vid = youtube.idOf(s['유튜브']);                                      // 이 곡부터 바로 듣기 — 위 "유튜브 이어 듣기" 플레이어를 이 곡에서 시작 (public/js/conti-tools.js)
+  const playCell = vid ? `<button type="button" class="cn-cell cn-playhere" data-cn-playat="${esc(vid)}" aria-label="${esc((s['제목'] || '이 곡') + ' 바로 듣기')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg><b>듣기</b></button>` : '';
+  const info = keyCell + bpmCell + playCell;                                              // V13 — 위 오른쪽은 Key · BPM 만, 유튜브 · 녹음은 아래 줄로
   return `<div class="cn-song${isFinal ? ' fin' : ''}${isClosing ? ' clo' : ''}" id="song-${esc(s['ID'])}" data-song="${esc(s['ID'])}">
     <div class="cn-shead">
       <span class="cn-no">${isFinal ? ui.icon('cross') : isClosing ? ui.icon('pray') : esc(index)}</span>
-      <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}${(() => { const c = changed && changed[s['ID']]; return c ? `<em class="cn-newchip" title="${c.add ? '내가 마지막으로 본 뒤 새로 들어온 곡' : esc('바뀐 곳: ' + c.fields.join(', '))}">${c.add ? '새 곡' : '수정'}</em>` : ''; })()}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
+      <span class="cn-tb"><span class="cn-ti">${esc(s['제목'] || '(제목 없음)')}${changedChip(changed && changed[s['ID']])}</span>${s['팀'] ? `<span class="cn-team">${esc(s['팀'])}</span>` : ''}</span>
       ${info ? `<div class="cn-info" aria-label="곡 정보">${info}</div>` : ''}
       ${editable && !isFinal && !isClosing ? `<button type="button" class="cn-grip" data-cn-grip aria-label="끌어서 순서 바꾸기 (위·아래 방향키로도 옮겨요)" title="끌어서 순서 바꾸기"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>` : ''}
     </div>
@@ -977,11 +979,25 @@ function changeCard(chg, team) {
 function changedSongs(chg) {
   const m = {};
   ((chg && chg.items) || []).forEach((i) => {
-    if (!i.songId || (i.kind !== '추가' && i.kind !== '수정')) return;
-    const c = m[i.songId] || (m[i.songId] = { add: false, fields: [] });
-    if (i.kind === '추가') c.add = true; else if (!c.fields.includes(i.field)) c.fields.push(i.field);
+    if (!i.songId || !['추가', '수정', '악보추가'].includes(i.kind)) return;
+    const c = m[i.songId] || (m[i.songId] = { add: false, fields: [], diffs: {} });
+    if (i.kind === '추가') c.add = true;
+    else {
+      const f = i.kind === '악보추가' ? '악보' : i.field;
+      if (!c.fields.includes(f)) c.fields.push(f);
+      if (f === 'Key' || f === 'BPM') { const d = c.diffs[f] || (c.diffs[f] = { b: String(i.before || ''), a: '' }); d.a = String(i.after || ''); }   // 여러 번 바꿨으면 처음 → 마지막
+    }
   });
   return m;
+}
+/** 곡 제목 옆 표시 — "새 곡" · "Key G→A" · "BPM 72→76" · "송폼 · 악보 바뀜" (내가 마지막으로 본 뒤) */
+function changedChip(c) {
+  if (!c) return '';
+  if (c.add) return '<em class="cn-newchip" title="내가 마지막으로 본 뒤 새로 들어온 곡">새 곡</em>';
+  const sh = (v) => String(v || '').replace(/\s*-+>\s*/g, '→').trim() || '없음';
+  const parts = c.fields.map((f) => (c.diffs[f] ? `${f} ${sh(c.diffs[f].b)}→${sh(c.diffs[f].a)}` : f));
+  const txt = parts.length === 1 && c.diffs[c.fields[0]] ? parts[0] : `${parts.join(' · ')} 바뀜`;
+  return `<em class="cn-newchip" title="${esc('내가 마지막으로 본 뒤 바뀐 곳: ' + parts.join(', '))}">${esc(txt.length > 28 ? txt.slice(0, 27) + '…' : txt)}</em>`;
 }
 
 /** 메뉴의 "예배 콘티" 탭에 붙일 숫자 — 다가오는 주일 콘티에서 아직 못 본 변경 개수 (확인 시각은 건드리지 않음) */
@@ -1069,7 +1085,7 @@ router.get('/conti', requireTeam, async (req, res) => {
       <p class="cn-rhint">손잡이를 끌어서 순서를 바꾼 뒤 <b>순서 저장</b>을 눌러 주세요.</p>
       <div class="cn-rbtns"><button type="button" class="cn-mini" data-cn-rcancel>취소</button><button type="submit" class="cn-mini pri">순서 저장</button></div>
     </form>` : ''}
-    <div class="cn-songs" data-cn-sortable>${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub">아직 등록된 곡이 없어요.</p>'}</div>
+    <div class="cn-songs" data-cn-sortable>${w.conti.length ? w.conti.map((s, i) => songCard(s, Object.assign({ index: i + 1, kind: '콘티' }, songCtx))).join('') : '<p class="ph-sub cn-empty">아직 곡이 없어요. 인도자가 곡을 올리면 알림(종)으로 알려 드려요.</p>'}</div>
     ${songForm('콘티', team, scope, roster, byPos, hist)}
   </div>
 

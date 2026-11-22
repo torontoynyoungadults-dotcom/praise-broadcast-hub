@@ -84,6 +84,8 @@ app.use(require('./routes/scheduleImport'));   // /schedule/import (관리자) �
 app.use(require('./routes/schedule'));
 app.use(require('./routes/events'));
 app.use(require('./routes/library'));
+app.get('/version.json', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ b: String(require('./lib/pageShell').BUILD).split(' · ')[0] }); });   // 새 버전 안내 (public/js/theme.js)
+app.use(require('./routes/sub'));     // /sub — 대신 서 줄 사람 찾기
 app.use(require('./routes/sound'));   // /sound — 마이크 · 인이어 · P16 설정
 app.use(require('./routes/equipment'));
 app.use(require('./routes/drive'));   // /drive — 미디어팀 NAS(Synology) 파일 보기 · 재생 (lib/nas.js)

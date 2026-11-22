@@ -84,7 +84,7 @@ function generatePracticeDates(startStr, months, biweekly, skipLastFriday) {
 router.get('/schedule', requireTeam, async (req, res) => {
   const team = req.ctx.current;
   await hubPage.send(req, res, {
-    nav: 'schedule', tab: 'sched', title: `${team} 스케쥴`,
+    nav: 'schedule', tab: 'sched', title: `${team} 스케줄`,
     hero: { barOnly: true },
   });
 });
@@ -339,7 +339,7 @@ router.get('/schedule/generate', requireTeam, async (req, res) => {
   const content = `
   ${pageShell.hero({ barOnly: true })}
   <section class="g13-top">
-    <a class="g13-back" href="/schedule?team=${encodeURIComponent(team)}">‹ 스케쥴</a>
+    <a class="g13-back" href="/schedule?team=${encodeURIComponent(team)}">‹ 스케줄</a>
     <h1>연습 일정<br>미리 만들기</h1>
     <div class="g13-year"><a href="${qs({ year: String(p.year - 1), start: '' })}" aria-label="${p.year - 1}년">‹</a><span>${p.year}</span><a href="${qs({ year: String(p.year + 1), start: '' })}" aria-label="${p.year + 1}년">›</a></div>
     <div class="g13-cnt"><div><b>${p.counts.all}</b><small>연습 자리</small></div><div><b>${p.counts.ok}</b><small>날짜 확정</small></div><div class="t"><b>${p.counts.tbd}</b><small>미정</small></div></div>

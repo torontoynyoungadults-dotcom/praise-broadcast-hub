@@ -344,6 +344,24 @@
   register();
   window.addEventListener('load', function () { setTimeout(function () { recount().then(function (n) { if (n) flush(); }); prune(); cacheThisPage(); }, 1200); });
 
+  /* 홈 "오늘" 카드의 오프라인 저장 단추 — 이 날을 이미 받아 두었으면 "저장됨", 누르면 그 날만 받음 (진행률 표시) */
+  function hmOffPaint() {
+    var b = document.querySelector('[data-hm-off]'); if (!b) return;
+    var t = b.querySelector('[data-hm-offt]'), st = dlStatus(), r = st.rec;
+    var same = r && r.team === b.getAttribute('data-team') && (b.getAttribute('data-event') ? r.event === b.getAttribute('data-event') : r.date === b.getAttribute('data-date'));
+    b.classList.toggle('ok', !!same && st.state !== 'running');
+    if (t) t.textContent = st.state === 'running' ? '받는 중 ' + st.pct + '%' : same ? '오프라인 저장됨 ✓' : st.state === 'error' ? (st.msg || '다시 눌러 주세요') : '오프라인 저장';
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-hm-off]') : null; if (!b) return;
+    e.preventDefault();
+    if (DL.state === 'running') return;
+    dlStart({ team: b.getAttribute('data-team'), date: b.getAttribute('data-date'), event: b.getAttribute('data-event') });
+  });
+  dlListeners.push(hmOffPaint);
+  document.addEventListener('ph:content-updated', hmOffPaint);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hmOffPaint); else hmOffPaint();
+
   window.YNOff = {
     get: get, put: put, del: del, list: list,
     store: store, fallback: fallback, queueSave: queueSave, clearSave: clearSave, flush: flush,

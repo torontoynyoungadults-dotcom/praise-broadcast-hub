@@ -180,7 +180,7 @@ self.addEventListener('fetch', function (event) {
     event.respondWith(cacheFirst(req, PHOTOS, u.pathname).catch(function () { return new Response('', { status: 504 }); }));
     return;
   }
-  if (p.indexOf('/api/') === 0 || p.indexOf('/audio/') === 0 || p.indexOf('/cron') === 0 || p === '/sw.js' || p === '/healthz') return;
+  if (p.indexOf('/api/') === 0 || p.indexOf('/audio/') === 0 || p.indexOf('/cron') === 0 || p === '/sw.js' || p === '/healthz' || p === '/version.json') return;
   if (p.indexOf('/socket.io/') === 0 && p !== '/socket.io/socket.io.js') return;                               // 실시간 연결은 그대로
   if (u.searchParams.get('partial') === '1' || req.headers.get('X-PH-Partial')) return;                        // 탭 전환용 조각 요청은 그대로 (끊기면 화면이 알아서 페이지째 엶)
 

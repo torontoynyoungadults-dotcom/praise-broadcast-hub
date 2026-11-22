@@ -146,6 +146,14 @@ router.get('/', async (req, res) => {
     const esc = pageShell.esc;
     let hd = null;
     try { hd = await require('../lib/practiceView').homeData(team, name); } catch (e) { console.error('[홈 데이터]', e && e.message); }
+    try {                                                    // 대신 서 줄 사람 찾기 — 나에게 온 부탁 · (관리자) 편성 반영 기다림을 팀 소식 맨 위에
+      const sc = await require('../lib/subRequest').counts(team, name, isAdmin);
+      if (hd && (sc.forMe || sc.pending)) {
+        const href = `/sub?team=${encodeURIComponent(team)}`;
+        hd.news = [].concat(sc.forMe ? [{ k: '부탁', warn: true, t: `대신 서 줄 수 있는지 묻는 부탁이 ${sc.forMe}건 있어요`, s: '›', href }] : [],
+          sc.pending ? [{ k: '편성', warn: true, t: `대신 서기로 한 ${sc.pending}건 — 편성에 반영해 주세요`, s: '›', href }] : [], hd.news || []);
+      }
+    } catch (e) { /* 없어도 됨 */ }
     const dot = (d) => `${d.slice(5, 7)}.${d.slice(8, 10)}`;
     const mdK = (d) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
     const mdS = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
@@ -154,7 +162,7 @@ router.get('/', async (req, res) => {
     const chk = (ok, label) => `<span class="hm-ck${ok ? ' ok' : ''}"><i aria-hidden="true">${ok ? '✓' : ''}</i>${esc(label)}</span>`;
     /* 내 자리 — 포지션에 맞춰: 싱어는 마이크 · 인이어 번호, 세션은 마이크 번호 + 곡마다 BPM, 모두 곡 순서 · Key (들은 곡은 ✓) */
     const mineBlock = (n) => {
-      const gear = (n.gear || []).map((g) => `<span class="hm-gear"><b>${esc(g.pos)}</b>${g.parts.map((x) => `${x.k === 'iem' ? '인이어' : '마이크'} ${esc(x.v)}`).join(' · ')}</span>`).join('');
+      const gear = (tc && tc.date === n.date ? [] : (n.gear || [])).map((g) => `<span class="hm-gear"><b>${esc(g.pos)}</b>${g.parts.map((x) => `${x.k === 'iem' ? '인이어' : '마이크'} ${esc(x.v)}`).join(' · ')}</span>`).join('');
       const songs = (n.songs || []);
       if (!gear && !songs.length) return '';
       let k = 0;
@@ -165,6 +173,20 @@ router.get('/', async (req, res) => {
       }).join('');
       return `<div class="hm-mine" aria-label="내 자리 준비">${gear ? `<div class="hm-gears">${gear}</div>` : ''}${li ? `<ol class="hm-songs">${li}</ol>` : ''}</div>`;
     };
+    /* 오늘 모드 — 내가 서는 연습 날 · 주일 당일에만, 맨 위에 그날 필요한 것만 */
+    const tc = hd && hd.todayCard;
+    const gearHtml = (gs) => (gs || []).map((g) => `<span class="hm-gear"><b>${esc(g.pos)}</b>${g.parts.map((x) => `${x.k === 'iem' ? '인이어' : '마이크'} ${esc(x.v)}`).join(' · ')}</span>`).join('');
+    const todayBlock = tc ? (() => {
+      const sq = new URLSearchParams(Object.assign({ team }, tc.event ? { event: tc.event } : { date: tc.date })).toString();
+      const when = tc.kind === 'prac' ? [tc.time, tc.place].filter(Boolean).join(' · ') : [tc.rehearsal && `리허설 ${tc.rehearsal}`, tc.worship && `예배 ${tc.worship}`].filter(Boolean).join(' · ');
+      const g = gearHtml(tc.gear);
+      return `<section class="hm-today" aria-labelledby="hm-today-h">
+      <div class="hm-today-top"><h2 id="hm-today-h">오늘 · ${tc.kind === 'prac' ? '연습' : '주일 예배'}</h2><b>${esc(when || '시간 미정')}</b><small>${esc(tc.sub)} · <span>${esc(tc.pos.join(' · '))}</span></small></div>
+      ${g ? `<div class="hm-gears">${g}</div>` : ''}
+      <a class="hm-live" href="/conti/practice?${sq}">${ui.icon('note')}<span>라이브 악보 열기</span></a>
+      <div class="hm-today-btns"><a href="/${tc.kind === 'prac' ? 'practice-conti' : 'conti'}?${tc.kind === 'prac' ? new URLSearchParams({ team, pd: hd.today }).toString() : sq}">콘티 보기</a><button type="button" data-hm-off data-team="${esc(team)}" data-date="${esc(tc.event ? '' : tc.date)}" data-event="${esc(tc.event)}">${ui.icon('download')}<span data-hm-offt>오프라인 저장</span></button></div>
+    </section>`;
+    })() : '';
     const nextBlock = nx ? `<section class="hm-next" aria-labelledby="hm-next-h">
       <div class="hm-next-top"><div><h2 id="hm-next-h">다음 섬김</h2><b class="hm-next-d">${mdK(nx.date)} 주일</b><span class="hm-next-s"><b>${esc(nx.pos.join(' · '))}</b>${nx.rehearsal ? ` · 리허설 ${nx.rehearsal}` : ''}${nx.worship ? ` · 예배 ${nx.worship}` : ''}</span></div><span class="hm-dday">${nx.dday === 0 ? 'D-day' : 'D-' + nx.dday}</span></div>
       <div class="hm-cks" aria-label="준비 상황">${chk(nx.nConti > 0, nx.nConti ? `콘티 ${nx.nConti}곡` : '콘티 준비 중')}${chk(nx.nSheets > 0, nx.nSheets ? `악보 ${nx.nSheets}` : '악보 아직')}${chk(nx.pracDone, nx.prac ? `연습 ${mdS(nx.prac)}` : '연습 미정')}${chk(nx.nYt > 0 && nx.nHeard >= nx.nYt, nx.nYt ? `곡 들어보기 ${nx.nHeard}/${nx.nYt}` : '유튜브 아직')}</div>
@@ -184,11 +206,21 @@ router.get('/', async (req, res) => {
   ${pageShell.hero({ barOnly: true })}
   <section class="hm-dark">
     <div class="hm-hi"><span>${esc(dateKo)}</span><h1>${esc(name)}님,<br>${esc(greet)}</h1></div>
+    ${todayBlock}
     ${nextBlock}
+  </section>
+  <section class="hm-intro" data-hm-intro hidden aria-labelledby="hm-intro-h">
+    <div class="hm-intro-top"><h2 id="hm-intro-h">처음 오셨나요? 이 세 가지만 하면 돼요</h2><button type="button" data-hm-intro-close aria-label="안내 닫기">닫기</button></div>
+    <ol>
+      <li><a href="/schedule${qs}"><span class="n">1</span><span><b>스케줄 확인</b><small>내가 서는 주일과 금요일 연습</small></span></a></li>
+      <li><a href="/schedule${qs}${qs ? '&' : '?'}off=1"><span class="n">2</span><span><b>안 되는 날 표시</b><small>날짜만 누르면 바로 저장돼요</small></span></a></li>
+      <li><a href="/conti${qs}#yt"><span class="n">3</span><span><b>곡 미리 듣기</b><small>콘티의 유튜브 이어 듣기 · 곡마다 ▶ 듣기</small></span></a></li>
+    </ol>
+    <button type="button" class="hm-intro-ok" data-hm-intro-close>알겠어요</button>
   </section>
   ${weekRows ? `<section class="hm-sec" aria-labelledby="hm-week-h"><div class="v13-sechead"><h2 class="ph-h2" id="hm-week-h">이번 주</h2></div><div class="hm-rows">${weekRows}</div></section>` : ''}
   <section class="hm-tiles" aria-label="자주 쓰는 것">
-    ${tile('/schedule', '스케쥴', hd && hd.counts ? `내 일정 ${hd.counts.mine} · 안 되는 날 ${hd.counts.off}` : '내가 서는 날 · 안 되는 날', 'calendar')}
+    ${tile('/schedule', '스케줄', hd && hd.counts ? `내 일정 ${hd.counts.mine} · 안 되는 날 ${hd.counts.off}` : '내가 서는 날 · 안 되는 날', 'calendar')}
     ${tile('/schedule', '안 되는 날 알리기', hd && hd.counts && hd.counts.off ? `${hd.counts.off}일 표시됨 · 누르면 바로 고치기` : '날짜만 누르면 끝', 'check', 'off=1')}
     ${tile('/library', '라이브러리', hd && hd.counts ? `${hd.counts.songs}곡 · 악보 · 녹음` : '곡 · 악보 · 녹음', 'book')}
     ${tile('/events', '주일 외', hd && hd.counts && hd.counts.ev ? `${hd.counts.ev.name} ${mdS(hd.counts.ev.date)} · D-${hd.counts.ev.dday}` : '성탄절 · 특별 예배', 'cross')}

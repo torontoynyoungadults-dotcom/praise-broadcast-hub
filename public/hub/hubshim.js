@@ -398,9 +398,21 @@ function stOffCard() {
         return '<button type="button" class="' + (ed.part === v[0] ? 'on' : '') + '" onclick="offPartSet(\'' + k + '\',\'' + v[0] + '\')">' + esc(v[1]) + '</button>';
       }).join('') + '</div></div>' +
       '<div class="addrow"><input type="text" id="offWhy" maxlength="100" placeholder="사유 (선택) — 예: 출장 · 시험 · 가족 행사" value="' + esc(why === OFF_DEFAULT ? '' : why) + '" onkeydown="if(event.key===\'Enter\')offWhySave(\'' + k + '\')">' +
-      '<button type="button" class="btn" onclick="offWhySave(\'' + k + '\')">사유 저장</button></div></div>';
+      '<button type="button" class="btn" onclick="offWhySave(\'' + k + '\')">사유 저장</button></div>' +
+      (ed.part !== 'prac' && er && stServing(er) ? '<div class="offc-sub"><span>이 날 서는 자리가 있어요. 같은 포지션 팀원에게 부탁할까요?</span><button type="button" onclick="subAsk(\'' + k + '\')">대신 서 줄 사람 찾기</button></div>' : '') + '</div>';
   }
   return html + '<p class="msg" id="offCardMsg"></p></div>';
+}
+/* 대신 서 줄 사람 찾기 (lib/subRequest.js · /sub) — 그 날 내가 선 자리마다 같은 포지션 팀원에게 알림 */
+function stServing(r) { return !!(r && r.slots && D.who && Object.keys(r.slots).some(function (p) { return (r.slots[p] || []).indexOf(D.who) !== -1; })); }
+function subAsk(key) {
+  var m = stMineOf(key), why = m ? (m.sr || m.pr || '') : '';
+  say('offCardMsg', '부탁을 보내는 중…');
+  callServer('subRequestCreate', [TOKEN, key, why], function (r) {
+    var t = r && r.made ? (r.people ? r.people + '명에게 부탁을 보냈어요. 누가 답하면 알려 드릴게요.' : '부탁을 올렸어요. 지금은 이 포지션으로 설 수 있는 분이 보이지 않아 관리자에게 맡겨요.') : '이미 부탁을 올린 날이에요.';
+    say('offCardMsg', t, 'ok');
+    var mm = document.getElementById('offCardMsg'); if (mm) mm.innerHTML = esc(t) + ' <a href="/sub?team=' + encodeURIComponent(HUB.team || '') + '">진행 보기 ›</a>';
+  }, function (e) { say('offCardMsg', (e && e.message) || '보내지 못했어요. 다시 눌러 주세요.', 'err'); });
 }
 function offDone(mine, keys, msg) { stAfterOff(mine, keys); render(); if (msg) say('offCardMsg', msg, 'ok'); }
 function offToggle() { ST.offOpen = !ST.offOpen; if (!ST.offOpen) ST.offEdit = null; render(); }
@@ -642,6 +654,19 @@ function calGOff() {
     CAL.open = true; CAL.g = true; CAL.gmsg = m;
     q.delete('gcal'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
     setTimeout(function () { if (!CAL.data && !CAL.busy) calLoad(); }, 0);
+  } catch (e) { /* 그대로 */ }
+})();
+(function () {                                                          // 맨 위 돋보기 (/library?find=1 · &q=제목) — 곡 찾기 칸에 바로 커서
+  try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('find') !== '1' && !q.get('q')) return;
+    if (typeof RP !== 'undefined' && q.get('q')) RP.q = q.get('q');
+    q.delete('find'); q.delete('q'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
+    var n = 0, t = setInterval(function () {
+      var i = document.getElementById('rpQ');
+      if (i) { clearInterval(t); try { i.focus(); i.scrollIntoView({ block: 'center' }); } catch (e) {} return; }
+      if (++n > 60) clearInterval(t);
+    }, 200);
   } catch (e) { /* 그대로 */ }
 })();
 (function () {                                                          // 홈 "안 되는 날 알리기" (?off=1) — 날짜 고르는 칸을 펼친 채로 열고 그 자리로 스크롤
